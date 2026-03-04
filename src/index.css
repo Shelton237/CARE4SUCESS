@@ -1,0 +1,333 @@
+@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Mono:wght@400;700&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+==========================================================================
+CARE 4 SUCCESS — Charte graphique
+1. PALETTE LOGO:
+   - Bleu marine profond : #0D2D5A  (texte "CARE", "SUCCESS")
+   - Bleu moyen          : #1A6CC8  (cercle du logo)
+   - Or / Dore           : #F5A623  (chapeau de diplome et "4")
+
+2. TYPOGRAPHIE:
+   - Ubuntu     : Titres / headings — geometrique, d'inspiration africaine
+   - Noto Sans  : Corps de texte, UI — couverture Unicode optimale
+   - Space Mono : Tarifs, chiffres cles
+
+3. DESIGN:
+   - Education trust & professionalism
+   - Bento modular surfaces
+   - Conversion-Optimized UX
+==========================================================================
+*/
+
+:root {
+  /* Typography */
+  --font-sans: Ubuntu, 'Noto Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Space Mono', Consolas, monospace;
+
+  /* Radius */
+  --radius: 0.75rem;
+
+  /* Core UI Tokens — Light mode
+     Primary  = Bleu moyen logo  #1A6CC8
+     Accent   = Or / Dore       #F5A623
+     Foreground = Bleu marine    #0D2D5A
+  */
+  --background: oklch(0.99 0.003 230);
+  --foreground: oklch(0.14 0.055 248);
+
+  --card: oklch(0.99 0.003 230);
+  --card-foreground: oklch(0.16 0.050 248);
+
+  --popover: oklch(0.99 0.002 230);
+  --popover-foreground: oklch(0.14 0.055 248);
+
+  /* Primary = Bleu moyen #1A6CC8  oklch(0.47 0.195 256) */
+  --primary: oklch(0.47 0.195 256);
+  --primary-foreground: oklch(0.99 0.002 230);
+
+  /* Secondary = Bleu marine clair */
+  --secondary: oklch(0.92 0.028 248);
+  --secondary-foreground: oklch(0.20 0.075 248);
+
+  --muted: oklch(0.95 0.010 240);
+  --muted-foreground: oklch(0.47 0.030 240);
+
+  /* Accent = Or #F5A623  oklch(0.73 0.165 72) */
+  --accent: oklch(0.73 0.165 72);
+  --accent-foreground: oklch(0.14 0.055 248);
+
+  --destructive: oklch(0.55 0.220 10);
+  --destructive-foreground: oklch(0.98 0.005 10);
+
+  --border: oklch(0.88 0.013 240);
+  --input: oklch(0.88 0.013 240);
+  --ring: oklch(0.47 0.195 256);
+
+  /* Chart Tokens */
+  --chart-1: oklch(0.47 0.195 256);
+  --chart-2: oklch(0.73 0.165 72);
+  --chart-3: oklch(0.58 0.200 150);
+  --chart-4: oklch(0.55 0.180 280);
+  --chart-5: oklch(0.48 0.150 190);
+
+  /* Sidebar — Bleu marine sombre comme fond */
+  --sidebar: oklch(0.15 0.065 250);
+  --sidebar-foreground: oklch(0.95 0.008 220);
+  --sidebar-primary: oklch(0.73 0.165 72);
+  --sidebar-primary-foreground: oklch(0.14 0.055 248);
+  --sidebar-accent: oklch(0.25 0.080 248);
+  --sidebar-accent-foreground: oklch(0.95 0.008 220);
+  --sidebar-border: oklch(0.28 0.070 248);
+  --sidebar-ring: oklch(0.73 0.165 72);
+}
+
+.dark {
+  --background: oklch(0.10 0.042 248);
+  --foreground: oklch(0.93 0.008 220);
+
+  --card: oklch(0.14 0.050 248);
+  --card-foreground: oklch(0.91 0.008 220);
+
+  --popover: oklch(0.12 0.044 248);
+  --popover-foreground: oklch(0.93 0.008 220);
+
+  /* Primary plus lumineux en mode sombre */
+  --primary: oklch(0.60 0.215 256);
+  --primary-foreground: oklch(0.10 0.042 248);
+
+  --secondary: oklch(0.20 0.070 248);
+  --secondary-foreground: oklch(0.88 0.010 220);
+
+  --muted: oklch(0.18 0.050 248);
+  --muted-foreground: oklch(0.62 0.022 240);
+
+  --accent: oklch(0.76 0.175 72);
+  --accent-foreground: oklch(0.10 0.042 248);
+
+  --destructive: oklch(0.62 0.250 10);
+  --destructive-foreground: oklch(0.95 0.008 10);
+
+  --border: oklch(0.26 0.062 248);
+  --input: oklch(0.26 0.062 248);
+  --ring: oklch(0.60 0.215 256);
+
+  /* Chart Tokens */
+  --chart-1: oklch(0.65 0.220 256);
+  --chart-2: oklch(0.76 0.175 72);
+  --chart-3: oklch(0.68 0.240 150);
+  --chart-4: oklch(0.62 0.220 280);
+  --chart-5: oklch(0.58 0.200 190);
+
+  /* Sidebar */
+  --sidebar: oklch(0.09 0.040 248);
+  --sidebar-foreground: oklch(0.90 0.008 220);
+  --sidebar-primary: oklch(0.76 0.175 72);
+  --sidebar-primary-foreground: oklch(0.10 0.042 248);
+  --sidebar-accent: oklch(0.18 0.058 248);
+  --sidebar-accent-foreground: oklch(0.90 0.008 220);
+  --sidebar-border: oklch(0.24 0.060 248);
+  --sidebar-ring: oklch(0.76 0.175 72);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply scroll-smooth antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans min-h-screen;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  code,
+  pre {
+    @apply font-mono;
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-primary;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40;
+  }
+}
+
+/* ===========================================
+   CARE 4 SUCCESS — Utilitaires de marque
+   =========================================== */
+@layer utilities {
+
+  /* Degrades */
+  .bg-brand-gold-gradient {
+    background: linear-gradient(135deg, #F5A623 0%, #D4891A 100%);
+  }
+
+  .bg-brand-blue-gradient {
+    background: linear-gradient(135deg, #0D2D5A 0%, #1A6CC8 100%);
+  }
+
+  .bg-brand-hero-gradient {
+    background: linear-gradient(160deg, #0D2D5A 0%, #163F78 40%, #1A6CC8 100%);
+  }
+
+  /* Couleurs texte */
+  .text-brand-navy {
+    color: #0D2D5A;
+  }
+
+  .text-brand-blue {
+    color: #1A6CC8;
+  }
+
+  .text-brand-gold {
+    color: #F5A623;
+  }
+
+  /* Bordure or */
+  .border-brand-gold {
+    border-color: #F5A623;
+  }
+
+  /* Badge or signature */
+  .badge-gold {
+    display: inline-flex;
+    align-items: center;
+    background-color: #F5A623;
+    color: #0D2D5A;
+    font-weight: 700;
+    border-radius: 9999px;
+    padding: 0.125rem 0.75rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.025em;
+  }
+
+  /* Accent gold pour les icones */
+  .icon-gold {
+    color: #F5A623;
+  }
+
+  /* Hover gold sur les liens */
+  .hover\:text-brand-gold:hover {
+    color: #F5A623;
+  }
+
+  /* Glassmorphism card */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(26, 108, 200, 0.15);
+  }
+
+  /* Gold shimmer sur les CTAs */
+  .cta-gold {
+    background: linear-gradient(135deg, #F5A623 0%, #E09419 50%, #F5A623 100%);
+    background-size: 200% 200%;
+    animation: shimmer 3s ease infinite;
+    color: #0D2D5A;
+    font-weight: 700;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  /* Ligne decorative or */
+  .gold-underline {
+    position: relative;
+  }
+
+  .gold-underline::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -4px;
+    width: 100%;
+    height: 3px;
+    background: #F5A623;
+    border-radius: 9999px;
+  }
+}
