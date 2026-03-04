@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Menu, X, Phone, Mail, MapPin, GraduationCap } from "lucide-react";
-import { SiFacebook, SiX, SiLinkedin, SiInstagram } from "react-icons/si";
+import { SiFacebook, SiX, SiInstagram } from "react-icons/si";
+import { FaLinkedinIn } from "react-icons/fa";
 import { ROUTE_PATHS } from "@/lib/index";
-import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface LayoutProps {
@@ -155,13 +155,13 @@ export function Layout({ children }: LayoutProps) {
               </div>
               <p className="text-sm text-blue-100 mb-5 leading-relaxed">
                 Votre partenaire de confiance pour la réussite scolaire.
-                10 ans d'expérience, 500+ enseignants qualifiés au Cameroun.
+                10 ans d'expérience, 500+ enseignants qualifiés au Cameroun.
               </p>
               <div className="flex gap-3">
                 {[
                   { href: "https://facebook.com", Icon: SiFacebook, label: "Facebook" },
                   { href: "https://x.com", Icon: SiX, label: "X" },
-                  { href: "https://linkedin.com", Icon: SiLinkedin, label: "LinkedIn" },
+                  { href: "https://linkedin.com", Icon: FaLinkedinIn, label: "LinkedIn" },
                   { href: "https://instagram.com", Icon: SiInstagram, label: "Instagram" },
                 ].map(({ href, Icon, label }) => (
                   <a
@@ -247,7 +247,7 @@ export function Layout({ children }: LayoutProps) {
                   <MapPin className="w-4 h-4 mt-0.5 text-[#F5A623] shrink-0" />
                   <div>
                     <div className="font-semibold text-white">Bureau Régional</div>
-                    <div>Arrondissement Douala 5ᵉ, Makepe Bloc L</div>
+                    <div>Arrondissement Douala 5ᵉ, Makepe Bloc L</div>
                     <div>Douala, Cameroun</div>
                   </div>
                 </li>
@@ -256,7 +256,7 @@ export function Layout({ children }: LayoutProps) {
               <div className="mt-6 p-4 rounded-xl bg-[#F5A623]/15 border border-[#F5A623]/30">
                 <GraduationCap className="w-5 h-5 text-[#F5A623] mb-2" />
                 <p className="text-xs text-blue-100 font-medium">
-                  Préparation BEPC &amp; BAC —{" "}
+                  Préparation BEPC &amp; BAC —{" "}
                   <span className="text-[#F5A623] font-bold text-sm">Résultats garantis</span>
                 </p>
               </div>
