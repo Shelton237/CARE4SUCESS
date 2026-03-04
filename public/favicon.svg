@@ -1,0 +1,17 @@
+<svg width="144" height="144" viewBox="0 0 144 144" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Care4Success">
+  <defs>
+    <linearGradient id="care4successGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A6CC8" />
+      <stop offset="100%" stop-color="#0D2D5A" />
+    </linearGradient>
+  </defs>
+  <rect width="144" height="144" rx="32" fill="url(#care4successGradient)" />
+  <path
+    d="M42 96c-5.8-5.5-9.1-13-9.1-22.6 0-20.7 15.3-33.3 33-33.3 9.6 0 17.6 3.1 24.3 9.8l-10.1 10.2c-4.1-4.2-8.9-6.5-14-6.5-10 0-17.4 7.1-17.4 19.3 0 12.6 7.6 19.6 17.3 19.6 5.1 0 10-1.9 14.4-6.5l10 10.3c-6.8 7.1-15.2 10.5-24.7 10.5-9.1 0-17-3.2-23.7-10.8Z"
+    fill="#F4F8FF"
+  />
+  <path
+    d="M107.2 73.6c0 17.1-9.9 28.9-23.5 28.9-13.7 0-23.5-11.9-23.5-28.9 0-17 9.9-28.8 23.5-28.8 13.6 0 23.5 11.8 23.5 28.8Zm-15.1 0c0-9.9-3.5-14.8-8.4-14.8s-8.4 4.9-8.4 14.8c0 10 3.5 14.9 8.4 14.9s8.4-5 8.4-14.9Z"
+    fill="#F8B84E"
+  />
+</svg>
