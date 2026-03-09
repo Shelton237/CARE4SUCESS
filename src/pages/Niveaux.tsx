@@ -4,7 +4,7 @@ import { levels } from "@/data/index";
 import { ContactForm } from "@/components/ContactForm";
 import { IMAGES } from "@/assets/images";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 
 export default function Niveaux() {

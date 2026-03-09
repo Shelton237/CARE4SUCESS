@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Home, Monitor, Calendar, Users, Check, ArrowRight, Star, Phone } from "lucide-react";
+import { Check, ArrowRight, Star, Phone } from "lucide-react";
 import { services, stats } from "@/data/index";
 import { ServiceCard } from "@/components/ServiceCard";
 import { ContactForm } from "@/components/ContactForm";
@@ -8,13 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { NavLink } from "react-router-dom";
 import { ROUTE_PATHS } from "@/lib/index";
-
-const iconMap = {
-  home: Home,
-  monitor: Monitor,
-  calendar: Calendar,
-  users: Users,
-};
 
 export default function Services() {
   return (

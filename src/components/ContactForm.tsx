@@ -18,6 +18,7 @@ import { Send, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { springPresets } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { createRequest } from "@/api/backoffice";
 
 const formSchema = z.object({
   firstName: z.string().min(2, "Le prénom doit contenir au moins 2 caractères"),
@@ -51,9 +52,13 @@ export function ContactForm({ className }: ContactFormProps) {
 
   const onSubmit = async (data: FormData) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log("Form data:", data);
+      await createRequest({
+        parentName: `${data.firstName} ${data.lastName}`,
+        childName: data.lastName, // In a real app we might ask for child name separately, for now use last name
+        level: data.level,
+        subject: data.subject,
+        phone: data.phone,
+      });
 
       setIsSubmitted(true);
       toast({
@@ -67,9 +72,10 @@ export function ContactForm({ className }: ContactFormProps) {
         reset();
       }, 3000);
     } catch (error) {
+      console.error("Failed to submit contact form", error);
       toast({
         title: "Erreur",
-        description: "Une erreur est survenue. Veuillez réessayer.",
+        description: error instanceof Error ? error.message : "Une erreur est survenue. Veuillez réessayer.",
         variant: "destructive",
       });
     }

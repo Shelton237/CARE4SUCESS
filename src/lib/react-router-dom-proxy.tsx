@@ -1,4 +1,6 @@
 import * as React from "react";
+import type { ComponentType } from "react";
+type ReactRouterDomModule = typeof import("react-router-dom");
 
 // Runtime import of the real library under a different name (see vite.config alias)
 // @ts-expect-error - This is resolved at runtime by Vite alias
@@ -7,6 +9,8 @@ import * as RRD from "react-router-dom-original";
 // Re-export everything so other imports keep working
 // @ts-expect-error - This is resolved at runtime by Vite alias
 export * from "react-router-dom-original";
+
+const TypedRRD = RRD as unknown as ReactRouterDomModule;
 
 /** --------------------- Outbound: route list (once) --------------------- */
 let routesPosted = false;
@@ -27,6 +31,29 @@ function normalize(p: string) {
   return p.replace(/\/+/g, "/"); 
 }
 
+type RouteElementProps = {
+  path?: string;
+  index?: boolean;
+  children?: AnyEl;
+};
+
+const isRouteElement = (
+  element: React.ReactElement
+): element is React.ReactElement<RouteElementProps> => {
+  if (element.type === TypedRRD.Route) {
+    return true;
+  }
+
+  if (typeof element.type === "function") {
+    const componentType = element.type as ComponentType;
+    return (
+      componentType.displayName === "Route" || componentType.name === "Route"
+    );
+  }
+
+  return false;
+};
+
 function join(base: string, child?: string) {
   if (!child) return base || "";
   if (child.startsWith("/")) return child;
@@ -36,19 +63,13 @@ function join(base: string, child?: string) {
 function flattenRoutes(node: AnyEl, base = "", acc = new Set<string>()) {
   React.Children.forEach(node, (child) => {
     if (!React.isValidElement(child)) return;
-    const isRoute = child.type === (RRD as any).Route ||
-      (typeof child.type === "function" && (child.type as any).name === "Route");
-    if (isRoute) {
-      const { path, index, children } = (child.props ?? {}) as { 
-        path?: string; 
-        index?: boolean; 
-        children?: AnyEl; 
-      };
-      const cur = index ? (base || "/") : (path ? join(base, path) : base);
+    if (isRouteElement(child)) {
+      const { path, index, children } = (child.props ?? {}) as RouteElementProps;
+      const cur = index ? (base || "/") : path ? join(base, path) : base;
       if (index || path) acc.add(cur || "/");
       if (children) flattenRoutes(children, cur, acc);
     } else {
-      const kids = (child.props as any)?.children;
+      const kids = (child.props as { children?: AnyEl }).children;
       if (kids) flattenRoutes(kids, base, acc);
     }
   });
@@ -92,9 +113,13 @@ function postAllRoutesOnce(children: AnyEl) {
   }
 }
 
+type RoutesProps = React.ComponentProps<ReactRouterDomModule["Routes"]>;
+
 /** Our patched <Routes/>: same API, just posts route list once. */
-export function Routes(props: React.ComponentProps<typeof RRD.Routes>) {
-  React.useEffect(() => { postAllRoutesOnce(props.children); }, []);
+export function Routes(props: RoutesProps) {
+  React.useEffect(() => {
+    postAllRoutesOnce(props.children);
+  }, [props.children]);
   return React.createElement(RRD.Routes, { ...props });
 }
 
@@ -134,6 +159,27 @@ type IframeCmd =
   | { type: "ROUTE_CONTROL"; action: "replace"; path: string; }
   | { type: "RELOAD"; };
 
+type RouteControlMessage = Extract<IframeCmd, { type: "ROUTE_CONTROL" }>;
+type ReloadMessage = Extract<IframeCmd, { type: "RELOAD" }>;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isRouteControlMessage = (data: unknown): data is RouteControlMessage => {
+  if (!isRecord(data)) {
+    return false;
+  }
+
+  const hasValidType =
+    typeof data.type === "string" && data.type === "ROUTE_CONTROL";
+  const hasAction = typeof data.action === "string";
+
+  return hasValidType && hasAction;
+};
+
+const isReloadMessage = (data: unknown): data is ReloadMessage =>
+  isRecord(data) && data.type === "RELOAD";
+
 /** A component that lives inside the router context and bridges both ways */
 function RouterBridge(): null {
   const location = RRD.useLocation();
@@ -149,59 +195,56 @@ function RouterBridge(): null {
   }, [location.key, location.pathname, location.search, location.hash]);
 
   React.useEffect(() => {
-    function onMessage(e: MessageEvent) {
-      const data = e.data as IframeCmd | any;
-      if (!data) return;
-      
-      // Check if route messaging is enabled
+    function onMessage(event: MessageEvent) {
+      const { data } = event;
       if (!__ROUTE_MESSAGING_ENABLED__) {
         return;
       }
 
       try {
-        if (data.type === "ROUTE_CONTROL") {
-          const { action, path, replace = false } = data;
-          
-          console.log('Received route control command:', data);
+        if (isRouteControlMessage(data)) {
+          console.log("Received route control command:", data);
 
-          switch (action) {
-            case 'navigate':
-              if (path) {
-                navigate(path, { replace });
-                console.log(`Navigated to: ${path} (replace: ${replace})`);
+          switch (data.action) {
+            case "navigate":
+              if (data.path) {
+                navigate(data.path, { replace: Boolean(data.replace) });
+                console.log(
+                  `Navigated to: ${data.path} (replace: ${Boolean(data.replace)})`
+                );
               } else {
-                console.error('Route control: path is required for navigate action');
+                console.error(
+                  "Route control: path is required for navigate action"
+                );
               }
               break;
-              
-            case 'back':
+            case "back":
               navigate(-1);
-              console.log('Navigated back');
+              console.log("Navigated back");
               break;
-              
-            case 'forward':
+            case "forward":
               navigate(1);
-              console.log('Navigated forward');
+              console.log("Navigated forward");
               break;
-              
-            case 'replace':
-              if (path) {
-                navigate(path, { replace: true });
-                console.log(`Replaced route with: ${path}`);
+            case "replace":
+              if (data.path) {
+                navigate(data.path, { replace: true });
+                console.log(`Replaced route with: ${data.path}`);
               } else {
-                console.error('Route control: path is required for replace action');
+                console.error(
+                  "Route control: path is required for replace action"
+                );
               }
               break;
-              
             default:
-              console.warn('Route control: unknown action', action);
+              console.warn("Route control: unknown action", data.action);
           }
-        } else if (data.type === "RELOAD") {
+        } else if (isReloadMessage(data)) {
           window.location.reload();
-          console.log('Reloaded');
+          console.log("Reloaded");
         }
       } catch (error) {
-        console.error('Route control error:', error);
+        console.error("Route control error:", error);
       }
     }
     window.addEventListener("message", onMessage);

@@ -1,25 +1,60 @@
 import { useState } from "react";
-import { studentGrades, studentProgressData } from "@/data/mock";
-import { TrendingUp, Award, ChevronDown } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchStudentGrades, fetchStudentProgress } from "@/api/backoffice";
+import { useAuth } from "@/contexts/AuthContext";
+import { Award, ChevronDown } from "lucide-react";
 import {
     LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
     RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from "recharts";
 
-const radarData = studentGrades.map((g) => ({ subject: g.subject.slice(0, 4), note: g.avg, max: 20 }));
-
 const noteColor = (n: number) =>
     n >= 14 ? "#22c55e" : n >= 10 ? "#F5A623" : "#ef4444";
 
-// Moyenne pondérée
-const weightedAvg = (() => {
-    const total = studentGrades.reduce((acc, g) => acc + g.avg * g.coefficient, 0);
-    const coefs = studentGrades.reduce((acc, g) => acc + g.coefficient, 0);
-    return (total / coefs).toFixed(2);
-})();
-
 export default function StudentGrades() {
+    const { user } = useAuth();
     const [expanded, setExpanded] = useState<string | null>(null);
+
+    const gradesQuery = useQuery({
+        queryKey: ["studentGrades", user?.id],
+        queryFn: () => fetchStudentGrades(user!.id),
+        enabled: Boolean(user?.id),
+    });
+
+    const progressQuery = useQuery({
+        queryKey: ["studentProgress", user?.id],
+        queryFn: () => fetchStudentProgress(user!.id),
+        enabled: Boolean(user?.id),
+    });
+
+    const studentGrades = gradesQuery.data ?? [];
+    const studentProgressData = progressQuery.data ?? [];
+
+    const radarData = studentGrades.map((g: any) => ({
+        subject: (g.subject || "").slice(0, 4),
+        note: g.avg,
+        max: 20
+    }));
+
+    // Moyenne pondérée calculée dynamiquement
+    const weightedAvg = (() => {
+        if (!studentGrades.length) return "0.00";
+        const total = studentGrades.reduce((acc: number, g: any) => acc + (g.avg || 0) * (g.coefficient || 1), 0);
+        const coefs = studentGrades.reduce((acc: number, g: any) => acc + (g.coefficient || 1), 0);
+        return coefs ? (total / coefs).toFixed(2) : "0.00";
+    })();
+
+    if (!user) {
+        return <div className="p-8 text-sm text-gray-500 text-center">Veuillez vous connecter pour accéder à vos notes.</div>;
+    }
+
+    if (gradesQuery.isLoading || progressQuery.isLoading) {
+        return <div className="p-8 text-sm text-gray-400 text-center">Récupération de vos notes en cours...</div>;
+    }
+
+    if (gradesQuery.isError || progressQuery.isError) {
+        return <div className="p-8 text-sm text-red-500 text-center">Erreur lors du chargement des notes.</div>;
+    }
 
     return (
         <div className="p-8 space-y-8">
@@ -28,7 +63,7 @@ export default function StudentGrades() {
                 <p className="text-gray-500 text-sm mt-1">
                     Moyenne générale pondérée :{" "}
                     <span className="font-bold text-[#22c55e] text-base">{weightedAvg}/20</span>
-                    {" "}· Trimestre 2 · 3e
+                    {" "}· Année Scolaire 2025/2026
                 </p>
             </div>
 
@@ -71,7 +106,7 @@ export default function StudentGrades() {
 
             {/* Détail par matière */}
             <div className="space-y-3">
-                {studentGrades.map((g) => (
+                {studentGrades.map((g: any) => (
                     <div key={g.subject} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <button
                             className="w-full flex items-center gap-4 px-6 py-4 text-left hover:bg-gray-50/50 transition-colors"
@@ -79,9 +114,9 @@ export default function StudentGrades() {
                         >
                             <div
                                 className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
-                                style={{ background: g.color }}
+                                style={{ background: (g.color || "#ccc") }}
                             >
-                                {g.subject.slice(0, 2).toUpperCase()}
+                                {(g.subject || "??").slice(0, 2).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="font-bold text-[#0D2D5A]">{g.subject}</div>
@@ -90,13 +125,13 @@ export default function StudentGrades() {
 
                             {/* Mini bar chart progression */}
                             <div className="hidden sm:flex items-end gap-0.5 h-8 w-20">
-                                {g.history.map((h, i) => (
+                                {g.history?.map((h: any, i: number) => (
                                     <div
                                         key={i}
                                         className="flex-1 rounded-sm transition-all"
                                         style={{
                                             height: `${(h.note / 20) * 100}%`,
-                                            background: i === g.history.length - 1 ? g.color : g.color + "40",
+                                            background: i === g.history.length - 1 ? g.color : (g.color + "40"),
                                         }}
                                     />
                                 ))}
@@ -118,7 +153,7 @@ export default function StudentGrades() {
                                 <div className="mt-4">
                                     <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Détail des évaluations</div>
                                     <div className="space-y-2">
-                                        {g.exams.map((ex) => (
+                                        {g.exams?.map((ex: any) => (
                                             <div key={ex.label} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
                                                 <div className="flex-1">
                                                     <div className="text-sm font-semibold text-[#0D2D5A]">{ex.label}</div>

@@ -57,7 +57,7 @@ export const services: Service[] = [
       "Remise à niveau express"
     ],
     price: "À partir de 150 000 FCFA la semaine",
-    image: IMAGES.STUDENTS_STUDYING_1,
+    image: IMAGES.STUDENTS_STUDYING_4,
     benefits: [
       "Dynamique de groupe motivante",
       "Révisions intensives efficaces",
@@ -78,7 +78,7 @@ export const services: Service[] = [
       "Orientation scolaire et professionnelle"
     ],
     price: "À partir de 10 000 FCFA/heure",
-    image: IMAGES.TEACHER_STUDENT_3,
+    image: IMAGES.TEACHER_STUDENT_2,
     benefits: [
       "Autonomie progressive",
       "Confiance en soi renforcée",
@@ -95,7 +95,7 @@ export const levels: Level[] = [
     description: "Du SIL au CM2, nous accompagnons les élèves dans l'apprentissage des fondamentaux : lecture, écriture, calcul. Préparation au CEP.",
     grades: ["SIL", "CP", "CE1", "CE2", "CM1", "CM2"],
     subjects: ["Français", "Mathématiques", "Anglais", "Méthodologie"],
-    image: IMAGES.STUDENTS_STUDYING_2,
+    image: IMAGES.STUDENTS_STUDYING_5,
     keyPoints: [
       "Apprentissage ludique et motivant",
       "Consolidation des bases",
@@ -166,7 +166,7 @@ export const levels: Level[] = [
       "Langues",
       "Préparation concours"
     ],
-    image: IMAGES.MATH_EDUCATION_2,
+    image: IMAGES.STUDENTS_STUDYING_8,
     keyPoints: [
       "Préparation aux concours des grandes écoles",
       "Soutien universitaire",
@@ -285,7 +285,7 @@ export const testimonials: Testimonial[] = [
   {
     id: "1",
     name: "Aminata Diallo",
-    photo: IMAGES.TEACHER_STUDENT_4,
+    photo: IMAGES.PORTRAIT_WOMAN_1,
     rating: 5,
     text: "Grâce à Care4Success, ma fille a gagné 4 points de moyenne en mathématiques en seulement 3 mois. L'enseignante est patiente, pédagogue et s'adapte parfaitement à son rythme. Je recommande vivement !",
     level: "3e",
@@ -295,7 +295,7 @@ export const testimonials: Testimonial[] = [
   {
     id: "2",
     name: "Kouassi Ébène",
-    photo: IMAGES.TEACHER_STUDENT_5,
+    photo: IMAGES.PORTRAIT_MAN_2,
     rating: 5,
     text: "Mon fils était en difficulté en physique-chimie. Après 6 mois de cours avec Care4Success, il a réussi son BAC série C avec mention ! Le professeur a su le remotiver et lui donner confiance. Merci !",
     level: "Terminale",
@@ -305,7 +305,7 @@ export const testimonials: Testimonial[] = [
   {
     id: "3",
     name: "Mariama Bah",
-    photo: IMAGES.TEACHER_STUDENT_6,
+    photo: IMAGES.PORTRAIT_WOMAN_3,
     rating: 5,
     text: "Les stages intensifs pendant les vacances ont été une révélation pour mon fils. Il a comblé ses lacunes en français et a repris confiance. L'équipe pédagogique est exceptionnelle.",
     level: "5e",
@@ -315,7 +315,7 @@ export const testimonials: Testimonial[] = [
   {
     id: "4",
     name: "Narcisse Essomba",
-    photo: IMAGES.TEACHER_STUDENT_7,
+    photo: IMAGES.PORTRAIT_MAN_4,
     rating: 4,
     text: "Très satisfait des cours en ligne. La plateforme est intuitive et les professeurs sont aussi compétents qu'en présentiel. Parfait pour notre emploi du temps chargé à Douala.",
     level: "1re",
@@ -325,7 +325,7 @@ export const testimonials: Testimonial[] = [
   {
     id: "5",
     name: "Fatou Konaté",
-    photo: IMAGES.TEACHER_STUDENT_8,
+    photo: IMAGES.PORTRAIT_WOMAN_2,
     rating: 5,
     text: "Ma fille préparait le BEPC avec beaucoup de stress. Son professeur Care4Success l'a non seulement aidée à réviser mais aussi à gérer son anxiété. Résultat : admise avec mention !",
     level: "3e",
@@ -335,7 +335,7 @@ export const testimonials: Testimonial[] = [
   {
     id: "6",
     name: "Jean-Baptiste Manga",
-    photo: IMAGES.TEACHER_STUDENT_9,
+    photo: IMAGES.PORTRAIT_MAN_3,
     rating: 5,
     text: "J'ai suivi une formation d'anglais professionnel avec Care4Success pour passer le TOEIC. J'ai obtenu 920 points ! Les cours sont parfaitement adaptés aux adultes actifs.",
     level: "Adulte",
@@ -348,7 +348,7 @@ export const teachers: Teacher[] = [
   {
     id: "1",
     name: "Dr. Clémentine Abanda",
-    photo: IMAGES.TEACHER_STUDENT_1,
+    photo: IMAGES.PORTRAIT_WOMAN_4,
     subjects: ["Mathématiques", "Physique-Chimie"],
     levels: ["Lycée", "Supérieur"],
     experience: 12,
@@ -364,7 +364,7 @@ export const teachers: Teacher[] = [
   {
     id: "2",
     name: "Brice Owona",
-    photo: IMAGES.TEACHER_STUDENT_2,
+    photo: IMAGES.PORTRAIT_MAN_4,
     subjects: ["Français", "Philosophie"],
     levels: ["Collège", "Lycée"],
     experience: 8,
@@ -380,7 +380,7 @@ export const teachers: Teacher[] = [
   {
     id: "3",
     name: "Rebecca Ateba",
-    photo: IMAGES.TEACHER_STUDENT_3,
+    photo: IMAGES.PORTRAIT_WOMAN_5,
     subjects: ["Anglais"],
     levels: ["Collège", "Lycée", "Adulte"],
     experience: 10,
@@ -396,7 +396,7 @@ export const teachers: Teacher[] = [
   {
     id: "4",
     name: "Thierry Nkoulou",
-    photo: IMAGES.TEACHER_STUDENT_4,
+    photo: IMAGES.PORTRAIT_MAN_5,
     subjects: ["Physique-Chimie", "SVT"],
     levels: ["Collège", "Lycée"],
     experience: 6,
@@ -412,7 +412,7 @@ export const teachers: Teacher[] = [
   {
     id: "5",
     name: "Aline Bikié",
-    photo: IMAGES.TEACHER_STUDENT_5,
+    photo: IMAGES.PORTRAIT_WOMAN_6,
     subjects: ["Histoire-Géographie", "Économie"],
     levels: ["Collège", "Lycée"],
     experience: 9,
@@ -428,7 +428,7 @@ export const teachers: Teacher[] = [
   {
     id: "6",
     name: "Serge Mbarga",
-    photo: IMAGES.TEACHER_STUDENT_6,
+    photo: IMAGES.PORTRAIT_MAN_6,
     subjects: ["Mathématiques", "Informatique"],
     levels: ["Lycée", "Supérieur"],
     experience: 7,
@@ -444,7 +444,7 @@ export const teachers: Teacher[] = [
   {
     id: "7",
     name: "Sandrine Fouda",
-    photo: IMAGES.TEACHER_STUDENT_7,
+    photo: IMAGES.PORTRAIT_WOMAN_1,
     subjects: ["Français", "Méthodologie"],
     levels: ["Primaire", "Collège"],
     experience: 11,
@@ -460,7 +460,7 @@ export const teachers: Teacher[] = [
   {
     id: "8",
     name: "Patrick Etundi",
-    photo: IMAGES.TEACHER_STUDENT_8,
+    photo: IMAGES.PORTRAIT_MAN_1,
     subjects: ["Espagnol", "Anglais"],
     levels: ["Collège", "Lycée", "Adulte"],
     experience: 5,

@@ -1,5 +1,6 @@
 import { Users, GraduationCap, ClipboardList, TrendingUp, Star, UserPlus } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
+import { TeacherRatingsBoard } from "@/components/dashboard/TeacherRatingsBoard";
 import { adminStats, adminRequests, monthlyRevenueData, formatFCFA } from "@/data/mock";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -62,6 +63,8 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </div>
+
+            <TeacherRatingsBoard />
         </div>
     );
 }

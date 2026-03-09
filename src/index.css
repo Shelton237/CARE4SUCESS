@@ -330,4 +330,17 @@ CARE 4 SUCCESS — Charte graphique
     background: #F5A623;
     border-radius: 9999px;
   }
+
+  /* Slide-over panel animation */
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
 }

@@ -18,6 +18,7 @@ export function Layout({ children }: LayoutProps) {
     { to: ROUTE_PATHS.SERVICES, label: "Services" },
     { to: ROUTE_PATHS.NIVEAUX, label: "Niveaux" },
     { to: ROUTE_PATHS.PROFESSEURS, label: "Professeurs" },
+    { to: ROUTE_PATHS.DEVENIR_PROFESSEUR, label: "Devenir prof" },
     { to: ROUTE_PATHS.CONTACT, label: "Contact" },
   ];
 

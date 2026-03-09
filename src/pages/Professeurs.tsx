@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Search, Filter, Star, Award, BookOpen, GraduationCap } from "lucide-react";
 import { teachers, subjects, levels } from "@/data/index";
-import { Teacher } from "@/lib/index";
 import { TeacherCard } from "@/components/TeacherCard";
 import { ContactForm } from "@/components/ContactForm";
 import { IMAGES } from "@/assets/images";
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ROUTE_PATHS } from "@/lib";
 
 export default function Professeurs() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -267,6 +268,35 @@ export default function Professeurs() {
                 <ContactForm className="max-w-2xl mx-auto" />
               </div>
             </div>
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-[#F7F9FD]">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="max-w-5xl mx-auto bg-white rounded-3xl p-10 shadow-lg border border-[#1A6CC8]/10 flex flex-col md:flex-row md:items-center gap-6"
+          >
+            <div className="flex-1">
+              <p className="uppercase text-xs tracking-[0.2em] text-[#1A6CC8] font-semibold mb-3">
+                Recrutement ouvert
+              </p>
+              <h3 className="text-2xl font-bold text-[#0D2D5A] mb-3">
+                Vous souhaitez rejoindre l’équipe Care4Success ?
+              </h3>
+              <p className="text-muted-foreground">
+                Découvrez le parcours complet, nos attentes et le formulaire de candidature sur la page dédiée
+                «&nbsp;Devenir professeur&nbsp;».
+              </p>
+            </div>
+            <Link to={ROUTE_PATHS.DEVENIR_PROFESSEUR} className="flex-shrink-0">
+              <Button className="bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white px-8 h-12">
+                En savoir plus
+              </Button>
+            </Link>
           </motion.div>
         </div>
       </section>

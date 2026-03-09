@@ -1,13 +1,83 @@
 import { motion } from "framer-motion";
-import { ArrowRight, CheckCircle, Star, Users, Award, Clock, TrendingUp, BookOpen, GraduationCap, Phone } from "lucide-react";
+import { ArrowRight, CheckCircle, Star, Users, Award, Clock, TrendingUp, BookOpen, GraduationCap, Phone, Globe } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { NavLink } from "react-router-dom";
 import { ServiceCard } from "@/components/ServiceCard";
 import { TeacherCard } from "@/components/TeacherCard";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { services, levels, testimonials, teachers, stats } from "@/data/index";
 import { IMAGES } from "@/assets/images";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { ROUTE_PATHS } from "@/lib/index";
+
+const africanPresence = [
+  {
+    code: "CMR",
+    name: "Cameroun",
+    detail: "Siège, équipes pédagogiques et centres physiques (Douala, Yaoundé…)",
+    flag: "https://flagcdn.com/cm.svg",
+  },
+  {
+    code: "RCA",
+    name: "République centrafricaine",
+    detail: "Programmes hybrides Bangui + accompagnement en ligne",
+    flag: "https://flagcdn.com/cf.svg",
+  },
+  {
+    code: "GIN",
+    name: "Guinée",
+    detail: "Suivi BEPC & BAC pour Conakry, Labé et Kindia",
+    flag: "https://flagcdn.com/gn.svg",
+  },
+  {
+    code: "MLI",
+    name: "Mali",
+    detail: "Coaching Lycée/Supérieur avec enseignants basés à Bamako",
+    flag: "https://flagcdn.com/ml.svg",
+  },
+  {
+    code: "TGO",
+    name: "Togo",
+    detail: "Réseau d’enseignants à Lomé et accompagnement en ligne",
+    flag: "https://flagcdn.com/tg.svg",
+  },
+  {
+    code: "BFA",
+    name: "Burkina Faso",
+    detail: "Parcours sciences et langues dans les principales villes",
+    flag: "https://flagcdn.com/bf.svg",
+  },
+  {
+    code: "BEN",
+    name: "Bénin",
+    detail: "Soutien scolaire et stages intensifs (Cotonou – Parakou)",
+    flag: "https://flagcdn.com/bj.svg",
+  },
+  {
+    code: "COM",
+    name: "Comores",
+    detail: "Sessions connectées pour les familles de Grande Comore et Mohéli",
+    flag: "https://flagcdn.com/km.svg",
+  },
+  {
+    code: "MDG",
+    name: "Madagascar",
+    detail: "Cursus personnalisés pour Antananarivo et les régions",
+    flag: "https://flagcdn.com/mg.svg",
+  },
+  {
+    code: "GAB",
+    name: "Gabon",
+    detail: "Accompagnement à Libreville, Port-Gentil et en ligne",
+    flag: "https://flagcdn.com/ga.svg",
+  },
+  {
+    code: "GNB",
+    name: "Guinée-Bissau",
+    detail: "Support francophone en partenariat avec les établissements locaux",
+    flag: "https://flagcdn.com/gw.svg",
+  },
+];
 
 export default function Home() {
   return (
@@ -131,6 +201,66 @@ export default function Home() {
               </motion.div>
             ))}
           </motion.div>
+        </div>
+      </section>
+
+      {/* ── PRÉSENCE PANAFRICAINE ── */}
+      <section className="py-20 bg-[#0D2D5A] text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-[url('/noise.png')]" />
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={springPresets.gentle}
+            className="max-w-3xl mx-auto text-center space-y-4 mb-14"
+          >
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/25 text-sm font-semibold uppercase tracking-widest">
+              <Globe className="w-4 h-4" />
+              Présence panafricaine
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold leading-tight">
+              Une plateforme dédiée aux familles dans {africanPresence.length} pays africains
+            </h2>
+            <p className="text-blue-100 text-lg">
+              Faites défiler les pays ci-dessous pour découvrir notre ancrage local : CMR, RCA, Guinée, Mali, Togo,
+              Burkina, Bénin, Comores, Madagascar, Gabon, Guinée-Bissau.
+            </p>
+          </motion.div>
+
+          <Carousel
+            className="relative max-w-6xl mx-auto"
+            opts={{ align: "start", loop: true }}
+          >
+            <CarouselContent>
+              {africanPresence.map((country) => (
+                <CarouselItem
+                  key={country.code}
+                  className="pl-4 basis-full sm:basis-1/2 lg:basis-1/3"
+                >
+                  <div className="h-full bg-white/10 border border-white/15 rounded-2xl p-6 shadow-lg backdrop-blur-sm hover:bg-white/15 transition-colors duration-300 flex flex-col gap-4">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={country.flag}
+                        alt={`Drapeau ${country.name}`}
+                        className="w-14 h-14 rounded-full object-cover border-2 border-white/50 shadow-lg"
+                        loading="lazy"
+                      />
+                      <div>
+                        <span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#F5A623] bg-[#F5A623]/15 border border-[#F5A623]/30 px-3 py-1 rounded-full">
+                          {country.code}
+                        </span>
+                        <h3 className="text-2xl font-bold mt-2">{country.name}</h3>
+                      </div>
+                    </div>
+                    <p className="text-blue-100 text-sm leading-relaxed flex-1">{country.detail}</p>
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="bg-white/10 text-white border-white/40 hover:bg-white/20" />
+            <CarouselNext className="bg-white/10 text-white border-white/40 hover:bg-white/20" />
+          </Carousel>
         </div>
       </section>
 

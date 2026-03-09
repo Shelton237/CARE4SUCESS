@@ -3,6 +3,7 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import tailwindcss from '@tailwindcss/vite';
 import fs from 'node:fs/promises';
+import type { Dirent } from 'node:fs';
 import nodePath from 'node:path';
 import { componentTagger } from 'lovable-tagger';
 import path from "path";
@@ -13,9 +14,12 @@ import _generate from '@babel/generator';
 import * as t from '@babel/types';
 
 
+const getDefaultExport = <T>(mod: { default?: T } | T): T =>
+  (mod as { default?: T }).default ?? (mod as T);
+
 // CJS/ESM interop for Babel libs
-const traverse: typeof _traverse.default = ( (_traverse as any).default ?? _traverse ) as any;
-const generate: typeof _generate.default = ( (_generate as any).default ?? _generate ) as any;
+const traverse = getDefaultExport<typeof _traverse.default>(_traverse);
+const generate = getDefaultExport<typeof _generate.default>(_generate);
 
 function cdnPrefixImages(): Plugin {
   const DEBUG = process.env.CDN_IMG_DEBUG === '1';
@@ -142,7 +146,7 @@ function cdnPrefixImages(): Plugin {
     const stack = [imagesDir];
     while (stack.length) {
       const cur = stack.pop()!;
-      let entries: any[] = [];
+      let entries: Dirent[] = [];
       try {
         entries = await fs.readdir(cur, { withFileTypes: true });
       } catch {
@@ -211,6 +215,12 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 8080,
+      proxy: {
+        "/api": {
+          target: process.env.VITE_API_PROXY || "http://127.0.0.1:4000",
+          changeOrigin: true,
+        },
+      },
     },
     plugins: [
       tailwindcss(),

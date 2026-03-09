@@ -1,110 +1,249 @@
-import { useState } from "react";
-import { advisorMatchingQueue } from "@/data/mock";
-import { GitMerge, Star, Check, AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
+import { fetchAdvisorAssignments, confirmAssignment } from "@/api/backoffice";
+import type { AdvisorAssignment } from "@/integrations/supabase/types";
+import { GitMerge, Star, Check, AlertCircle, Loader2, RefreshCw, ArrowLeft } from "lucide-react";
 
 export default function AdvisorMatching() {
-    const [selected, setSelected] = useState<Record<string, string | null>>({});
+    const location = useLocation();
+    const targeted = location.state as { childName?: string; level?: string; subject?: string } | null;
+    const targetChild = targeted?.childName ?? null;
 
-    const handleSelect = (matchId: string, teacherName: string) => {
+    const [selected, setSelected] = useState<Record<string, string | null>>({});
+    const queryClient = useQueryClient();
+    const targetRef = useRef<HTMLDivElement | null>(null);
+
+    const { data, isLoading, isError, error, refetch } = useQuery({
+        queryKey: ["backoffice", "assignments"],
+        queryFn: fetchAdvisorAssignments,
+        staleTime: 30_000,
+    });
+
+    useEffect(() => {
+        if (!data) return;
+        setSelected(
+            data.reduce<Record<string, string | null>>((acc, match) => {
+                acc[match.id] = match.selectedTeacher ?? null;
+                return acc;
+            }, {})
+        );
+    }, [data]);
+
+    // Scroll vers la carte cible dès que les données sont disponibles
+    useEffect(() => {
+        if (!targetChild || !data) return;
+        const timer = setTimeout(() => {
+            targetRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [targetChild, data]);
+
+    const mutation = useMutation<AdvisorAssignment, Error, { matchId: string; teacherName: string }>({
+        mutationFn: ({ matchId, teacherName }) => confirmAssignment(matchId, teacherName),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["backoffice", "assignments"] });
+        },
+    });
+
+    const totalWaiting = useMemo(() => data?.filter((m) => m.status !== "confirmed").length ?? 0, [data]);
+
+    const handleSelect = (matchId: string, teacherName: string, available: boolean) => {
+        if (!available) return;
         setSelected((prev) => ({
             ...prev,
             [matchId]: prev[matchId] === teacherName ? null : teacherName,
         }));
     };
 
+    const handleConfirm = (match: AdvisorAssignment) => {
+        const teacherName = selected[match.id];
+        if (!teacherName) return;
+        mutation.mutate({ matchId: match.id, teacherName });
+    };
+
+    const isConfirming = (matchId: string) => mutation.isPending && mutation.variables?.matchId === matchId;
+
     return (
         <div className="p-8 space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-[#0D2D5A]">Matching enseignant ↔ élève</h1>
-                <p className="text-gray-500 text-sm mt-1">{advisorMatchingQueue.length} élèves en attente d'un enseignant</p>
+                <p className="text-gray-500 text-sm mt-1">
+                    {isLoading ? "Chargement…" : `${totalWaiting} élève${totalWaiting > 1 ? "s" : ""} en attente d'un enseignant`}
+                </p>
             </div>
 
+            {/* Bannière contextuelle si arrivée depuis la page Familles */}
+            {targetChild && (
+                <div className="flex items-center gap-3 bg-[#a855f7]/8 border border-[#a855f7]/20 rounded-xl px-5 py-3">
+                    <GitMerge className="w-5 h-5 text-[#a855f7] flex-shrink-0" />
+                    <div className="flex-1 text-sm">
+                        <span className="font-bold text-[#0D2D5A]">Assignation demandée</span>
+                        <span className="text-gray-500 ml-2">
+                            pour <span className="font-semibold text-[#a855f7]">{targetChild}</span>
+                            {targeted?.level && ` · ${targeted.level}`}
+                            {targeted?.subject && ` · ${targeted.subject}`}
+                        </span>
+                    </div>
+                    <button
+                        onClick={() => window.history.back()}
+                        className="flex items-center gap-1 text-xs font-bold text-[#a855f7] hover:underline"
+                    >
+                        <ArrowLeft className="w-3 h-3" /> Retour aux familles
+                    </button>
+                </div>
+            )}
+
+            {isError && (
+                <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl p-4 flex items-center justify-between">
+                    <span>{error instanceof Error ? error.message : "Impossible de charger les matching."}</span>
+                    <button
+                        onClick={() => refetch()}
+                        className="inline-flex items-center gap-1 text-red-700 font-semibold text-xs border border-red-200 rounded-lg px-3 py-1 hover:bg-red-100 transition-colors"
+                    >
+                        <RefreshCw className="w-3 h-3" />
+                        Réessayer
+                    </button>
+                </div>
+            )}
+
             <div className="space-y-6">
-                {advisorMatchingQueue.map((match) => (
-                    <div key={match.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        {/* Élève header */}
-                        <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-[#0D2D5A]/3 to-transparent">
-                            <div className="w-12 h-12 rounded-2xl bg-[#1A6CC8]/10 flex items-center justify-center text-xl font-bold text-[#1A6CC8] flex-shrink-0">
-                                {match.child[0]}
-                            </div>
-                            <div className="flex-1">
-                                <div className="font-bold text-[#0D2D5A] text-base">{match.child}</div>
-                                <div className="text-sm text-gray-500">{match.level} · {match.subject}</div>
-                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                    {match.needs.map((n) => (
-                                        <span key={n} className="text-xs bg-[#1A6CC8]/10 text-[#1A6CC8] px-2.5 py-0.5 rounded-full font-medium">{n}</span>
-                                    ))}
-                                    <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full">{match.schedule}</span>
+                {isLoading && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
+                        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-3" />
+                        Chargement des matching…
+                    </div>
+                )}
+
+                {!isLoading && data?.length === 0 && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
+                        Aucun élève en attente pour le moment.
+                    </div>
+                )}
+
+                {data?.map((match) => {
+                    const currentSelection = selected[match.id];
+                    const isConfirmed = match.status === "confirmed";
+                    const displayTeacher = currentSelection || match.selectedTeacher;
+                    const isTargeted = targetChild
+                        ? match.child.toLowerCase() === targetChild.toLowerCase()
+                        : false;
+                    return (
+                        <div
+                            key={match.id}
+                            ref={isTargeted ? targetRef : null}
+                            className={`bg-white rounded-2xl shadow-sm border overflow-hidden transition-all ${isTargeted
+                                    ? "border-[#a855f7] ring-2 ring-[#a855f7]/20 shadow-md"
+                                    : "border-gray-100"
+                                }`}
+                        >
+                            <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-[#0D2D5A]/3 to-transparent">
+                                <div className="w-12 h-12 rounded-2xl bg-[#1A6CC8]/10 flex items-center justify-center text-xl font-bold text-[#1A6CC8] flex-shrink-0">
+                                    {match.child[0]}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="font-bold text-[#0D2D5A] text-base">{match.child}</div>
+                                    <div className="text-sm text-gray-500">
+                                        {match.level} · {match.subject}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        {match.needs.map((n) => (
+                                            <span
+                                                key={n}
+                                                className="text-xs bg-[#1A6CC8]/10 text-[#1A6CC8] px-2.5 py-0.5 rounded-full font-medium"
+                                            >
+                                                {n}
+                                            </span>
+                                        ))}
+                                        <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full">
+                                            {match.schedule}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {displayTeacher ? (
+                                        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
+                                            <Check className="w-4 h-4 text-green-600" />
+                                            <span className="text-sm font-bold text-green-700">{displayTeacher}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 bg-[#F5A623]/10 border border-[#F5A623]/20 rounded-xl px-4 py-2">
+                                            <AlertCircle className="w-4 h-4 text-[#F5A623]" />
+                                            <span className="text-sm font-bold text-[#F5A623]">En attente</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                {selected[match.id] ? (
-                                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
-                                        <Check className="w-4 h-4 text-green-600" />
-                                        <span className="text-sm font-bold text-green-700">{selected[match.id]}</span>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 bg-[#F5A623]/10 border border-[#F5A623]/20 rounded-xl px-4 py-2">
-                                        <AlertCircle className="w-4 h-4 text-[#F5A623]" />
-                                        <span className="text-sm font-bold text-[#F5A623]">En attente</span>
+
+                            <div className="p-6">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+                                    Enseignants compatibles ({match.candidates.length})
+                                </h3>
+                                <div className="grid sm:grid-cols-2 gap-3">
+                                    {match.candidates.map((candidate) => {
+                                        const isSelected = currentSelection === candidate.name;
+                                        return (
+                                            <div
+                                                key={candidate.name}
+                                                onClick={() => handleSelect(match.id, candidate.name, candidate.available)}
+                                                className={`relative rounded-xl border p-4 transition-all ${!candidate.available
+                                                        ? "opacity-50 border-gray-100 bg-gray-50 cursor-not-allowed"
+                                                        : isSelected
+                                                            ? "border-[#a855f7] bg-[#a855f7]/5 cursor-pointer shadow-sm"
+                                                            : "border-gray-100 hover:border-[#a855f7]/30 hover:bg-[#a855f7]/3 cursor-pointer"
+                                                    }`}
+                                            >
+                                                {isSelected && (
+                                                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-[#a855f7] flex items-center justify-center">
+                                                        <Check className="w-3 h-3 text-white" />
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${isSelected ? "bg-[#a855f7] text-white" : "bg-[#0D2D5A]/10 text-[#0D2D5A]"
+                                                            }`}
+                                                    >
+                                                        {candidate.name
+                                                            .split(" ")
+                                                            .map((w) => w[0])
+                                                            .slice(0, 2)
+                                                            .join("")}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-semibold text-[#0D2D5A] text-sm">{candidate.name}</div>
+                                                        <div className="flex items-center gap-1 mt-0.5">
+                                                            <Star className="w-3 h-3 fill-[#F5A623] text-[#F5A623]" />
+                                                            <span className="text-xs font-bold text-gray-600">{candidate.rating}</span>
+                                                            <span
+                                                                className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${candidate.available ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-400"
+                                                                    }`}
+                                                            >
+                                                                {candidate.available ? "Disponible" : "Indisponible"}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {currentSelection && (
+                                    <div className="mt-4 flex justify-end">
+                                        <button
+                                            onClick={() => handleConfirm(match)}
+                                            disabled={isConfirming(match.id) || isConfirmed}
+                                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[#a855f7] hover:bg-[#9333ea] transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            {isConfirming(match.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitMerge className="w-4 h-4" />}
+                                            {isConfirmed ? "Déjà confirmé" : "Confirmer le matching"}
+                                        </button>
                                     </div>
                                 )}
                             </div>
                         </div>
-
-                        {/* Candidats */}
-                        <div className="p-6">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-                                Enseignants compatibles ({match.candidates.length})
-                            </h3>
-                            <div className="grid sm:grid-cols-2 gap-3">
-                                {match.candidates.map((c) => {
-                                    const isSelected = selected[match.id] === c.name;
-                                    return (
-                                        <div
-                                            key={c.name}
-                                            onClick={() => c.available && handleSelect(match.id, c.name)}
-                                            className={`relative rounded-xl border p-4 transition-all ${!c.available ? "opacity-50 border-gray-100 bg-gray-50 cursor-not-allowed" :
-                                                    isSelected ? "border-[#a855f7] bg-[#a855f7]/5 cursor-pointer shadow-sm" :
-                                                        "border-gray-100 hover:border-[#a855f7]/30 hover:bg-[#a855f7]/3 cursor-pointer"
-                                                }`}
-                                        >
-                                            {isSelected && (
-                                                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-[#a855f7] flex items-center justify-center">
-                                                    <Check className="w-3 h-3 text-white" />
-                                                </div>
-                                            )}
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${isSelected ? "bg-[#a855f7] text-white" : "bg-[#0D2D5A]/10 text-[#0D2D5A]"}`}>
-                                                    {c.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("")}
-                                                </div>
-                                                <div>
-                                                    <div className="font-semibold text-[#0D2D5A] text-sm">{c.name}</div>
-                                                    <div className="flex items-center gap-1 mt-0.5">
-                                                        <Star className="w-3 h-3 fill-[#F5A623] text-[#F5A623]" />
-                                                        <span className="text-xs font-bold text-gray-600">{c.rating}</span>
-                                                        <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${c.available ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-400"}`}>
-                                                            {c.available ? "Disponible" : "Indisponible"}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {selected[match.id] && (
-                                <div className="mt-4 flex justify-end">
-                                    <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[#a855f7] hover:bg-[#9333ea] transition-colors shadow-md">
-                                        <GitMerge className="w-4 h-4" />
-                                        Confirmer le matching
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

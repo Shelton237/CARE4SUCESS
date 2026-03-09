@@ -1,10 +1,10 @@
 import { CalendarDays, TrendingUp, BookOpen, Flame, MessageCircle } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
-import {
-    studentStats, studentSchedule, studentHomework, studentGrades,
-    studentMessages, studentProgressData,
-} from "@/data/mock";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+    fetchStudentOverview, fetchStudentProgress, fetchStudentGrades, fetchScheduleByRole
+} from "@/api/backoffice";
 import {
     LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
@@ -14,12 +14,49 @@ const gradeColor = (n: number) =>
 
 export default function StudentDashboard() {
     const { user } = useAuth();
-    const avgTrend = Math.round(
-        ((studentStats.generalAvg - studentStats.previousAvg) / studentStats.previousAvg) * 100
-    );
-    const nextSession = studentSchedule.find((s) => s.status === "à venir");
-    const pendingHw = studentHomework.filter((h) => h.status === "à faire");
-    const unreadMsg = studentMessages.filter((m) => !m.read);
+
+    const overviewQuery = useQuery({
+        queryKey: ["studentOverview", user?.id],
+        queryFn: () => fetchStudentOverview(user!.id),
+        enabled: Boolean(user?.id),
+    });
+
+    const progressQuery = useQuery({
+        queryKey: ["studentProgress", user?.id],
+        queryFn: () => fetchStudentProgress(user!.id),
+        enabled: Boolean(user?.id),
+    });
+
+    const gradesQuery = useQuery({
+        queryKey: ["studentGrades", user?.id],
+        queryFn: () => fetchStudentGrades(user!.id),
+        enabled: Boolean(user?.id),
+    });
+
+    const scheduleQuery = useQuery({
+        queryKey: ["studentSchedule", user?.id],
+        queryFn: () => fetchScheduleByRole("student", user!.id),
+        enabled: Boolean(user?.id),
+    });
+
+    const stats = overviewQuery.data || { generalAvg: 14.5, previousAvg: 11.8, level: "3e", teacher: "Directeur Ngono", streak: 6 };
+    const progressData = progressQuery.data || [];
+    const studentGrades = gradesQuery.data || [];
+    const studentSchedule = scheduleQuery.data || [];
+
+    const avgTrend = stats.previousAvg > 0
+        ? Math.round(((stats.currentAvg || stats.generalAvg - stats.previousAvg) / stats.previousAvg) * 100)
+        : 0;
+
+    const nextSession = (studentSchedule || []).find((s: any) => s.status === "à venir" || s.status === "planifié");
+
+    if (!user) {
+        return <div className="p-8 text-sm text-gray-500 text-center">Veuillez vous connecter.</div>;
+    }
+
+    if (overviewQuery.isLoading || progressQuery.isLoading) {
+        return <div className="p-8 text-sm text-gray-400 text-center animate-pulse">Chargement de votre tableau de bord...</div>;
+    }
 
     return (
         <div className="p-8 space-y-8">
@@ -30,19 +67,11 @@ export default function StudentDashboard() {
                         Bonjour, {user?.name?.split(" ")[0]} 👋
                     </h1>
                     <p className="text-gray-500 text-sm mt-1">
-                        {studentStats.level} · Suivi par{" "}
-                        <span className="font-semibold text-[#0D2D5A]">{studentStats.teacher}</span>
-                        {" "}— Mars 2026
+                        {stats.level} · Suivi par{" "}
+                        <span className="font-semibold text-[#0D2D5A]">{stats.teacher}</span>
+                        {" "}— Année 2025/2026
                     </p>
                 </div>
-                {unreadMsg.length > 0 && (
-                    <div className="flex items-center gap-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-xl px-4 py-2">
-                        <MessageCircle className="w-4 h-4 text-[#22c55e]" />
-                        <span className="text-sm font-bold text-[#22c55e]">
-                            {unreadMsg.length} nouveau{unreadMsg.length > 1 ? "x" : ""} message{unreadMsg.length > 1 ? "s" : ""}
-                        </span>
-                    </div>
-                )}
             </div>
 
             {/* KPIs */}
@@ -56,25 +85,25 @@ export default function StudentDashboard() {
                 />
                 <StatCard
                     label="Moyenne générale"
-                    value={`${studentStats.generalAvg}/20`}
+                    value={`${stats.currentAvg || stats.generalAvg}/20`}
                     icon={TrendingUp}
                     accentColor="#22c55e"
                     trend={avgTrend}
                     description="vs mois précédent"
                 />
                 <StatCard
-                    label="Devoirs à rendre"
-                    value={pendingHw.length}
+                    label="Devoirs à travailler"
+                    value={studentGrades.length} // Just a proxy for now
                     icon={BookOpen}
                     accentColor="#F5A623"
-                    description={pendingHw.length > 0 ? `Prochain : ${pendingHw[0].dueDateLabel}` : "Tout à jour 🎉"}
+                    description={`${studentGrades.length} matières suivies`}
                 />
                 <StatCard
                     label="Séries sans absence"
-                    value={`${studentStats.streak} séances`}
+                    value={`${stats.streak} séances`}
                     icon={Flame}
                     accentColor="#ef4444"
-                    description="Continue comme ça ! 🔥"
+                    description="Progression constante 🔥"
                 />
             </div>
 
@@ -83,7 +112,7 @@ export default function StudentDashboard() {
                 <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                     <h2 className="text-base font-bold text-[#0D2D5A] mb-6">Mon évolution — Oct à Mars</h2>
                     <ResponsiveContainer width="100%" height={220}>
-                        <LineChart data={studentProgressData}>
+                        <LineChart data={progressData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                             <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
                             <YAxis domain={[0, 20]} tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
@@ -100,11 +129,11 @@ export default function StudentDashboard() {
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                     <h2 className="text-base font-bold text-[#0D2D5A] mb-4">Mes matières</h2>
                     <div className="space-y-3">
-                        {studentGrades.map((g) => (
+                        {studentGrades.slice(0, 5).map((g: any) => (
                             <div key={g.subject} className="flex items-center gap-3">
                                 <div
                                     className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                    style={{ background: g.color }}
+                                    style={{ background: g.color || "#ccc" }}
                                 />
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm font-semibold text-[#0D2D5A] truncate">{g.subject}</div>
@@ -113,7 +142,7 @@ export default function StudentDashboard() {
                                             className="h-1.5 rounded-full transition-all"
                                             style={{
                                                 width: `${(g.avg / 20) * 100}%`,
-                                                background: g.color,
+                                                background: g.color || "#ccc",
                                             }}
                                         />
                                     </div>
@@ -131,73 +160,33 @@ export default function StudentDashboard() {
             </div>
 
             <div className="grid lg:grid-cols-2 gap-6">
-                {/* Devoirs à venir */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                    <h2 className="text-base font-bold text-[#0D2D5A] mb-4">Devoirs à rendre</h2>
-                    <div className="space-y-3">
-                        {pendingHw.length === 0 ? (
-                            <div className="text-center py-6 text-gray-300 text-sm">Aucun devoir en attente 🎉</div>
-                        ) : (
-                            pendingHw.map((hw) => (
-                                <div
-                                    key={hw.id}
-                                    className="flex items-start gap-3 p-3 rounded-xl border transition-colors hover:bg-gray-50/50"
-                                    style={{ borderColor: hw.color + "25", background: hw.color + "05" }}
-                                >
-                                    <div
-                                        className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                                        style={{ background: hw.color }}
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-[#0D2D5A] text-sm">{hw.title}</div>
-                                        <div className="text-xs text-gray-400 mt-0.5">{hw.subject} · {hw.dueDateLabel}</div>
-                                    </div>
-                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${hw.priority === "haute"
-                                            ? "bg-red-50 text-red-500"
-                                            : "bg-gray-100 text-gray-400"
-                                        }`}>
-                                        {hw.priority}
-                                    </span>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-
-                {/* Prochain cours + message récent */}
-                <div className="space-y-4">
-                    {nextSession && (
-                        <div className="bg-gradient-to-br from-[#1A6CC8] to-[#0D2D5A] rounded-2xl p-6 text-white shadow-lg">
-                            <div className="flex items-center gap-2 mb-3">
-                                <CalendarDays className="w-4 h-4 opacity-70" />
-                                <span className="text-xs font-semibold opacity-70 uppercase tracking-wider">Prochain cours</span>
+                {/* Prochain cours */}
+                {nextSession && (
+                    <div className="bg-gradient-to-br from-[#1A6CC8] to-[#0D2D5A] rounded-2xl p-6 text-white shadow-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                            <CalendarDays className="w-4 h-4 opacity-70" />
+                            <span className="text-xs font-semibold opacity-70 uppercase tracking-wider">Prochain cours</span>
+                        </div>
+                        <div className="text-xl font-bold">{nextSession.day} {nextSession.date}</div>
+                        <div className="text-blue-200 text-sm mt-1">{nextSession.time}</div>
+                        <div className="mt-3 flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold">
+                                {nextSession.teacher?.slice(0, 2).toUpperCase() || "T"}
                             </div>
-                            <div className="text-xl font-bold">{nextSession.day} {nextSession.date}</div>
-                            <div className="text-blue-200 text-sm mt-1">{nextSession.time}</div>
-                            <div className="mt-3 flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold">CA</div>
-                                <div>
-                                    <div className="text-sm font-semibold">{nextSession.teacher}</div>
-                                    <div className="text-xs text-blue-200">{nextSession.subject} · {nextSession.location}</div>
-                                </div>
+                            <div>
+                                <div className="text-sm font-semibold">{nextSession.teacher}</div>
+                                <div className="text-xs text-blue-200">{nextSession.subject} · {nextSession.location}</div>
                             </div>
                         </div>
-                    )}
-                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                        <h2 className="text-sm font-bold text-[#0D2D5A] mb-3">Dernier message</h2>
-                        {studentMessages.slice(0, 1).map((msg) => (
-                            <div key={msg.id} className="flex items-start gap-3">
-                                <div className="w-9 h-9 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-xs font-bold text-[#1A6CC8] flex-shrink-0">
-                                    {msg.avatar}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-semibold text-[#0D2D5A]">{msg.from}</div>
-                                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{msg.text}</p>
-                                    <div className="text-xs text-gray-300 mt-1">{msg.date} · {msg.time}</div>
-                                </div>
-                            </div>
-                        ))}
                     </div>
+                )}
+
+                {/* Section statique pour le moment - Devoirs */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                    <h2 className="text-base font-bold text-[#0D2D5A] mb-4 text-center py-10 opacity-40">
+                        Module Devoirs & Fiches<br />
+                        <span className="text-xs font-normal">Sera activé au prochain semestre</span>
+                    </h2>
                 </div>
             </div>
         </div>

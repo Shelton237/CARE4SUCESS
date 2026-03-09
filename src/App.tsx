@@ -12,6 +12,7 @@ import Home from "@/pages/Home";
 import Services from "@/pages/Services";
 import Niveaux from "@/pages/Niveaux";
 import Professeurs from "@/pages/Professeurs";
+import DevenirProfesseur from "@/pages/DevenirProfesseur";
 import Contact from "@/pages/Contact";
 import NotFound from "./pages/not-found/Index";
 import Login from "@/pages/auth/Login";
@@ -20,6 +21,7 @@ import TeacherLayout from "@/pages/teacher/TeacherLayout";
 import ParentLayout from "@/pages/parent/ParentLayout";
 import AdvisorLayout from "@/pages/advisor/AdvisorLayout";
 import StudentLayout from "@/pages/student/StudentLayout";
+import VirtualClassroom from "@/pages/common/VirtualClassroom";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +39,7 @@ const App = () => (
               <Route path={ROUTE_PATHS.SERVICES} element={<Layout><Services /></Layout>} />
               <Route path={ROUTE_PATHS.NIVEAUX} element={<Layout><Niveaux /></Layout>} />
               <Route path={ROUTE_PATHS.PROFESSEURS} element={<Layout><Professeurs /></Layout>} />
+              <Route path={ROUTE_PATHS.DEVENIR_PROFESSEUR} element={<Layout><DevenirProfesseur /></Layout>} />
               <Route path={ROUTE_PATHS.CONTACT} element={<Layout><Contact /></Layout>} />
 
               {/* Auth */}
@@ -80,6 +83,14 @@ const App = () => (
                 element={
                   <ProtectedRoute role="student">
                     <StudentLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/virtual-class/:sessionId"
+                element={
+                  <ProtectedRoute>
+                    <VirtualClassroom />
                   </ProtectedRoute>
                 }
               />
