@@ -1037,15 +1037,19 @@ app.patch("/api/requests/:id", async (req, res) => {
   const { status } = req.body ?? {};
   const validStatuses = new Set(["reçu", "en traitement", "assigné", "clôturé"]);
 
+  console.log(`PATCH /api/requests/${id} - New Status: ${status}`);
   if (!status || !validStatuses.has(status)) {
+    console.log(`Invalid status: ${status}`);
     return res.status(400).json({ message: "Statut invalide." });
   }
 
   try {
+    console.log(`Updating database for request ${id} to ${status}...`);
     await pool.query(
       "UPDATE requests SET status = ? WHERE id = ?",
       [status, id]
     );
+    console.log(`Update successful. Checking if automation trigger 'en traitement' is met...`);
 
     if (status === "en traitement") {
       try {
