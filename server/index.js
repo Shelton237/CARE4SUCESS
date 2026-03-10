@@ -1053,10 +1053,12 @@ app.patch("/api/requests/:id", async (req, res) => {
       if (r) {
         await ensureAssignmentsTable();
         // Look for candidate teachers matching the subject
+        // Since subjects is a JSON column, use JSON_CONTAINS
         const [teachers] = await pool.query(
-          "SELECT name, rating FROM teachers WHERE subjects LIKE ? AND status = 'actif' LIMIT 5",
-          [`%${r.subject}%`]
+          "SELECT name, rating FROM teachers WHERE JSON_CONTAINS(subjects, JSON_QUOTE(?)) AND status = 'actif' LIMIT 5",
+          [r.subject]
         );
+        console.log(`Automation: Found ${teachers.length} candidate teachers for subject: ${r.subject}`);
         const candidates = teachers.map(t => ({ name: t.name, rating: t.rating || 5, available: true }));
 
         const assignmentId = crypto.randomUUID();
