@@ -1,5 +1,5 @@
-const mysql = require('mysql2/promise');
-const crypto = require('crypto');
+import mysql from 'mysql2/promise';
+import crypto from 'crypto';
 
 async function run() {
     const connection = await mysql.createConnection({
