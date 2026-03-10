@@ -22,7 +22,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const login = async (email: string, password: string) => {
         try {
-            const response = await fetch("http://localhost:4000/api/auth/login", {
+            const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
+            // Replace hardcoded localhost call with API_BASE_URL
+            const response = await fetch(`${API_BASE_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
