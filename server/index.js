@@ -456,7 +456,7 @@ const ensureRequestsTable = async () => {
       child_name VARCHAR(191) NOT NULL,
       level VARCHAR(120) NOT NULL,
       subject VARCHAR(120) NOT NULL,
-      phone VARCHAR(50) NOT NULL,
+      phone VARCHAR(50),
       status ENUM('reçu', 'en traitement', 'assigné', 'clôturé') NOT NULL DEFAULT 'reçu',
       request_date DATE NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -932,13 +932,21 @@ app.use("/uploads", express.static(uploadDir));
 app.post("/api/parents/enroll", async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
     const { parentName, parentEmail, parentPassword, parentPhone, childName, childEmail, childPassword, childLevel, subject } = req.body;
     console.log("DEBUG: Enrollment start for", parentEmail);
 
     if (!parentEmail || !parentPassword || !childName) {
-      throw new Error("Champs obligatoires manquants.");
+      return res.status(400).json({ message: "Champs obligatoires manquants." });
     }
+
+    // Check if emails already exist
+    const [existing] = await connection.query("SELECT email FROM users WHERE email IN (?, ?)", [parentEmail, childEmail]);
+    if (existing.length > 0) {
+      const existingEmails = existing.map(u => u.email).join(", ");
+      return res.status(400).json({ message: `Erreur: Les emails suivants sont déjà utilisés : ${existingEmails}` });
+    }
+
+    await connection.beginTransaction();
 
     // 1. Create Parent User
     const parentId = crypto.randomUUID();
@@ -958,11 +966,12 @@ app.post("/api/parents/enroll", async (req, res) => {
     );
 
     // 3. Create initial Request (lead)
+    await ensureRequestsTable();
     const requestId = crypto.randomUUID();
     await connection.query(
       `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, status, request_date)
        VALUES (?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
-      [requestId, parentName, childName, childLevel || "", subject || "", parentPhone]
+      [requestId, parentName, childName, childLevel || "", subject || "", parentPhone || ""]
     );
 
     await connection.commit();
@@ -992,6 +1001,7 @@ app.get("/api/health", async (_req, res) => {
 
 app.get("/api/requests", async (_req, res) => {
   try {
+    await ensureRequestsTable();
     const [rows] = await pool.query(
       "SELECT id, parent_name, child_name, level, subject, phone, status, request_date FROM requests ORDER BY request_date DESC"
     );
@@ -1032,13 +1042,33 @@ app.patch("/api/requests/:id", async (req, res) => {
   }
 
   try {
-    const [result] = await pool.query(
+    await pool.query(
       "UPDATE requests SET status = ? WHERE id = ?",
       [status, id]
     );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Demande introuvable." });
+
+    if (status === "en traitement") {
+      const [reqRows] = await pool.query("SELECT * FROM requests WHERE id = ?", [id]);
+      const r = reqRows[0];
+      if (r) {
+        await ensureAssignmentsTable();
+        // Look for candidate teachers matching the subject
+        const [teachers] = await pool.query(
+          "SELECT name, rating FROM teachers WHERE subjects LIKE ? AND status = 'actif' LIMIT 5",
+          [`%${r.subject}%`]
+        );
+        const candidates = teachers.map(t => ({ name: t.name, rating: t.rating || 5, available: true }));
+
+        const assignmentId = crypto.randomUUID();
+        await pool.query(
+          `INSERT IGNORE INTO assignments (id, child_name, level, subject, status, candidates)
+           VALUES (?, ?, ?, ?, 'pending', ?)`,
+          [assignmentId, r.child_name, r.level, r.subject, JSON.stringify(candidates)]
+        );
+        console.log(`Automation: Assignment created for ${r.child_name} (${r.subject})`);
+      }
     }
+
     const [rows] = await pool.query("SELECT * FROM requests WHERE id = ?", [id]);
     res.json(mapRequestRow(rows[0]));
   } catch (error) {
@@ -2765,64 +2795,6 @@ app.post("/api/advisors/:advisorId/appointments", async (req, res) => {
   }
 });
 
-app.get("/api/messages/:userId", async (req, res) => {
-  const { userId } = req.params;
-  try {
-    await ensureMessagesTable();
-    const [rows] = await pool.query(
-      "SELECT * FROM messages WHERE sender_id = ? OR receiver_id = ? ORDER BY created_at ASC",
-      [userId, userId]
-    );
-    res.json(rows.map(mapMessageRow));
-  } catch (error) {
-    console.error("Failed to fetch messages", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
-
-app.post("/api/messages", async (req, res) => {
-  const { senderId, senderName, senderRole, receiverId, receiverName, receiverRole, content } = req.body;
-  if (!senderId || !receiverId || !content) {
-    return res.status(400).json({ message: "Champs obligatoires manquants." });
-  }
-  try {
-    await ensureMessagesTable();
-    const id = crypto.randomUUID();
-    await pool.query(
-      `INSERT INTO messages (id, sender_id, sender_name, sender_role, receiver_id, receiver_name, receiver_role, content)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, senderId, senderName, senderRole, receiverId, receiverName, receiverRole, content]
-    );
-    const [rows] = await pool.query("SELECT * FROM messages WHERE id = ?", [id]);
-    const message = mapMessageRow(rows[0]);
-
-    // Notification automatique
-    await createNotification(
-      receiverId,
-      `Nouveau message de ${senderName}`,
-      content.length > 50 ? content.substring(0, 50) + "..." : content,
-      'message',
-      '/messages'
-    );
-
-    res.status(201).json(message);
-  } catch (error) {
-    console.error("Failed to send message", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
-
-app.patch("/api/messages/:id/read", async (req, res) => {
-  const { id } = req.params;
-  try {
-    await ensureMessagesTable();
-    await pool.query("UPDATE messages SET is_read = TRUE WHERE id = ?", [id]);
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Failed to mark message as read", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
 
 // --- DEVOIRS & FICHES ---
 
@@ -3019,21 +2991,6 @@ app.delete("/api/lesson-resources/:id", async (req, res) => {
   }
 });
 
-app.get("/api/teachers/:teacherId/students", async (req, res) => {
-  const { teacherId } = req.params;
-  try {
-    const [rows] = await pool.query(
-      `SELECT DISTINCT s.student_id as id, s.student_name as name 
-       FROM sessions s 
-       WHERE s.teacher_id = ?`,
-      [teacherId]
-    );
-    res.json(rows);
-  } catch (error) {
-    console.error("Failed to fetch teacher students", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
 
 // --- NOTIFICATIONS & TEMPS RÉEL ---
 
