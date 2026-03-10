@@ -1048,26 +1048,31 @@ app.patch("/api/requests/:id", async (req, res) => {
     );
 
     if (status === "en traitement") {
-      const [reqRows] = await pool.query("SELECT * FROM requests WHERE id = ?", [id]);
-      const r = reqRows[0];
-      if (r) {
-        await ensureAssignmentsTable();
-        // Look for candidate teachers matching the subject
-        // Since subjects is a JSON column, use JSON_CONTAINS
-        const [teachers] = await pool.query(
-          "SELECT name, rating FROM teachers WHERE JSON_CONTAINS(subjects, JSON_QUOTE(?)) AND status = 'actif' LIMIT 5",
-          [r.subject]
-        );
-        console.log(`Automation: Found ${teachers.length} candidate teachers for subject: ${r.subject}`);
-        const candidates = teachers.map(t => ({ name: t.name, rating: t.rating || 5, available: true }));
+      try {
+        const [reqRows] = await pool.query("SELECT * FROM requests WHERE id = ?", [id]);
+        const r = reqRows[0];
+        if (r) {
+          console.log(`Automation: Processing assignment for ${r.child_name} (${r.subject})`);
+          await ensureAssignmentsTable();
+          // Look for candidate teachers matching the subject
+          // Since subjects is a JSON column, use JSON_CONTAINS
+          const [teachers] = await pool.query(
+            "SELECT name, rating FROM teachers WHERE JSON_CONTAINS(subjects, JSON_QUOTE(?)) AND status = 'actif' LIMIT 5",
+            [r.subject]
+          );
+          console.log(`Automation: Found ${teachers.length} candidate teachers for subject: ${r.subject}`);
+          const candidates = teachers.map(t => ({ name: t.name, rating: t.rating || 5, available: true }));
 
-        const assignmentId = crypto.randomUUID();
-        await pool.query(
-          `INSERT IGNORE INTO assignments (id, child_name, level, subject, status, candidates)
-           VALUES (?, ?, ?, ?, 'pending', ?)`,
-          [assignmentId, r.child_name, r.level, r.subject, JSON.stringify(candidates)]
-        );
-        console.log(`Automation: Assignment created for ${r.child_name} (${r.subject})`);
+          const assignmentId = crypto.randomUUID();
+          await pool.query(
+            `INSERT IGNORE INTO assignments (id, child_name, level, subject, status, candidates)
+             VALUES (?, ?, ?, ?, 'pending', ?)`,
+            [assignmentId, r.child_name, r.level, r.subject, JSON.stringify(candidates)]
+          );
+          console.log(`Automation: Assignment created with ID ${assignmentId}`);
+        }
+      } catch (autoError) {
+        console.error("Automation Error during assignment creation:", autoError);
       }
     }
 
