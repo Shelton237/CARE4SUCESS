@@ -5,6 +5,7 @@ export const ROUTE_PATHS = {
   PROFESSEURS: "/professeurs",
   CONTACT: "/contact",
   DEVENIR_PROFESSEUR: "/devenir-professeur",
+  RECRUTEMENT: "/recrutement",
 } as const;
 
 export interface Teacher {
