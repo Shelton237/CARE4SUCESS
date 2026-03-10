@@ -1038,13 +1038,14 @@ app.patch("/api/requests/:id", async (req, res) => {
   const validStatuses = new Set(["reçu", "en traitement", "assigné", "clôturé"]);
 
   console.log(`PATCH /api/requests/${id} - New Status: ${status}`);
+  fs.appendFileSync('/tmp/debug_api.log', `PATCH /api/requests/${id} - New Status: ${status}\n`);
   if (!status || !validStatuses.has(status)) {
     console.log(`Invalid status: ${status}`);
     return res.status(400).json({ message: "Statut invalide." });
   }
 
   try {
-    console.log(`Updating database for request ${id} to ${status}...`);
+    fs.appendFileSync('/tmp/debug_api.log', `Updating database for request ${id} to ${status}...\n`);
     await pool.query(
       "UPDATE requests SET status = ? WHERE id = ?",
       [status, id]
