@@ -2,19 +2,14 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
     TrendingUp,
-    Star,
-    BookOpen,
     Award,
-    Download,
     Calendar,
-    PieChart as PieIcon,
-    Zap,
-    ArrowUpRight,
-    CheckCircle2,
-    Target,
     Activity,
+    Target,
     FileDown,
-    Loader2
+    Loader2,
+    BarChart3,
+    CheckCircle2
 } from "lucide-react";
 import { fetchParentOverview, fetchProgressReport, fetchScheduleByRole } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,10 +18,6 @@ import {
     RadarChart, PolarGrid, PolarAngleAxis, Radar,
     AreaChart, Area
 } from "recharts";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { motion, AnimatePresence } from "framer-motion";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 
@@ -56,7 +47,6 @@ export default function ParentProgress() {
     const schedule = scheduleQuery.data ?? [];
 
     const progressData = useMemo(() => {
-        // Simulation de données historiques si non fournies
         return [
             { name: 'Oct', score: 11.5, effort: 70 },
             { name: 'Nov', score: 12.2, effort: 75 },
@@ -151,65 +141,67 @@ export default function ParentProgress() {
         }
     };
 
+    if (!user) {
+        return (
+            <div className="p-8 text-sm text-gray-500">
+                Connectez-vous pour consulter la progression.
+            </div>
+        );
+    }
+
     if (overviewQuery.isLoading || reportQuery.isLoading) {
         return (
             <div className="p-8 flex items-center justify-center min-h-[60vh]">
-                <Loader2 className="w-10 h-10 animate-spin text-[#1A6CC8]" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
             </div>
         );
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
+        <div className="p-8 space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-[#0D2D5A]">Analyses & Progression</h1>
                     <p className="text-gray-500 text-sm mt-1">Suivi détaillé de la performance académique de {overview?.childName}.</p>
                 </div>
-                <Button
+                <button
                     onClick={handleDownloadReport}
-                    className="bg-[#1A6CC8] hover:bg-[#1A6CC8]/90 text-white rounded-xl h-10 px-6 font-bold text-xs flex items-center gap-2 shadow-sm transition-all"
+                    className="flex items-center gap-2 bg-[#1A6CC8] hover:bg-[#1A6CC8]/90 text-white rounded-lg px-5 py-2.5 font-bold text-xs transition-colors shadow-sm w-fit"
                 >
                     <FileDown className="w-4 h-4" />
                     Bilan PDF
-                </Button>
+                </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                     { label: "Moyenne Actuelle", value: `${overview?.currentAvg}/20`, sub: `Précédent: ${overview?.previousAvg}/20`, icon: Award, color: "text-[#1A6CC8]", bg: "bg-[#1A6CC8]/5" },
                     { label: "Assiduité Live", value: "95%", sub: "98% sessions complétées", icon: Activity, color: "text-emerald-600", bg: "bg-emerald-50" },
                     { label: "Temps de travail", value: "14h", sub: "Étude et Quiz", icon: Calendar, color: "text-orange-600", bg: "bg-orange-50" },
                     { label: "Objectif Trimestre", value: "15/20", sub: "Matière cible: Maths", icon: Target, color: "text-purple-600", bg: "bg-purple-50" }
                 ].map((stat, i) => (
-                    <Card key={i} className="border border-gray-100 shadow-sm rounded-2xl bg-white overflow-hidden group">
-                        <CardContent className="p-5 sm:p-6">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className={`w-12 h-12 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
-                                    <stat.icon className="w-6 h-6" />
-                                </div>
-                                <ArrowUpRight className="w-4 h-4 text-gray-200" />
+                    <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col p-5">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className={`w-10 h-10 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
+                                <stat.icon className="w-5 h-5" />
                             </div>
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{stat.label}</h4>
-                            <div className="text-2xl font-bold text-[#0D2D5A]">{stat.value}</div>
-                            <p className="text-[10px] font-medium text-gray-400 mt-1">{stat.sub}</p>
-                        </CardContent>
-                    </Card>
+                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{stat.label}</h4>
+                        </div>
+                        <div className="text-2xl font-bold text-[#0D2D5A]">{stat.value}</div>
+                        <p className="text-[10px] font-medium text-gray-400 mt-1">{stat.sub}</p>
+                    </div>
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <Card className="xl:col-span-2 border border-gray-100 shadow-sm rounded-2xl bg-white overflow-hidden">
-                    <CardHeader className="p-6 pb-0">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <CardTitle className="text-lg font-bold text-[#0D2D5A]">Courbe d'évolution</CardTitle>
-                                <p className="text-xs text-gray-400 mt-0.5">Moyenne pondérée des 6 derniers mois</p>
-                            </div>
-                            <Badge variant="outline" className="bg-[#1A6CC8]/5 text-[#1A6CC8] border-none font-bold text-[10px] px-3 py-1">Majeur : Maths</Badge>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                        <div className="w-8 h-8 rounded-lg bg-[#1A6CC8]/10 flex items-center justify-center">
+                            <TrendingUp className="w-4 h-4 text-[#1A6CC8]" />
                         </div>
-                    </CardHeader>
-                    <CardContent className="p-6">
+                        <h2 className="font-bold text-[#0D2D5A] text-sm">Courbe d'évolution</h2>
+                    </div>
+                    <div className="p-6">
                         <div className="h-[300px] w-full mt-4">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={progressData}>
@@ -231,15 +223,17 @@ export default function ParentProgress() {
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
-                <Card className="border border-gray-100 shadow-sm rounded-2xl bg-white overflow-hidden">
-                    <CardHeader className="p-6 pb-0">
-                        <CardTitle className="text-lg font-bold text-[#0D2D5A]">Équilibre Acquis</CardTitle>
-                        <p className="text-xs text-gray-400 mt-0.5">Répartition par pôle</p>
-                    </CardHeader>
-                    <CardContent className="p-6 flex flex-col items-center justify-center">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                    <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                        <div className="w-8 h-8 rounded-lg bg-[#1A6CC8]/10 flex items-center justify-center">
+                            <BarChart3 className="w-4 h-4 text-[#1A6CC8]" />
+                        </div>
+                        <h2 className="font-bold text-[#0D2D5A] text-sm">Équilibre Acquis</h2>
+                    </div>
+                    <div className="p-6 flex-1 flex flex-col items-center justify-center">
                         <div className="h-[250px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
@@ -249,63 +243,57 @@ export default function ParentProgress() {
                                 </RadarChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="w-full mt-4 space-y-2">
-                            {radarData.map((d: any, i: number) => (
-                                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-[#1A6CC8]" />
-                                        <span className="text-xs font-bold text-[#0D2D5A]">{d.subject}</span>
-                                    </div>
-                                    <span className="font-bold text-[#1A6CC8] text-xs">{d.value}/20</span>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="border-none shadow-sm rounded-2xl bg-gradient-to-br from-[#0D2D5A] to-[#1A6CC8] text-white overflow-hidden">
-                    <CardContent className="p-8 sm:p-10 relative">
-                        <Zap className="absolute top-6 right-6 w-16 h-16 text-white/5" />
-                        <h3 className="text-2xl font-bold mb-3 italic">Next Step: Mention Très Bien</h3>
-                        <p className="text-blue-100/80 text-sm mb-6 max-w-md">
-                            {overview?.childName} montre une forte appétence pour les modules scientifiques. En maintenant cet effort sur le Français, il peut viser l'excellence globale au prochain trimestre.
-                        </p>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/5">
-                                <div className="text-[10px] font-bold text-blue-200 uppercase tracking-wider mb-1">Majeur Performance</div>
-                                <div className="text-xl font-bold">Maths 17.5</div>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/5">
-                                <div className="text-[10px] font-bold text-blue-200 uppercase tracking-wider mb-1">Effort Global</div>
-                                <div className="text-xl font-bold">Intense</div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-orange-50/50">
+                    <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                        <Award className="w-4 h-4 text-orange-500" />
+                    </div>
+                    <div>
+                        <h2 className="font-bold text-[#0D2D5A] text-sm">Points de force & Axes d'amélioration</h2>
+                    </div>
+                </div>
 
-                <div className="space-y-4">
-                    <h3 className="text-lg font-bold text-[#0D2D5A] px-1">Derniers Quiz Réussis</h3>
-                    <div className="grid gap-3">
-                        {(overview?.latestEvaluations || []).map((ev: any, i: number) => (
-                            <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                                        <CheckCircle2 className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-[#0D2D5A] text-sm">{ev.quizTitle || "Évaluation"}</h4>
-                                        <p className="text-[10px] font-medium text-gray-400">{ev.subject} • {new Date(ev.createdAt).toLocaleDateString()}</p>
-                                    </div>
+                <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                    <div className="p-6">
+                        <h3 className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            Matières Fortes
+                        </h3>
+                        <div className="space-y-4">
+                            {report?.grades.filter((g: any) => g.average >= 14).map((g: any, i: number) => (
+                                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50/50">
+                                    <span className="text-sm font-semibold text-[#0D2D5A]">{g.subject}</span>
+                                    <span className="text-sm font-bold text-emerald-600">{g.average}/20</span>
                                 </div>
-                                <div className="text-lg font-bold text-emerald-600">{ev.score}/{ev.totalPoints || 20}</div>
-                            </div>
-                        ))}
+                            ))}
+                            {report?.grades.filter((g: any) => g.average >= 14).length === 0 && (
+                                <div className="text-sm text-gray-400 italic p-3 text-center">Aucune matière forte pour l'instant.</div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="p-6">
+                        <h3 className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
+                            <Target className="w-4 h-4 text-orange-500" />
+                            À renforcer
+                        </h3>
+                        <div className="space-y-4">
+                            {report?.grades.filter((g: any) => g.average < 14).map((g: any, i: number) => (
+                                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50/50">
+                                    <span className="text-sm font-semibold text-[#0D2D5A]">{g.subject}</span>
+                                    <span className="text-sm font-bold text-orange-600">{g.average}/20</span>
+                                </div>
+                            ))}
+                            {report?.grades.filter((g: any) => g.average < 14).length === 0 && (
+                                <div className="text-sm text-gray-400 italic p-3 text-center">Aucune difficulté majeure constatée.</div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     );
 }
-

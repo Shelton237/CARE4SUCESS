@@ -415,6 +415,7 @@ const ensureTeacherFeedbackTable = async () => {
     `CREATE TABLE IF NOT EXISTS teacher_feedback (
       id CHAR(36) NOT NULL PRIMARY KEY,
       teacher_id VARCHAR(36) NOT NULL,
+      teacher_name VARCHAR(191) DEFAULT NULL,
       student_id VARCHAR(36) NOT NULL,
       student_name VARCHAR(191) NOT NULL,
       rating INT NOT NULL DEFAULT 5,
@@ -422,6 +423,16 @@ const ensureTeacherFeedbackTable = async () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  // Migration
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM teacher_feedback LIKE 'teacher_name'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE teacher_feedback ADD COLUMN teacher_name VARCHAR(191) DEFAULT NULL AFTER teacher_id");
+      console.log("Migration: Added teacher_name to teacher_feedback");
+    }
+  } catch (err) {
+    console.warn("Migration skip for teacher_feedback", err.message);
+  }
 };
 
 const ensureTeacherRatingsTable = async () => {
@@ -923,6 +934,7 @@ app.post("/api/parents/enroll", async (req, res) => {
   try {
     await connection.beginTransaction();
     const { parentName, parentEmail, parentPassword, parentPhone, childName, childEmail, childPassword, childLevel, subject } = req.body;
+    console.log("DEBUG: Enrollment start for", parentEmail);
 
     if (!parentEmail || !parentPassword || !childName) {
       throw new Error("Champs obligatoires manquants.");
