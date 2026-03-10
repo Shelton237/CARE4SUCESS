@@ -437,20 +437,6 @@ const ensureTeacherRatingsTable = async () => {
   );
 };
 
-const ensureUsersTable = async () => {
-  await pool.query(
-    `CREATE TABLE IF NOT EXISTS users (
-      id CHAR(36) NOT NULL DEFAULT (UUID()),
-      email VARCHAR(255) NOT NULL UNIQUE,
-      password VARCHAR(255) NOT NULL,
-      name VARCHAR(255) NOT NULL,
-      role ENUM('admin', 'teacher', 'parent', 'advisor', 'student') NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
-  );
-};
-
 const initDB = async () => {
   console.log("Initializing database...");
   try {
@@ -896,58 +882,53 @@ const upload = multer({ storage: storage });
 
 app.use("/uploads", express.static(uploadDir));
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/parents/enroll", async (req, res) => {
+  const connection = await pool.getConnection();
   try {
-    const { name, email, password, role } = req.body;
-    if (!name || !email || !password || !role) {
-      return res.status(400).json({ message: "Veuillez remplir tous les champs obligatoires." });
+    await connection.beginTransaction();
+    const { parentName, parentEmail, parentPassword, parentPhone, childName, childEmail, childPassword, childLevel, subject } = req.body;
+
+    if (!parentEmail || !parentPassword || !childName) {
+      throw new Error("Champs obligatoires manquants.");
     }
 
-    const [existing] = await pool.query("SELECT id FROM users WHERE email = ?", [email]);
-    if (existing.length > 0) {
-      return res.status(400).json({ message: "Cette adresse email est déjà utilisée." });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const id = crypto.randomUUID();
-
-    await pool.query(
-      "INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)",
-      [id, name, email, hashedPassword, role]
+    // 1. Create Parent User
+    const parentId = crypto.randomUUID();
+    const hashedParentPwd = bcrypt.hashSync(parentPassword, 10);
+    await connection.query(
+      "INSERT INTO users (id, name, email, password, role, phone, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?)",
+      [parentId, parentName, parentEmail, hashedParentPwd, parentPhone || null, parentName[0]]
     );
 
-    res.status(201).json({ user: { id, name, email, role }, message: "Inscription réussie." });
+    // 2. Create Student User (if email provided, else use a placeholder)
+    const studentId = crypto.randomUUID();
+    const finalStudentEmail = childEmail || `student.${crypto.randomBytes(4).toString('hex')}@care4success.cm`;
+    const hashedStudentPwd = bcrypt.hashSync(childPassword || "eleve123", 10);
+    await connection.query(
+      "INSERT INTO users (id, name, email, password, role, parent_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?)",
+      [studentId, childName, finalStudentEmail, hashedStudentPwd, parentId, childName[0]]
+    );
+
+    // 3. Create initial Request (lead)
+    const requestId = crypto.randomUUID();
+    await connection.query(
+      `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, status, request_date)
+       VALUES (?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
+      [requestId, parentName, childName, childLevel || "", subject || "", parentPhone]
+    );
+
+    await connection.commit();
+    res.status(201).json({
+      message: "Enrôlement réussi.",
+      parent: { id: parentId, email: parentEmail },
+      student: { id: studentId, email: finalStudentEmail }
+    });
   } catch (error) {
-    console.error("Register Error:", error);
-    res.status(500).json({ message: "Erreur lors de l'inscription." });
-  }
-});
-
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Check against real users DB first
-    const [rows] = await pool.query("SELECT * FROM users WHERE email = ?", [email]);
-
-    if (rows.length === 0) {
-      return res.status(401).json({ message: "Identifiants incorrects (utilisateur introuvable)." });
-    }
-
-    const user = rows[0];
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: "Identifiants incorrects (mot de passe invalide)." });
-    }
-
-    // Omit password from response
-    delete user.password;
-
-    res.json(user);
-  } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({ message: "Erreur lors de la connexion." });
+    await connection.rollback();
+    console.error("Enrollment Error:", error);
+    res.status(500).json({ message: error.message || "Erreur lors de l'enrôlement." });
+  } finally {
+    connection.release();
   }
 });
 
