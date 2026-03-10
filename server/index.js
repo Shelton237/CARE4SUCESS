@@ -437,6 +437,40 @@ const ensureTeacherRatingsTable = async () => {
   );
 };
 
+const ensureRequestsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS requests (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      parent_name VARCHAR(191) NOT NULL,
+      child_name VARCHAR(191) NOT NULL,
+      level VARCHAR(120) NOT NULL,
+      subject VARCHAR(120) NOT NULL,
+      phone VARCHAR(50) NOT NULL,
+      status ENUM('reçu', 'en traitement', 'assigné', 'clôturé') NOT NULL DEFAULT 'reçu',
+      request_date DATE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureAssignmentsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS assignments (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      child_name VARCHAR(191) NOT NULL,
+      level VARCHAR(120) NOT NULL,
+      subject VARCHAR(120) NOT NULL,
+      needs JSON DEFAULT NULL,
+      schedule VARCHAR(255) DEFAULT NULL,
+      candidates JSON DEFAULT NULL,
+      selected_teacher VARCHAR(191) DEFAULT NULL,
+      status ENUM('pending', 'confirmed', 'cancelled') NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
 const initDB = async () => {
   console.log("Initializing database...");
   try {
@@ -454,6 +488,8 @@ const initDB = async () => {
     await ensureQuizAttemptsTable();
     await ensureTeacherFeedbackTable();
     await ensureTeacherRatingsTable();
+    await ensureRequestsTable();
+    await ensureAssignmentsTable();
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
