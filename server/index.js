@@ -437,6 +437,20 @@ const ensureTeacherRatingsTable = async () => {
   );
 };
 
+const ensureUsersTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS users (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      role ENUM('admin', 'teacher', 'parent', 'advisor', 'student') NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
 const initDB = async () => {
   console.log("Initializing database...");
   try {
@@ -881,6 +895,61 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 app.use("/uploads", express.static(uploadDir));
+
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ message: "Veuillez remplir tous les champs obligatoires." });
+    }
+
+    const [existing] = await pool.query("SELECT id FROM users WHERE email = ?", [email]);
+    if (existing.length > 0) {
+      return res.status(400).json({ message: "Cette adresse email est déjà utilisée." });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const id = crypto.randomUUID();
+
+    await pool.query(
+      "INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)",
+      [id, name, email, hashedPassword, role]
+    );
+
+    res.status(201).json({ user: { id, name, email, role }, message: "Inscription réussie." });
+  } catch (error) {
+    console.error("Register Error:", error);
+    res.status(500).json({ message: "Erreur lors de l'inscription." });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check against real users DB first
+    const [rows] = await pool.query("SELECT * FROM users WHERE email = ?", [email]);
+
+    if (rows.length === 0) {
+      return res.status(401).json({ message: "Identifiants incorrects (utilisateur introuvable)." });
+    }
+
+    const user = rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Identifiants incorrects (mot de passe invalide)." });
+    }
+
+    // Omit password from response
+    delete user.password;
+
+    res.json(user);
+  } catch (error) {
+    console.error("Login Error:", error);
+    res.status(500).json({ message: "Erreur lors de la connexion." });
+  }
+});
 
 app.get("/api/health", async (_req, res) => {
   try {
