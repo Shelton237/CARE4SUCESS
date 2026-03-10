@@ -8,7 +8,7 @@ async function apiRequest(path, method = 'GET', body = null) {
     const options = {
         hostname: '127.0.0.1',
         port: 4000,
-        path,
+        path: '/api' + path,
         method,
         headers: {
             'Content-Type': 'application/json'
