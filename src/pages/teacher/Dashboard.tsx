@@ -1,16 +1,15 @@
 import {
     Users,
     CalendarDays,
-    Banknote,
     Star,
     Loader2,
     TrendingUp,
     ArrowUpRight,
     Clock,
-    CheckCircle2,
     Zap,
     BookOpen,
-    Target
+    Target,
+    UserCheck
 } from "lucide-react";
 import { formatFCFA } from "@/data/mock";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,13 +18,12 @@ import { fetchTeacherDashboard } from "@/api/backoffice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { motion } from "framer-motion";
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, Cell } from "recharts";
 
 export default function TeacherDashboard() {
     const { user } = useAuth();
 
-    const { data, isLoading, error } = useQuery({
+    const { data, isLoading } = useQuery({
         queryKey: ["teacherDashboard", user?.id],
         queryFn: () => fetchTeacherDashboard(user!.id),
         enabled: !!user?.id,
@@ -47,10 +45,6 @@ export default function TeacherDashboard() {
         avgRating: 5.0
     };
 
-    const earningsTrend = stats.previousEarnings > 0
-        ? Math.round(((stats.monthlyEarnings - stats.previousEarnings) / stats.previousEarnings) * 100)
-        : 12;
-
     const chartData = [
         { name: 'Lun', hours: 4 },
         { name: 'Mar', hours: 3 },
@@ -61,26 +55,29 @@ export default function TeacherDashboard() {
         { name: 'Dim', hours: 0 },
     ];
 
+    const studentsList: any[] = data?.students || [];
+    const topPerformer = studentsList.length > 0
+        ? [...studentsList].sort((a, b) => parseFloat(b.avgGrade) - parseFloat(a.avgGrade))[0]
+        : null;
+
     return (
         <div className="p-8 space-y-10 animate-in fade-in duration-1000">
-            {/* --- TEACHER WELCOME HEADER --- */}
+            {/* HEADER */}
             <div className="relative overflow-hidden bg-[#0D2D5A] p-10 rounded-[3rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 border border-white/5">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] -mr-40 -mt-40" />
-
                 <div className="relative z-10 flex items-center gap-8">
-                    <div className="w-20 h-20 bg-white/10 backdrop-blur-3xl rounded-[2rem] flex items-center justify-center p-5 border border-white/10 overflow-hidden shadow-inner">
+                    <div className="w-20 h-20 bg-white/10 backdrop-blur-3xl rounded-[2rem] flex items-center justify-center p-5 border border-white/10 shadow-inner">
                         {user?.avatar ? <span className="text-2xl font-black text-white">{user.avatar}</span> : <Users className="w-full h-full text-blue-400" />}
                     </div>
                     <div>
                         <h1 className="text-4xl font-black text-white tracking-tighter uppercase whitespace-nowrap">
                             Hello, <span className="text-blue-400">{user?.name?.split(" ").pop()}</span>
                         </h1>
-                        <p className="text-blue-100/60 font-bold text-sm mt-1 uppercase tracking-widest leading-none">
+                        <p className="text-blue-100/60 font-bold text-sm mt-1 uppercase tracking-widest">
                             Prêt pour vos sessions de la journée ?
                         </p>
                     </div>
                 </div>
-
                 <div className="relative z-10 hidden lg:flex gap-4">
                     <div className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/5 flex items-center gap-4 shadow-2xl">
                         <div className="text-right">
@@ -94,7 +91,7 @@ export default function TeacherDashboard() {
                 </div>
             </div>
 
-            {/* --- PREMIUM STAT CARDS --- */}
+            {/* STAT CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                     { label: "Prochaines Sessions", value: stats.upcomingSessions, icon: CalendarDays, color: "text-blue-500", bg: "bg-blue-50", sub: "Cette semaine" },
@@ -119,12 +116,12 @@ export default function TeacherDashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* --- WEEKLY WORKLOAD --- */}
+                {/* WEEKLY WORKLOAD */}
                 <Card className="lg:col-span-2 border-none shadow-xl rounded-[3rem] bg-white overflow-hidden">
                     <CardHeader className="p-10 pb-0 flex flex-row items-center justify-between">
                         <div>
                             <CardTitle className="text-2xl font-black text-[#0D2D5A] uppercase tracking-tighter">Charge de Travail</CardTitle>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Nombre d'heures de cours par jour</p>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Heures de cours / jour</p>
                         </div>
                         <Badge className="bg-blue-50 text-blue-600 border-none font-black text-[9px] uppercase tracking-widest px-4 py-2">Semaine Actuelle</Badge>
                     </CardHeader>
@@ -133,10 +130,7 @@ export default function TeacherDashboard() {
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={chartData}>
                                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#cbd5e1' }} dy={10} />
-                                    <Tooltip
-                                        cursor={{ fill: '#f8fafc' }}
-                                        contentStyle={{ backgroundColor: '#0D2D5A', borderRadius: '16px', border: 'none', color: '#fff' }}
-                                    />
+                                    <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ backgroundColor: '#0D2D5A', borderRadius: '16px', border: 'none', color: '#fff' }} />
                                     <Bar dataKey="hours" radius={[8, 8, 0, 0]} barSize={35}>
                                         {chartData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={entry.hours > 5 ? '#3b82f6' : '#94a3b8'} opacity={0.3} />
@@ -148,7 +142,7 @@ export default function TeacherDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* --- UPCOMING SESSIONS --- */}
+                {/* UPCOMING SESSIONS */}
                 <Card className="border-none shadow-xl rounded-[3rem] bg-white overflow-hidden flex flex-col">
                     <CardHeader className="p-10 pb-2">
                         <CardTitle className="text-2xl font-black text-[#0D2D5A] uppercase tracking-tighter">Top Agenda</CardTitle>
@@ -164,12 +158,12 @@ export default function TeacherDashboard() {
                             data.schedule.slice(0, 4).map((s: any) => (
                                 <div key={s.id} className="group p-4 rounded-3xl bg-gray-50/50 hover:bg-blue-50 transition-all duration-300 border border-transparent hover:border-blue-100 flex items-center gap-5">
                                     <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex flex-col items-center justify-center text-[#1A6CC8] border border-gray-100">
-                                        <div className="text-[10px] font-black uppercase leading-none">{s.day.slice(0, 3)}</div>
-                                        <div className="text-lg font-black leading-none mt-1">{s.time.split(':')[0]}h</div>
+                                        <div className="text-[10px] font-black uppercase leading-none">{s.day?.slice(0, 3) || "?"}</div>
+                                        <div className="text-lg font-black leading-none mt-1">{s.time?.split(':')[0] || "?"}h</div>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h4 className="font-black text-[#0D2D5A] uppercase tracking-tight truncate">{s.student}</h4>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{s.subject} • 1h30</p>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{s.subject} · 1h30</p>
                                     </div>
                                     <Button size="icon" variant="ghost" className="rounded-2xl group-hover:bg-white group-hover:text-blue-600">
                                         <ArrowUpRight className="w-5 h-5" />
@@ -177,50 +171,93 @@ export default function TeacherDashboard() {
                                 </div>
                             ))
                         )}
-                        {data?.schedule?.length > 4 && (
-                            <Button variant="ghost" className="w-full text-[10px] font-black uppercase text-gray-400 tracking-widest">Voir tout le planning</Button>
-                        )}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* --- PRO INSIGHT AREA --- */}
+            {/* MES ÉLÈVES + TOP PERFORMER */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <Card className="border-none shadow-xl rounded-[3rem] bg-gradient-to-br from-indigo-800 to-blue-600 text-white overflow-hidden p-10 relative">
-                    <Zap className="absolute top-10 right-10 w-24 h-24 text-white/10" />
-                    <div className="relative z-10">
-                        <Badge className="bg-white/10 text-white border-none px-3 py-1 font-black text-[9px] uppercase tracking-[0.2em] mb-6">Expert Insights</Badge>
-                        <h3 className="text-4xl font-black uppercase tracking-tighter italic mb-4 leading-[0.9]">Boost your <br />Impact Score</h3>
-                        <p className="text-blue-100/70 font-bold text-sm max-w-md mb-8">
-                            Partager des fiches de révisions personnalisées augmente l'engagement de vos élèves de 40%.
-                        </p>
-                        <Button className="rounded-2xl h-14 px-8 bg-white text-[#0D2D5A] font-black uppercase text-xs tracking-widest hover:scale-105 transition-all shadow-2xl">
-                            Créer une fiche ressource
-                        </Button>
-                    </div>
+                {/* MES ÉLÈVES - DONNÉES RÉELLES */}
+                <Card className="border-none shadow-xl rounded-[3rem] bg-white overflow-hidden">
+                    <CardHeader className="p-10 pb-4 flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-2xl font-black text-[#0D2D5A] uppercase tracking-tighter">Mes Élèves</CardTitle>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{studentsList.length} élève(s) suivi(s)</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center">
+                            <UserCheck className="w-6 h-6 text-green-500" />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="px-10 pb-10 space-y-4">
+                        {studentsList.length === 0 ? (
+                            <div className="text-center py-10 text-gray-400 font-bold text-sm italic">
+                                Aucun élève assigné pour l'instant
+                            </div>
+                        ) : (
+                            studentsList.map((s: any) => (
+                                <div key={s.id} className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 hover:bg-blue-50 transition-all duration-300">
+                                    <div className="w-12 h-12 rounded-2xl bg-[#0D2D5A] text-white flex items-center justify-center font-black text-sm">
+                                        {s.name?.slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-black text-[#0D2D5A] uppercase tracking-tight text-sm">{s.name}</h4>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{s.subject} · {s.level}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-xl font-black text-[#0D2D5A]">
+                                            {parseFloat(s.avgGrade).toFixed(1)}<span className="text-xs text-gray-400">/20</span>
+                                        </div>
+                                        <Badge className={`text-[9px] font-black border-none ${parseFloat(s.avgGrade) >= 14 ? 'bg-green-50 text-green-600' : parseFloat(s.avgGrade) >= 10 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'}`}>
+                                            {parseFloat(s.avgGrade) >= 14 ? '✓ Bon niveau' : parseFloat(s.avgGrade) >= 10 ? '~ Moyen' : '✗ En difficulté'}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </CardContent>
                 </Card>
 
                 <div className="space-y-6">
-                    <h3 className="text-xl font-black text-[#0D2D5A] uppercase tracking-tighter px-2">Top Performer ce mois</h3>
-                    <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <div className="w-20 h-20 rounded-[2rem] bg-green-50 text-green-600 flex items-center justify-center p-5 shadow-inner">
-                                <BookOpen className="w-full h-full" />
-                            </div>
-                            <div>
-                                <h4 className="text-2xl font-black text-[#0D2D5A] uppercase tracking-tighter">Koffi Diallo</h4>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Mathématiques • 3ème</p>
-                                <div className="flex gap-2 mt-4">
-                                    <Badge className="bg-blue-50 text-blue-600 border-none font-black text-[9px] uppercase tracking-widest">+2.5 pts</Badge>
-                                    <Badge className="bg-green-50 text-green-600 border-none font-black text-[9px] uppercase tracking-widest">Major</Badge>
+                    {/* PRO INSIGHT */}
+                    <Card className="border-none shadow-xl rounded-[3rem] bg-gradient-to-br from-indigo-800 to-blue-600 text-white overflow-hidden p-10 relative">
+                        <Zap className="absolute top-10 right-10 w-24 h-24 text-white/10" />
+                        <div className="relative z-10">
+                            <Badge className="bg-white/10 text-white border-none px-3 py-1 font-black text-[9px] uppercase tracking-[0.2em] mb-6">Expert Insights</Badge>
+                            <h3 className="text-4xl font-black uppercase tracking-tighter italic mb-4 leading-[0.9]">Boost your <br />Impact Score</h3>
+                            <p className="text-blue-100/70 font-bold text-sm max-w-md mb-8">
+                                Partager des fiches de révisions personnalisées augmente l'engagement de vos élèves de 40%.
+                            </p>
+                            <Button className="rounded-2xl h-14 px-8 bg-white text-[#0D2D5A] font-black uppercase text-xs tracking-widest hover:scale-105 transition-all shadow-2xl">
+                                Créer une fiche ressource
+                            </Button>
+                        </div>
+                    </Card>
+
+                    {/* TOP PERFORMER - DONNÉES RÉELLES */}
+                    {topPerformer && (
+                        <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-gray-100 flex items-center justify-between">
+                            <div className="flex items-center gap-6">
+                                <div className="w-20 h-20 rounded-[2rem] bg-green-50 text-green-600 flex items-center justify-center p-5 shadow-inner">
+                                    <BookOpen className="w-full h-full" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Top Performer</p>
+                                    <h4 className="text-2xl font-black text-[#0D2D5A] uppercase tracking-tighter">{topPerformer.name}</h4>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{topPerformer.subject} · {topPerformer.level}</p>
+                                    <div className="flex gap-2 mt-4">
+                                        <Badge className="bg-blue-50 text-blue-600 border-none font-black text-[9px] uppercase tracking-widest">{topPerformer.trend || '+1.2 pts'}</Badge>
+                                        <Badge className="bg-green-50 text-green-600 border-none font-black text-[9px] uppercase tracking-widest">Major</Badge>
+                                    </div>
                                 </div>
                             </div>
+                            <div className="text-right">
+                                <div className="text-4xl font-black text-[#0D2D5A]">
+                                    {parseFloat(topPerformer.avgGrade).toFixed(1)}<span className="text-sm font-bold text-gray-400">/20</span>
+                                </div>
+                                <p className="text-[10px] font-black text-blue-500 uppercase mt-1">Moyenne Quiz</p>
+                            </div>
                         </div>
-                        <div className="text-right">
-                            <div className="text-4xl font-black text-[#0D2D5A]">17.5<span className="text-sm font-bold text-gray-400">/20</span></div>
-                            <p className="text-[10px] font-black text-blue-500 uppercase mt-1">Moyenne Quiz</p>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>
