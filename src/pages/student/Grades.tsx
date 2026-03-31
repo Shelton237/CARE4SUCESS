@@ -80,9 +80,9 @@ export default function StudentGrades() {
                             <Legend wrapperStyle={{ fontSize: 11 }} />
                             <Line type="monotone" dataKey="maths" name="Maths" stroke="#1A6CC8" strokeWidth={2.5} dot={{ r: 4, fill: "#1A6CC8" }} activeDot={{ r: 6 }} />
                             <Line type="monotone" dataKey="francais" name="Français" stroke="#F5A623" strokeWidth={2} dot={{ r: 3 }} />
-                            <Line type="monotone" dataKey="anglais" name="Anglais" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />
-                            <Line type="monotone" dataKey="histgeo" name="Hist-Géo" stroke="#a855f7" strokeWidth={2} dot={{ r: 3 }} />
-                            <Line type="monotone" dataKey="svt" name="SVT" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
+                            <Line type="monotone" dataKey="anglais" name="Anglais" stroke="#0D2D5A" strokeWidth={2} dot={{ r: 3 }} />
+                            <Line type="monotone" dataKey="histgeo" name="Hist-Géo" stroke="#1D4ED8" strokeWidth={2} dot={{ r: 3 }} />
+                            <Line type="monotone" dataKey="svt" name="SVT" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>

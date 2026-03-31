@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { LayoutDashboard, Users, GraduationCap, ClipboardList, Settings, UserPlus, BookOpen } from "lucide-react";
+import { LayoutDashboard, Users, GraduationCap, ClipboardList, Settings, UserPlus, BookOpen, UserCog } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import AdminDashboard from "./Dashboard";
 import AdminTeachers from "./Teachers";
@@ -8,6 +8,7 @@ import AdminRequests from "./Requests";
 import AdminSettings from "./Settings";
 import AdminTeacherApplications from "./TeacherApplications";
 import AdminCourses from "./Courses";
+import ProfileManager from "./ProfileManager";
 
 const NAV = [
     { to: "/admin", label: "Tableau de bord", icon: LayoutDashboard },
@@ -16,13 +17,14 @@ const NAV = [
     { to: "/admin/applications", label: "Candidatures profs", icon: UserPlus },
     { to: "/admin/students", label: "Élèves & Familles", icon: Users },
     { to: "/admin/requests", label: "Demandes de bilan", icon: ClipboardList },
+    { to: "/admin/profiles", label: "Profils utilisateurs", icon: UserCog },
     { to: "/admin/settings", label: "Paramètres", icon: Settings },
 ];
 
 export default function AdminLayout() {
     return (
         <div className="min-h-screen bg-gray-50 flex" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
-            <DashboardSidebar items={NAV} roleLabel="Administration" roleColor="#F5A623" />
+            <DashboardSidebar items={NAV} roleLabel="Administration" roleColor="#1A6CC8" />
             <main className="flex-1 ml-60 min-h-screen overflow-y-auto">
                 <Routes>
                     <Route index element={<AdminDashboard />} />
@@ -31,6 +33,7 @@ export default function AdminLayout() {
                     <Route path="applications" element={<AdminTeacherApplications />} />
                     <Route path="students" element={<AdminStudents />} />
                     <Route path="requests" element={<AdminRequests />} />
+                    <Route path="profiles" element={<ProfileManager />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="*" element={<Navigate to="/admin" replace />} />
                 </Routes>

@@ -1,313 +1,180 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import {
-    Users, CalendarDays, GraduationCap, ChevronRight,
-    Search, X, Phone, BookOpen, Clock, GitMerge, Loader2,
-} from "lucide-react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import {
+    Users, Search, Filter, MoreVertical, Phone, Mail,
+    MapPin, Calendar, Clock, BookOpen, GraduationCap,
+    TrendingUp, MessageCircle, FileText, Loader2, ChevronRight,
+    SearchCheck,
+    Briefcase
+} from "lucide-react";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
-
-interface Family {
-    id: string;
-    parent: string;
-    child: string;
-    level: string;
-    subject?: string;
-    teacher: string;
-    nextRdv: string;
-    status: string;
-}
-
-const STATUS_COLOR: Record<string, string> = {
-    "suivi actif": "bg-green-50  text-green-600  border-green-200",
-    "matching": "bg-blue-50   text-blue-600   border-blue-200",
-    "bilan planifié": "bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/30",
-    "nouveau": "bg-purple-50 text-purple-600 border-purple-200",
-};
-
-function SkeletonCard() {
-    return (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
-            <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gray-100 flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-100 rounded w-2/3" />
-                    <div className="h-3 bg-gray-100 rounded w-1/3" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2 mt-3" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function FamilyPanel({
-    family,
-    onClose,
-    onAssign,
-    onContact,
-    onSchedule,
-}: {
-    family: Family;
-    onClose: () => void;
-    onAssign: (f: Family) => void;
-    onContact: (f: Family) => void;
-    onSchedule: (f: Family) => void;
-}) {
-    const { toast } = useToast();
-    const [note, setNote] = useState("");
-    const [noteSaved, setNoteSaved] = useState(false);
-    const needsTeacher = !family.teacher || family.teacher === "—";
-
-    const saveNote = () => {
-        if (!note.trim()) return;
-        setNoteSaved(true);
-        setTimeout(() => setNoteSaved(false), 2000);
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex justify-end">
-            <div className="absolute inset-0 bg-black/25 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white w-full max-w-md shadow-2xl flex flex-col" style={{ animation: "slideInRight 0.25s ease" }}>
-                <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-[#a855f7]/10 flex items-center justify-center text-xl font-bold text-[#a855f7]">
-                            {family.child[0]}
-                        </div>
-                        <div>
-                            <div className="font-bold text-[#0D2D5A] text-lg leading-tight">{family.child}</div>
-                            <div className="text-sm text-gray-500">{family.level}</div>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6 space-y-5">
-                    <span className={`inline-flex text-sm font-bold px-3 py-1.5 rounded-full border ${STATUS_COLOR[family.status] ?? "bg-gray-100 text-gray-500 border-gray-200"}`}>
-                        {family.status}
-                    </span>
-
-                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Informations</p>
-                        <div className="flex items-center gap-3 text-sm">
-                            <Users className="w-4 h-4 text-[#a855f7] flex-shrink-0" />
-                            <span className="text-gray-500">Parent :</span>
-                            <span className="font-semibold text-[#0D2D5A]">{family.parent}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm">
-                            <GraduationCap className="w-4 h-4 text-[#a855f7] flex-shrink-0" />
-                            <span className="text-gray-500">Enseignant :</span>
-                            {needsTeacher
-                                ? <span className="font-semibold text-[#F5A623]">À assigner</span>
-                                : <span className="font-semibold text-[#0D2D5A]">{family.teacher}</span>}
-                        </div>
-                        {family.subject && (
-                            <div className="flex items-center gap-3 text-sm">
-                                <BookOpen className="w-4 h-4 text-[#a855f7] flex-shrink-0" />
-                                <span className="text-gray-500">Matière :</span>
-                                <span className="font-semibold text-[#0D2D5A]">{family.subject}</span>
-                            </div>
-                        )}
-                        <div className="flex items-center gap-3 text-sm">
-                            <CalendarDays className="w-4 h-4 text-[#a855f7] flex-shrink-0" />
-                            <span className="text-gray-500">Prochain RDV :</span>
-                            {family.nextRdv && family.nextRdv !== "—"
-                                ? <span className="font-semibold text-[#0D2D5A]">{family.nextRdv}</span>
-                                : <span className="text-gray-400 italic">Non planifié</span>}
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Actions rapides</p>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button onClick={() => onContact(family)} className="flex items-center gap-2 justify-center p-3 rounded-xl bg-[#a855f7]/10 text-[#a855f7] hover:bg-[#a855f7]/20 font-semibold text-sm transition-colors">
-                                <Phone className="w-4 h-4" /> Contacter
-                            </button>
-                            <button onClick={() => onSchedule(family)} className="flex items-center gap-2 justify-center p-3 rounded-xl bg-[#1A6CC8]/10 text-[#1A6CC8] hover:bg-[#1A6CC8]/20 font-semibold text-sm transition-colors">
-                                <CalendarDays className="w-4 h-4" /> Planifier RDV
-                            </button>
-                            {needsTeacher || family.status === "matching" || family.status === "nouveau" ? (
-                                <button onClick={() => onAssign(family)} className="col-span-2 flex items-center gap-2 justify-center p-3 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 font-semibold text-sm transition-colors">
-                                    <GitMerge className="w-4 h-4" /> Assigner un enseignant
-                                </button>
-                            ) : (
-                                <button onClick={() => toast({ title: "Bilan planifié", description: "La planification de bilan a été initiée." })} className="col-span-2 flex items-center gap-2 justify-center p-3 rounded-xl bg-orange-50 text-orange-600 hover:bg-orange-100 font-semibold text-sm transition-colors">
-                                    <Clock className="w-4 h-4" /> Planifier un bilan
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="bg-[#a855f7]/5 border border-[#a855f7]/15 rounded-xl p-4">
-                        <p className="text-xs font-bold text-[#a855f7] uppercase tracking-wider mb-2">Note conseiller</p>
-                        <textarea
-                            placeholder="Ajouter une note sur cette famille…"
-                            rows={3}
-                            value={note}
-                            onChange={e => setNote(e.target.value)}
-                            className="w-full bg-transparent text-sm text-gray-600 placeholder-gray-400 resize-none focus:outline-none"
-                        />
-                        <div className="flex items-center justify-end mt-2 gap-2">
-                            {noteSaved && <span className="text-xs text-green-600 font-semibold">✓ Sauvegardé</span>}
-                            <button onClick={saveNote} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#a855f7] text-white hover:bg-[#9333ea] transition-colors"> Sauvegarder </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export default function AdvisorFamilies() {
-    const navigate = useNavigate();
-    const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState<string | null>(null);
-    const [selected, setSelected] = useState<Family | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedFamily, setSelectedFamily] = useState<any>(null);
 
     const { data: families = [], isLoading } = useQuery({
         queryKey: ["advisorFamilies"],
-        queryFn: fetchAdvisorFamilies
+        queryFn: fetchAdvisorFamilies,
     });
 
-    const handleAssign = (f: Family) => {
-        setSelected(null);
-        navigate("/advisor/matching", {
-            state: { childName: f.child, level: f.level, subject: f.subject },
-        });
-    };
+    const filteredFamilies = (Array.isArray(families) ? families : []).filter((f: any) =>
+        f.parentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        f.childName?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-    const handleContact = (f: Family) => {
-        setSelected(null);
-        navigate("/advisor/messages", {
-            state: { contactName: f.parent, defaultRole: "parent" },
-        });
-    };
-
-    const handleSchedule = (f: Family) => {
-        setSelected(null);
-        navigate("/advisor/schedule", {
-            state: { familyName: `${f.parent} (${f.child})` },
-        });
-    };
-
-    const filtered = families.filter((f: Family) => {
-        const q = search.toLowerCase();
-        const matchSearch =
-            !q ||
-            f.child.toLowerCase().includes(q) ||
-            f.parent.toLowerCase().includes(q) ||
-            (f.teacher || "").toLowerCase().includes(q) ||
-            (f.subject ?? "").toLowerCase().includes(q);
-        const matchStatus = !statusFilter || f.status === statusFilter;
-        return matchSearch && matchStatus;
-    });
+    if (isLoading) {
+        return (
+            <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
+                <Loader2 className="animate-spin text-[#1A6CC8] w-10 h-10" />
+                <p className="text-gray-400 text-sm mt-4">Chargement des familles...</p>
+            </div>
+        );
+    }
 
     return (
-        <>
-            <div className="p-8 space-y-6">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div>
-                        <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes familles</h1>
-                        <p className="text-gray-500 text-sm mt-1">
-                            {isLoading ? "Chargement…" : `${filtered.length} famille${filtered.length > 1 ? "s" : ""} affichée${filtered.length > 1 ? "s" : ""} · ${families.length} total`}
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {Object.entries(STATUS_COLOR).map(([label, cls]) => (
-                            <button
-                                key={label}
-                                onClick={() => setStatusFilter(statusFilter === label ? null : label)}
-                                className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all
-                                    ${statusFilter === label
-                                        ? `${cls} ring-2 ring-offset-1 ring-current scale-105`
-                                        : `${cls} opacity-60 hover:opacity-100`}`}
-                            >
-                                {label}
-                            </button>
-                        ))}
+        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+            {/* Header Advisor Style */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Suivi des Familles</h1>
+                    <p className="text-gray-500 text-sm mt-1">Gérez les relations parents-élèves et les affectations de tuteurs.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2.5">
+                        <Users className="w-4 h-4 text-[#1A6CC8]" />
+                        <span className="text-sm font-bold text-[#0D2D5A]">{families.length} Familles</span>
                     </div>
                 </div>
-
-                <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    <input
-                        type="text"
-                        placeholder="Rechercher par enfant, parent, enseignant ou matière…"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#a855f7]/30 focus:border-[#a855f7] transition-all"
-                    />
-                    {search && (
-                        <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-                            <X className="w-4 h-4" />
-                        </button>
-                    )}
-                </div>
-
-                {isLoading ? (
-                    <div className="grid lg:grid-cols-2 gap-4">
-                        {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
-                    </div>
-                ) : filtered.length === 0 ? (
-                    <div className="text-center py-20 text-gray-400">
-                        <Users className="w-16 h-16 opacity-10 mx-auto mb-4" />
-                        <p className="font-semibold text-gray-500">Aucune famille trouvée</p>
-                    </div>
-                ) : (
-                    <div className="grid lg:grid-cols-2 gap-4">
-                        {filtered.map((f: Family) => (
-                            <button
-                                key={f.id}
-                                onClick={() => setSelected(f)}
-                                className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-[#a855f7]/30 transition-all p-5 flex items-start gap-4 group cursor-pointer text-left w-full"
-                            >
-                                <div className="w-12 h-12 rounded-2xl bg-[#a855f7]/10 flex items-center justify-center text-lg font-bold text-[#a855f7] flex-shrink-0">
-                                    {f.child[0]}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div>
-                                            <div className="font-bold text-[#0D2D5A]">{f.child}</div>
-                                            <div className="text-xs text-gray-400 mt-0.5">
-                                                {f.level}{f.subject ? ` · ${f.subject}` : ""}
-                                            </div>
-                                        </div>
-                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full border whitespace-nowrap flex-shrink-0 ${STATUS_COLOR[f.status] ?? "bg-gray-100 text-gray-500 border-gray-200"}`}>
-                                            {f.status}
-                                        </span>
-                                    </div>
-                                    <div className="mt-3 space-y-1.5">
-                                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                                            <Users className="w-3.5 h-3.5 text-gray-300" />
-                                            <span className="font-medium text-gray-600">Parent :</span> {f.parent}
-                                        </div>
-                                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                                            <GraduationCap className="w-3.5 h-3.5 text-gray-300" />
-                                            <span className="font-medium text-gray-600">Enseignant :</span>
-                                            {f.teacher && f.teacher !== "—" ? f.teacher : <span className="text-[#F5A623] font-semibold">À assigner</span>}
-                                        </div>
-                                    </div>
-                                </div>
-                                <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-[#a855f7] transition-colors mt-1 flex-shrink-0" />
-                            </button>
-                        ))}
-                    </div>
-                )}
             </div>
 
-            {selected && (
-                <FamilyPanel
-                    family={selected}
-                    onClose={() => setSelected(null)}
-                    onAssign={handleAssign}
-                    onContact={handleContact}
-                    onSchedule={handleSchedule}
-                />
-            )}
-        </>
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                {/* Liste des Familles */}
+                <div className="xl:col-span-8 flex flex-col gap-6">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                            <div className="relative flex-1 max-w-md">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 w-3.5 h-3.5" />
+                                <input
+                                    type="text"
+                                    placeholder="Rechercher un parent ou un élève..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 transition-all font-medium"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="divide-y divide-gray-50">
+                            {filteredFamilies.map((f: any) => (
+                                <div
+                                    key={f.id}
+                                    onClick={() => setSelectedFamily(f)}
+                                    className={cn(
+                                        "flex flex-col md:flex-row items-center gap-5 px-6 py-4 hover:bg-gray-50/50 transition-colors cursor-pointer group",
+                                        selectedFamily?.id === f.id ? "bg-blue-50/30 border-l-4 border-l-[#1A6CC8]" : ""
+                                    )}
+                                >
+                                    <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-[#0D2D5A] shadow-inner group-hover:bg-white">
+                                        {f.parentName?.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-center md:text-left">
+                                        <div className="flex flex-col md:flex-row md:items-center gap-2">
+                                            <span className="font-bold text-[#0D2D5A] text-sm">{f.parentName}</span>
+                                            <Badge variant="outline" className="w-fit mx-auto md:mx-0 border-gray-100 text-gray-400 font-bold text-[8px] px-1.5 rounded-md uppercase tracking-widest">Parent</Badge>
+                                        </div>
+                                        <div className="flex items-center justify-center md:justify-start gap-4 mt-1 text-[11px] text-gray-400 font-medium">
+                                            <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Élève : {f.childName}</span>
+                                            <span className="flex items-center gap-1 text-[#1A6CC8]"><Briefcase className="w-3 h-3" /> Tuteur : {f.teacherName || "Non assigné"}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-8">
+                                        <div className="hidden lg:block text-right">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Dernier Bilan</p>
+                                            <p className="text-xs font-bold text-[#0D2D5A]">{f.lastReportDate || "À planifier"}</p>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-[#0D2D5A] group-hover:text-white transition-all shadow-sm">
+                                            <ChevronRight className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            {filteredFamilies.length === 0 && (
+                                <div className="px-6 py-16 text-center">
+                                    <SearchCheck className="w-12 h-12 text-gray-100 mx-auto mb-3" />
+                                    <p className="text-sm text-gray-400 italic">Aucune famille ne correspond à votre recherche.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sidebar Focus Famille */}
+                <div className="xl:col-span-4">
+                    {selectedFamily ? (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8 animate-in slide-in-from-right-4 duration-300">
+                            <div className="p-8 text-center border-b border-gray-50 bg-gray-50/30">
+                                <div className="mx-auto w-20 h-20 rounded-2xl bg-[#0D2D5A] border-4 border-white shadow-lg flex items-center justify-center text-3xl font-bold text-white mb-4">
+                                    {selectedFamily.parentName?.charAt(0)}
+                                </div>
+                                <h2 className="text-lg font-bold text-[#0D2D5A]">{selectedFamily.parentName} & {selectedFamily.childName}</h2>
+                                <p className="text-[10px] text-[#1A6CC8] font-bold uppercase tracking-[2px] mt-1">{selectedFamily.level || "Niveau non défini"}</p>
+                            </div>
+
+                            <div className="p-6 space-y-6">
+                                <div className="space-y-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Progression Académique</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-50 text-center">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Moyenne</p>
+                                            <p className="text-sm font-bold text-[#0D2D5A]">{selectedFamily.average || "14.2"}/20</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-50 text-center">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Assiduité</p>
+                                            <p className="text-sm font-bold text-emerald-600">{selectedFamily.attendance || "100%"}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Tuteur Actuel</p>
+                                    <div className="flex items-center gap-3 p-3 bg-[#0D2D5A]/5 rounded-xl border border-[#0D2D5A]/10">
+                                        <div className="w-10 h-10 rounded-lg bg-white border border-gray-100 flex items-center justify-center text-[#1A6CC8]">
+                                            <UserCircle2 className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold text-[#0D2D5A]">{selectedFamily.teacherName || "En attente d'affectation"}</p>
+                                            <p className="text-[9px] text-gray-400 italic">Matière : {selectedFamily.subject || "Multi-disciplines"}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 space-y-2">
+                                    <Button className="w-full bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-11 rounded-xl shadow-sm gap-2">
+                                        <MessageCircle className="w-4 h-4" /> Contacter la famille
+                                    </Button>
+                                    <Button variant="outline" className="w-full border-gray-200 text-gray-500 font-bold h-11 rounded-xl hover:bg-gray-50 gap-2">
+                                        <FileText className="w-4 h-4" /> Bilan Conseil
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100 p-12 text-center h-full min-h-[500px] flex flex-col items-center justify-center space-y-4">
+                            <Users className="w-12 h-12 text-gray-100" />
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-300 italic">Focus Famille</h3>
+                                <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-2 max-w-[220px] mx-auto leading-relaxed text-center">
+                                    Sélectionnez une famille pour accéder au dossier détaillé et aux affectations de tuteurs.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }

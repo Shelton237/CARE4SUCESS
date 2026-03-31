@@ -1,3 +1,4 @@
+import type { User, Role } from "@/types/user";
 import type {
     BackofficeRequest,
     AdvisorAssignment,
@@ -26,14 +27,86 @@ import type {
 type ScheduleRole = "teacher" | "parent" | "student";
 type CourseRole = "teacher" | "student" | "admin";
 
+export type UpdateUserProfilePayload = {
+    name?: string;
+    phone?: string;
+    avatar?: string;
+    location?: string;
+    timezone?: string;
+    language?: string;
+    bio?: string;
+    notifyEmail?: boolean;
+    notifySms?: boolean;
+    notifyWhatsapp?: boolean;
+    bankName?: string;
+    bankIban?: string;
+    bankAccountHolder?: string;
+    availability?: any[];
+};
+
+export type RegisterUserPayload = UpdateUserProfilePayload & {
+    name: string;
+    email: string;
+    password: string;
+    role: Role;
+    childrenIds?: string[];
+    parentIds?: string[];
+    teacherIds?: string[];
+    studentIds?: string[];
+};
+
+export type RegisterUserResponse = {
+    token?: string;
+    user: User;
+};
+
+export type AdminDashboardResponse = {
+    stats: {
+        totalTeachers: number;
+        activeStudents: number;
+        pendingRequests: number;
+        monthlyRevenue: number;
+        previousRevenue: number;
+        satisfactionRate: number;
+        newFamiliesThisMonth: number;
+    };
+    monthlyRevenue: { month: string; amount: number }[];
+    latestRequests: {
+        id: string;
+        parent: string;
+        child: string;
+        level: string;
+        subject: string;
+        status: string;
+        date: string;
+        phone?: string | null;
+    }[];
+};
+
 const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
+
+const getAuthToken = () => {
+    if (typeof window === "undefined") return null;
+    try {
+        return window.sessionStorage.getItem("c4s_token");
+    } catch {
+        return null;
+    }
+};
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const isFormData = options?.body instanceof FormData;
-    const headers: any = { ...options?.headers };
+    const headers: Record<string, string> = {};
+    if (options?.headers) {
+        Object.assign(headers, options.headers as Record<string, string>);
+    }
 
     if (!isFormData && !headers["Content-Type"]) {
         headers["Content-Type"] = "application/json";
+    }
+    const authToken = getAuthToken();
+    if (authToken && !headers.Authorization) {
+        headers.Authorization = `Bearer ${authToken}`;
     }
 
     const fetchOptions: RequestInit = {
@@ -116,7 +189,7 @@ export const fetchEarningsHistory = (teacherId: string) =>
     request<any[]>(`/teachers/${teacherId}/earnings-history`);
 
 export const fetchStudentProgress = (studentId: string) =>
-    request<any[]>(`/parents/${studentId}/progress`);
+    request<any[]>(`/students/${studentId}/progress`);
 
 export const fetchStudentGrades = (studentId: string) =>
     request<any[]>(`/students/${studentId}/grades`);
@@ -186,6 +259,28 @@ export const assignCourseToStudent = (
         body: JSON.stringify(payload),
     });
 
+export const fetchCourseBookmarks = (userId: string) =>
+    request<string[]>(`/users/${userId}/course-bookmarks`);
+
+export const addCourseBookmark = (userId: string, courseId: string) =>
+    request<any>(`/users/${userId}/course-bookmarks/${courseId}`, {
+        method: "POST",
+    });
+
+export const removeCourseBookmark = (userId: string, courseId: string) =>
+    request<any>(`/users/${userId}/course-bookmarks/${courseId}`, {
+        method: "DELETE",
+    });
+
+export const updateCourseProgress = (userId: string, courseId: string, payload: { lessonId: string; completed?: boolean }) =>
+    request<any>(`/users/${userId}/courses/${courseId}/progress`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
+export const fetchActiveCourse = (userId: string) =>
+    request<{ courseId: string; lastLessonId: string; courseTitle: string; subject: string; lessonTitle: string } | null>(`/users/${userId}/active-course`);
+
 export const fetchQuiz = (quizId: string, includeCorrect = false) => {
     const params = includeCorrect ? "?includeCorrect=true" : "";
     return request<QuizSummary>(`/quizzes/${quizId}${params}`);
@@ -238,8 +333,12 @@ export const fetchTeacherDashboard = (teacherId: string) =>
 export const fetchTeacherEarnings = (teacherId: string) =>
     request<any[]>(`/teachers/${teacherId}/earnings`);
 
+
 export const fetchTeacherStudents = (teacherId: string) =>
     request<any[]>(`/teachers/${teacherId}/students`);
+
+export const fetchTeacherContacts = (teacherId: string) =>
+    request<any[]>(`/teachers/${teacherId}/contacts`);
 
 export const fetchAdvisorDashboard = (advisorId: string) =>
     request<any>(`/advisors/${advisorId}/dashboard`);
@@ -270,8 +369,20 @@ export const markMessageAsRead = (messageId: string) =>
         method: "PATCH",
     });
 
+export const uploadMessageAttachment = (payload: FormData) =>
+    request<{ fileUrl: string }>("/messages/upload", {
+        method: "POST",
+        body: payload,
+    });
+
 export const submitTeacherFeedback = (payload: CreateTeacherFeedbackPayload) =>
     request<TeacherFeedback>("/teacher-feedback", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
+export const submitStudentEvaluation = (studentId: string, payload: { teacherId: string; teacherName: string; rating: number; comment: string }) =>
+    request<any>(`/students/${studentId}/evaluations`, {
         method: "POST",
         body: JSON.stringify(payload),
     });
@@ -311,6 +422,15 @@ export const updateHomework = (id: string, payload: Partial<Homework>) =>
         body: JSON.stringify(payload),
     });
 
+export const uploadHomeworkFile = (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<any>(`/homework/${id}/upload`, {
+        method: "POST",
+        body: formData,
+    });
+};
+
 export const fetchLessonResources = (role: ScheduleRole, userId: string) =>
     request<LessonResource[]>(`/lesson-resources/${role}/${userId}`);
 
@@ -328,7 +448,122 @@ export const deleteLessonResource = (id: string) =>
 export const fetchNotifications = (userId: string) =>
     request<Notification[]>(`/notifications/${userId}`);
 
+export const globalSearch = (query: string) =>
+    request<{ courses: any[]; teachers: any[]; homework: any[] }>(`/search?q=${encodeURIComponent(query)}`);
+
 export const markNotificationAsRead = (id: string) =>
     request<any>(`/notifications/${id}/read`, {
         method: "PATCH"
     });
+
+export const fetchAdminDashboard = () =>
+    request<AdminDashboardResponse>("/admin/dashboard");
+
+export const sessionCheckIn = (sessionId: string) =>
+    request<{ success: boolean }>(`/sessions/${sessionId}/check-in`, { method: "PATCH" });
+
+export const sessionCheckOut = (sessionId: string) =>
+    request<{ success: boolean }>(`/sessions/${sessionId}/check-out`, { method: "PATCH" });
+
+export const submitSessionReport = (sessionId: string, payload: {
+    reportText: string;
+    understandingScore: number;
+    rating?: number;
+    comment?: string;
+    lessonId?: string;
+    courseId?: string;
+}) =>
+    request<{ success: boolean }>(`/sessions/${sessionId}/report`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
+export const registerUser = (payload: RegisterUserPayload) =>
+    request<RegisterUserResponse>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
+export const fetchUsers = (role?: Role) => {
+    const params = role ? `?role=${role}` : "";
+    return request<User[]>(`/users${params}`);
+};
+
+export const fetchUserProfile = (userId: string) =>
+    request<User>(`/users/${userId}`);
+
+export const updateUserProfile = (userId: string, payload: UpdateUserProfilePayload) =>
+    request<User>(`/users/${userId}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+    });
+
+export const updateUserPassword = (
+    userId: string,
+    payload: { currentPassword: string; newPassword: string }
+) =>
+    request<{ success: boolean }>(`/users/${userId}/password`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+
+export const uploadUserAvatar = (userId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    return request<User>(`/users/${userId}/avatar`, {
+        method: "POST",
+        body: formData,
+    });
+};
+
+export const fetchChildrenByParent = (parentId: string) =>
+    request<User[]>(`/relationships/parent-child?parentId=${parentId}`);
+
+export const fetchParentsByStudent = (studentId: string) =>
+    request<User[]>(`/relationships/parent-child?childId=${studentId}`);
+
+export const fetchTeachersByStudent = (studentId: string) =>
+    request<User[]>(`/relationships/student-teacher?studentId=${studentId}`);
+
+export const fetchStudentsLinkedToTeacher = (teacherId: string) =>
+    request<User[]>(`/relationships/student-teacher?teacherId=${teacherId}`);
+
+export const linkParentChildRelation = (parentId: string, childId: string) =>
+    request("/relationships/parent-child", {
+        method: "POST",
+        body: JSON.stringify({ parentId, childId }),
+    });
+
+export const unlinkParentChildRelation = (parentId: string, childId: string) =>
+    request("/relationships/parent-child", {
+        method: "DELETE",
+        body: JSON.stringify({ parentId, childId }),
+    });
+
+export const linkStudentTeacherRelation = (studentId: string, teacherId: string) =>
+    request("/relationships/student-teacher", {
+        method: "POST",
+        body: JSON.stringify({ studentId, teacherId }),
+    });
+
+export const unlinkStudentTeacherRelation = (studentId: string, teacherId: string) =>
+    request("/relationships/student-teacher", {
+        method: "DELETE",
+        body: JSON.stringify({ studentId, teacherId }),
+    });
+
+export const submitGradeDispute = (payload: { studentId: string; sessionId: string; reason: string }) =>
+    request("/grade-disputes", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
+export const fetchStudentHomework = (studentId: string) =>
+    request<Homework[]>(`/students/${studentId}/homework`);
+
+export const fetchStudentProgressData = (studentId: string) =>
+    request<any[]>(`/students/${studentId}/progress`);
+
+export const fetchStudentSessions = (studentId: string) =>
+    request<ScheduleSession[]>(`/students/${studentId}/sessions`);
+

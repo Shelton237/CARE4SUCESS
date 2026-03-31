@@ -1,15 +1,31 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, TrendingUp, Receipt, BookOpen, Award } from "lucide-react";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { 
+    CalendarDays, 
+    TrendingUp, 
+    Receipt, 
+    BookOpen, 
+    Award, 
+    ArrowUpRight, 
+    Clock,
+    CreditCard,
+    ChevronRight,
+    Loader2,
+    ShieldCheck
+} from "lucide-react";
 import { fetchScheduleByRole, fetchParentOverview, fetchParentProgress } from "@/api/backoffice";
 import type { ScheduleSession } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
-import { formatFCFA } from "@/data/mock";
+import { formatFCFA } from "@/lib/money";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 export default function ParentDashboard() {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     const scheduleQuery = useQuery({
         queryKey: ["schedule", "parent", user?.id],
@@ -33,193 +49,175 @@ export default function ParentDashboard() {
     const overview = overviewQuery.data;
     const progressData = progressQuery.data ?? [];
 
-    const planningPreview = useMemo<ScheduleSession[]>(() => schedule.slice(0, 6), [schedule]);
+    const planningPreview = useMemo<ScheduleSession[]>(() => schedule.slice(0, 4), [schedule]);
 
-    const avgTrend =
-        overview && overview.previousAvg > 0
-            ? Math.round(((overview.currentAvg - overview.previousAvg) / overview.previousAvg) * 100)
-            : 0;
+    if (!user) return null;
 
-    if (!user) {
+    if (overviewQuery.isLoading) {
         return (
-            <div className="p-8 text-sm text-gray-500 font-medium italic">
-                Connectez-vous pour accéder au suivi parent.
+            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+                <Loader2 className="w-8 h-8 animate-spin text-[#0D2D5A]" />
             </div>
         );
     }
 
+    const stats = [
+        { label: "Moyenne Actuelle", value: overview ? `${overview.currentAvg}/20` : "—", icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
+        { label: "Séances ce mois", value: overview?.sessionsThisMonth ?? "0", icon: BookOpen, color: "text-emerald-600", bg: "bg-emerald-50" },
+        { label: "Prochain Cours", value: overview?.upcomingSession?.date?.split('-').slice(1).reverse().join('/') || "—", icon: CalendarDays, color: "text-amber-600", bg: "bg-amber-50" },
+        { label: "Total Investi", value: overview ? formatFCFA(overview.totalPaidThisMonth).split(' ')[0] : "0", icon: CreditCard, color: "text-indigo-600", bg: "bg-indigo-50" },
+    ];
+
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Bonjour, {user.name.split(" ")[0]} 👋</h1>
-                    <p className="text-gray-500 text-sm mt-1">
-                        {overview
-                            ? (
-                                <>
-                                    Suivi de <span className="font-semibold text-[#0D2D5A]">{overview.childName}</span> – {overview.childLevel}
-                                </>
-                            )
-                            : "Suivi académique en temps réel pour votre famille."}
-                    </p>
+        <div className="p-8 space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
+            {/* Header Sober & Pro */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="outline" className="border-[#0D2D5A] text-[#0D2D5A] font-black px-3 py-1 bg-white uppercase tracking-tighter text-[10px]">
+                            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Compte Parent Premium
+                        </Badge>
+                    </div>
+                    <h1 className="text-3xl font-black text-[#0D2D5A] tracking-tight">Centre de Pilotage</h1>
+                    <p className="text-gray-500 font-medium">Suivi en temps réel de <span className="text-[#0D2D5A] font-bold">{overview?.childName || "votre famille"}</span>.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Button onClick={() => navigate("/parent/children")} variant="outline" className="border-gray-200 hover:bg-gray-50 font-bold h-12 px-6 rounded-xl">
+                        Mes Enfants
+                    </Button>
+                    <Button onClick={() => navigate("/parent/invoices")} className="bg-[#0D2D5A] hover:bg-[#1a3d6e] font-bold h-12 px-6 rounded-xl shadow-lg shadow-blue-900/10">
+                        Mes Factures
+                    </Button>
                 </div>
             </div>
 
-            {(overviewQuery.isError || progressQuery.isError || scheduleQuery.isError) && (
-                <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl p-4 flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    Impossible de charger toutes les données. Merci de réessayer plus tard.
-                </div>
-            )}
-
+            {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    label="Prochain cours"
-                    value={overview?.upcomingSession?.date ?? "—"}
-                    icon={CalendarDays}
-                    accentColor="#1A6CC8"
-                    description={overview?.upcomingSession?.time ?? (overviewQuery.isLoading ? "Chargement..." : "Planning à jour")}
-                />
-                <StatCard
-                    label="Séances ce mois"
-                    value={overview?.sessionsThisMonth ?? "—"}
-                    icon={BookOpen}
-                    accentColor="#22c55e"
-                    description={overview?.focusSubject ?? "Séances pedagogiques"}
-                />
-                <StatCard
-                    label="Moyenne actuelle"
-                    value={overview ? `${overview.currentAvg}/20` : "—"}
-                    icon={TrendingUp}
-                    accentColor="#F5A623"
-                    trend={overview ? avgTrend : undefined}
-                    description="vs mois dernier"
-                />
-                <StatCard
-                    label="Règlements"
-                    value={overview ? formatFCFA(overview.totalPaidThisMonth) : "—"}
-                    icon={Receipt}
-                    accentColor="#a855f7"
-                    description={overview?.pendingInvoice ? "Attention : facture en attente" : "Compte à jour ✔︎"}
-                />
+                {stats.map((s, i) => (
+                    <Card key={i} className="border-none shadow-sm bg-white overflow-hidden group hover:shadow-md transition-all duration-300">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div className={`p-3 rounded-2xl ${s.bg} ${s.color} transition-transform group-hover:scale-110 duration-300`}>
+                                    <s.icon className="w-6 h-6" />
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{s.label}</p>
+                                <h3 className="text-2xl font-black text-[#0D2D5A] mt-1">{s.value}</h3>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
 
-            <div className="grid lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <h2 className="text-base font-bold text-[#0D2D5A]">Évolution académique</h2>
-                            <p className="text-xs text-gray-400 mt-0.5">Parcours pluridisciplinaire</p>
-                        </div>
-                    </div>
-                    {progressQuery.isLoading ? (
-                        <div className="flex-1 flex items-center justify-center py-20 text-gray-300">
-                            <TrendingUp className="w-8 h-8 animate-pulse" />
-                        </div>
-                    ) : progressData.length === 0 ? (
-                        <div className="flex-1 flex items-center justify-center py-20 text-sm text-gray-400 italic">Aucune donnée disponible.</div>
-                    ) : (
-                        <div className="h-[250px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={progressData}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                    <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 600, fill: "#94a3b8" }} axisLine={false} tickLine={false} dy={10} />
-                                    <YAxis domain={[0, 20]} hide />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#0D2D5A', border: 'none', borderRadius: '12px', color: '#fff' }}
-                                        formatter={(v: number) => [`${v}/20`]}
-                                    />
-                                    <Legend wrapperStyle={{ fontSize: 11, fontWeight: 700, paddingTop: 20 }} iconType="circle" />
-                                    <Line type="monotone" dataKey="maths" name="Maths" stroke="#1A6CC8" strokeWidth={3} dot={{ r: 4, fill: "#1A6CC8", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} />
-                                    <Line type="monotone" dataKey="francais" name="Français" stroke="#F5A623" strokeWidth={3} dot={{ r: 4, fill: "#F5A623", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} />
-                                    <Line type="monotone" dataKey="anglais" name="Anglais" stroke="#22c55e" strokeWidth={3} dot={{ r: 4, fill: "#22c55e", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Chart Section */}
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white rounded-[2rem]">
+                    <CardHeader className="p-8 pb-4">
+                        <CardTitle className="text-xl font-black text-[#0D2D5A] flex items-center gap-3">
+                            <div className="w-1.5 h-6 bg-[#0D2D5A] rounded-full" />
+                            Évolution Académique
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8 pt-0">
+                        {progressData.length > 0 ? (
+                            <div className="h-[300px] w-full mt-6">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={progressData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 700, fill: "#94a3b8" }} axisLine={false} tickLine={false} dy={10} />
+                                        <YAxis domain={[0, 20]} hide />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#0D2D5A', border: 'none', borderRadius: '16px', color: '#fff', fontWeight: 'bold' }}
+                                            itemStyle={{ color: '#fff' }}
+                                        />
+                                        <Legend wrapperStyle={{ paddingTop: 20, fontSize: 12, fontWeight: 800 }} iconType="circle" />
+                                        <Line type="monotone" dataKey="maths" name="Maths" stroke="#1A6CC8" strokeWidth={4} dot={{ r: 4, fill: "#1A6CC8", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} />
+                                        <Line type="monotone" dataKey="francais" name="Français" stroke="#F5A623" strokeWidth={4} dot={{ r: 4, fill: "#F5A623", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <div className="h-[300px] flex items-center justify-center text-gray-400 font-medium italic">
+                                Données en cours de synchronisation...
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-base font-bold text-[#0D2D5A]">Planning récent</h2>
-                        <CalendarDays className="w-4 h-4 text-[#1A6CC8]" />
-                    </div>
-                    {scheduleQuery.isLoading ? (
-                        <div className="space-y-4">
-                            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-50 rounded-xl animate-pulse" />)}
-                        </div>
-                    ) : planningPreview.length === 0 ? (
-                        <div className="text-sm text-gray-400 text-center py-10 italic">Aucune séance.</div>
-                    ) : (
-                        <div className="space-y-3">
+                {/* Right Sidebar - Planning & Evaluations */}
+                <div className="space-y-6">
+                    {/* Planning Card */}
+                    <Card className="border-none shadow-sm bg-white rounded-[2rem]">
+                        <CardHeader className="p-6 pb-2">
+                            <CardTitle className="text-sm font-black text-[#0D2D5A] uppercase tracking-widest flex items-center justify-between">
+                                Planning Récent
+                                <CalendarDays className="w-4 h-4 text-blue-500" />
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6 pt-2 space-y-3">
                             {planningPreview.map((s) => (
-                                <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                                    <div
-                                        className={`w-2 h-2 rounded-full flex-shrink-0 ${s.status === "effectué" ? "bg-emerald-500" : s.status === "à venir" ? "bg-[#1A6CC8]" : "bg-gray-200"
-                                            }`}
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-xs font-bold text-[#0D2D5A] truncate">
-                                            {s.day} {s.date}
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 font-medium">
-                                            {s.time} · {s.subject}
-                                        </div>
+                                <div key={s.id} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100 group">
+                                    <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center group-hover:bg-[#0D2D5A] group-hover:text-white transition-colors duration-300">
+                                        <Clock className="w-4 h-4" />
                                     </div>
-                                    <span
-                                        className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${s.status === "effectué"
-                                                ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                                : s.status === "à venir"
-                                                    ? "bg-blue-50 text-blue-600 border-blue-100"
-                                                    : "bg-gray-50 text-gray-400 border-gray-100"
-                                            }`}
-                                    >
-                                        {s.status}
-                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-black text-[#0D2D5A] truncate">{s.day} {s.date}</p>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase">{s.subject} · {s.time}</p>
+                                    </div>
+                                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-600 font-black text-[9px] border-none uppercase px-2">
+                                        Ok
+                                    </Badge>
                                 </div>
                             ))}
+                            <Button variant="ghost" className="w-full text-xs font-black text-blue-600 hover:bg-blue-50 mt-2" onClick={() => navigate("/parent/schedule")}>
+                                Consulter l'agenda complet <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* Alert Facture */}
+                    {overview?.pendingInvoice && (
+                        <div className="bg-[#0D2D5A] rounded-[2rem] p-6 text-white shadow-xl relative overflow-hidden group">
+                            <div className="relative z-10 space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/10 rounded-lg">
+                                        <Receipt className="w-4 h-4 text-blue-300" />
+                                    </div>
+                                    <span className="text-xs font-black uppercase tracking-widest text-blue-200">Facturation</span>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold opacity-80">Règlement en attente</p>
+                                    <h4 className="text-2xl font-black mt-1">{formatFCFA(overview.pendingInvoice.amount)}</h4>
+                                </div>
+                                <Button className="w-full bg-white text-[#0D2D5A] hover:bg-blue-50 font-black h-11 rounded-xl shadow-lg group-hover:scale-[1.02] transition-transform">
+                                    Régler maintenant
+                                </Button>
+                            </div>
+                            <CreditCard className="absolute -bottom-4 -right-4 w-24 h-24 text-white/5 -rotate-12 group-hover:scale-110 transition-transform duration-700" />
                         </div>
                     )}
                 </div>
             </div>
 
-            {overview?.pendingInvoice && (
-                <div className="bg-[#F5A623]/5 border border-[#F5A623]/20 rounded-2xl p-5 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-[#F5A623]/10 flex items-center justify-center shadow-sm">
-                            <Receipt className="w-6 h-6 text-[#F5A623]" />
-                        </div>
-                        <div>
-                            <div className="font-bold text-[#0D2D5A] text-sm">Facture en attente</div>
-                            <div className="text-xs text-gray-500 font-medium">
-                                {overview.pendingInvoice.description} · <span className="text-[#0D2D5A] font-bold">{formatFCFA(overview.pendingInvoice.amount)}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <button className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-[#F5A623] hover:bg-[#e09612] transition-all shadow-md active:scale-95">
-                        Régler maintenant
-                    </button>
-                </div>
-            )}
-
+            {/* Evaluations Section */}
             {overview?.latestEvaluations && overview.latestEvaluations.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <h2 className="text-base font-bold text-[#0D2D5A] mb-6 flex items-center gap-2">
-                        <Award className="w-5 h-5 text-[#F5A623]" />
-                        Dernières évaluations de l'élève
-                    </h2>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                        {overview.latestEvaluations.map((evaluation) => (
-                            <div key={evaluation.id} className="border border-gray-50 bg-gray-50/30 rounded-2xl p-4 flex items-center justify-between group hover:bg-white hover:border-gray-100 hover:shadow-sm transition-all">
-                                <div className="min-w-0">
-                                    <div className="font-bold text-[#0D2D5A] text-sm truncate">{evaluation.quizTitle}</div>
-                                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
-                                        {evaluation.subject} · {new Date(evaluation.createdAt).toLocaleDateString()}
+                <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm space-y-6">
+                    <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
+                        <h2 className="text-xl font-black text-[#0D2D5A]">Derniers Succès Académiques</h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {overview.latestEvaluations.slice(0, 4).map((evalItem) => (
+                            <div key={evalItem.id} className="p-5 rounded-3xl bg-gray-50 border border-transparent hover:border-blue-100 hover:bg-white transition-all shadow-sm group">
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="p-2.5 rounded-xl bg-white shadow-sm group-hover:bg-amber-50 transition-colors">
+                                        <Award className="w-4 h-4 text-amber-500" />
                                     </div>
+                                    <span className="text-lg font-black text-[#0D2D5A]">{evalItem.score}/{evalItem.totalPoints}</span>
                                 </div>
-                                <div className="text-lg font-black text-[#1A6CC8] ml-4">
-                                    {evaluation.score}/{evaluation.totalPoints}
-                                </div>
+                                <h4 className="font-bold text-[#0D2D5A] text-sm truncate">{evalItem.quizTitle}</h4>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{evalItem.subject}</p>
                             </div>
                         ))}
                     </div>

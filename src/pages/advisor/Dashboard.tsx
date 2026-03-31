@@ -8,7 +8,7 @@ const STATUS_COLOR: Record<string, string> = {
     "suivi actif": "bg-green-50 text-green-600",
     "matching": "bg-blue-50 text-blue-600",
     "bilan planifié": "bg-[#F5A623]/10 text-[#F5A623]",
-    "nouveau": "bg-purple-50 text-purple-600",
+    "nouveau": "bg-blue-50 text-[#1A6CC8]",
 };
 
 const REQUEST_STATUS_COLOR: Record<string, string> = {
@@ -30,7 +30,7 @@ export default function AdvisorDashboard() {
     if (isLoading) {
         return (
             <div className="p-8 flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 animate-spin text-[#a855f7]" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
                 <span className="ml-3 text-gray-500">Chargement du tableau de bord...</span>
             </div>
         );
@@ -61,7 +61,7 @@ export default function AdvisorDashboard() {
                     label="Familles assignées"
                     value={stats.assignedFamilies}
                     icon={Users}
-                    accentColor="#a855f7"
+                    accentColor="#1A6CC8"
                 />
                 <StatCard
                     label="Demandes en attente"
@@ -88,13 +88,13 @@ export default function AdvisorDashboard() {
             </div>
 
             {/* Temps moyen réponse */}
-            <div className="flex items-center gap-4 p-5 bg-[#a855f7]/5 border border-[#a855f7]/20 rounded-2xl">
-                <div className="w-10 h-10 rounded-xl bg-[#a855f7]/15 flex items-center justify-center flex-shrink-0">
-                    <Clock className="w-5 h-5 text-[#a855f7]" />
+            <div className="flex items-center gap-4 p-5 bg-[#1A6CC8]/5 border border-[#1A6CC8]/20 rounded-2xl">
+                <div className="w-10 h-10 rounded-xl bg-[#1A6CC8]/15 flex items-center justify-center flex-shrink-0">
+                    <Clock className="w-5 h-5 text-[#1A6CC8]" />
                 </div>
                 <div>
                     <div className="font-bold text-[#0D2D5A] text-sm">Temps moyen de réponse aux familles</div>
-                    <div className="text-2xl font-bold text-[#a855f7] mt-0.5">{stats.avgResponseTime}</div>
+                    <div className="text-2xl font-bold text-[#1A6CC8] mt-0.5">{stats.avgResponseTime}</div>
                 </div>
                 <div className="ml-auto text-right">
                     <div className="text-xs text-gray-400">Objectif plateforme</div>
@@ -112,7 +112,7 @@ export default function AdvisorDashboard() {
                         ) : (
                             families.map((f: any) => (
                                 <div key={f.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                                    <div className="w-9 h-9 rounded-full bg-[#a855f7]/10 flex items-center justify-center text-xs font-bold text-[#a855f7] flex-shrink-0">
+                                    <div className="w-9 h-9 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-xs font-bold text-[#1A6CC8] flex-shrink-0">
                                         {f.child[0]}
                                     </div>
                                     <div className="flex-1 min-w-0">

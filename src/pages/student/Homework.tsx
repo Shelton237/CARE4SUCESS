@@ -1,299 +1,348 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-    BookOpen,
-    CheckCircle2,
-    Clock,
-    ChevronDown,
-    Download,
-    Upload,
-    ExternalLink,
+import { useNavigate } from "react-router-dom";
+import { 
+    ClipboardList, 
+    Calendar, 
+    Clock, 
+    CheckCircle2, 
+    Loader2,
     FileText,
-    MessageSquare,
-    ClipboardList,
-    Link as LinkIcon,
-    FileUp,
-    Bookmark,
-    Terminal,
-    Sparkles,
+    Upload,
+    ChevronRight,
     Search,
-    Filter,
-    Calendar,
-    ArrowRight
+    MessageSquare,
+    AlertCircle,
+    X,
+    Star
 } from "lucide-react";
-import { fetchHomework, updateHomework, fetchLessonResources } from "@/api/backoffice";
+import { fetchStudentHomework, updateHomework, uploadHomeworkFile } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { motion, AnimatePresence } from "framer-motion";
-
-const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; Icon: any }> = {
-    "à faire": { label: "À faire", bg: "bg-orange-50/50 text-orange-600", color: "border-orange-200", Icon: Clock },
-    "rendu": { label: "Rendu", bg: "bg-blue-50/50 text-blue-600", color: "border-blue-200", Icon: CheckCircle2 },
-    "corrigé": { label: "Corrigé", bg: "bg-green-600 text-white", color: "border-transparent", Icon: FileText },
-};
 
 export default function StudentHomework() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [filter, setFilter] = useState<"tous" | "à faire" | "rendu" | "corrigé">("tous");
-    const [selectedHw, setSelectedHw] = useState<string | null>(null);
+    const [search, setSearch] = useState("");
+    const [viewingCorrection, setViewingCorrection] = useState<any>(null);
+    const [depositingHw, setDepositingHw] = useState<any>(null);
 
-    const { data: homework = [], isLoading: loadingHw } = useQuery({
-        queryKey: ["homework", "student", user?.id],
-        queryFn: () => fetchHomework("student", user?.id || ""),
-        enabled: !!user?.id
+    const { data: homework, isLoading } = useQuery({
+        queryKey: ["studentHomework", user?.id],
+        queryFn: () => fetchStudentHomework(user!.id),
+        enabled: Boolean(user?.id),
     });
 
-    const { data: resources = [], isLoading: loadingRes } = useQuery({
-        queryKey: ["lesson-resources", "student", user?.id],
-        queryFn: () => fetchLessonResources("student", user?.id || ""),
-        enabled: !!user?.id
-    });
-
-    const submitMutation = useMutation({
-        mutationFn: ({ id, submissionUrl }: { id: string, submissionUrl: string }) =>
-            updateHomework(id, { status: 'rendu', submissionUrl }),
+    const depositMutation = useMutation({
+        mutationFn: ({ id, file }: { id: string, file: File }) => 
+            uploadHomeworkFile(id, file),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["homework"] });
-            toast.success("Bravo ! Ton travail a été envoyé au professeur.");
+            queryClient.invalidateQueries({ queryKey: ["studentHomework", user?.id] });
+            toast.success("Devoir déposé avec succès ! Ton professeur sera notifié.");
+            setDepositingHw(null);
+        },
+        onError: () => {
+            toast.error("Une erreur est survenue lors du dépôt.");
         }
     });
 
-    const pendingCount = homework.filter((h) => h.status === "à faire").length;
-    const visibleHw = filter === "tous" ? homework : homework.filter((h) => h.status === filter);
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !depositingHw) return;
+
+        depositMutation.mutate({ id: depositingHw.id, file });
+    };
+
+    const filteredHomework = homework?.filter(hw => 
+        hw.title.toLowerCase().includes(search.toLowerCase()) ||
+        hw.subject.toLowerCase().includes(search.toLowerCase())
+    ) || [];
+
+    if (isLoading) {
+        return (
+            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+                <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
+            </div>
+        );
+    }
 
     return (
         <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            {/* Header simple et épuré */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes Devoirs & Ressources</h1>
-                    <p className="text-gray-500 text-sm mt-1">
-                        Consulte tes exercices à faire et télécharge tes supports de cours.
-                    </p>
+                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes Devoirs</h1>
+                    <p className="text-gray-500 text-sm mt-1">Gère tes travaux à rendre et consulte tes corrections.</p>
                 </div>
-                {pendingCount > 0 && (
-                    <div className="flex items-center gap-2 bg-orange-50 px-4 py-2 rounded-xl border border-orange-100">
-                        <Sparkles className="w-4 h-4 text-orange-500" />
-                        <span className="text-sm font-bold text-orange-700">{pendingCount} devoir{pendingCount > 1 ? 's' : ''} à faire</span>
-                    </div>
-                )}
+
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                        type="text" 
+                        placeholder="Rechercher..." 
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-10 pr-4 py-2.5 bg-white border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6CC8]/5 focus:border-[#1A6CC8] transition-all w-64 shadow-sm"
+                    />
+                </div>
             </div>
 
-            <Tabs defaultValue="homework" className="space-y-6">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                    <TabsList className="bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
-                        <TabsTrigger value="homework" className="rounded-lg px-8 py-2 data-[state=active]:bg-[#0D2D5A] data-[state=active]:text-white font-bold text-sm transition-all">
-                            Mes Devoirs
-                        </TabsTrigger>
-                        <TabsTrigger value="resources" className="rounded-lg px-8 py-2 data-[state=active]:bg-[#0D2D5A] data-[state=active]:text-white font-bold text-sm transition-all">
-                            Bibliothèque
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <div className="flex gap-1 bg-white p-1 rounded-xl border border-gray-100 shadow-sm overflow-x-auto max-w-full">
-                        {(["tous", "à faire", "rendu", "corrigé"] as const).map((f) => (
-                            <button
-                                key={f}
-                                onClick={() => setFilter(f)}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap ${filter === f
-                                    ? "bg-gray-100 text-[#0D2D5A]"
-                                    : "text-gray-400 hover:text-[#0D2D5A] hover:bg-gray-50"
-                                    }`}
-                            >
-                                {f.charAt(0).toUpperCase() + f.slice(1)}
-                            </button>
-                        ))}
-                    </div>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                {/* Main list */}
+                <div className="xl:col-span-2 space-y-4">
+                    {filteredHomework.length > 0 ? (
+                        <div className="grid gap-4">
+                            {filteredHomework.map((hw) => (
+                                <HomeworkItem 
+                                    key={hw.id} 
+                                    hw={hw} 
+                                    onViewCorrection={() => setViewingCorrection(hw)} 
+                                    onDeposit={() => setDepositingHw(hw)}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-2xl p-12 text-center border border-dashed border-gray-200">
+                            <ClipboardList className="w-10 h-10 text-gray-200 mx-auto mb-4" />
+                            <p className="text-gray-400 text-sm font-medium">Aucun devoir à afficher.</p>
+                        </div>
+                    )}
                 </div>
 
-                <TabsContent value="homework" className="m-0 outline-none">
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                        {loadingHw ? (
-                            <div className="col-span-full py-12 text-center text-gray-400 italic font-medium">Chargement de tes devoirs...</div>
-                        ) : visibleHw.length === 0 ? (
-                            <div className="col-span-full py-12 bg-white rounded-2xl border border-dashed border-gray-200 text-center space-y-3">
-                                <ClipboardList className="w-10 h-10 text-gray-200 mx-auto" />
-                                <p className="text-gray-400 font-medium italic">Aucun devoir ne correspond à ce filtre.</p>
-                            </div>
-                        ) : (
-                            <AnimatePresence mode="popLayout">
-                                {visibleHw.map((hw, idx) => {
-                                    const cfg = STATUS_CONFIG[hw.status] || STATUS_CONFIG["à faire"];
-                                    const isSelected = selectedHw === hw.id;
-                                    return (
-                                        <motion.div
-                                            key={hw.id}
-                                            layout
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, scale: 0.95 }}
-                                            transition={{ delay: idx * 0.05 }}
-                                        >
-                                            <Card className={`group bg-white border border-gray-100 transition-all duration-300 rounded-2xl overflow-hidden ${isSelected ? "shadow-md ring-1 ring-[#1A6CC8]/20" : "shadow-sm hover:shadow-md hover:border-gray-200"}`}>
-                                                <CardContent className="p-0">
-                                                    <div className="p-6 flex items-center gap-5">
-                                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border transition-colors ${cfg.bg} ${cfg.color}`}>
-                                                            <cfg.Icon className="w-6 h-6" />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2 mb-0.5">
-                                                                <h3 className="text-lg font-bold text-[#0D2D5A] truncate">{hw.title}</h3>
-                                                                {hw.status === 'corrigé' && <Badge className="bg-emerald-500 text-white rounded-md text-[10px] uppercase font-bold border-none px-1.5 py-0">Corrigé</Badge>}
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
-                                                                <span className="text-[#1A6CC8]">{hw.subject}</span>
-                                                                <span>•</span>
-                                                                <span className="truncate">{hw.teacherName}</span>
-                                                            </div>
-                                                        </div>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => setSelectedHw(isSelected ? null : hw.id)}
-                                                            className={`rounded-xl h-10 w-10 transition-all ${isSelected ? "bg-blue-50 text-[#1A6CC8] rotate-180" : "text-gray-300 hover:text-gray-500 hover:bg-gray-50"}`}
-                                                        >
-                                                            <ChevronDown className="w-5 h-5" />
-                                                        </Button>
-                                                    </div>
-
-                                                    <AnimatePresence>
-                                                        {isSelected && (
-                                                            <motion.div
-                                                                initial={{ height: 0, opacity: 0 }}
-                                                                animate={{ height: "auto", opacity: 1 }}
-                                                                exit={{ height: 0, opacity: 0 }}
-                                                                className="overflow-hidden bg-gray-50/50 border-t border-gray-100"
-                                                            >
-                                                                <div className="p-6 grid md:grid-cols-[1fr_2fr] gap-6">
-                                                                    <div className="space-y-5">
-                                                                        <div className="space-y-2">
-                                                                            <h4 className="text-[11px] font-bold text-[#1A6CC8] uppercase tracking-wider flex items-center gap-2">
-                                                                                <Calendar className="w-3.5 h-3.5" /> À rendre pour le
-                                                                            </h4>
-                                                                            <p className="text-xl font-bold text-[#0D2D5A]">{hw.dueDate}</p>
-                                                                        </div>
-                                                                        <div className="space-y-3">
-                                                                            <h4 className="text-[11px] font-bold text-[#1A6CC8] uppercase tracking-wider">Supports partagés</h4>
-                                                                            {hw.fileUrl ? (
-                                                                                <Button variant="outline" className="w-full h-12 rounded-xl bg-white border-gray-200 text-[#0D2D5A] font-bold shadow-sm hover:bg-[#0D2D5A] hover:text-white transition-all active:scale-95" asChild>
-                                                                                    <a href={hw.fileUrl} target="_blank"><Download className="w-4 h-4 mr-2" /> Télécharger</a>
-                                                                                </Button>
-                                                                            ) : <p className="text-xs text-gray-400 italic">Aucune consigne en fichier joint.</p>}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col justify-center">
-                                                                        {hw.status === 'à faire' ? (
-                                                                            <div className="space-y-5 text-center">
-                                                                                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto text-[#1A6CC8]">
-                                                                                    <FileUp className="w-6 h-6" />
-                                                                                </div>
-                                                                                <div>
-                                                                                    <h5 className="text-base font-bold text-[#0D2D5A]">Envoyer mon travail</h5>
-                                                                                    <p className="text-[11px] font-medium text-gray-400 mt-1">Colle le lien Drive, Notion ou l'URL de ton document</p>
-                                                                                </div>
-                                                                                <div className="flex gap-2">
-                                                                                    <Input id={`sub-${hw.id}`} placeholder="Lien vers mon travail..." className="h-12 rounded-xl border-gray-200 bg-gray-50/30 focus:bg-white text-sm" />
-                                                                                    <Button
-                                                                                        onClick={() => {
-                                                                                            const input = document.getElementById(`sub-${hw.id}`) as HTMLInputElement;
-                                                                                            if (input.value) submitMutation.mutate({ id: hw.id, submissionUrl: input.value });
-                                                                                        }}
-                                                                                        disabled={submitMutation.isPending}
-                                                                                        className="h-12 w-12 rounded-xl bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white shrink-0 shadow-sm transition-all active:scale-95"
-                                                                                    >
-                                                                                        {submitMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-                                                                                    </Button>
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : hw.status === 'corrigé' ? (
-                                                                            <div className="bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100">
-                                                                                <div className="flex items-center gap-3 mb-3">
-                                                                                    <div className="p-2 bg-emerald-500 rounded-lg text-white"><MessageSquare className="w-4 h-4" /></div>
-                                                                                    <h5 className="font-bold text-emerald-800 text-sm uppercase tracking-tight">Feedback Enseignant</h5>
-                                                                                </div>
-                                                                                <p className="text-emerald-900 font-medium italic leading-relaxed text-xs">
-                                                                                    "{hw.feedback || "Excellent travail, continue ainsi !"}"
-                                                                                </p>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="text-center py-4 space-y-4">
-                                                                                <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto text-emerald-600">
-                                                                                    <CheckCircle2 className="w-7 h-7" />
-                                                                                </div>
-                                                                                <div>
-                                                                                    <h5 className="text-base font-bold text-[#0D2D5A]">C'est envoyé !</h5>
-                                                                                    <p className="text-[11px] font-medium text-gray-400 mt-1">Ton travail est prêt pour la correction.</p>
-                                                                                </div>
-                                                                                <Button variant="ghost" className="text-[#1A6CC8] font-bold text-xs hover:bg-blue-50" asChild>
-                                                                                    <a href={hw.submissionUrl || "#"} target="_blank"><LinkIcon className="w-4 h-4 mr-2" /> Voir mon envoi</a>
-                                                                                </Button>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </motion.div>
-                                                        )}
-                                                    </AnimatePresence>
-                                                </CardContent>
-                                            </Card>
-                                        </motion.div>
-                                    );
-                                })}
-                            </AnimatePresence>
-                        )}
+                {/* Sidebar */}
+                <div className="space-y-6">
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                        <h3 className="text-sm font-bold text-[#0D2D5A] mb-6">Récapitulatif</h3>
+                        <div className="space-y-2">
+                            <SummaryRow label="À faire" count={filteredHomework.filter(h => h.status === 'à faire').length} color="text-orange-500" bg="bg-orange-50" />
+                            <SummaryRow label="En attente" count={filteredHomework.filter(h => h.status === 'rendu').length} color="text-[#1A6CC8]" bg="bg-blue-50" />
+                            <SummaryRow label="Terminés" count={filteredHomework.filter(h => h.status === 'corrigé').length} color="text-green-600" bg="bg-green-50" />
+                        </div>
                     </div>
-                </TabsContent>
 
-                <TabsContent value="resources" className="m-0 outline-none">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {loadingRes ? (
-                            <div className="col-span-full py-12 text-center text-gray-400 italic">Chargement des ressources...</div>
-                        ) : resources.length === 0 ? (
-                            <div className="col-span-full py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-center space-y-3">
-                                <BookOpen className="w-10 h-10 text-gray-200 mx-auto" />
-                                <p className="text-gray-400 font-medium italic">Aucune ressource partagée pour le moment.</p>
+                    <div className="bg-[#0D2D5A] rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group">
+                        <div className="relative z-10">
+                            <h3 className="font-bold text-base mb-2">Besoin d'aide ?</h3>
+                            <p className="text-xs text-blue-200 leading-relaxed mb-4">
+                                Contacte ton professeur référent si tu rencontres des difficultés sur un exercice.
+                            </p>
+                            <button 
+                                onClick={() => navigate("/student/messages")}
+                                className="w-full bg-white text-[#0D2D5A] py-2.5 rounded-xl text-[10px] font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 uppercase tracking-widest"
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                                Ouvrir le chat
+                            </button>
+                        </div>
+                        <AlertCircle className="absolute -bottom-4 -right-4 w-20 h-20 text-white/5 -rotate-12" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Correction Modal */}
+            {viewingCorrection && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setViewingCorrection(null)} />
+                    <div className="bg-white rounded-2xl shadow-xl relative z-10 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
+                        <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-green-50/30">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center text-green-600">
+                                    <CheckCircle2 className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-[#0D2D5A]">Correction Profesionnelle</h3>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{viewingCorrection.subject}</p>
+                                </div>
                             </div>
-                        ) : (
-                            resources.map((res, idx) => (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    key={res.id}
-                                    className="group"
-                                >
-                                    <Card className="bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all duration-300 rounded-2xl overflow-hidden flex flex-col h-full">
-                                        <div className="p-6 flex flex-col flex-1">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className={`p-3 rounded-xl shadow-sm transition-all group-hover:scale-110 ${res.fileType === 'pdf' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}>
-                                                    {res.fileType === 'pdf' ? <FileText className="w-6 h-6" /> : <LinkIcon className="w-6 h-6" />}
-                                                </div>
-                                                <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border-gray-100">{res.subject}</Badge>
+                            <button onClick={() => setViewingCorrection(null)} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-8 space-y-8">
+                            <div className="space-y-2">
+                                <h4 className="text-sm font-bold text-[#0D2D5A]">{viewingCorrection.title}</h4>
+                                <p className="text-xs text-gray-500 leading-relaxed italic border-l-2 border-gray-100 pl-4">
+                                    {viewingCorrection.description}
+                                </p>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 relative overflow-hidden group">
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Star className="w-4 h-4 text-orange-400 fill-current" />
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Retour du Professeur</span>
+                                    </div>
+                                    <div className="text-sm text-[#0D2D5A] font-medium leading-relaxed whitespace-pre-line">
+                                        {viewingCorrection.feedback || "Aucun commentaire détaillé disponible pour le moment. Félicitations pour ton travail !"}
+                                    </div>
+                                    <div className="mt-6 pt-4 border-t border-gray-200/50 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-full bg-[#1A6CC8] flex items-center justify-center text-white text-[10px] font-bold">
+                                                {viewingCorrection.teacherName?.charAt(0)}
                                             </div>
-                                            <h4 className="text-base font-bold text-[#0D2D5A] leading-tight mb-2 group-hover:text-[#1A6CC8] transition-colors line-clamp-2">{res.title}</h4>
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6">Par <span className="text-[#0D2D5A]">{res.teacherName}</span></p>
-                                            <div className="mt-auto">
-                                                <Button className="w-full h-10 rounded-xl bg-gray-50 hover:bg-[#0D2D5A] text-[#0D2D5A] hover:text-white font-bold text-xs transition-all active:scale-95" asChild>
-                                                    <a href={res.fileUrl} target="_blank">Consulter</a>
-                                                </Button>
-                                            </div>
+                                            <span className="text-xs font-bold text-[#0D2D5A]">{viewingCorrection.teacherName}</span>
                                         </div>
-                                    </Card>
-                                </motion.div>
-                            )
-                            ))}
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase">{viewingCorrection.dueDate}</span>
+                                    </div>
+                                </div>
+                                <CheckCircle2 className="absolute -bottom-4 -right-4 w-24 h-24 text-green-500/5 -rotate-12" />
+                            </div>
+
+                            <button 
+                                onClick={() => setViewingCorrection(null)}
+                                className="w-full bg-[#0D2D5A] text-white py-4 rounded-xl text-xs font-bold hover:bg-[#153460] transition-all shadow-lg"
+                            >
+                                J'ai compris
+                            </button>
+                        </div>
                     </div>
-                </TabsContent>
-            </Tabs>
+                </div>
+            )}
+
+            {/* Deposit Modal */}
+            {depositingHw && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setDepositingHw(null)} />
+                    <div className="bg-white rounded-2xl shadow-xl relative z-10 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
+                        <div className="p-6 border-b border-gray-50 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-[#1A6CC8]">
+                                    <Upload className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-[#0D2D5A]">Déposer mon travail</h3>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{depositingHw.subject}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setDepositingHw(null)} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-8 space-y-6">
+                            <div className="bg-gray-50 rounded-2xl p-8 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-center group hover:border-[#1A6CC8]/50 transition-all cursor-pointer relative">
+                                <input 
+                                    type="file" 
+                                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                                    onChange={handleFileUpload}
+                                    disabled={depositMutation.isPending}
+                                />
+                                {depositMutation.isPending ? (
+                                    <Loader2 className="w-10 h-10 text-[#1A6CC8] animate-spin mb-4" />
+                                ) : (
+                                    <FileText className="w-10 h-10 text-gray-300 group-hover:text-[#1A6CC8] transition-colors mb-4" />
+                                )}
+                                <p className="text-sm font-bold text-[#0D2D5A] mb-1">
+                                    {depositMutation.isPending ? "Téléchargement..." : "Clique ici ou glisse ton fichier"}
+                                </p>
+                                <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">PDF, PNG, JPG (Max 10MB)</p>
+                            </div>
+
+                            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex gap-3">
+                                <AlertCircle className="w-5 h-5 text-[#1A6CC8] shrink-0" />
+                                <p className="text-xs text-[#1A6CC8] font-medium leading-relaxed">
+                                    Une fois déposé, ton professeur pourra corriger ton travail. Tu ne pourras plus modifier le fichier après l'envoi.
+                                </p>
+                            </div>
+
+                            <button 
+                                onClick={() => setDepositingHw(null)}
+                                className="w-full py-4 text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-widest"
+                            >
+                                Annuler
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-function Loader2(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-loader-2 animate-spin"><path d="M12 2v4" /><path d="m16.2 7.8 2.9-2.9" /><path d="M18 12h4" /><path d="m16.2 16.2 2.9 2.9" /><path d="M12 18v4" /><path d="m4.9 19.1 2.9-2.9" /><path d="M2 12h4" /><path d="m4.9 4.9 2.9 2.9" /></svg>; }
+function SummaryRow({ label, count, color, bg }: any) {
+    return (
+        <div className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors group cursor-pointer">
+            <div className="flex items-center gap-3">
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs", bg, color)}>
+                    {count}
+                </div>
+                <span className="text-xs font-bold text-gray-600 tracking-tight">{label}</span>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-400 transition-colors" />
+        </div>
+    );
+}
+
+function HomeworkItem({ hw, onViewCorrection, onDeposit }: { hw: any, onViewCorrection: () => void, onDeposit: () => void }) {
+    const statusConfig = {
+        'à faire': { color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100', label: 'À faire' },
+        'rendu': { color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', label: 'Rendu' },
+        'corrigé': { color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100', label: 'Corrigé' }
+    };
+
+    const config = statusConfig[hw.status as keyof typeof statusConfig] || statusConfig['à faire'];
+
+    return (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-[#1A6CC8]/20 transition-all group">
+            <div className="flex flex-col md:flex-row md:items-center gap-6">
+                <div className="flex-1 space-y-4">
+                    <div className="flex items-center gap-3">
+                        <span className={cn(
+                            "text-[9px] font-bold uppercase px-2 py-0.5 rounded-lg border tracking-wider",
+                            config.bg, config.color, config.border
+                        )}>
+                            {config.label}
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{hw.subject}</span>
+                    </div>
+
+                    <div>
+                        <h4 className="text-base font-bold text-[#0D2D5A] group-hover:text-[#1A6CC8] transition-colors">{hw.title}</h4>
+                        <p className="text-xs text-gray-500 font-medium line-clamp-1 mt-1">{hw.description}</p>
+                    </div>
+
+                    <div className="flex items-center gap-6 text-[10px] font-bold text-gray-400 uppercase tracking-tight">
+                        <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-gray-300" />
+                            Échéance : {hw.dueDate}
+                        </div>
+                        <div className="flex items-center gap-1.5 border-l border-gray-100 pl-6">
+                            <Clock className="w-3.5 h-3.5 text-gray-300" />
+                            Par {hw.teacherName}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex gap-2">
+                    {hw.status === 'à faire' ? (
+                        <button 
+                            onClick={onDeposit}
+                            className="bg-[#1A6CC8] text-white px-5 py-2.5 rounded-xl text-[10px] font-bold hover:bg-[#15549a] transition-all flex items-center gap-2 uppercase tracking-widest shadow-sm active:scale-95 duration-200"
+                        >
+                            <Upload className="w-3.5 h-3.5" />
+                            Déposer
+                        </button>
+                    ) : hw.status === 'corrigé' ? (
+                        <button 
+                            onClick={onViewCorrection}
+                            className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-bold hover:bg-green-700 transition-all flex items-center gap-2 uppercase tracking-widest shadow-sm"
+                        >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Correction
+                        </button>
+                    ) : (
+                        <div className="bg-gray-100 text-gray-400 px-5 py-2.5 rounded-xl text-[10px] font-bold flex items-center gap-2 uppercase tracking-widest">
+                            <Clock className="w-3.5 h-3.5" />
+                            En attente
+                        </div>
+                    )}
+                    <button className="p-2.5 bg-gray-50 text-gray-400 border border-gray-100 rounded-xl hover:bg-gray-100 hover:text-[#0D2D5A] transition-all">
+                        <FileText className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}

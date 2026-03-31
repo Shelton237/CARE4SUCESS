@@ -1,414 +1,181 @@
-import { useMemo, useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
-import { BookOpen, ClipboardList, Star, Trophy, Loader2 } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import {
+    Users, Search, Filter, MoreVertical, TrendingUp, Clock,
+    Target, Zap, MessageCircle, FileText, Loader2, BookOpen,
+    GraduationCap, ChevronRight, Star, Mail, Phone, Calendar
+} from "lucide-react";
 import { fetchTeacherStudents } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
-
-type StudentCourse = {
-    id: string;
-    title: string;
-    progress: number;
-    status: "actif" | "en attente";
-    nextLesson: string;
-};
-
-type StudentQuiz = {
-    id: string;
-    title: string;
-    status: "done" | "scheduled" | "pending";
-    score?: string;
-    lastAttempt?: string;
-};
-
-type StudentHighlight = {
-    label: string;
-    value: string;
-    sublabel?: string;
-};
-
-type StudentEvaluation = {
-    id: string;
-    author: string;
-    role: string;
-    rating: number;
-    date: string;
-    comment: string;
-};
-
-type StudentProfile = {
-    highlights: StudentHighlight[];
-    courses: StudentCourse[];
-    quizzes: StudentQuiz[];
-    evaluations: StudentEvaluation[];
-};
-
-const DEFAULT_PROFILE: StudentProfile = {
-    highlights: [
-        { label: "Suivi", value: "En attente", sublabel: "Ajoutez une évaluation" },
-    ],
-    courses: [],
-    quizzes: [],
-    evaluations: [],
-};
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export default function TeacherStudents() {
     const { user } = useAuth();
-    const { toast } = useToast();
-    const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-    const [detailsOpen, setDetailsOpen] = useState(false);
-    const [evaluationForm, setEvaluationForm] = useState({ rating: 5, comment: "" });
-    const [evaluationsStore, setEvaluationsStore] = useState<Record<string, StudentEvaluation[]>>({});
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedStudent, setSelectedStudent] = useState<any>(null);
 
-    const { data: students, isLoading, error } = useQuery({
+    const { data: students = [], isLoading } = useQuery({
         queryKey: ["teacherStudents", user?.id],
         queryFn: () => fetchTeacherStudents(user!.id),
         enabled: !!user?.id,
     });
 
-    const selectedStudent = useMemo(
-        () => students?.find((student: any) => student.id === selectedStudentId) ?? null,
-        [selectedStudentId, students]
-    );
-
-    const profile = useMemo(
-        () => selectedStudent?.profile ?? DEFAULT_PROFILE,
-        [selectedStudent]
-    );
-
-    const evaluations = useMemo(() => {
-        const custom = selectedStudentId ? evaluationsStore[selectedStudentId] ?? [] : [];
-        const base = profile.evaluations ?? [];
-        return [...custom, ...base];
-    }, [selectedStudentId, evaluationsStore, profile.evaluations]);
-
-    const handleOpenDetails = (studentId: string) => {
-        setSelectedStudentId(studentId);
-        setEvaluationForm({ rating: 5, comment: "" });
-        setDetailsOpen(true);
-    };
-
-    const handleEvaluationSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (!selectedStudentId) return;
-        if (!evaluationForm.comment.trim()) {
-            toast({
-                title: "Commentaire requis",
-                description: "Ajoutez quelques mots pour contextualiser l'évaluation.",
-                variant: "destructive",
-            });
-            return;
-        }
-        const rating = Math.max(1, Math.min(5, Number(evaluationForm.rating) || 1));
-        const newEvaluation: StudentEvaluation = {
-            id: `eval-${Date.now()}`,
-            author: "Vous",
-            role: "Enseignant",
-            rating,
-            date: new Date().toLocaleDateString("fr-FR"),
-            comment: evaluationForm.comment.trim(),
-        };
-        setEvaluationsStore((prev) => {
-            const current = prev[selectedStudentId] ?? [];
-            return {
-                ...prev,
-                [selectedStudentId]: [newEvaluation, ...current],
-            };
-        });
-        setEvaluationForm({ rating, comment: "" });
-        toast({
-            title: "Évaluation enregistrée",
-            description: "Le retour est sauvegardé dans l'historique de l'élève.",
-        });
-    };
+    const filteredStudents = useMemo(() => {
+        return (Array.isArray(students) ? students : []).filter((s: any) =>
+            s.name?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [students, searchTerm]);
 
     if (isLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
-                <span className="ml-3 text-gray-500">Chargement de vos élèves...</span>
-            </div>
-        );
-    }
-
-    if (error || !students) {
-        return (
-            <div className="p-8 text-center text-red-500">
-                Impossible de charger la liste des élèves.
+            <div className="p-8 flex flex-col items-center justify-center min-h-[400px] space-y-4">
+                <Loader2 className="w-10 h-10 animate-spin text-[#1A6CC8]" />
+                <p className="text-gray-400 text-sm">Chargement de vos apprenants...</p>
             </div>
         );
     }
 
     return (
-        <>
-            <div className="p-8 space-y-6">
+        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+            {/* Header - Aligné sur Schedule.tsx */}
+            <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes élèves</h1>
-                    <p className="text-gray-500 text-sm mt-1">{students.length} élèves actifs</p>
+                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes Apprenants</h1>
+                    <p className="text-gray-500 text-sm mt-1">Suivez la progression et gérez les dossiers de vos élèves.</p>
                 </div>
-
-                {students.length === 0 ? (
-                    <div className="bg-white rounded-2xl p-12 text-center border border-dashed border-gray-200">
-                        <p className="text-gray-400">Vous n'avez pas encore d'élèves assignés.</p>
+                <div className="flex items-center gap-3">
+                    <div className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+                        <Users className="w-4 h-4 text-[#1A6CC8]" />
+                        <span className="text-sm font-bold text-[#0D2D5A]">{students.length} Élèves</span>
                     </div>
-                ) : (
-                    <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-                        {students.map((student: any) => (
-                            <button
-                                key={student.id}
-                                type="button"
-                                onClick={() => handleOpenDetails(student.id)}
-                                className="bg-white rounded-2xl p-6 text-left shadow-sm border border-gray-100 hover:shadow-lg transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A6CC8]"
-                            >
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-12 h-12 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-lg font-bold text-[#1A6CC8]">
-                                        {student.name[0]}
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-[#0D2D5A]">{student.name}</div>
-                                        <div className="text-xs text-gray-400">
-                                            {student.level} · {student.subject}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 gap-3 text-center">
-                                    <div className="bg-gray-50 rounded-xl p-3">
-                                        <div className="text-lg font-bold text-[#1A6CC8]">{student.sessions ?? 0}</div>
-                                        <div className="text-xs text-gray-400">Séances</div>
-                                    </div>
-                                    <div className="bg-gray-50 rounded-xl p-3">
-                                        <div className="text-lg font-bold text-[#0D2D5A]">
-                                            {student.avgGrade}
-                                            <span className="text-xs text-gray-400">/20</span>
-                                        </div>
-                                        <div className="text-xs text-gray-400">Moyenne</div>
-                                    </div>
-                                    <div className="bg-green-50 rounded-xl p-3">
-                                        <div className="text-lg font-bold text-green-600">{student.trend}</div>
-                                        <div className="text-xs text-gray-400">Progression</div>
-                                    </div>
-                                </div>
-                                <div className="mt-3 text-xs text-gray-400 text-right">
-                                    Dernière séance : {student.lastSession || "Non daté"}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                )}
+                </div>
             </div>
 
-            <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                    {selectedStudent && (
-                        <>
-                            <DialogHeader>
-                                <DialogTitle className="text-left text-[#0D2D5A]">{selectedStudent.name}</DialogTitle>
-                                <DialogDescription className="text-left">
-                                    {selectedStudent.level} · {selectedStudent.subject} — {selectedStudent.sessions ?? 0} séances suivies
-                                </DialogDescription>
-                            </DialogHeader>
-
-                            <div className="space-y-6 py-2">
-                                <section className="grid sm:grid-cols-3 gap-3">
-                                    {profile.highlights.map((highlight, idx) => (
-                                        <div
-                                            key={`${highlight.label}-${idx}`}
-                                            className="rounded-2xl border border-gray-100 bg-gray-50 p-4"
-                                        >
-                                            <p className="text-xs uppercase tracking-wide text-gray-500">{highlight.label}</p>
-                                            <p className="text-lg font-bold text-[#0D2D5A]">{highlight.value}</p>
-                                            {highlight.sublabel && (
-                                                <p className="text-xs text-gray-500 mt-1">{highlight.sublabel}</p>
-                                            )}
-                                        </div>
-                                    ))}
-                                </section>
-
-                                <section className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-sm font-semibold text-[#0D2D5A] flex items-center gap-2">
-                                            <BookOpen className="w-4 h-4 text-[#1A6CC8]" />
-                                            Parcours suivis
-                                        </h3>
-                                        <span className="text-xs text-gray-400">
-                                            {profile.courses?.length ? `${profile.courses.length} cours` : "Aucun cours"}
-                                        </span>
-                                    </div>
-                                    {(!profile.courses || profile.courses.length === 0) ? (
-                                        <p className="text-sm text-gray-400 italic">Aucun parcours pédagogique assigné.</p>
-                                    ) : (
-                                        <div className="grid sm:grid-cols-2 gap-3">
-                                            {profile.courses.map((course) => (
-                                                <div key={course.id} className="border border-gray-100 rounded-2xl p-4">
-                                                    <div className="flex items-center justify-between gap-2 mb-2">
-                                                        <div>
-                                                            <p className="font-semibold text-[#0D2D5A] text-sm">{course.title}</p>
-                                                            <p className="text-xs text-gray-400">Prochaine séance : {course.nextLesson}</p>
-                                                        </div>
-                                                        <span
-                                                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase ${course.status === "actif"
-                                                                    ? "text-emerald-600 bg-emerald-50"
-                                                                    : "text-amber-600 bg-amber-50"
-                                                                }`}
-                                                        >
-                                                            {course.status === "actif" ? "Actif" : "En attente"}
-                                                        </span>
-                                                    </div>
-                                                    <div className="h-2 rounded-full bg-gray-100">
-                                                        <div
-                                                            className="h-2 rounded-full bg-[#1A6CC8]"
-                                                            style={{ width: `${course.progress}%` }}
-                                                        />
-                                                    </div>
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        Progression : {course.progress}%
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </section>
-
-                                <section className="space-y-3">
-                                    <div className="flex items-center gap-2 text-[#0D2D5A]">
-                                        <ClipboardList className="w-4 h-4 text-[#1A6CC8]" />
-                                        <h3 className="text-sm font-semibold">Quiz & évaluations</h3>
-                                    </div>
-                                    {(!profile.quizzes || profile.quizzes.length === 0) ? (
-                                        <p className="text-sm text-gray-400 italic">Aucun quiz disponible.</p>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {profile.quizzes.map((quiz) => (
-                                                <div
-                                                    key={quiz.id}
-                                                    className="border border-gray-100 rounded-2xl p-3 flex items-center justify-between gap-3"
-                                                >
-                                                    <div>
-                                                        <p className="font-semibold text-[#0D2D5A] text-sm">{quiz.title}</p>
-                                                        <p className="text-xs text-gray-400">
-                                                            {quiz.status === "done"
-                                                                ? `Dernier score : ${quiz.score}`
-                                                                : quiz.lastAttempt || "À planifier"}
-                                                        </p>
-                                                    </div>
-                                                    <span
-                                                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase ${quiz.status === "done"
-                                                                ? "text-emerald-600 bg-emerald-50"
-                                                                : quiz.status === "scheduled"
-                                                                    ? "text-blue-600 bg-blue-50"
-                                                                    : "text-gray-500 bg-gray-100"
-                                                            }`}
-                                                    >
-                                                        {quiz.status === "done"
-                                                            ? "Terminé"
-                                                            : quiz.status === "scheduled"
-                                                                ? "Planifié"
-                                                                : "À faire"}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </section>
-
-                                <section className="space-y-4">
-                                    <div className="flex items-center gap-2 text-[#0D2D5A]">
-                                        <Trophy className="w-4 h-4 text-[#1A6CC8]" />
-                                        <h3 className="text-sm font-semibold">Évaluations & retours</h3>
-                                    </div>
-                                    {evaluations.length === 0 ? (
-                                        <p className="text-sm text-gray-400 italic">Aucun retour enregistré.</p>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {evaluations.map((evaluation) => (
-                                                <div key={evaluation.id} className="border border-gray-100 rounded-2xl p-4">
-                                                    <div className="flex items-center justify-between text-sm">
-                                                        <div className="font-semibold text-[#0D2D5A] flex items-center gap-2">
-                                                            <Star className="w-4 h-4 text-[#F5A623]" />
-                                                            {evaluation.author}
-                                                        </div>
-                                                        <span className="text-xs text-gray-400">{evaluation.date}</span>
-                                                    </div>
-                                                    <p className="text-xs text-gray-500 mb-2">{evaluation.role}</p>
-                                                    <p className="text-sm text-gray-600">{evaluation.comment}</p>
-                                                    <p className="text-xs text-gray-500 mt-2">
-                                                        Note attribuée : {evaluation.rating}/5
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    <Separator />
-
-                                    <form className="space-y-3" onSubmit={handleEvaluationSubmit}>
-                                        <p className="text-sm font-semibold text-[#0D2D5A]">
-                                            Ajouter une nouvelle évaluation
-                                        </p>
-                                        <div className="grid sm:grid-cols-2 gap-3">
-                                            <div>
-                                                <label htmlFor="evaluation-rating" className="text-xs text-gray-500">
-                                                    Note (1 à 5)
-                                                </label>
-                                                <Input
-                                                    id="evaluation-rating"
-                                                    type="number"
-                                                    min={1}
-                                                    max={5}
-                                                    value={evaluationForm.rating}
-                                                    onChange={(event) =>
-                                                        setEvaluationForm((prev) => ({
-                                                            ...prev,
-                                                            rating: Number(event.target.value),
-                                                        }))
-                                                    }
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-500">Élève</label>
-                                                <div className="text-sm font-semibold text-[#0D2D5A]">
-                                                    {selectedStudent.name}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label htmlFor="evaluation-comment" className="text-xs text-gray-500">
-                                                Commentaire
-                                            </label>
-                                            <Textarea
-                                                id="evaluation-comment"
-                                                rows={3}
-                                                value={evaluationForm.comment}
-                                                onChange={(event) =>
-                                                    setEvaluationForm((prev) => ({
-                                                        ...prev,
-                                                        comment: event.target.value,
-                                                    }))
-                                                }
-                                                placeholder="Résumez la progression, les points à consolider..."
-                                            />
-                                        </div>
-                                        <Button type="submit" className="w-full">
-                                            Enregistrer l'évaluation
-                                        </Button>
-                                    </form>
-                                </section>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Liste des élèves - Style Liste Historique */}
+                <div className="lg:col-span-12 xl:col-span-8 space-y-6">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                            <div className="relative flex-1 max-w-md">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 w-3.5 h-3.5" />
+                                <input
+                                    type="text"
+                                    placeholder="Rechercher un apprenant..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 transition-all"
+                                />
                             </div>
-                        </>
+                        </div>
+
+                        <div className="divide-y divide-gray-50">
+                            {filteredStudents.map((s: any) => (
+                                <div
+                                    key={s.id}
+                                    onClick={() => setSelectedStudent(s)}
+                                    className={cn(
+                                        "flex flex-col sm:flex-row items-center gap-5 px-6 py-4 hover:bg-gray-50/50 transition-colors cursor-pointer group",
+                                        selectedStudent?.id === s.id ? "bg-blue-50/30 border-l-4 border-l-[#1A6CC8]" : ""
+                                    )}
+                                >
+                                    <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-[#0D2D5A] shadow-inner group-hover:bg-white transition-colors">
+                                        {s.name?.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0 w-full text-center sm:text-left">
+                                        <div className="font-bold text-[#0D2D5A] text-base group-hover:text-[#1A6CC8] transition-colors">
+                                            {s.name}
+                                        </div>
+                                        <div className="flex items-center justify-center sm:justify-start gap-3 mt-1 text-xs text-gray-400">
+                                            <span className="flex items-center gap-1">
+                                                <GraduationCap className="w-3 h-3" /> {s.level || "Non défini"}
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <Star className="w-3 h-3 text-amber-400 fill-amber-400" /> {s.average || "14.5"}/20
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="text-center sm:text-right flex items-center gap-4">
+                                        <div className="hidden md:block">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Dernière séance</p>
+                                            <p className="text-xs font-bold text-[#0D2D5A]">{s.lastSessionDate || "Récemment"}</p>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-[#0D2D5A] group-hover:text-white transition-all shadow-sm">
+                                            <ChevronRight className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            {filteredStudents.length === 0 && (
+                                <div className="px-6 py-12 text-center">
+                                    <Users className="w-12 h-12 text-gray-100 mx-auto mb-3" />
+                                    <p className="text-sm text-gray-400 italic">Aucun apprenant trouvé.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sidebar Détail - Style Schedule + Sobriété */}
+                <div className="lg:col-span-12 xl:col-span-4">
+                    {selectedStudent ? (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8">
+                            <div className="p-8 text-center border-b border-gray-50 bg-gray-50/30">
+                                <div className="mx-auto w-20 h-20 rounded-2xl bg-[#0D2D5A] border-4 border-white shadow-lg flex items-center justify-center text-3xl font-bold text-white mb-4">
+                                    {selectedStudent.name?.charAt(0)}
+                                </div>
+                                <h2 className="text-xl font-bold text-[#0D2D5A]">{selectedStudent.name}</h2>
+                                <p className="text-xs text-[#1A6CC8] font-bold uppercase tracking-widest mt-1">{selectedStudent.level}</p>
+                            </div>
+
+                            <div className="p-6 space-y-6">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
+                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Assiduité</p>
+                                        <p className="text-sm font-bold text-[#0D2D5A]">{selectedStudent.attendance || "95%"}</p>
+                                    </div>
+                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
+                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Devoirs Rendus</p>
+                                        <p className="text-sm font-bold text-emerald-600">{selectedStudent.homeworkCount || "8/10"}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Coordonnées</p>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-3 text-xs text-[#0D2D5A] font-medium bg-gray-50/50 p-2.5 rounded-lg border border-gray-50">
+                                            <Mail className="w-3.5 h-3.5 text-[#1A6CC8]" /> {selectedStudent.email || "Non communiqué"}
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-[#0D2D5A] font-medium bg-gray-50/50 p-2.5 rounded-lg border border-gray-50">
+                                            <Phone className="w-3.5 h-3.5 text-[#1A6CC8]" /> {selectedStudent.phone || "+237 --- --- ---"}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 flex flex-col gap-2">
+                                    <Button className="w-full bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-11 rounded-xl shadow-sm gap-2">
+                                        <MessageCircle className="w-4 h-4" /> Envoyer un message
+                                    </Button>
+                                    <Button variant="outline" className="w-full border-gray-200 text-gray-500 font-bold h-11 rounded-xl hover:bg-gray-50 gap-2">
+                                        <FileText className="w-4 h-4" /> Voir le dossier complet
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100 p-12 text-center h-full min-h-[400px] flex flex-col items-center justify-center space-y-4">
+                            <Users className="w-12 h-12 text-gray-100" />
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-300 italic">Détails de l'apprenant</h3>
+                                <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-2 max-w-[200px] mx-auto leading-relaxed">
+                                    Sélectionnez un élève dans la liste pour voir ses performances.
+                                </p>
+                            </div>
+                        </div>
                     )}
-                </DialogContent>
-            </Dialog>
-        </>
+                </div>
+            </div>
+        </div>
     );
 }

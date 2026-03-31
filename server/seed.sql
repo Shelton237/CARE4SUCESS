@@ -15,6 +15,19 @@ DELETE FROM sessions;
 DELETE FROM assignments;
 DELETE FROM requests;
 DELETE FROM platform_settings;
+DELETE FROM parent_child;
+DELETE FROM student_teacher;
+DELETE FROM users;
+
+INSERT INTO users (
+  id, name, email, password, role, avatar, phone, location, timezone, language, bio,
+  notify_email, notify_sms, notify_whatsapp, parent_id
+) VALUES
+('a1', 'Directeur Ngono', 'admin@care4success.cm', '$2b$10$9Twqya845VUtC4RtLPnVg.j8DaD57rhH2eAtDtoCil5efnO..de5W', 'admin', 'DN', '+237 675 252 048', 'Douala, Cameroun', 'Africa/Douala', 'fr', 'Direction Care4Success et coordination des pôles pédagogiques.', 1, 1, 0, NULL),
+('t1', 'Dr. Clémentine Abanda', 'prof@care4success.cm', '$2b$10$xW/mV7UW.EDeLDYf2.1zvuY.aTzxb/GiKnx8y9/0HKwcaktULWDJe', 'teacher', 'CA', '+237 699 001 122', 'Bonapriso, Douala', 'Africa/Douala', 'fr', 'Spécialiste Mathématiques & Physique, 12 ans d''expérience.', 1, 0, 0, NULL),
+('p1', 'Aminata Diallo', 'parent@care4success.cm', '$2b$10$lT4iaWByq2HPRYHgqwOwhOFxmtaANfNstw6LiroiNCphOEbxEDiES', 'parent', 'AD', '+237 677 334 455', 'Akwa Nord, Douala', 'Africa/Douala', 'fr', 'Parent coordinatrice du suivi pédagogique de Koffi.', 1, 1, 0, NULL),
+('c1', 'Brice Owona', 'conseiller@care4success.cm', '$2b$10$9rCBljNVRX48jPNBcyX8oOFkfMRm9xNVc4kvG6PZQ4k07zZirYhGq', 'advisor', 'BO', '+237 691 556 677', 'Bastos, Yaoundé', 'Africa/Douala', 'fr', 'Conseiller pédagogique senior en charge des familles premium.', 1, 1, 1, NULL),
+('s1', 'Koffi Diallo', 'eleve@care4success.cm', '$2b$10$npe47Ds0WolajLPcOTwei.Ax.7TFNfjHu786Ln9eg.jhzHXein90G', 'student', 'KD', '+237 677 334 455', 'Akwa Nord, Douala', 'Africa/Douala', 'fr', 'Élève de 3e préparant le BEPC.', 1, 0, 0, 'p1');
 
 INSERT INTO requests (parent_name, child_name, level, subject, phone, status, request_date) VALUES
 ('Mariama Bah', 'Salif Bah', '6e', 'Maths', '+237 682 111 222', 'reçu', '2026-03-03'),
@@ -109,14 +122,14 @@ INSERT INTO parent_overviews (
 ('p1', 'Aminata Diallo', 's1', 'Koffi Diallo', '3e', 'Mathématiques', 8, 14.5, 11.0, 144000);
 
 INSERT INTO student_progress_points (
-  parent_id, month_label, month_order, maths, francais, anglais
+  student_id, month_label, month_order, maths, francais, anglais
 ) VALUES
-('p1', 'Oct', 1, 8.0, 11.0, 12.0),
-('p1', 'Nov', 2, 9.0, 11.0, 13.0),
-('p1', 'Déc', 3, 10.0, 12.0, 13.0),
-('p1', 'Jan', 4, 12.0, 13.0, 14.0),
-('p1', 'Fév', 5, 13.0, 13.0, 14.0),
-('p1', 'Mar', 6, 14.5, 14.0, 15.0);
+('s1', 'Oct', 1, 8.0, 11.0, 12.0),
+('s1', 'Nov', 2, 9.0, 11.0, 13.0),
+('s1', 'Déc', 3, 10.0, 12.0, 13.0),
+('s1', 'Jan', 4, 12.0, 13.0, 14.0),
+('s1', 'Fév', 5, 13.0, 13.0, 14.0),
+('s1', 'Mar', 6, 14.5, 14.0, 15.0);
 
 INSERT INTO parent_invoices (
   id, parent_id, invoice_date, description, amount, status
@@ -208,4 +221,10 @@ INSERT INTO platform_settings (id, data) VALUES
     'enforce2FA',true
   )
 ));
+
+INSERT INTO parent_child (parent_id, child_id) VALUES
+('p1', 's1');
+
+INSERT INTO student_teacher (student_id, teacher_id) VALUES
+('s1', 't1');
 

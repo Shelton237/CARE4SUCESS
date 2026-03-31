@@ -4,7 +4,7 @@ import { Receipt, Download, CheckCircle, Clock } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { fetchParentInvoices } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatFCFA } from "@/data/mock";
+import { formatFCFA } from "@/lib/money";
 import type { ParentInvoice } from "@/integrations/supabase/types";
 
 const STATUS_UI: Record<ParentInvoice["status"], { label: string; chip: string }> = {

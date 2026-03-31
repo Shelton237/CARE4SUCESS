@@ -21,10 +21,10 @@ const pool = mysql.createPool({
 });
 
 try {
-    const [rows] = await pool.query("SHOW TABLES");
-    console.log("Tables:", rows.map(r => Object.values(r)[0]));
+    const [rows] = await pool.query("DESCRIBE quizzes");
+    console.log(JSON.stringify(rows, null, 2));
     await pool.end();
 } catch (err) {
-    console.error("DB connection error:", err.message);
+    console.error("Error:", err.message);
     process.exit(1);
 }

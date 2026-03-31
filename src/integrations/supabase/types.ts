@@ -96,6 +96,13 @@ export interface ScheduleSession {
     notes?: string | null;
     whiteboardData?: string | null;
     codeData?: string | null;
+    actualStartTime?: string | null;
+    actualEndTime?: string | null;
+    reportText?: string | null;
+    understandingScore?: number | null;
+    isPaid?: boolean;
+    lessonId?: string | null;
+    courseId?: string | null;
 }
 
 export type ReviewerRole = "admin" | "advisor";
@@ -279,6 +286,9 @@ export interface CourseSummary {
     createdBy?: string | null;
     createdAt: string;
     lessons: CourseLesson[];
+    progress?: number;
+    lastLessonId?: string | null;
+    completedLessons?: string[];
 }
 
 export interface QuizAttempt {

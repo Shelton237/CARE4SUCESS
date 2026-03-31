@@ -1,304 +1,245 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+    MessageCircle,
+    Search,
+    Send,
+    Paperclip,
+    MoreVertical,
+    CheckCheck,
+    Phone,
+    Video,
+    Info,
+    SearchX,
+    FolderOpen,
+    Loader2
+} from "lucide-react";
+import { fetchTeacherContacts, fetchMessages, sendMessage, uploadMessageAttachment } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
-import { Send, MessageCircle, Paperclip, Search, Loader2, Image as ImageIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
-
-const ROLE_COLOR: Record<string, string> = {
-    teacher: "#1A6CC8",
-    advisor: "#a855f7",
-    student: "#22c55e",
-};
-
-const ROLE_LABEL: Record<string, string> = {
-    teacher: "Moi",
-    advisor: "Conseiller",
-    student: "Élève",
-};
-
-interface Message {
-    id: string;
-    senderId: string;
-    senderName: string;
-    senderRole: string;
-    receiverId: string;
-    receiverName: string;
-    receiverRole: string;
-    content: string;
-    attachmentUrl?: string;
-    isRead: boolean;
-    createdAt: string;
-}
-
-// Contacts par défaut pour les profs (on peut en mettre quelques-uns du mock)
-const DEFAULT_CONTACTS = [
-    { id: "s1", name: "Koffi Diallo", role: "student", avatar: "KD", color: "#22c55e" },
-    { id: "advisor-1", name: "Brice Owona", role: "advisor", avatar: "BO", color: "#a855f7" },
-];
 
 export default function TeacherMessages() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const userId = user?.id || "t1";
-    const userName = user?.name || "Dr. Clémentine Abanda";
-
-    const [reply, setReply] = useState("");
-    const [selectedContactId, setSelectedContactId] = useState<string>("s1");
+    const [selectedContact, setSelectedContact] = useState<any>(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [contactFilter, setContactFilter] = useState<"all" | "student" | "advisor">("all");
+    const [newMessage, setNewMessage] = useState("");
     const [isUploading, setIsUploading] = useState(false);
 
-    // 1. Fetch de tous les messages de l'utilisateur
-    const { data: messages = [], isLoading } = useQuery<Message[]>({
-        queryKey: ["messages", userId],
-        queryFn: async () => {
-            const res = await fetch(`${API_BASE_URL}/messages/${userId}`);
-            if (!res.ok) throw new Error("Erreur serveur");
-            return res.json();
-        },
-        refetchInterval: 10000,
+    // DYNAMIQUE : Contacts réels
+    const { data: contacts = [], isLoading: loadingContacts } = useQuery({
+        queryKey: ["teacherContacts", user?.id],
+        queryFn: () => fetchTeacherContacts(user!.id),
+        enabled: !!user?.id,
     });
 
-    // 2. Envoi de message (Mutation)
-    const sendMessageMutation = useMutation({
-        mutationFn: async (payload: Partial<Message>) => {
-            const res = await fetch(`${API_BASE_URL}/messages`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-            if (!res.ok) throw new Error("Erreur d'envoi");
-            return res.json();
-        },
-        onMutate: async (newMessage) => {
-            await queryClient.cancelQueries({ queryKey: ["messages", userId] });
-            const previousMessages = queryClient.getQueryData<Message[]>(["messages", userId]);
-
-            const optimisticMessage: Message = {
-                id: `temp-${Date.now()}`,
-                senderId: userId,
-                senderName: userName,
-                senderRole: "teacher",
-                receiverId: selectedContactId,
-                receiverName: activeContact?.name || "",
-                receiverRole: activeContact?.role || "",
-                content: newMessage.content || "",
-                attachmentUrl: newMessage.attachmentUrl,
-                isRead: true,
-                createdAt: new Date().toISOString(),
-            };
-
-            queryClient.setQueryData<Message[]>(["messages", userId], (old) => [...(old || []), optimisticMessage]);
-            return { previousMessages };
-        },
-        onError: (_err, _newMsg, context) => {
-            queryClient.setQueryData(["messages", userId], context?.previousMessages);
-            toast.error("Le message n'a pas pu être envoyé.");
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ["messages", userId] });
-        },
+    // DYNAMIQUE : Messages réels
+    const { data: messages = [], isLoading: loadingMessages } = useQuery({
+        queryKey: ["messages", selectedContact?.id],
+        queryFn: () => fetchMessages(selectedContact.channels?.id || selectedContact.id),
+        enabled: !!selectedContact,
+        refetchInterval: 5000,
     });
 
-    // 3. Mark as Read (Mutation)
-    const markAsReadMutation = useMutation({
-        mutationFn: async (messageId: string) => {
-            await fetch(`${API_BASE_URL}/messages/${messageId}/read`, { method: "PATCH" });
-        },
+    const sendMutation = useMutation({
+        mutationFn: sendMessage,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["messages", userId] });
+            setNewMessage("");
+            queryClient.invalidateQueries({ queryKey: ["messages", selectedContact?.id] });
         }
     });
 
-    // Contacts
-    const contacts = useMemo(() => {
-        const contactMap = new Map<string, typeof DEFAULT_CONTACTS[0] & { unread: number, lastMessage?: Message }>();
-        DEFAULT_CONTACTS.forEach(c => contactMap.set(c.id, { ...c, unread: 0 }));
-
-        messages.forEach(msg => {
-            const isMe = msg.senderId === userId;
-            const contactId = isMe ? msg.receiverId : msg.senderId;
-            const contactName = isMe ? msg.receiverName : msg.senderName;
-            const contactRole = isMe ? msg.receiverRole : msg.senderRole;
-
-            if (!contactMap.has(contactId)) {
-                contactMap.set(contactId, {
-                    id: contactId,
-                    name: contactName,
-                    role: contactRole,
-                    avatar: contactName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase(),
-                    color: ROLE_COLOR[contactRole] || "#9ca3af",
-                    unread: 0,
-                });
-            }
-
-            const c = contactMap.get(contactId)!;
-            c.lastMessage = msg;
-            if (!isMe && !msg.isRead) {
-                c.unread += 1;
-            }
-        });
-
-        return Array.from(contactMap.values());
-    }, [messages, userId]);
-
-    const filteredContacts = contacts.filter(c => {
-        const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesFilter = contactFilter === "all" || c.role === contactFilter;
-        return matchesSearch && matchesFilter;
-    });
-
-    const activeContact = contacts.find(c => c.id === selectedContactId) || contacts[0];
-
-    const threadMessages = messages.filter(m =>
-        (m.senderId === userId && m.receiverId === selectedContactId) ||
-        (m.receiverId === userId && m.senderId === selectedContactId)
+    const filteredContacts = contacts.filter((c: any) =>
+        c.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [threadMessages]);
-
-    useEffect(() => {
-        const unreadMessages = threadMessages.filter(m => m.receiverId === userId && !m.isRead);
-        if (unreadMessages.length > 0) {
-            unreadMessages.forEach(m => markAsReadMutation.mutate(m.id));
-        }
-    }, [selectedContactId, threadMessages]);
-
-    const handleSend = async (attachmentUrl?: string) => {
-        if (!reply.trim() && !attachmentUrl) return;
-        const content = reply.trim();
-        setReply("");
-        sendMessageMutation.mutate({
-            senderId: userId,
-            senderName: userName,
-            senderRole: "teacher",
-            receiverId: activeContact.id,
-            receiverName: activeContact.name,
-            receiverRole: activeContact.role,
-            content: attachmentUrl ? (content || "Pièce jointe") : content,
-            attachmentUrl
+    const handleSend = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !selectedContact) return;
+        
+        sendMutation.mutate({
+            senderId: user!.id,
+            receiverId: selectedContact.id,
+            content: newMessage,
         });
     };
 
-    const triggerUpload = () => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedContact) return;
+
         setIsUploading(true);
-        setTimeout(() => {
-            handleSend("https://placehold.co/400x300.png?text=Fichier+Prof");
+        const formData = new FormData();
+        formData.append("file", file);
+        
+        try {
+            const { fileUrl } = await uploadMessageAttachment(formData);
+            sendMutation.mutate({
+                senderId: user!.id,
+                receiverId: selectedContact.id,
+                content: "Pièce jointe",
+                attachmentUrl: fileUrl
+            });
+        } catch (err) {
+            toast.error("Erreur de téléchargement");
+        } finally {
             setIsUploading(false);
-            toast.success("Fichier envoyé avec succès !");
-        }, 1500);
+        }
     };
 
+    if (loadingContacts) {
+        return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-[#1A6CC8]" /></div>;
+    }
+
     return (
-        <div className="p-4 md:p-8 space-y-6 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
-            <div>
-                <h1 className="text-2xl font-bold text-[#0D2D5A]">Messages</h1>
-                <p className="text-gray-500 text-sm mt-1">Échangez avec vos élèves et conseillers</p>
-            </div>
-            <div className="flex-1 grid lg:grid-cols-3 gap-6 min-h-0">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-gray-100 space-y-3">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                placeholder="Rechercher..."
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full bg-gray-50 text-sm pl-9 pr-4 py-2 rounded-xl border-none focus:ring-2 focus:ring-[#1A6CC8]/20 outline-none"
-                            />
-                        </div>
-                        <div className="flex bg-gray-50 p-1 rounded-xl">
-                            {(["all", "student", "advisor"] as const).map((filter) => (
-                                <button
-                                    key={filter}
-                                    onClick={() => setContactFilter(filter)}
-                                    className={`flex-1 text-xs font-semibold py-1.5 rounded-lg transition-colors ${contactFilter === filter ? "bg-white text-[#0D2D5A] shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
-                                >
-                                    {filter === "all" ? "Tous" : ROLE_LABEL[filter as string] || filter}
-                                </button>
-                            ))}
-                        </div>
+        <div className="h-[calc(100vh-160px)] flex gap-6 animate-in fade-in duration-500 font-bold overflow-hidden">
+            {/* Contact List - Soft & Pro */}
+            <div className="w-80 md:w-96 bg-white rounded-[2rem] border border-gray-100 shadow-sm flex flex-col overflow-hidden shrink-0">
+                <div className="p-6 space-y-4">
+                    <h2 className="text-xl font-bold text-[#0D2D5A]">Messagerie</h2>
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Rechercher..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-gray-50 rounded-xl pl-10 pr-4 py-3 text-sm font-medium border-none focus:ring-2 focus:ring-blue-100 outline-none"
+                        />
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                        {isLoading && contacts.length === 0 ? (
-                            <div className="flex justify-center p-6"><Loader2 className="w-6 h-6 animate-spin text-gray-300" /></div>
+                </div>
+
+                <ScrollArea className="flex-1 px-4 pb-4">
+                    <div className="space-y-2">
+                        {filteredContacts.length === 0 ? (
+                            <div className="py-10 text-center text-gray-300 text-xs italic font-bold">Aucun contact</div>
                         ) : (
-                            filteredContacts.map((c) => (
-                                <div
-                                    key={c.id}
-                                    onClick={() => setSelectedContactId(c.id)}
-                                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${selectedContactId === c.id ? "bg-[#1A6CC8]/5 border border-[#1A6CC8]/20" : "border border-transparent hover:bg-gray-50"}`}
+                            filteredContacts.map((contact: any) => (
+                                <button
+                                    key={contact.id}
+                                    onClick={() => setSelectedContact(contact)}
+                                    className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all ${selectedContact?.id === contact.id ? "bg-blue-600 text-white shadow-md" : "hover:bg-gray-50 text-[#0D2D5A]"}`}
                                 >
-                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: c.color }}>{c.avatar}</div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-center mb-0.5">
-                                            <div className="font-semibold text-[#0D2D5A] text-sm truncate">{c.name}</div>
-                                            {c.lastMessage && <div className="text-[10px] text-gray-400">{new Date(c.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}
-                                        </div>
-                                        <div className="text-xs text-gray-400 truncate flex items-center justify-between">
-                                            <span className="truncate pr-2">{c.lastMessage ? (c.lastMessage.senderId === userId ? `Vous: ${c.lastMessage.content}` : c.lastMessage.content) : c.role}</span>
-                                            {c.unread > 0 && <div className="w-5 h-5 rounded-full bg-[#22c55e] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">{c.unread}</div>}
+                                    <div className="relative shrink-0">
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${selectedContact?.id === contact.id ? "bg-white/20" : "bg-blue-50 text-[#1A6CC8]"}`}>
+                                            {contact.name?.charAt(0)}
                                         </div>
                                     </div>
-                                </div>
+                                    <div className="flex-1 text-left min-w-0">
+                                        <div className="flex justify-between items-start">
+                                            <p className="font-bold text-sm truncate">{contact.name}</p>
+                                        </div>
+                                        <p className={`text-[10px] uppercase font-bold tracking-widest truncate ${selectedContact?.id === contact.id ? "text-blue-100" : "text-gray-400"}`}>
+                                            {contact.role || "Elève"}
+                                        </p>
+                                    </div>
+                                </button>
                             ))
                         )}
                     </div>
-                </div>
-                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-0">
-                    {activeContact && (
-                        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 flex-shrink-0">
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: activeContact.color }}>{activeContact.avatar}</div>
-                            <div>
-                                <div className="font-bold text-[#0D2D5A]">{activeContact.name}</div>
-                                <div className="text-xs text-gray-400">{ROLE_LABEL[activeContact.role] || activeContact.role}</div>
+                </ScrollArea>
+            </div>
+
+            {/* Chat Area - Soft & Pro Dynamique */}
+            <div className="flex-1 bg-white rounded-[2rem] border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+                {selectedContact ? (
+                    <>
+                        <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#1A6CC8] flex items-center justify-center font-bold">
+                                    {selectedContact.name?.charAt(0)}
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-[#0D2D5A]">{selectedContact.name}</h3>
+                                    <p className="text-[10px] text-[#1A6CC8] uppercase tracking-[2px] font-bold">Discussion Active</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="ghost" size="icon" className="text-gray-300"><Phone className="w-5 h-5" /></Button>
+                                <Button variant="ghost" size="icon" className="text-gray-300"><Video className="w-5 h-5" /></Button>
+                                <Button variant="ghost" size="icon" className="text-gray-300"><Info className="w-5 h-5" /></Button>
                             </div>
                         </div>
-                    )}
-                    <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-                        {threadMessages.map((msg, index) => {
-                            const isMe = msg.senderId === userId;
-                            const showAvatar = !isMe && (index === 0 || threadMessages[index - 1].senderId !== msg.senderId);
-                            return (
-                                <div key={msg.id} className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
-                                    <div className="w-8 flex-shrink-0 flex justify-center">
-                                        {showAvatar && <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: activeContact.color }}>{activeContact.avatar}</div>}
-                                    </div>
-                                    <div className={`max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-1`}>
-                                        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${isMe ? "bg-[#1A6CC8] text-white rounded-br-sm shadow-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"}`}>
-                                            {msg.attachmentUrl && <div className="mb-2 rounded-lg overflow-hidden"><img src={msg.attachmentUrl} className="max-w-full h-auto" /></div>}
-                                            {msg.content}
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 px-1">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <div className="px-4 py-4 border-t border-gray-100 bg-gray-50/50">
-                        <div className="flex items-end gap-2 bg-white border border-gray-200 p-2 rounded-2xl focus-within:ring-2 focus-within:ring-[#1A6CC8]/20 transition-all shadow-sm">
-                            <button onClick={triggerUpload} className="p-2 text-gray-400 hover:text-[#1A6CC8]"><Paperclip className="w-5 h-5" /></button>
-                            <textarea
-                                value={reply}
-                                onChange={(e) => setReply(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                                placeholder="Écrivez votre message…"
-                                className="w-full max-h-32 min-h-[40px] resize-none border-none focus:ring-0 outline-none text-sm text-gray-700 py-2.5 px-2 bg-transparent"
-                                rows={1}
-                            />
-                            <button onClick={() => handleSend()} className="p-2.5 rounded-xl transition-all" style={{ background: reply.trim() ? "#1A6CC8" : "transparent" }}><Send className={`w-5 h-5 ${reply.trim() ? "text-white" : "text-gray-300"}`} /></button>
+
+                        <ScrollArea className="flex-1 p-8">
+                            <div className="space-y-6">
+                                {loadingMessages ? (
+                                    <div className="flex justify-center"><Loader2 className="animate-spin text-blue-100" /></div>
+                                ) : (
+                                    messages.map((m: any) => {
+                                        const isMe = m.senderId === user?.id;
+                                        return (
+                                            <div key={m.id} className={`flex gap-4 max-w-[80%] ${isMe ? "flex-row-reverse ml-auto" : ""}`}>
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${isMe ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400"}`}>
+                                                    {(isMe ? user?.name : selectedContact.name)?.charAt(0)}
+                                                </div>
+                                                <div className={`space-y-1 ${isMe ? "items-end" : ""}`}>
+                                                    <div className={`p-4 rounded-2xl text-sm font-medium ${isMe ? "bg-blue-600 text-white rounded-tr-none" : "bg-gray-50 text-[#0D2D5A] rounded-tl-none"}`}>
+                                                        {m.content}
+                                                        {m.attachmentUrl && (
+                                                            <div className="mt-2 p-2 bg-black/5 rounded-lg flex items-center gap-2 text-[10px]">
+                                                                <FolderOpen className="w-3 h-3" /> Fichier joint
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[9px] text-gray-300 font-bold uppercase">{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </ScrollArea>
+
+                        <form onSubmit={handleSend} className="p-6 border-t border-gray-50 flex items-center gap-4">
+                            <div className="flex-1 flex items-center gap-3 bg-gray-50 rounded-2xl p-2 px-4 border border-gray-100">
+                                <Button 
+                                    type="button"
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="text-gray-400 hover:text-[#1A6CC8]"
+                                    disabled={isUploading}
+                                    onClick={() => document.getElementById('chat-file')?.click()}
+                                >
+                                    {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                                    <input type="file" id="chat-file" className="hidden" onChange={handleFileUpload} />
+                                </Button>
+                                <input
+                                    type="text"
+                                    placeholder="Écrire un message..."
+                                    className="flex-1 bg-transparent border-none outline-none text-sm font-medium py-2"
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                />
+                                <Button type="submit" className="bg-[#1A6CC8] hover:bg-[#0D2D5A] rounded-xl px-6 font-bold h-10 shadow-sm">
+                                    Envoyer <Send className="ml-2 w-4 h-4" />
+                                </Button>
+                            </div>
+                        </form>
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-4">
+                        <div className="w-20 h-20 rounded-[2.5rem] bg-gray-50 flex items-center justify-center text-gray-200">
+                            <MessageCircle className="w-10 h-10" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-[#0D2D5A]">Messagerie</h3>
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest max-w-xs mx-auto">Sélectionnez une discussion.</p>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
+    );
+}
+
+function FolderOpen({ className }: { className?: string }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2" />
+        </svg>
     );
 }

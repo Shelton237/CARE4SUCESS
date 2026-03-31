@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { fetchScheduleByRole } from "@/api/backoffice";
+import { fetchScheduleByRole, fetchCourseDetails } from "@/api/backoffice";
 import { jsPDF } from "jspdf";
 import {
     Loader2,
@@ -25,6 +25,44 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { 
+    sessionCheckIn, 
+    sessionCheckOut, 
+    submitSessionReport,
+    createHomework
+} from "@/api/backoffice";
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogHeader, 
+    DialogTitle,
+    DialogFooter,
+    DialogDescription
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { 
+    Select, 
+    SelectContent, 
+    SelectItem, 
+    SelectTrigger, 
+    SelectValue 
+} from "@/components/ui/select";
+import { StarIcon, BookOpen } from "lucide-react";
 
 declare global {
     interface Window {
@@ -57,6 +95,13 @@ export default function VirtualClassroom() {
     const [drawColor, setDrawColor] = useState("#1A6CC8");
     const [tool, setTool] = useState<"pen" | "eraser">("pen");
 
+    // Session Management State
+    const [isReportOpen, setIsReportOpen] = useState(false);
+    const queryClient = useQueryClient();
+
+    // Homework Assignment state
+    const [showHomeworkForm, setShowHomeworkForm] = useState(false);
+
     // Query Data
     const { data: schedule, refetch: refetchSession } = useQuery({
         queryKey: ["session-details", sessionId],
@@ -81,6 +126,26 @@ export default function VirtualClassroom() {
             }
         }
     }, [currentSession]);
+
+    // Mutations
+    const checkInMutation = useMutation({
+        mutationFn: sessionCheckIn,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["session-details", sessionId] });
+            toast.success("Session démarrée (Check-in)");
+        }
+    });
+
+    const checkOutMutation = useMutation({
+        mutationFn: sessionCheckOut,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["session-details", sessionId] });
+            toast.success("Session terminée (Check-out)");
+            if (user?.role === 'teacher') {
+                setIsReportOpen(true);
+            }
+        }
+    });
 
     // Sync outgoing data
     const syncWorkspace = useCallback(async (payload: any) => {
@@ -168,12 +233,25 @@ export default function VirtualClassroom() {
                     userInfo: { displayName: user.name, email: user.email },
                     interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview'] }
                 });
+                
                 setLoading(false);
-                api.addEventListener('videoConferenceLeft', () => navigate(-1));
+
+                // Auto Check-in when visio starts
+                if (user.role === 'teacher' && !currentSession?.actualStartTime) {
+                    checkInMutation.mutate(sessionId);
+                }
+
+                api.addEventListener('videoConferenceLeft', () => {
+                    if (user.role === 'teacher' && !currentSession?.actualEndTime) {
+                        checkOutMutation.mutate(sessionId);
+                    } else {
+                        navigate(-1);
+                    }
+                });
             }
         }, 500);
         return () => clearInterval(timer);
-    }, [sessionId, user]);
+    }, [sessionId, user, currentSession?.actualStartTime, currentSession?.actualEndTime]);
 
     return (
         <div className="fixed inset-0 z-50 bg-[#0D2D5A] flex flex-col h-screen w-screen overflow-hidden text-slate-900">
@@ -297,17 +375,329 @@ export default function VirtualClassroom() {
 
                         </Tabs>
 
-                        <div className="p-8 bg-slate-50 border-t border-white flex gap-4">
-                            <Button className="flex-1 h-12 rounded-2xl bg-[#0D2D5A] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-900/10">
-                                <Download className="w-4 h-4 mr-2" /> Export PDF
-                            </Button>
+                        <div className="p-8 bg-slate-50 border-t border-white flex flex-col gap-4">
+                            <div className="flex gap-4">
+                                <Button className="flex-1 h-12 rounded-2xl bg-[#0D2D5A] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-900/10">
+                                    <Download className="w-4 h-4 mr-2" /> Export PDF
+                                </Button>
+                                {user?.role === 'teacher' && !currentSession?.actualEndTime && (
+                                    <Button 
+                                        variant="destructive" 
+                                        onClick={() => checkOutMutation.mutate(sessionId!)}
+                                        className="h-12 rounded-2xl font-black text-[10px] uppercase tracking-widest px-6"
+                                        disabled={checkOutMutation.isPending}
+                                    >
+                                        Terminer
+                                    </Button>
+                                )}
+                            </div>
+                            
+                            {user?.role === 'teacher' && (
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setShowHomeworkForm(true)}
+                                    className="h-10 rounded-xl font-bold text-[10px] uppercase tracking-widest border-blue-100 text-blue-600"
+                                >
+                                    Assigner un devoir
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </aside>
             </div>
+
+            {/* Session Report Modal */}
+            <SessionReportModal 
+                isOpen={isReportOpen} 
+                onClose={() => {
+                    setIsReportOpen(false);
+                    navigate(-1);
+                }}
+                sessionId={sessionId!}
+                sessionDetails={currentSession}
+            />
+
+            {/* Homework Assignment Modal */}
+            <HomeworkModal 
+                isOpen={showHomeworkForm} 
+                onClose={() => setShowHomeworkForm(false)}
+                sessionId={sessionId!}
+                sessionDetails={currentSession}
+                teacherId={user?.id!}
+            />
         </div>
     );
 }
 
-function ChevronLeft() { return <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>; }
-function ChevronRight() { return <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>; }
+const reportSchema = z.object({
+    reportText: z.string().min(10, "Veuillez fournir un rapport détaillé."),
+    understandingScore: z.number().min(1).max(20),
+    rating: z.number().min(1).max(5),
+    comment: z.string().optional(),
+    lessonId: z.string().optional(),
+});
+
+function SessionReportModal({ isOpen, onClose, sessionId, sessionDetails }: { isOpen: boolean, onClose: () => void, sessionId: string, sessionDetails: any }) {
+    const { data: courseDetails } = useQuery({
+        queryKey: ["course-details", sessionDetails?.courseId],
+        queryFn: () => fetchCourseDetails(sessionDetails?.courseId!),
+        enabled: Boolean(isOpen && sessionDetails?.courseId),
+    });
+
+    const form = useForm<z.infer<typeof reportSchema>>({
+        resolver: zodResolver(reportSchema),
+        defaultValues: {
+            reportText: "",
+            understandingScore: 12,
+            rating: 5,
+            comment: "",
+            lessonId: sessionDetails?.lessonId || "",
+        },
+    });
+
+    const mutation = useMutation({
+        mutationFn: (values: z.infer<typeof reportSchema>) => submitSessionReport(sessionId, {
+            reportText: values.reportText,
+            understandingScore: values.understandingScore,
+            rating: values.rating,
+            comment: values.comment,
+            lessonId: values.lessonId,
+        }),
+        onSuccess: () => {
+            toast.success("Rapport enregistré avec succès !");
+            onClose();
+        },
+        onError: (err: any) => {
+            toast.error(err.message || "Erreur lors de l'enregistrement du rapport.");
+        }
+    });
+
+    const onSubmit = (values: z.infer<typeof reportSchema>) => {
+        mutation.mutate(values);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="sm:max-w-[500px] rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl">
+                <div className="bg-[#0D2D5A] p-8 text-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black uppercase tracking-tight">Rapport de Session</DialogTitle>
+                        <DialogDescription className="text-blue-200/60 text-xs font-bold uppercase tracking-widest">
+                            {sessionDetails?.studentName} • {sessionDetails?.subject}
+                        </DialogDescription>
+                    </DialogHeader>
+                </div>
+
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="p-8 space-y-6">
+                        {courseDetails && (
+                            <FormField
+                                control={form.control}
+                                name="lessonId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Leçon dispensée</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger className="rounded-xl bg-slate-50 border-slate-100">
+                                                    <SelectValue placeholder="Sélectionner la leçon" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent className="rounded-xl border-slate-100">
+                                                {courseDetails.lessons?.map((lesson: any) => (
+                                                    <SelectItem key={lesson.id} value={lesson.id}>
+                                                        {lesson.title}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        <FormField
+                            control={form.control}
+                            name="reportText"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Rapport de cours</FormLabel>
+                                    <FormControl>
+                                        <Textarea 
+                                            placeholder="Quels concepts ont été abordés ? Quelles sont les difficultés rencontrées ?" 
+                                            className="min-h-[120px] rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-500/20"
+                                            {...field} 
+                                        />
+                                    </FormControl>
+                                    <FormMessage className="text-[10px]" />
+                                </FormItem>
+                            )}
+                        />
+
+                        <div className="grid grid-cols-2 gap-8">
+                            <FormField
+                                control={form.control}
+                                name="understandingScore"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Compréhension (/20)</FormLabel>
+                                        <FormControl>
+                                            <div className="space-y-4 pt-2">
+                                                <Slider 
+                                                    min={0} 
+                                                    max={20} 
+                                                    step={1} 
+                                                    value={[field.value]} 
+                                                    onValueChange={(val) => field.onChange(val[0])}
+                                                    className="[&_[role=slider]]:bg-blue-600"
+                                                />
+                                                <div className="text-center font-black text-[#0D2D5A] text-xl">{field.value}</div>
+                                            </div>
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="rating"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Assiduité Élève</FormLabel>
+                                        <FormControl>
+                                            <div className="flex gap-1 pt-2">
+                                                {[1, 2, 3, 4, 5].map((s) => (
+                                                    <button
+                                                        key={s}
+                                                        type="button"
+                                                        onClick={() => field.onChange(s)}
+                                                        className={`p-1.5 transition-all ${field.value >= s ? "text-orange-400 scale-110" : "text-slate-200 hover:text-orange-200"}`}
+                                                    >
+                                                        <StarIcon className={`w-5 h-5 ${field.value >= s ? "fill-current" : ""}`} />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+
+                        <Button 
+                            type="submit" 
+                            className="w-full h-14 rounded-2xl bg-[#0D2D5A] hover:bg-[#153460] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-900/10"
+                            disabled={mutation.isPending}
+                        >
+                            {mutation.isPending ? "Enregistrement..." : "Soumettre le rapport"}
+                        </Button>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+const homeworkSchema = z.object({
+    title: z.string().min(3, "Le titre est trop court"),
+    description: z.string().optional(),
+    dueDate: z.string().min(1, "Date requise"),
+});
+
+function HomeworkModal({ isOpen, onClose, sessionId, sessionDetails, teacherId }: { isOpen: boolean, onClose: () => void, sessionId: string, sessionDetails: any, teacherId: string }) {
+    const form = useForm<z.infer<typeof homeworkSchema>>({
+        resolver: zodResolver(homeworkSchema),
+        defaultValues: {
+            title: "",
+            description: "",
+            dueDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0], // +7 days
+        },
+    });
+
+    const mutation = useMutation({
+        mutationFn: (values: z.infer<typeof homeworkSchema>) => createHomework({
+            title: values.title,
+            description: values.description,
+            dueDate: values.dueDate,
+            teacherId,
+            studentId: sessionDetails?.studentId,
+            sessionId,
+            subject: sessionDetails?.subject || "Général",
+        }),
+        onSuccess: () => {
+            toast.success("Devoir assigné !");
+            onClose();
+        },
+        onError: (err: any) => {
+            toast.error(err.message || "Erreur lors de l'assignation.");
+        }
+    });
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[450px] rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl">
+                <div className="bg-blue-600 p-8 text-white">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-black uppercase tracking-tight">Assigner un devoir</DialogTitle>
+                        <DialogDescription className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">
+                            À l'attention de {sessionDetails?.studentName}
+                        </DialogDescription>
+                    </DialogHeader>
+                </div>
+
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="p-8 space-y-6">
+                        <FormField
+                            control={form.control}
+                            name="title"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Titre du devoir</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Ex: Révisions des fonctions" className="rounded-xl bg-slate-50 border-slate-100" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Instructions (Optionnel)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Décrivez les exercices..." className="rounded-xl bg-slate-50 border-slate-100 min-h-[100px]" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="dueDate"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date d'échéance</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" className="rounded-xl bg-slate-50 border-slate-100" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <div className="flex gap-4 pt-4">
+                            <Button type="button" variant="ghost" onClick={onClose} className="flex-1 rounded-xl font-bold uppercase tracking-widest text-xs">Annuler</Button>
+                            <Button type="submit" className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 font-bold uppercase tracking-widest text-xs" disabled={mutation.isPending}>
+                                {mutation.isPending ? "..." : "Assigner"}
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}

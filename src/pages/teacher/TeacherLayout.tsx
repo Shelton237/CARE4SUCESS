@@ -30,6 +30,8 @@ export default function TeacherLayout() {
                     <Route path="students" element={<TeacherStudents />} />
                     <Route path="homework" element={<TeacherHomework />} />
                     <Route path="courses" element={<TeacherCourses />} />
+                    <Route path="courses/:id" element={<TeacherCourses />} />
+                    <Route path="courses/new" element={<TeacherCourses />} />
                     <Route path="messages" element={<TeacherMessages />} />
                     <Route path="earnings" element={<TeacherEarnings />} />
                     <Route path="*" element={<Navigate to="/teacher" replace />} />

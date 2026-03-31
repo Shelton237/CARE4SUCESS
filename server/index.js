@@ -7,6 +7,7 @@ import cors from "cors";
 import mysql from "mysql2/promise";
 import multer from "multer";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const rootDir = process.cwd();
 const envFiles = [".env.local", ".env"];
@@ -29,6 +30,30 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
 });
+
+const JWT_SECRET = process.env.JWT_SECRET || "care4success_dev_secret";
+console.log("DEBUG: JWT_SECRET start with:", JWT_SECRET[0]);
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
+const allowedUserRoles = new Set(["admin", "teacher", "parent", "advisor", "student"]);
+
+const generateToken = (payload) =>
+  jwt.sign({ sub: payload.id, role: payload.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+const authenticateRequest = (req, res, next) => {
+  try {
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7).trim() : null;
+    if (!token) {
+      return res.status(401).json({ message: "Jeton d'authentification manquant." });
+    }
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.warn("JWT verification failed:", error.message, "Token:", token?.substring(0, 10) + "...");
+    return res.status(401).json({ message: "Authentification invalide." });
+  }
+};
 
 const formatDate = (value) => {
   if (!value) return value;
@@ -53,15 +78,15 @@ const parseJson = (value, fallback) => {
 
 const REQUEST_STATUS_ALIASES = new Map([
   ["reçu", "reçu"],
-  ["reÃ§u", "reçu"],
+  ["reçu", "reçu"],
   ["re├ºu", "reçu"],
   ["en traitement", "en traitement"],
-  ["assigné", "assigné"],
-  ["assignÃ©", "assigné"],
-  ["assign├®", "assigné"],
-  ["clôturé", "clôturé"],
-  ["clÃ´turÃ©", "clôturé"],
-  ["cl├┤tur├®", "clôturé"],
+  ["assign�", "assign�"],
+  ["assigné", "assign�"],
+  ["assign├®", "assign�"],
+  ["cl�tur�", "cl�tur�"],
+  ["clôturé", "cl�tur�"],
+  ["cl├┤tur├®", "cl�tur�"],
 ]);
 
 const normalizeRequestStatus = (value) => {
@@ -261,7 +286,7 @@ const ensureSessionsTable = async () => {
       session_time VARCHAR(40) NOT NULL,
       subject VARCHAR(120) NOT NULL,
       location VARCHAR(120) NOT NULL,
-      status ENUM('effectué', 'à venir', 'planifié') NOT NULL DEFAULT 'planifié',
+      status ENUM('effectué�', 'à venir', 'planifié') NOT NULL DEFAULT 'planifié',
       teacher_id VARCHAR(36) NOT NULL,
       teacher_name VARCHAR(191) NOT NULL,
       student_id VARCHAR(36) NOT NULL,
@@ -297,6 +322,48 @@ const ensureSessionsTable = async () => {
     if (colsC.length === 0) {
       await pool.query("ALTER TABLE sessions ADD COLUMN code_data TEXT NULL AFTER whiteboard_data");
       console.log("Migration: Added code_data to sessions table");
+    }
+    const [colsAST] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'actual_start_time'");
+    if (colsAST.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN actual_start_time TIMESTAMP NULL AFTER virtual_link");
+      console.log("Migration: Added actual_start_time to sessions table");
+    }
+    const [colsAET] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'actual_end_time'");
+    if (colsAET.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN actual_end_time TIMESTAMP NULL AFTER actual_start_time");
+      console.log("Migration: Added actual_end_time to sessions table");
+    }
+    const [colsRT] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'report_text'");
+    if (colsRT.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN report_text TEXT NULL AFTER actual_end_time");
+      console.log("Migration: Added report_text to sessions table");
+    }
+    const [colsUS] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'understanding_score'");
+    if (colsUS.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN understanding_score INT DEFAULT NULL AFTER report_text");
+      console.log("Migration: Added understanding_score to sessions table");
+    }
+    const [colsIP] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'is_paid'");
+    if (colsIP.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN is_paid BOOLEAN NOT NULL DEFAULT FALSE AFTER understanding_score");
+      console.log("Migration: Added is_paid to sessions table");
+    }
+    const [colsLid] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'lesson_id'");
+    if (colsLid.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN lesson_id VARCHAR(36) DEFAULT NULL AFTER is_paid");
+      console.log("Migration: Added lesson_id to sessions table");
+    }
+    const [colsCid] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'course_id'");
+    if (colsCid.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN course_id VARCHAR(36) DEFAULT NULL AFTER lesson_id");
+      console.log("Migration: Added course_id to sessions table");
+    }
+    // Fix ENUM status
+    try {
+      await pool.query("ALTER TABLE sessions MODIFY COLUMN status ENUM('planifié', 'à venir', 'en cours', 'effectué', 'annulé', 'effectué') NOT NULL DEFAULT 'planifié'");
+      console.log("Migration: Modified status ENUM in sessions table");
+    } catch (e) {
+      console.error("Migration: Failed to modify status ENUM", e.message);
     }
   } catch (err) {
     console.error("Migration failed for sessions table", err.message);
@@ -368,15 +435,41 @@ const ensureCoursesTable = async () => {
       id CHAR(36) NOT NULL PRIMARY KEY,
       title VARCHAR(255) NOT NULL,
       description TEXT,
-      teacher_id VARCHAR(36) NOT NULL,
-      teacher_name VARCHAR(191) NOT NULL,
       subject VARCHAR(120) NOT NULL,
-      level VARCHAR(50) NOT NULL,
-      price DECIMAL(10,2) NOT NULL DEFAULT 0,
-      duration VARCHAR(50),
-      image_url VARCHAR(255),
-      active BOOLEAN DEFAULT TRUE,
+      level VARCHAR(120) NOT NULL,
+      status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
+      cover_url VARCHAR(255) NULL,
+      created_by VARCHAR(36) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureCourseLessonsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS course_lessons (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      course_id CHAR(36) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      content TEXT NOT NULL,
+      video_url VARCHAR(255) NULL,
+      order_index INT NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_lessons_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureCourseEnrollmentsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS course_enrollments (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      course_id CHAR(36) NOT NULL,
+      student_id VARCHAR(36) NOT NULL,
+      student_name VARCHAR(191) NOT NULL,
+      assigned_by VARCHAR(36) NULL,
+      assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_enrollments_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 };
@@ -385,12 +478,27 @@ const ensureQuizzesTable = async () => {
   await pool.query(
     `CREATE TABLE IF NOT EXISTS quizzes (
       id CHAR(36) NOT NULL PRIMARY KEY,
-      course_id VARCHAR(36) NOT NULL,
+      course_id CHAR(36) NOT NULL,
+      lesson_id CHAR(36) NULL,
       title VARCHAR(255) NOT NULL,
-      subject VARCHAR(120) NOT NULL,
-      description TEXT,
-      total_points INT DEFAULT 20,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      instructions TEXT NULL,
+      total_points INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_quizzes_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureQuizQuestionsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS quiz_questions (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      quiz_id CHAR(36) NOT NULL,
+      prompt TEXT NOT NULL,
+      choices JSON NOT NULL,
+      correct_answer VARCHAR(120) NOT NULL,
+      points INT NOT NULL DEFAULT 1,
+      CONSTRAINT fk_questions_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
 };
@@ -430,9 +538,42 @@ const ensureTeacherFeedbackTable = async () => {
       await pool.query("ALTER TABLE teacher_feedback ADD COLUMN teacher_name VARCHAR(191) DEFAULT NULL AFTER teacher_id");
       console.log("Migration: Added teacher_name to teacher_feedback");
     }
+    const [colsSid] = await pool.query("SHOW COLUMNS FROM teacher_feedback LIKE 'session_id'");
+    if (colsSid.length === 0) {
+      await pool.query("ALTER TABLE teacher_feedback ADD COLUMN session_id VARCHAR(36) DEFAULT NULL AFTER student_name");
+      console.log("Migration: Added session_id to teacher_feedback");
+    }
   } catch (err) {
     console.warn("Migration skip for teacher_feedback", err.message);
   }
+};
+
+const ensureCourseBookmarksTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS course_bookmarks (
+      user_id VARCHAR(255) NOT NULL,
+      course_id VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, course_id),
+      KEY idx_bookmarks_user (user_id),
+      KEY idx_bookmarks_course (course_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureUserCourseProgressTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS user_course_progress (
+      user_id VARCHAR(255) NOT NULL,
+      course_id CHAR(36) NOT NULL,
+      last_lesson_id CHAR(36) NULL,
+      completed_lessons JSON NOT NULL,
+      last_accessed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, course_id),
+      KEY idx_progress_user (user_id),
+      KEY idx_progress_last_access (last_accessed_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
 };
 
 const ensureTeacherRatingsTable = async () => {
@@ -457,7 +598,7 @@ const ensureRequestsTable = async () => {
       level VARCHAR(120) NOT NULL,
       subject VARCHAR(120) NOT NULL,
       phone VARCHAR(50),
-      status ENUM('reçu', 'en traitement', 'assigné', 'clôturé') NOT NULL DEFAULT 'reçu',
+      status ENUM('reçu', 'en traitement', 'assign�', 'cl�tur�') NOT NULL DEFAULT 'reçu',
       request_date DATE NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
@@ -495,17 +636,46 @@ const initDB = async () => {
     await ensureHomeworkTable();
     await ensureLessonResourcesTable();
     await ensureCoursesTable();
+    await ensureCourseLessonsTable();
+    await ensureCourseEnrollmentsTable();
     await ensureQuizzesTable();
+    await ensureQuizQuestionsTable();
     await ensureQuizAttemptsTable();
     await ensureTeacherFeedbackTable();
     await ensureTeacherRatingsTable();
     await ensureRequestsTable();
+    await ensureParentInvoicesTable();
     await ensureAssignmentsTable();
+    await ensureParentChildTable();
+    await ensureStudentTeacherTable();
+    await ensureParentOverviewTable();
+    await ensureStudentProgressPointsTable();
+    await ensureGradeDisputesTable();
+    await ensureNotificationsTable();
+    await ensureCourseBookmarksTable();
+    await ensureUserCourseProgressTable();
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
     process.exit(1);
   }
+};
+
+const ensureStudentEvaluationsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS student_evaluations (
+        id CHAR(36) NOT NULL DEFAULT (UUID()),
+        student_id VARCHAR(36) NOT NULL,
+        teacher_id VARCHAR(36) NOT NULL,
+        teacher_name VARCHAR(191) NOT NULL,
+        rating TINYINT NOT NULL DEFAULT 5 CHECK (rating BETWEEN 1 AND 5),
+        comment TEXT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_student_eval_student (student_id),
+        KEY idx_student_eval_teacher (teacher_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
 };
 
 const ensureHomeworkTable = async () => {
@@ -597,15 +767,29 @@ const mapRequestRow = (row) => ({
   date: formatDate(row.request_date),
 });
 
-// Corrige les caractères UTF-8 mal décodés (mojibake fréquent avec MySQL latin1→utf8)
 const fixEncoding = (str) => {
   if (!str || typeof str !== "string") return str;
-  try {
-    // Tentative de correction via latin1 → utf8
-    return decodeURIComponent(escape(str));
-  } catch {
-    return str;
+  // Dictionnaire de correspondances pour les erreurs d'encodage courantes (UTF-8 lu en Latin-1)
+  const replacements = {
+    'Ã©': 'é', 'Ã ': 'à', 'Ã¨': 'è', 'Ã¹': 'ù', 'Ã¢': 'â',
+    'Ãª': 'ê', 'Ã®': 'î', 'Ã´': 'ô', 'Ã»': 'û', 'Ã«': 'ë',
+    'Ã¯': 'ï', 'Ã¼': 'ü', 'Ã§': 'ç', 'Ã‰': 'É', 'Ã€': 'À',
+    'Â°': '°', 'Â': ''
+  };
+
+  let fixed = str;
+  for (const [bad, good] of Object.entries(replacements)) {
+    fixed = fixed.split(bad).join(good);
   }
+
+  try {
+    // Si c'est encore encodé en escape sequence
+    if (fixed.includes('%')) return decodeURIComponent(fixed);
+  } catch {
+    // ignore
+  }
+
+  return fixed;
 };
 
 const fixJsonEncoding = (value) => {
@@ -649,6 +833,13 @@ const mapSessionRow = (row) => ({
   notes: row.notes,
   whiteboardData: row.whiteboard_data,
   codeData: row.code_data,
+  actualStartTime: row.actual_start_time,
+  actualEndTime: row.actual_end_time,
+  reportText: row.report_text,
+  understandingScore: row.understanding_score,
+  isPaid: Boolean(row.is_paid),
+  lessonId: row.lesson_id,
+  courseId: row.course_id,
 });
 
 const mapTeacherApplicationRow = (row) => ({
@@ -746,10 +937,10 @@ const mapParentOverviewRow = (row) => ({
 
 const mapCourseRow = (row) => ({
   id: row.id,
-  title: row.title,
-  description: row.description,
-  subject: row.subject,
-  level: row.level,
+  title: fixEncoding(row.title),
+  description: fixEncoding(row.description),
+  subject: fixEncoding(row.subject),
+  level: fixEncoding(row.level),
   status: row.status,
   coverUrl: row.cover_url,
   createdBy: row.created_by,
@@ -759,9 +950,9 @@ const mapCourseRow = (row) => ({
 
 const mapLessonRow = (row) => ({
   id: row.id,
-  courseId: row.course_id,
-  title: row.title,
-  content: row.content,
+  course_id: row.course_id,
+  title: fixEncoding(row.title),
+  content: fixEncoding(row.content),
   videoUrl: row.video_url,
   order: row.order_index,
   quiz: null,
@@ -812,7 +1003,7 @@ const mapQuizAttemptRow = (row) => ({
   createdAt: row.created_at,
 });
 
-const buildCoursesPayload = async (courseRows) => {
+const buildCoursesPayload = async (courseRows, studentId = null) => {
   if (!courseRows.length) return [];
   const courseIds = courseRows.map((row) => row.id);
   const [lessonRows] = await pool.query(
@@ -831,11 +1022,43 @@ const buildCoursesPayload = async (courseRows) => {
     [courseIds]
   );
 
-  const courseMap = new Map(courseRows.map((row) => [row.id, mapCourseRow(row)]));
+  let progressMap = new Map();
+  if (studentId) {
+    const [progRows] = await pool.query(
+      "SELECT course_id, last_lesson_id, completed_lessons FROM user_course_progress WHERE user_id = ?",
+      [studentId]
+    );
+    progRows.forEach(row => {
+      progressMap.set(row.course_id, {
+        lastLessonId: row.last_lesson_id,
+        completedLessons: parseJson(row.completed_lessons, [])
+      });
+    });
+  }
+
+  const courseMap = new Map(courseRows.map((row) => {
+    const prog = progressMap.get(row.id) || { lastLessonId: null, completedLessons: [] };
+    return [row.id, {
+      ...mapCourseRow(row),
+      lessons: [],
+      progress: 0, // Will calculate after lessons are added
+      lastLessonId: prog.lastLessonId,
+      completedLessons: prog.completedLessons
+    }];
+  }));
+
   lessonRows.forEach((lesson) => {
     const parent = courseMap.get(lesson.course_id);
     if (!parent) return;
     parent.lessons.push(mapLessonRow(lesson));
+  });
+
+  // Calculate progress
+  courseMap.forEach(course => {
+    if (course.lessons.length > 0) {
+      const completed = course.completedLessons.length;
+      course.progress = Math.min(100, Math.floor((completed / course.lessons.length) * 100));
+    }
   });
 
   quizRows.forEach((quiz) => {
@@ -908,6 +1131,164 @@ const mapParentProgressRow = (row) => ({
   anglais: Number(row.anglais),
 });
 
+const USER_PUBLIC_COLUMNS = `id, name, email, role, avatar, avatar_url, phone, location, timezone, language, bio,
+  notify_email, notify_sms, notify_whatsapp, parent_id, last_login_at, created_at, updated_at`;
+
+const mapUserRow = (row) => ({
+  id: row.id,
+  name: fixEncoding(row.name),
+  email: row.email,
+  role: row.role,
+  avatar: row.avatar,
+  phone: row.phone,
+  location: row.location ? fixEncoding(row.location) : row.location,
+  timezone: row.timezone,
+  language: row.language,
+  bio: row.bio ? fixEncoding(row.bio) : row.bio,
+  notifyEmail: Boolean(row.notify_email),
+  notifySms: Boolean(row.notify_sms),
+  notifyWhatsapp: Boolean(row.notify_whatsapp),
+  parentId: row.parent_id,
+  avatarUrl: row.avatar_url || null,
+  lastLoginAt: row.last_login_at,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+  // Teacher specific fields
+  bankName: row.bank_name || null,
+  bankIban: row.bank_iban || null,
+  bankAccountHolder: row.bank_account_holder || null,
+  availability: parseJson(row.availability_json, []),
+});
+
+const ensureParentChildTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS parent_child (
+      parent_id VARCHAR(255) NOT NULL,
+      child_id VARCHAR(255) NOT NULL,
+      PRIMARY KEY (parent_id, child_id),
+      KEY idx_pc_child (child_id),
+      CONSTRAINT fk_pc_parent FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_pc_child FOREIGN KEY (child_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+};
+
+const ensureParentInvoicesTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS parent_invoices (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      parent_id VARCHAR(36) NOT NULL,
+      invoice_date DATE NOT NULL,
+      description VARCHAR(255) NOT NULL,
+      amount INT NOT NULL,
+      status ENUM('paid', 'pending') NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_invoices_parent (parent_id),
+      KEY idx_invoices_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const ensureParentOverviewTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS parent_overviews (
+      parent_id VARCHAR(36) NOT NULL,
+      parent_name VARCHAR(191) NOT NULL,
+      student_id VARCHAR(36) NOT NULL,
+      child_name VARCHAR(191) NOT NULL,
+      child_level VARCHAR(120) NOT NULL,
+      focus_subject VARCHAR(120) NOT NULL,
+      sessions_this_month INT NOT NULL DEFAULT 0,
+      current_avg DECIMAL(5,2) NOT NULL DEFAULT 0,
+      previous_avg DECIMAL(5,2) NOT NULL DEFAULT 0,
+      total_paid_this_month INT NOT NULL DEFAULT 0,
+      PRIMARY KEY (parent_id),
+      KEY idx_parent_overviews_student (student_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const ensureStudentProgressPointsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS student_progress_points (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      student_id VARCHAR(36) NOT NULL,
+      month_label VARCHAR(20) NOT NULL,
+      month_order INT NOT NULL,
+      maths DECIMAL(4,1) NOT NULL,
+      francais DECIMAL(4,1) NOT NULL,
+      anglais DECIMAL(4,1) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_progress_student (student_id),
+      KEY idx_progress_order (student_id, month_order)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureGradeDisputesTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS grade_disputes (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      student_id VARCHAR(36) NOT NULL,
+      session_id VARCHAR(36) NOT NULL,
+      reason TEXT NOT NULL,
+      status ENUM('pending', 'resolved', 'rejected') NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_disputes_student (student_id),
+      KEY idx_disputes_session (session_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const ensureStudentTeacherTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS student_teacher (
+      student_id VARCHAR(255) NOT NULL,
+      teacher_id VARCHAR(255) NOT NULL,
+      PRIMARY KEY (student_id, teacher_id),
+      KEY idx_st_teacher (teacher_id),
+      CONSTRAINT fk_st_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_st_teacher FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+};
+
+const linkParentChild = async (parentId, childId) => {
+  if (!parentId || !childId) return;
+  await ensureParentChildTable();
+  await pool.query(
+    "INSERT IGNORE INTO parent_child (parent_id, child_id) VALUES (?, ?)",
+    [parentId, childId]
+  );
+};
+
+const unlinkParentChild = async (parentId, childId) => {
+  if (!parentId || !childId) return;
+  await pool.query(
+    "DELETE FROM parent_child WHERE parent_id = ? AND child_id = ?",
+    [parentId, childId]
+  );
+};
+
+const linkStudentTeacherRelation = async (studentId, teacherId) => {
+  if (!studentId || !teacherId) return;
+  await ensureStudentTeacherTable();
+  await pool.query(
+    "INSERT IGNORE INTO student_teacher (student_id, teacher_id) VALUES (?, ?)",
+    [studentId, teacherId]
+  );
+};
+
+const unlinkStudentTeacherRelation = async (studentId, teacherId) => {
+  if (!studentId || !teacherId) return;
+  await pool.query(
+    "DELETE FROM student_teacher WHERE student_id = ? AND teacher_id = ?",
+    [studentId, teacherId]
+  );
+};
+
 const app = express();
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
@@ -946,6 +1327,7 @@ app.post("/api/parents/enroll", async (req, res) => {
       return res.status(400).json({ message: `Erreur: Les emails suivants sont déjà utilisés : ${existingEmails}` });
     }
 
+    await ensureParentChildTable();
     await connection.beginTransaction();
 
     // 1. Create Parent User
@@ -963,6 +1345,11 @@ app.post("/api/parents/enroll", async (req, res) => {
     await connection.query(
       "INSERT INTO users (id, name, email, password, role, parent_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?)",
       [studentId, childName, finalStudentEmail, hashedStudentPwd, parentId, childName[0]]
+    );
+
+    await connection.query(
+      "INSERT IGNORE INTO parent_child (parent_id, child_id) VALUES (?, ?)",
+      [parentId, studentId]
     );
 
     // 3. Create initial Request (lead)
@@ -996,6 +1383,44 @@ app.get("/api/health", async (_req, res) => {
   } catch (error) {
     console.error("Health check failed", error);
     res.status(500).json({ status: "error", message: "Database connection failed" });
+  }
+});
+
+app.get("/api/search", authenticateRequest, async (req, res) => {
+  const { q } = req.query;
+  if (!q || q.length < 2) {
+    return res.json({ courses: [], teachers: [], homework: [] });
+  }
+
+  const query = `%${q}%`;
+
+  try {
+    // Search courses
+    const [courses] = await pool.query(
+      "SELECT id, title, subject, level FROM courses WHERE title LIKE ? OR subject LIKE ? OR description LIKE ? LIMIT 5",
+      [query, query, query]
+    );
+
+    // Search teachers (users with role 'teacher')
+    const [teachers] = await pool.query(
+      "SELECT id, name, email as subject, avatar FROM users WHERE role = 'teacher' AND (name LIKE ? OR email LIKE ?) LIMIT 5",
+      [query, query]
+    );
+
+    // Search homework
+    const [homework] = await pool.query(
+      "SELECT id, title, subject, status FROM homework WHERE title LIKE ? OR subject LIKE ? OR description LIKE ? LIMIT 5",
+      [query, query, query]
+    );
+
+    res.json({
+      courses: courses.map(c => ({ ...c, type: 'course', link: `/student/courses` })), // simplified link
+      teachers: teachers.map(t => ({ ...t, type: 'teacher', link: `/student/teachers` })),
+      homework: homework.map(h => ({ ...h, type: 'homework', link: `/student/homework` }))
+    });
+  } catch (error) {
+    console.error("Global search failed", error);
+    res.status(500).json({ message: "Erreur lors de la recherche globale." });
   }
 });
 
@@ -1035,7 +1460,7 @@ app.post("/api/requests", async (req, res) => {
 app.patch("/api/requests/:id", async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
-  const validStatuses = new Set(["reçu", "en traitement", "assigné", "clôturé"]);
+  const validStatuses = new Set(["reçu", "en traitement", "assign�", "cl�tur�"]);
 
   console.log(`PATCH /api/requests/${id} - New Status: ${status}`);
   fs.appendFileSync('/tmp/debug_api.log', `PATCH /api/requests/${id} - New Status: ${status}\n`);
@@ -1126,7 +1551,7 @@ app.patch("/api/assignments/:id", async (req, res) => {
 
     // 3. Mettre à jour la demande correspondante dans 'requests' (statut métier)
     await pool.query(
-      "UPDATE requests SET status = 'assigné' WHERE child_name = ? AND level = ? AND subject = ?",
+      "UPDATE requests SET status = 'assign�' WHERE child_name = ? AND level = ? AND subject = ?",
       [assignment.child_name, assignment.level, assignment.subject]
     );
 
@@ -1197,7 +1622,7 @@ app.get("/api/sessions", async (req, res) => {
     await ensureSessionsTable();
     const column = roleColumn[role];
     const [rows] = await pool.query(
-      `SELECT id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, virtual_link, notes, whiteboard_data, code_data
+      `SELECT id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, virtual_link, notes, whiteboard_data, code_data, actual_start_time, actual_end_time, report_text, understanding_score, is_paid, lesson_id, course_id
        FROM sessions
        WHERE ${column} = ?
        ORDER BY session_date ASC, session_time ASC`,
@@ -1237,10 +1662,92 @@ app.patch("/api/sessions/:id/status", async (req, res) => {
   if (!status) return res.status(400).json({ message: "Statut requis." });
   try {
     await pool.query("UPDATE sessions SET status = ? WHERE id = ?", [status, id]);
-    res.json({ success: true });
+    const [rows] = await pool.query("SELECT * FROM sessions WHERE id = ?", [id]);
+    res.json(mapSessionRow(rows[0]));
   } catch (error) {
     console.error("Failed to update session status", error);
     res.status(500).json({ message: "Impossible de modifier le statut." });
+  }
+});
+
+app.patch("/api/sessions/:id/check-in", authenticateRequest, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query("UPDATE sessions SET actual_start_time = NOW(), status = 'en cours' WHERE id = ?", [id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Check-in failed", error);
+    res.status(500).json({ message: "Erreur lors du check-in." });
+  }
+});
+
+app.patch("/api/sessions/:id/check-out", authenticateRequest, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query("UPDATE sessions SET actual_end_time = NOW(), status = 'effectué' WHERE id = ?", [id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Check-out failed", error);
+    res.status(500).json({ message: "Erreur lors du check-out." });
+  }
+});
+
+app.post("/api/sessions/:id/report", authenticateRequest, async (req, res) => {
+  const { id } = req.params;
+  const { reportText, understandingScore, rating, comment, lessonId, courseId } = req.body;
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Update session
+    await connection.query(
+      "UPDATE sessions SET report_text = ?, understanding_score = ?, status = 'effectué', lesson_id = ? WHERE id = ?",
+      [reportText, understandingScore, lessonId || null, id]
+    );
+
+    // Get session details for feedback
+    const [sessionRows] = await connection.query("SELECT * FROM sessions WHERE id = ?", [id]);
+    const s = sessionRows[0];
+
+    await connection.commit();
+    res.json({ success: true });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Feedback report failed", error);
+    res.status(500).json({ message: "Erreur lors de l'enregistrement du rapport." });
+  } finally {
+    connection.release();
+  }
+});
+
+app.post("/api/homework", authenticateRequest, async (req, res) => {
+  const { teacherId, studentId, sessionId, title, description, dueDate, subject } = req.body;
+  if (!teacherId || !studentId || !title || !dueDate || !subject) {
+    return res.status(400).json({ message: "Champs obligatoires manquants." });
+  }
+  try {
+    const id = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO homework (id, teacher_id, student_id, session_id, title, description, due_date, subject, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'à faire')`,
+      [id, teacherId, studentId, sessionId || null, title, description || "", dueDate, subject]
+    );
+    res.status(201).json({ id, success: true });
+  } catch (error) {
+    console.error("Failed to create homework", error);
+    res.status(500).json({ message: "Impossible d'assigner le devoir." });
+  }
+});
+
+app.patch("/api/sessions/:id/notes", async (req, res) => {
+  const { id } = req.params;
+  const { notes } = req.body ?? {};
+  try {
+    await pool.query("UPDATE sessions SET notes = ? WHERE id = ?", [notes, id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to update session notes", error);
+    res.status(500).json({ message: "Impossible d'enregistrer le compte-rendu." });
   }
 });
 
@@ -1805,7 +2312,7 @@ app.get("/api/courses", async (req, res) => {
       );
     }
 
-    const payload = await buildCoursesPayload(rows);
+    const payload = await buildCoursesPayload(rows, role === 'student' ? userId : null);
     res.json(payload);
   } catch (error) {
     console.error("Failed to fetch courses", error);
@@ -1978,6 +2485,112 @@ app.post("/api/courses/:courseId/enrollments", async (req, res) => {
   } catch (error) {
     console.error("Failed to enroll student", error);
     res.status(500).json({ message: "Impossible d'assigner le cours." });
+  }
+});
+
+app.get("/api/users/:userId/course-bookmarks", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const [rows] = await pool.query(
+      "SELECT course_id FROM course_bookmarks WHERE user_id = ?",
+      [userId]
+    );
+    res.json(rows.map(r => r.course_id));
+  } catch (error) {
+    console.error("Failed to fetch bookmarks", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.post("/api/users/:userId/course-bookmarks/:courseId", async (req, res) => {
+  const { userId, courseId } = req.params;
+  try {
+    await pool.query(
+      "INSERT IGNORE INTO course_bookmarks (user_id, course_id) VALUES (?, ?)",
+      [userId, courseId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to add bookmark", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.delete("/api/users/:userId/course-bookmarks/:courseId", async (req, res) => {
+  const { userId, courseId } = req.params;
+  try {
+    await pool.query(
+      "DELETE FROM course_bookmarks WHERE user_id = ? AND course_id = ?",
+      [userId, courseId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to remove bookmark", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.post("/api/users/:userId/courses/:courseId/progress", async (req, res) => {
+  const { userId, courseId } = req.params;
+  const { lessonId, completed } = req.body ?? {};
+  try {
+    // Get existing progress
+    const [rows] = await pool.query(
+      "SELECT completed_lessons FROM user_course_progress WHERE user_id = ? AND course_id = ?",
+      [userId, courseId]
+    );
+
+    let completedLessons = [];
+    if (rows.length > 0) {
+      completedLessons = parseJson(rows[0].completed_lessons, []);
+    }
+
+    if (completed && lessonId && !completedLessons.includes(lessonId)) {
+      completedLessons.push(lessonId);
+    }
+
+    await pool.query(
+      `INSERT INTO user_course_progress (user_id, course_id, last_lesson_id, completed_lessons)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE 
+       last_lesson_id = IFNULL(?, last_lesson_id),
+       completed_lessons = ?,
+       last_accessed_at = CURRENT_TIMESTAMP`,
+      [userId, courseId, lessonId || null, JSON.stringify(completedLessons), lessonId || null, JSON.stringify(completedLessons)]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to update course progress", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/users/:userId/active-course", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const [rows] = await pool.query(
+      `SELECT cp.course_id, cp.last_lesson_id, c.title, c.subject, cl.title as lesson_title
+       FROM user_course_progress cp
+       JOIN courses c ON c.id = cp.course_id
+       LEFT JOIN course_lessons cl ON cl.id = cp.last_lesson_id
+       WHERE cp.user_id = ?
+       ORDER BY cp.last_accessed_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+    if (rows.length === 0) {
+      return res.json(null);
+    }
+    res.json({
+      courseId: rows[0].course_id,
+      lastLessonId: rows[0].last_lesson_id,
+      courseTitle: rows[0].title,
+      subject: rows[0].subject,
+      lessonTitle: rows[0].lesson_title
+    });
+  } catch (error) {
+    console.error("Failed to fetch active course", error);
+    res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
@@ -2170,6 +2783,48 @@ app.patch("/api/messages/:messageId/read", async (req, res) => {
   }
 });
 
+app.post("/api/messages/upload", authenticateRequest, upload.single("attachment"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Aucun fichier n'a été fourni." });
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({ fileUrl });
+  } catch (error) {
+    console.error("Message attachment upload error:", error);
+    res.status(500).json({ message: "Erreur lors de l'upload." });
+  }
+});
+
+app.get("/api/teachers/:teacherId/contacts", async (req, res) => {
+  const { teacherId } = req.params;
+  try {
+    const [students] = await pool.query(
+      `SELECT DISTINCT u.id, u.name, u.role, u.avatar 
+       FROM student_teacher st
+       JOIN users u ON st.student_id = u.id
+       WHERE st.teacher_id = ?`,
+      [teacherId]
+    );
+
+    const [advisors] = await pool.query(
+      `SELECT id, name, role, avatar FROM users WHERE role = 'advisor'`
+    );
+
+    const contacts = [...students, ...advisors].map(c => ({
+      id: c.id,
+      name: c.name,
+      role: c.role,
+      avatar: c.avatar || c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+    }));
+
+    res.json(contacts);
+  } catch (error) {
+    console.error("Failed to fetch teacher contacts", error);
+    res.status(500).json({ message: "Erreur lors de la récupération des contacts." });
+  }
+});
+
 // ==========================================
 // CONSEILLER — FAMILLES
 // ==========================================
@@ -2218,7 +2873,7 @@ app.get("/api/advisor/families", async (_req, res) => {
         row.request_status === "en traitement"
       ) {
         status = "matching";
-      } else if (row.request_status === "assigné") {
+      } else if (row.request_status === "assign�") {
         status = "bilan planifié";
       }
 
@@ -2261,6 +2916,79 @@ app.get("/api/advisor/families", async (_req, res) => {
   }
 });
 
+// ==========================================
+// ADMIN DASHBOARD
+// ==========================================
+
+app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès réservé aux administrateurs." });
+  }
+  try {
+    await Promise.all([ensureUsersTable(), ensureRequestsTable(), ensureTeacherFeedbackTable(), ensureParentInvoicesTable()]);
+
+    const [[teachersRow]] = await pool.query("SELECT COUNT(*) as count FROM users WHERE role = 'teacher'");
+    const [[studentsRow]] = await pool.query("SELECT COUNT(*) as count FROM users WHERE role = 'student'");
+    const [requestStatusRows] = await pool.query("SELECT status FROM requests");
+    const [[familiesRow]] = await pool.query(
+      "SELECT COUNT(*) as count FROM requests WHERE YEAR(request_date) = YEAR(CURDATE()) AND MONTH(request_date) = MONTH(CURDATE())"
+    );
+    const [[ratingRow]] = await pool.query("SELECT AVG(rating) as avgRating FROM teacher_feedback");
+
+    const [invoiceRows] = await pool.query(
+      `SELECT DATE_FORMAT(invoice_date, '%Y-%m') AS month_key, SUM(amount) AS total_amount
+       FROM parent_invoices
+       WHERE invoice_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+       GROUP BY month_key`
+    );
+    const revenueMap = new Map(invoiceRows.map((row) => [row.month_key, Number(row.total_amount) || 0]));
+    const monthlyRevenue = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setMonth(date.getMonth() - i);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const label = new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(date);
+      monthlyRevenue.push({
+        month: label.charAt(0).toUpperCase() + label.slice(1),
+        amount: revenueMap.get(key) ?? 0,
+      });
+    }
+
+    const currentRevenue = monthlyRevenue[monthlyRevenue.length - 1]?.amount ?? 0;
+    const previousRevenue = monthlyRevenue.length > 1 ? monthlyRevenue[monthlyRevenue.length - 2].amount : 0;
+
+    const pendingRequests = requestStatusRows.filter((row) => {
+      const status = normalizeRequestStatus(row.status);
+      return status === "reçu" || status === "en traitement";
+    }).length;
+
+    const [latestRequestRows] = await pool.query(
+      `SELECT id, parent_name, child_name, level, subject, phone, status, request_date
+       FROM requests
+       ORDER BY request_date DESC
+       LIMIT 10`
+    );
+
+    res.json({
+      stats: {
+        totalTeachers: teachersRow?.count ?? 0,
+        activeStudents: studentsRow?.count ?? 0,
+        pendingRequests,
+        monthlyRevenue: currentRevenue,
+        previousRevenue,
+        satisfactionRate: Number(ratingRow?.avgRating ?? 0),
+        newFamiliesThisMonth: familiesRow?.count ?? 0,
+      },
+      monthlyRevenue,
+      latestRequests: latestRequestRows.map(mapRequestRow),
+    });
+  } catch (error) {
+    console.error("Failed to fetch admin dashboard", error);
+    res.status(500).json({ message: "Impossible de récupérer les statistiques administrateur." });
+  }
+});
+
 
 
 // ==========================================
@@ -2274,21 +3002,44 @@ const ensureUsersTable = async () => {
       name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE NOT NULL,
       password VARCHAR(255) NOT NULL,
-      role VARCHAR(50) NOT NULL,
+      role ENUM('admin','teacher','parent','advisor','student') NOT NULL,
       avatar VARCHAR(10),
       phone VARCHAR(50),
+      location VARCHAR(120),
+      timezone VARCHAR(64) NOT NULL DEFAULT 'Africa/Douala',
+      language VARCHAR(10) NOT NULL DEFAULT 'fr',
+      bio TEXT NULL,
+      notify_email TINYINT(1) NOT NULL DEFAULT 1,
+      notify_sms TINYINT(1) NOT NULL DEFAULT 0,
+      notify_whatsapp TINYINT(1) NOT NULL DEFAULT 0,
       parent_id VARCHAR(255) DEFAULT NULL,
+      last_login_at TIMESTAMP NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       CONSTRAINT fk_parent FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
-  // Migration for parent_id if table already exists without it
-  try {
-    const [cols] = await pool.query("SHOW COLUMNS FROM users LIKE 'parent_id'");
+  const ensureColumn = async (column, ddl) => {
+    const [cols] = await pool.query("SHOW COLUMNS FROM users LIKE ?", [column]);
     if (cols.length === 0) {
-      await pool.query("ALTER TABLE users ADD COLUMN parent_id VARCHAR(255) DEFAULT NULL, ADD CONSTRAINT fk_parent FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE SET NULL");
-      console.log("Migration: Added parent_id to users table");
+      await pool.query(`ALTER TABLE users ADD COLUMN ${column} ${ddl}`);
+      console.log(`Migration: Added ${column} to users table`);
     }
+  };
+
+  try {
+    await ensureColumn("parent_id", "VARCHAR(255) DEFAULT NULL");
+    await ensureColumn("location", "VARCHAR(120) NULL");
+    await ensureColumn("timezone", "VARCHAR(64) NOT NULL DEFAULT 'Africa/Douala'");
+    await ensureColumn("language", "VARCHAR(10) NOT NULL DEFAULT 'fr'");
+    await ensureColumn("bio", "TEXT NULL");
+    await ensureColumn("notify_email", "TINYINT(1) NOT NULL DEFAULT 1");
+    await ensureColumn("notify_sms", "TINYINT(1) NOT NULL DEFAULT 0");
+    await ensureColumn("notify_whatsapp", "TINYINT(1) NOT NULL DEFAULT 0");
+    await ensureColumn("last_login_at", "TIMESTAMP NULL");
+    await ensureColumn("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
+    await ensureColumn("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
   } catch (err) {
     console.warn("Migration skip for users table", err.message);
   }
@@ -2296,21 +3047,219 @@ const ensureUsersTable = async () => {
   const [rows] = await pool.query("SELECT COUNT(*) as count FROM users");
   if (rows[0].count === 0) {
     const MOCK_USERS = [
-      { id: "a1", name: "Directeur Ngono", email: "admin@care4success.cm", password: "admin123", role: "admin", avatar: "DN", phone: "+237 675 252 048", parentId: null },
-      { id: "t1", name: "Dr. Clémentine Abanda", email: "prof@care4success.cm", password: "prof123", role: "teacher", avatar: "CA", phone: "+237 699 001 122", parentId: null },
-      { id: "p1", name: "Aminata Diallo", email: "parent@care4success.cm", password: "parent123", role: "parent", avatar: "AD", phone: "+237 677 334 455", parentId: null },
-      { id: "c1", name: "Brice Owona", email: "conseiller@care4success.cm", password: "conseil123", role: "advisor", avatar: "BO", phone: "+237 691 556 677", parentId: null },
-      { id: "s1", name: "Koffi Diallo", email: "eleve@care4success.cm", password: "eleve123", role: "student", avatar: "KD", phone: "+237 697 889 900", parentId: "p1" }
+      {
+        id: "a1",
+        name: "Directeur Ngono",
+        email: "admin@care4success.cm",
+        password: "admin123",
+        role: "admin",
+        avatar: "DN",
+        phone: "+237 675 252 048",
+        parentId: null,
+        location: "Douala, Cameroun",
+        timezone: "Africa/Douala",
+        language: "fr",
+        bio: "Direction Care4Success et coordination des pôles pédagogiques.",
+        notifyEmail: 1,
+        notifySms: 1,
+        notifyWhatsapp: 0
+      },
+      {
+        id: "t1",
+        name: "Dr. Clémentine Abanda",
+        email: "prof@care4success.cm",
+        password: "prof123",
+        role: "teacher",
+        avatar: "CA",
+        phone: "+237 699 001 122",
+        parentId: null,
+        location: "Bonapriso, Douala",
+        timezone: "Africa/Douala",
+        language: "fr",
+        bio: "Spécialiste Mathématiques & Physique, 12 ans d'expérience.",
+        notifyEmail: 1,
+        notifySms: 0,
+        notifyWhatsapp: 0
+      },
+      {
+        id: "p1",
+        name: "Aminata Diallo",
+        email: "parent@care4success.cm",
+        password: "parent123",
+        role: "parent",
+        avatar: "AD",
+        phone: "+237 677 334 455",
+        parentId: null,
+        location: "Akwa Nord, Douala",
+        timezone: "Africa/Douala",
+        language: "fr",
+        bio: "Parent coordinatrice du suivi pédagogique de Koffi.",
+        notifyEmail: 1,
+        notifySms: 1,
+        notifyWhatsapp: 0
+      },
+      {
+        id: "c1",
+        name: "Brice Owona",
+        email: "conseiller@care4success.cm",
+        password: "conseil123",
+        role: "advisor",
+        avatar: "BO",
+        phone: "+237 691 556 677",
+        parentId: null,
+        location: "Bastos, Yaoundé",
+        timezone: "Africa/Douala",
+        language: "fr",
+        bio: "Conseiller pédagogique senior en charge des familles premium.",
+        notifyEmail: 1,
+        notifySms: 1,
+        notifyWhatsapp: 1
+      },
+      {
+        id: "s1",
+        name: "Koffi Diallo",
+        email: "eleve@care4success.cm",
+        password: "eleve123",
+        role: "student",
+        avatar: "KD",
+        phone: "+237 697 889 900",
+        parentId: "p1",
+        location: "Akwa Nord, Douala",
+        timezone: "Africa/Douala",
+        language: "fr",
+        bio: "Élève de 3e préparant le BEPC.",
+        notifyEmail: 1,
+        notifySms: 0,
+        notifyWhatsapp: 0
+      }
     ];
     for (const u of MOCK_USERS) {
       const hashedPassword = bcrypt.hashSync(u.password, 10);
       await pool.query(
-        "INSERT INTO users (id, name, email, password, role, avatar, phone, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [u.id, u.name, u.email, hashedPassword, u.role, u.avatar, u.phone, u.parentId]
+        `INSERT INTO users
+          (id, name, email, password, role, avatar, phone, location, timezone, language, bio, notify_email, notify_sms, notify_whatsapp, parent_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          u.id,
+          u.name,
+          u.email,
+          hashedPassword,
+          u.role,
+          u.avatar,
+          u.phone,
+          u.location,
+          u.timezone,
+          u.language,
+          u.bio,
+          u.notifyEmail,
+          u.notifySms,
+          u.notifyWhatsapp,
+          u.parentId
+        ]
       );
     }
   }
 };
+
+app.post("/api/auth/register", async (req, res) => {
+  const {
+    name,
+    email,
+    password,
+    role,
+    phone,
+    avatar,
+    location,
+    timezone = "Africa/Douala",
+    language = "fr",
+    bio,
+    notifyEmail = true,
+    notifySms = false,
+    notifyWhatsapp = false,
+    childrenIds = [],
+    parentIds = [],
+    teacherIds = [],
+    studentIds = [],
+  } = req.body ?? {};
+
+  if (!name || !email || !password || !role) {
+    return res.status(400).json({ message: "Nom, email, mot de passe et rôle sont obligatoires." });
+  }
+  if (!allowedUserRoles.has(role)) {
+    return res.status(400).json({ message: "Rôle utilisateur invalide." });
+  }
+
+  try {
+    await ensureUsersTable();
+    const [existing] = await pool.query("SELECT id FROM users WHERE email = ?", [email]);
+    if (existing.length > 0) {
+      return res.status(409).json({ message: "Cet email est déjà utilisé." });
+    }
+
+    const userId = crypto.randomUUID();
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const inferredAvatar = (avatar || name || "C4")
+      .split(" ")
+      .map((part) => part?.[0] ?? "")
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "C4";
+
+    await pool.query(
+      `INSERT INTO users
+        (id, name, email, password, role, avatar, phone, location, timezone, language, bio, notify_email, notify_sms, notify_whatsapp, parent_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+      [
+        userId,
+        name.trim(),
+        email.trim(),
+        hashedPassword,
+        role,
+        inferredAvatar,
+        phone || null,
+        location || null,
+        timezone || "Africa/Douala",
+        language || "fr",
+        bio || null,
+        notifyEmail ? 1 : 0,
+        notifySms ? 1 : 0,
+        notifyWhatsapp ? 1 : 0,
+      ]
+    );
+
+    const linkOps = [];
+    if (role === "parent" && Array.isArray(childrenIds)) {
+      childrenIds.forEach((childId) => linkOps.push(linkParentChild(userId, childId)));
+    }
+    if (role === "student") {
+      if (Array.isArray(parentIds)) {
+        parentIds.forEach((pid) => linkOps.push(linkParentChild(pid, userId)));
+      }
+      if (Array.isArray(teacherIds)) {
+        teacherIds.forEach((tid) => linkOps.push(linkStudentTeacherRelation(userId, tid)));
+      }
+    }
+    if (role === "teacher" && Array.isArray(studentIds)) {
+      studentIds.forEach((sid) => linkOps.push(linkStudentTeacherRelation(sid, userId)));
+    }
+    if (linkOps.length) {
+      await Promise.all(linkOps);
+    }
+
+    const [rows] = await pool.query(
+      `SELECT ${USER_PUBLIC_COLUMNS}
+       FROM users
+       WHERE id = ?`,
+      [userId]
+    );
+    const safeUser = mapUserRow(rows[0]);
+    const token = generateToken(safeUser);
+    res.status(201).json({ token, user: safeUser });
+  } catch (error) {
+    console.error("Failed to register user", error);
+    res.status(500).json({ message: "Impossible de créer le compte." });
+  }
+});
 
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
@@ -2319,7 +3268,13 @@ app.post("/api/auth/login", async (req, res) => {
   }
 
   try {
-    const [rows] = await pool.query("SELECT id, name, email, password, role, avatar, phone FROM users WHERE email = ?", [email]);
+    await ensureUsersTable();
+    const [rows] = await pool.query(
+      `SELECT ${USER_PUBLIC_COLUMNS}, password
+       FROM users
+       WHERE email = ?`,
+      [email]
+    );
     if (rows.length === 0) {
       return res.status(401).json({ message: "Email ou mot de passe incorrect." });
     }
@@ -2328,17 +3283,352 @@ app.post("/api/auth/login", async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ message: "Email ou mot de passe incorrect." });
     }
-    res.json({
-      id: user.id,
-      name: fixEncoding(user.name),
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar,
-      phone: user.phone
-    });
+    await pool.query("UPDATE users SET last_login_at = NOW() WHERE id = ?", [user.id]);
+    const safeUser = mapUserRow(user);
+    const token = generateToken(safeUser);
+    res.json({ token, user: safeUser });
   } catch (error) {
     console.error("Failed to login", error);
     res.status(500).json({ message: "Erreur serveur lors de la connexion." });
+  }
+});
+
+app.get("/api/users/:userId", authenticateRequest, async (req, res) => {
+  const { userId } = req.params;
+  if (req.user?.sub !== userId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    await ensureUsersTable();
+    const [rows] = await pool.query(
+      `SELECT u.*, u.avatar_url, 
+              t.bank_name, t.bank_iban, t.bank_account_holder, t.availability_json
+       FROM users u
+       LEFT JOIN teachers t ON t.id = u.id
+       WHERE u.id = ?`,
+      [userId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Utilisateur introuvable." });
+    }
+    res.json(mapUserRow(rows[0]));
+  } catch (error) {
+    console.error("Failed to fetch user profile", error);
+    res.status(500).json({ message: "Impossible de récupérer le profil utilisateur." });
+  }
+});
+
+app.get("/api/users", authenticateRequest, async (req, res) => {
+  try {
+    await ensureUsersTable();
+    const { role } = req.query ?? {};
+    const clauses = [];
+    const params = [];
+    if (role && typeof role === "string") {
+      if (!allowedUserRoles.has(role)) {
+        return res.status(400).json({ message: "Rôle invalide." });
+      }
+      clauses.push("role = ?");
+      params.push(role);
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const [rows] = await pool.query(
+      `SELECT ${USER_PUBLIC_COLUMNS}
+       FROM users
+       ${where}
+       ORDER BY name ASC`,
+      params
+    );
+    res.json(rows.map(mapUserRow));
+  } catch (error) {
+    console.error("Failed to list users", error);
+    res.status(500).json({ message: "Impossible de récupérer les utilisateurs." });
+  }
+});
+
+// Avatar photo upload
+app.post("/api/users/:userId/avatar", upload.single("avatar"), async (req, res) => {
+  const { userId } = req.params;
+  if (!req.file) {
+    return res.status(400).json({ message: "Aucune image reçue." });
+  }
+  try {
+    const protocol = req.protocol;
+    const host = req.get("host");
+    const avatarUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+    // Ensure avatar_url column exists
+    const [cols] = await pool.query("SHOW COLUMNS FROM users LIKE 'avatar_url'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500) NULL");
+    }
+    await pool.query("UPDATE users SET avatar_url = ?, updated_at = NOW() WHERE id = ?", [avatarUrl, userId]);
+    // Return full user to refresh frontend
+    const [rows] = await pool.query(`SELECT ${USER_PUBLIC_COLUMNS}, avatar_url FROM users WHERE id = ?`, [userId]);
+    const u = rows[0] ? { ...mapUserRow(rows[0]), avatarUrl } : { avatarUrl };
+    res.json(u);
+  } catch (error) {
+    console.error("Avatar upload error", error);
+    res.status(500).json({ message: "Impossible d'enregistrer l'avatar." });
+  }
+});
+
+app.put("/api/users/:userId", authenticateRequest, async (req, res) => {
+  const { userId } = req.params;
+  if (req.user?.sub !== userId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  const {
+    name,
+    phone,
+    avatar,
+    location,
+    timezone,
+    language,
+    bio,
+    notifyEmail,
+    notifySms,
+    notifyWhatsapp,
+    bankName,
+    bankIban,
+    bankAccountHolder,
+    availability,
+  } = req.body ?? {};
+
+  const allowedLanguages = new Set(["fr", "en"]);
+  if (language && !allowedLanguages.has(language)) {
+    return res.status(400).json({ message: "Langue non supportée." });
+  }
+  if (typeof name === "string" && !name.trim()) {
+    return res.status(400).json({ message: "Le nom ne peut pas être vide." });
+  }
+
+  const updates = [];
+  const params = [];
+
+  const pushUpdate = (column, value) => {
+    updates.push(`${column} = ?`);
+    params.push(value);
+  };
+
+  if (typeof name === "string") pushUpdate("name", name.trim());
+  if (typeof phone === "string") pushUpdate("phone", phone.trim());
+  if (typeof avatar === "string") pushUpdate("avatar", avatar.trim().slice(0, 2).toUpperCase());
+  if (typeof location === "string") pushUpdate("location", location.trim());
+  if (typeof timezone === "string") pushUpdate("timezone", timezone.trim());
+  if (typeof language === "string") pushUpdate("language", language);
+  if (typeof bio === "string") pushUpdate("bio", bio.trim());
+  if (typeof notifyEmail === "boolean") pushUpdate("notify_email", notifyEmail ? 1 : 0);
+  if (typeof notifySms === "boolean") pushUpdate("notify_sms", notifySms ? 1 : 0);
+  if (typeof notifyWhatsapp === "boolean") pushUpdate("notify_whatsapp", notifyWhatsapp ? 1 : 0);
+
+  if (updates.length === 0) {
+    return res.status(400).json({ message: "Aucun champ à mettre à jour." });
+  }
+
+  try {
+    await ensureUsersTable();
+    const [result] = await pool.query(
+      `UPDATE users
+       SET ${updates.join(", ")}
+       WHERE id = ?`,
+      [...params, userId]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Utilisateur introuvable." });
+    }
+
+    // Update teacher info if it's a teacher
+    const [[userRoleRow]] = await pool.query("SELECT role FROM users WHERE id = ?", [userId]);
+    if (userRoleRow?.role === 'teacher') {
+      const teacherUpdates = [];
+      const teacherParams = [];
+      if (typeof bankName === "string") { teacherUpdates.push("bank_name = ?"); teacherParams.push(bankName); }
+      if (typeof bankIban === "string") { teacherUpdates.push("bank_iban = ?"); teacherParams.push(bankIban); }
+      if (typeof bankAccountHolder === "string") { teacherUpdates.push("bank_account_holder = ?"); teacherParams.push(bankAccountHolder); }
+      if (availability && Array.isArray(availability)) { teacherUpdates.push("availability_json = ?"); teacherParams.push(JSON.stringify(availability)); }
+
+      if (teacherUpdates.length > 0) {
+        await pool.query(
+          `UPDATE teachers SET ${teacherUpdates.join(", ")} WHERE id = ?`,
+          [...teacherParams, userId]
+        );
+      }
+    }
+
+    const [rows] = await pool.query(
+      `SELECT u.*, u.avatar_url, 
+              t.bank_name, t.bank_iban, t.bank_account_holder, t.availability_json
+       FROM users u
+       LEFT JOIN teachers t ON t.id = u.id
+       WHERE u.id = ?`,
+      [userId]
+    );
+    res.json(mapUserRow(rows[0]));
+  } catch (error) {
+    console.error("Failed to update user profile", error);
+    res.status(500).json({ message: "Impossible de mettre à jour le profil." });
+  }
+});
+
+app.patch("/api/users/:userId/password", authenticateRequest, async (req, res) => {
+  const { userId } = req.params;
+  if (req.user?.sub !== userId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  const { currentPassword, newPassword } = req.body ?? {};
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: "Mot de passe actuel et nouveau mot de passe requis." });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ message: "Le nouveau mot de passe doit contenir au moins 8 caractères." });
+  }
+
+  try {
+    await ensureUsersTable();
+    const [rows] = await pool.query(
+      "SELECT id, password FROM users WHERE id = ?",
+      [userId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Utilisateur introuvable." });
+    }
+    const user = rows[0];
+    const isMatch = bcrypt.compareSync(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Mot de passe actuel incorrect." });
+    }
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await pool.query(
+      "UPDATE users SET password = ? WHERE id = ?",
+      [hashedPassword, userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to update password", error);
+    res.status(500).json({ message: "Impossible de mettre à jour le mot de passe." });
+  }
+});
+
+app.get("/api/relationships/parent-child", authenticateRequest, async (req, res) => {
+  const { parentId, childId } = req.query ?? {};
+  if (!parentId && !childId) {
+    return res.status(400).json({ message: "parentId ou childId est requis." });
+  }
+  try {
+    await ensureParentChildTable();
+    if (parentId) {
+      const [rows] = await pool.query(
+        `SELECT u.id, u.name, u.email, u.role, u.avatar, u.phone, u.location, u.timezone, u.language, u.bio,
+                u.notify_email, u.notify_sms, u.notify_whatsapp, u.parent_id, u.last_login_at, u.created_at, u.updated_at
+         FROM parent_child pc
+         JOIN users u ON u.id = pc.child_id
+         WHERE pc.parent_id = ?`,
+        [parentId]
+      );
+      return res.json(rows.map(mapUserRow));
+    }
+    const [rows] = await pool.query(
+      `SELECT u.id, u.name, u.email, u.role, u.avatar, u.phone, u.location, u.timezone, u.language, u.bio,
+              u.notify_email, u.notify_sms, u.notify_whatsapp, u.parent_id, u.last_login_at, u.created_at, u.updated_at
+       FROM parent_child pc
+       JOIN users u ON u.id = pc.parent_id
+       WHERE pc.child_id = ?`,
+      [childId]
+    );
+    res.json(rows.map(mapUserRow));
+  } catch (error) {
+    console.error("Failed to fetch parent-child relationships ERROR:", error);
+    res.status(500).json({ message: "Impossible de récupérer les liaisons parent/enfant.", error: error.message });
+  }
+});
+
+app.post("/api/relationships/parent-child", authenticateRequest, async (req, res) => {
+  const { parentId, childId } = req.body ?? {};
+  if (!parentId || !childId) {
+    return res.status(400).json({ message: "parentId et childId sont requis." });
+  }
+  try {
+    await linkParentChild(parentId, childId);
+    res.status(201).json({ parentId, childId });
+  } catch (error) {
+    console.error("Failed to link parent-child", error);
+    res.status(500).json({ message: "Impossible de créer la liaison parent/enfant." });
+  }
+});
+
+app.delete("/api/relationships/parent-child", authenticateRequest, async (req, res) => {
+  const { parentId, childId } = req.body ?? {};
+  if (!parentId || !childId) {
+    return res.status(400).json({ message: "parentId et childId sont requis." });
+  }
+  try {
+    await unlinkParentChild(parentId, childId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to unlink parent-child", error);
+    res.status(500).json({ message: "Impossible de supprimer la liaison parent/enfant." });
+  }
+});
+
+app.get("/api/relationships/student-teacher", authenticateRequest, async (req, res) => {
+  const { studentId, teacherId } = req.query ?? {};
+  if (!studentId && !teacherId) {
+    return res.status(400).json({ message: "studentId ou teacherId est requis." });
+  }
+  try {
+    await ensureStudentTeacherTable();
+    if (studentId) {
+      const [rows] = await pool.query(
+        `SELECT u.id, u.name, u.email, u.role, u.avatar, u.phone, u.location, u.timezone, u.language, u.bio,
+                u.notify_email, u.notify_sms, u.notify_whatsapp, u.parent_id, u.last_login_at, u.created_at, u.updated_at
+         FROM student_teacher st
+         JOIN users u ON u.id = st.teacher_id
+         WHERE st.student_id = ?`,
+        [studentId]
+      );
+      return res.json(rows.map(mapUserRow));
+    }
+    const [rows] = await pool.query(
+      `SELECT u.id, u.name, u.email, u.role, u.avatar, u.phone, u.location, u.timezone, u.language, u.bio,
+              u.notify_email, u.notify_sms, u.notify_whatsapp, u.parent_id, u.last_login_at, u.created_at, u.updated_at
+       FROM student_teacher st
+       JOIN users u ON u.id = st.student_id
+       WHERE st.teacher_id = ?`,
+      [teacherId]
+    );
+    res.json(rows.map(mapUserRow));
+  } catch (error) {
+    console.error("Failed to fetch student-teacher relationships", error);
+    res.status(500).json({ message: "Impossible de récupérer les liaisons élèves/enseignants." });
+  }
+});
+
+app.post("/api/relationships/student-teacher", authenticateRequest, async (req, res) => {
+  const { studentId, teacherId } = req.body ?? {};
+  if (!studentId || !teacherId) {
+    return res.status(400).json({ message: "studentId et teacherId sont requis." });
+  }
+  try {
+    await linkStudentTeacherRelation(studentId, teacherId);
+    res.status(201).json({ studentId, teacherId });
+  } catch (error) {
+    console.error("Failed to link student-teacher", error);
+    res.status(500).json({ message: "Impossible de créer la liaison élève/enseignant." });
+  }
+});
+
+app.delete("/api/relationships/student-teacher", authenticateRequest, async (req, res) => {
+  const { studentId, teacherId } = req.body ?? {};
+  if (!studentId || !teacherId) {
+    return res.status(400).json({ message: "studentId et teacherId sont requis." });
+  }
+  try {
+    await unlinkStudentTeacherRelation(studentId, teacherId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to unlink student-teacher", error);
+    res.status(500).json({ message: "Impossible de supprimer la liaison élève/enseignant." });
   }
 });
 
@@ -2468,7 +3758,7 @@ app.get("/api/parents/:parentId/invoices", async (req, res) => {
   const { parentId } = req.params;
   try {
     const [[{ sessionsThisMonth }]] = await pool.query(
-      "SELECT COUNT(*) as count FROM sessions WHERE parent_id = ? AND status = 'effectué'", [parentId]
+      "SELECT COUNT(*) as count FROM sessions WHERE parent_id = ? AND status = 'effectué�'", [parentId]
     );
     const count = sessionsThisMonth || 0;
 
@@ -2527,22 +3817,16 @@ app.get("/api/teachers/:teacherId/earnings-history", async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT 
-         DATE_FORMAT(session_date, '%Y-%m') as month,
-         SUM(15000) as amount,
+         DATE_FORMAT(s.session_date, '%Y-%m') as month,
+         SUM(ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * IFNULL(t.hourly_rate, 7500), 0)) as amount,
          COUNT(*) as sessions
-       FROM sessions 
-       WHERE teacher_id = ? AND status = 'effectué'
+       FROM sessions s
+       JOIN teachers t ON t.id = s.teacher_id
+       WHERE s.teacher_id = ? AND s.status = 'effectué'
        GROUP BY month
        ORDER BY month ASC`, [teacherId]
     );
-    res.json(rows.length > 0 ? rows : [
-      { month: "2025-10", amount: 120000, sessions: 8 },
-      { month: "2025-11", amount: 150000, sessions: 10 },
-      { month: "2025-12", amount: 135000, sessions: 9 },
-      { month: "2026-01", amount: 180000, sessions: 12 },
-      { month: "2026-02", amount: 165000, sessions: 11 },
-      { month: "2026-03", amount: 195000, sessions: 13 }
-    ]);
+    res.json(rows);
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur." });
   }
@@ -2581,34 +3865,79 @@ app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
       "SELECT COUNT(*) as upcomingCount FROM sessions WHERE teacher_id = ? AND status IN ('à venir', 'planifié') AND session_date >= CURDATE()", [teacherId]
     );
 
-    // Simulation revenus basés sur sessions effectuées
-    const [[{ sessionsDone }]] = await pool.query(
-      "SELECT COUNT(*) as sessionsDone FROM sessions WHERE teacher_id = ? AND status = 'effectué'", [teacherId]
+    // KPI: Devoirs rendus par les élèves mais non encore corrigés par ce tuteur
+    const [[{ pendingHomework }]] = await pool.query(
+      "SELECT COUNT(*) as pendingHomework FROM homework WHERE teacher_id = ? AND status = 'rendu'", [teacherId]
     );
-    // Base de calcul arbitraire pour la démo
-    const monthlyEarnings = sessionsDone * 15000;
-    const previousEarnings = 120000;
+
+    // KPI: Sessions effectuées mais sans rapport (report_text) ou note (understanding_score)
+    const [[{ pendingReports }]] = await pool.query(
+      "SELECT COUNT(*) as pendingReports FROM sessions WHERE teacher_id = ? AND status = 'effectué' AND (report_text IS NULL OR understanding_score IS NULL)", [teacherId]
+    );
+
+    // Calcul des revenus réels basés sur la durée et le statut effectuer (utilisant le taux du prof)
+    const [[{ monthlyEarnings, totalEarnings }]] = await pool.query(
+      `SELECT 
+         IFNULL(SUM(ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * IFNULL(t.hourly_rate, 7500), 0)), 0) as totalEarnings,
+         IFNULL(SUM(IF(DATE_FORMAT(s.session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m'), ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * IFNULL(t.hourly_rate, 7500), 0), 0)), 0) as monthlyEarnings
+       FROM sessions s
+       JOIN teachers t ON t.id = s.teacher_id
+       WHERE s.teacher_id = ? AND s.status = 'effectué'`, 
+      [teacherId]
+    );
+    const previousEarnings = totalEarnings - monthlyEarnings;
 
     const [[ratingRow]] = await pool.query(
       "SELECT AVG(rating) as avgRating FROM teacher_feedback WHERE teacher_id = ?", [teacherId]
     );
-    const avgRating = ratingRow?.avgRating ? Number(avgRating).toFixed(1) : "5.0";
+    const avgRating = ratingRow?.avgRating ? Number(ratingRow.avgRating).toFixed(1) : "5.0";
 
     const [scheduleRows] = await pool.query(
       "SELECT * FROM sessions WHERE teacher_id = ? AND status IN ('à venir', 'planifié') AND session_date >= CURDATE() ORDER BY session_date ASC, session_time ASC LIMIT 5", [teacherId]
     );
 
-    const [studentRows] = await pool.query(
+    const [studentBaseRows] = await pool.query(
       `SELECT DISTINCT 
          s.student_id as id, 
          s.student_name as name, 
-         s.subject, 
-         '3e' as level, 
-         IFNULL((SELECT AVG(score) FROM quiz_attempts qa WHERE qa.student_id = s.student_id), 14.5) as avgGrade, 
-         '+1.2' as trend 
+         s.subject,
+         u.bio as level
        FROM sessions s 
+       LEFT JOIN users u ON u.id = s.student_id
        WHERE s.teacher_id = ?`, [teacherId]
     );
+
+    const studentRows = await Promise.all(studentBaseRows.map(async (st) => {
+      const [attempts] = await pool.query(
+        `SELECT a.score, q.total_points, a.created_at
+         FROM quiz_attempts a
+         JOIN quizzes q ON q.id = a.quiz_id
+         WHERE a.student_id = ?
+         ORDER BY a.created_at DESC`, [st.id]
+      );
+
+      let avgGrade = "0.0"; // Dynamic default
+      let trend = "+0.0";
+
+      if (attempts.length > 0) {
+        const scores20 = attempts.map(a => (a.score / (a.total_points || 20)) * 20);
+        avgGrade = (scores20.reduce((a, b) => a + b, 0) / scores20.length).toFixed(1);
+        
+        if (attempts.length >= 2) {
+          const last = scores20[0];
+          const prev = scores20[1];
+          const diff = last - prev;
+          trend = (diff >= 0 ? "+" : "") + diff.toFixed(1);
+        }
+      }
+
+      return {
+        ...st,
+        level: st.level || "3e",
+        avgGrade,
+        trend
+      };
+    }));
 
     res.json({
       stats: {
@@ -2616,14 +3945,16 @@ app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
         upcomingSessions: upcomingCount,
         monthlyEarnings,
         previousEarnings,
-        avgRating: Number(avgRating)
+        avgRating: Number(avgRating),
+        pendingHomework: pendingHomework || 0,
+        pendingReports: pendingReports || 0
       },
       schedule: scheduleRows.map(mapSessionRow),
       students: studentRows
     });
   } catch (error) {
     console.error("Teacher dashboard error", error);
-    res.status(500).json({ message: "Erreur serveur." });
+    res.status(500).json({ message: error.message, stack: error.stack });
   }
 });
 
@@ -2631,7 +3962,18 @@ app.get("/api/teachers/:teacherId/earnings", async (req, res) => {
   const { teacherId } = req.params;
   try {
     const [rows] = await pool.query(
-      "SELECT id, session_date as date, student_name as student, 2 as hours, 7500 as rate, 15000 as amount, 'payé' as status FROM sessions WHERE teacher_id = ? LIMIT 20",
+      `SELECT 
+          s.id, 
+          s.session_date as date, 
+          s.student_name as student, 
+          ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2), 1) as hours, 
+          IFNULL(t.hourly_rate, 7500) as rate, 
+          ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * IFNULL(t.hourly_rate, 7500), 0) as amount, 
+          IF(s.is_paid = 1, 'payé', 'en attente') as status 
+       FROM sessions s
+       JOIN teachers t ON t.id = s.teacher_id
+       WHERE s.teacher_id = ? AND s.status = 'effectué' 
+       ORDER BY s.session_date DESC`,
       [teacherId]
     );
     res.json(rows);
@@ -2644,45 +3986,161 @@ app.get("/api/teachers/:teacherId/earnings", async (req, res) => {
 app.get("/api/teachers/:teacherId/students", async (req, res) => {
   const { teacherId } = req.params;
   try {
-    const [rows] = await pool.query(
+    await ensureStudentEvaluationsTable();
+    const [students] = await pool.query(
       `SELECT DISTINCT 
           s.student_id as id, 
           s.student_name as name, 
           u.email,
           s.subject, 
-          '3e' as level, 
-          14.5 as avgGrade, 
-          '+0.8' as trend,
-          JSON_OBJECT(
-            'highlights', JSON_ARRAY(
-              JSON_OBJECT('label', 'Assiduité', 'value', '95%', 'sublabel', 'Excellent'),
-              JSON_OBJECT('label', 'Dernière note', 'value', '16/20', 'sublabel', 'Maths')
-            ),
-            'courses', JSON_ARRAY(),
-            'quizzes', JSON_ARRAY(),
-            'evaluations', JSON_ARRAY()
-          ) as profile
+          u.bio as level
        FROM sessions s
        LEFT JOIN users u ON u.id = s.student_id
        WHERE s.teacher_id = ?`,
       [teacherId]
     );
-    res.json(rows.map(r => ({
-      ...r,
-      profile: typeof r.profile === 'string' ? JSON.parse(r.profile) : r.profile
-    })));
+
+    const fullStudents = await Promise.all(students.map(async (st) => {
+      // 1. Assiduité réelle
+      const [[sessionStats]] = await pool.query(
+        `SELECT 
+           COUNT(id) as total,
+           SUM(CASE WHEN status = 'effectué' THEN 1 ELSE 0 END) as done,
+           MAX(session_date) as lastSessionDate
+         FROM sessions 
+         WHERE student_id = ? AND teacher_id = ?`,
+        [st.id, teacherId]
+      );
+
+      const totalSessions = sessionStats?.total || 1;
+      const assiduite = Math.round(((sessionStats?.done || 0) / totalSessions) * 100);
+      const lastSessionStr = sessionStats?.lastSessionDate ? formatDate(sessionStats.lastSessionDate) : "À venir";
+
+      // 2. Moyenne réelle depuis quiz_attempts ou student_progress_points
+      const [quizAttempts] = await pool.query(
+        `SELECT a.score, q.total_points, c.subject, a.created_at
+         FROM quiz_attempts a
+         JOIN quizzes q ON q.id = a.quiz_id
+         LEFT JOIN courses c ON c.id = q.course_id
+         WHERE a.student_id = ?
+         ORDER BY a.created_at DESC`,
+        [st.id]
+      );
+
+      let avgGrade = "0.0";
+      let trendText = "+0.0";
+
+      if (quizAttempts.length > 0) {
+        const scores20 = quizAttempts.map(a => (Number(a.score) / Number(a.total_points || 20)) * 20);
+        avgGrade = (scores20.reduce((a, b) => a + b, 0) / scores20.length).toFixed(1);
+
+        if (scores20.length >= 2) {
+          const diff = scores20[0] - scores20[1];
+          trendText = (diff >= 0 ? "+" : "") + diff.toFixed(1);
+        }
+      } else {
+        avgGrade = "0.0";
+      }
+
+      let lastScoreText = "À venir";
+      let lastScoreSubject = st.subject || "Général";
+
+      if (quizAttempts.length > 0) {
+        const lastQ = quizAttempts[0];
+        lastScoreText = `${lastQ.score}/${lastQ.total_points || 20}`;
+        lastScoreSubject = lastQ.subject || st.subject;
+      }
+
+      // 3. Parcours réels (cours enrollés)
+      const [courses] = await pool.query(
+        `SELECT c.id, c.title, c.status
+         FROM course_enrollments ce
+         JOIN courses c ON c.id = ce.course_id
+         WHERE ce.student_id = ?`,
+        [st.id]
+      );
+      const courseList = courses.map(c => ({
+        id: c.id,
+        title: c.title,
+        progress: 100,
+        status: c.status === 'published' ? 'actif' : 'en attente',
+        nextLesson: "À suivre"
+      }));
+
+      // 4. Quiz assignés
+      const quizList = quizAttempts.slice(0, 5).map(a => ({
+        id: a.id,
+        title: "Quiz " + (a.subject || "Contrôle"),
+        status: 'done',
+        score: `${a.score}/${a.total_points || 20}`,
+        lastAttempt: formatDate(a.created_at)
+      }));
+
+      // 5. Évaluations réelles
+      const [evaluations] = await pool.query(
+        `SELECT id, teacher_name as author, 'Enseignant' as role, rating, DATE_FORMAT(created_at, '%d/%m/%Y') as date, comment
+         FROM student_evaluations
+         WHERE student_id = ?
+         ORDER BY created_at DESC`,
+        [st.id]
+      );
+
+      return {
+        ...st,
+        avgGrade,
+        trend: trendText,
+        sessions: totalSessions,
+        lastSession: lastSessionStr,
+        profile: {
+          highlights: [
+            { label: 'Assiduité', value: `${assiduite}%`, sublabel: `Sur ${totalSessions} séances` },
+            { label: 'Dernière note', value: lastScoreText, sublabel: lastScoreSubject }
+          ],
+          courses: courseList,
+          quizzes: quizList,
+          evaluations: evaluations
+        }
+      };
+    }));
+
+    res.json(fullStudents);
   } catch (error) {
     console.error("Teacher students error", error);
     res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
-app.get("/api/parents/:parentId/progress", (req, res) => {
-  res.json(studentProgressData);
+app.post("/api/students/:studentId/evaluations", authenticateRequest, async (req, res) => {
+  const { studentId } = req.params;
+  const { teacherId, teacherName, rating, comment } = req.body;
+  try {
+    await ensureStudentEvaluationsTable();
+    await pool.query(
+      "INSERT INTO student_evaluations (student_id, teacher_id, teacher_name, rating, comment) VALUES (?, ?, ?, ?, ?)",
+      [studentId, teacherId, teacherName, rating, comment]
+    );
+    res.status(201).json({ message: "Évaluation enregistrée avec succès." });
+  } catch (error) {
+    console.error("Student evaluation error:", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
 });
 
-app.get("/api/students/:studentId/progress", (req, res) => {
-  res.json(studentProgressData);
+app.get("/api/parents/:parentId/progress", async (req, res) => {
+  const { parentId } = req.params;
+  try {
+    const [[student]] = await pool.query("SELECT id FROM users WHERE parent_id = ? AND role = 'student' LIMIT 1", [parentId]);
+    if (!student) return res.json(studentProgressData);
+    
+    const [rows] = await pool.query(
+      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
+      [student.id]
+    );
+    res.json(rows.length > 0 ? rows : studentProgressData);
+  } catch (error) {
+    console.error("Parent progress error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
 });
 
 app.get("/api/students/:studentId/grades", async (req, res) => {
@@ -2703,13 +4161,13 @@ app.get("/api/students/:studentId/grades", async (req, res) => {
     const subjects = [...new Set(attempts.map(a => a.subject))];
     const dynamicGrades = subjects.map(sub => {
       const subAttempts = attempts.filter(a => a.subject === sub);
-      const avg = subAttempts.reduce((acc, curr) => acc + (curr.score / curr.total_points) * 20, 0) / subAttempts.length;
+      const avg = subAttempts.reduce((acc, curr) => acc + (Number(curr.score) / Number(curr.total_points || 20)) * 20, 0) / subAttempts.length;
       return {
         subject: sub,
         teacher: subAttempts[0].teacher_name,
         coefficient: 4,
         avg: Number(avg.toFixed(1)),
-        history: subAttempts.map(a => ({ date: new Date(a.created_at).toLocaleDateString('fr-FR', { month: 'short' }), note: (a.score / a.total_points) * 20 })),
+        history: subAttempts.map(a => ({ date: new Date(a.created_at).toLocaleDateString('fr-FR', { month: 'short' }), note: (Number(a.score) / Number(a.total_points || 20)) * 20 })),
         exams: subAttempts.map(a => ({ label: "Quiz", date: new Date(a.created_at).toLocaleDateString('fr-FR'), note: a.score, max: a.total_points })),
         trend: "+0.5",
         color: sub === "Mathématiques" ? "#1A6CC8" : sub === "Français" ? "#F5A623" : "#22c55e"
@@ -2718,6 +4176,69 @@ app.get("/api/students/:studentId/grades", async (req, res) => {
     res.json(dynamicGrades);
   } catch (error) {
     res.json(studentGrades);
+  }
+});
+
+app.get("/api/students/:studentId/progress", async (req, res) => {
+  const { studentId } = req.params;
+  try {
+    await ensureStudentProgressPointsTable();
+    const [rows] = await pool.query(
+      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
+      [studentId]
+    );
+    if (rows.length > 0) return res.json(rows);
+    
+    // Fallback if no specific data for this student
+    res.json(studentProgressData);
+  } catch (error) {
+    res.json(studentProgressData);
+  }
+});
+
+app.get("/api/students/:studentId/sessions", async (req, res) => {
+  const { studentId } = req.params;
+  try {
+    await ensureSessionsTable();
+    const [rows] = await pool.query(
+      "SELECT * FROM sessions WHERE student_id = ? ORDER BY session_date DESC",
+      [studentId]
+    );
+    res.json(rows.map(mapSessionRow));
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+app.post("/api/grade-disputes", async (req, res) => {
+  const { studentId, sessionId, reason } = req.body;
+  if (!studentId || !sessionId || !reason) {
+    return res.status(400).json({ message: " studentId, sessionId et reason sont requis." });
+  }
+  try {
+    await ensureGradeDisputesTable();
+    const id = crypto.randomUUID();
+    await pool.query(
+      "INSERT INTO grade_disputes (id, student_id, session_id, reason) VALUES (?, ?, ?, ?)",
+      [id, studentId, sessionId, reason]
+    );
+    res.status(201).json({ id, status: "pending" });
+  } catch (error) {
+    console.error("Grade dispute error", error);
+    res.status(500).json({ message: "Erreur serveur lors de la contestation." });
+  }
+});
+
+app.get("/api/students/:studentId/homework", async (req, res) => {
+  const { studentId } = req.params;
+  try {
+    const [rows] = await pool.query(
+      "SELECT h.*, t.name as teacher_name FROM homework h LEFT JOIN teachers t ON h.teacher_id = t.id WHERE h.student_id = ? ORDER BY h.due_date ASC",
+      [studentId]
+    );
+    res.json(rows.map(mapHomeworkRow));
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
@@ -2734,7 +4255,7 @@ app.get("/api/advisors/:advisorId/dashboard", async (req, res) => {
       "SELECT COUNT(*) as matchingInProgress FROM assignments WHERE status = 'pending'"
     );
     const [[{ sessionsDone }]] = await pool.query(
-      "SELECT COUNT(*) as count FROM sessions WHERE status = 'effectué' AND MONTH(session_date) = MONTH(CURDATE())"
+      "SELECT COUNT(*) as count FROM sessions WHERE status = 'effectué�' AND MONTH(session_date) = MONTH(CURDATE())"
     );
 
     const [recentFamilies] = await pool.query(
@@ -2818,9 +4339,10 @@ app.get("/api/homework/:role/:userId", async (req, res) => {
     await ensureSessionsTable();
 
     let query = `
-      SELECT h.*, t.name as teacher_name 
+      SELECT h.*, t.name as teacher_name, u.name as student_name 
       FROM homework h
       LEFT JOIN teachers t ON h.teacher_id = t.id
+      LEFT JOIN users u ON h.student_id = u.id
     `;
     let params = [];
 
@@ -2832,9 +4354,10 @@ app.get("/api/homework/:role/:userId", async (req, res) => {
       params.push(userId);
     } else if (role === "parent") {
       query = `
-        SELECT h.*, t.name as teacher_name 
+        SELECT h.*, t.name as teacher_name, u.name as student_name 
         FROM homework h
         LEFT JOIN teachers t ON h.teacher_id = t.id
+        LEFT JOIN users u ON h.student_id = u.id
         JOIN sessions s ON h.student_id = s.student_id
         WHERE s.parent_id = ?
       `;
@@ -2847,7 +4370,7 @@ app.get("/api/homework/:role/:userId", async (req, res) => {
     res.json(rows.map(mapHomeworkRow));
   } catch (error) {
     console.error("Failed to fetch homework", error);
-    res.status(500).json({ message: "Erreur serveur." });
+    res.status(500).json({ message: error.message, detail: error.sqlMessage || "" });
   }
 });
 
@@ -2870,7 +4393,7 @@ app.post("/api/homework", async (req, res) => {
     // Notification élève
     await createNotification(
       studentId,
-      "Nouveau devoir assigné",
+      "Nouveau devoir assign�",
       `Votre professeur a ajouté : ${title}`,
       'homework',
       '/student/homework'
@@ -2926,6 +4449,52 @@ app.patch("/api/homework/:id", async (req, res) => {
   } catch (error) {
     console.error("Failed to update homework", error);
     res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.post("/api/homework/:id/upload", upload.single("file"), async (req, res) => {
+  const { id } = req.params;
+  
+  if (!req.file) {
+    return res.status(400).json({ message: "Aucun fichier fourni." });
+  }
+
+  try {
+    await ensureHomeworkTable();
+    
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+
+    await pool.query(
+      "UPDATE homework SET status = 'rendu', submission_url = ? WHERE id = ?",
+      [fileUrl, id]
+    );
+
+    const [rows] = await pool.query(
+      "SELECT h.*, u.name as student_name FROM homework h JOIN users u ON h.student_id = u.id WHERE h.id = ?", 
+      [id]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Devoir introuvable." });
+    }
+
+    const hw = mapHomeworkRow(rows[0]);
+
+    // Notification au professeur
+    await createNotification(
+      hw.teacherId,
+      "Nouveau devoir rendu",
+      `${rows[0].student_name} a rendu son devoir : ${hw.title}`,
+      'homework',
+      '/teacher/homework'
+    );
+
+    res.json({ success: true, submissionUrl: fileUrl, homework: hw });
+  } catch (error) {
+    console.error("Failed to upload homework file", error);
+    res.status(500).json({ message: "Erreur serveur lors du téléchargement." });
   }
 });
 
@@ -3073,6 +4642,171 @@ app.patch("/api/notifications/:id/read", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error("Failed to mark notification as read", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/students/:studentId/progress", async (req, res) => {
+  const { studentId } = req.params;
+  try {
+    await ensureStudentProgressPointsTable();
+    const [rows] = await pool.query(
+      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
+      [studentId]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error("Progress fetch error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// ------ XP / Grade helpers ------
+const XP_LEVELS = [
+  { minXP: 0,    grade: "Novice",           color: "#9ca3af" },
+  { minXP: 200,  grade: "Apprenti",         color: "#22c55e" },
+  { minXP: 600,  grade: "Explorateur",      color: "#3b82f6" },
+  { minXP: 1200, grade: "Compagnon",        color: "#8b5cf6" },
+  { minXP: 2000, grade: "Expert",           color: "#f59e0b" },
+  { minXP: 3500, grade: "Maître des Quiz",  color: "#ef4444" },
+  { minXP: 5000, grade: "Légende",          color: "#ec4899" },
+];
+
+const getGradeInfo = (xp) => {
+  let current = XP_LEVELS[0];
+  for (const lvl of XP_LEVELS) {
+    if (xp >= lvl.minXP) current = lvl;
+  }
+  const idx = XP_LEVELS.indexOf(current);
+  const next = XP_LEVELS[idx + 1] || null;
+  const progressToNext = next
+    ? Math.min(100, Math.floor(((xp - current.minXP) / (next.minXP - current.minXP)) * 100))
+    : 100;
+  return { grade: current.grade, gradeColor: current.color, nextGrade: next?.grade || null, progressToNext, nextXP: next?.minXP || null };
+};
+
+app.get("/api/students/:studentId/overview", async (req, res) => {
+  const { studentId } = req.params;
+  try {
+    // Base overview (avg, level, teacher)
+    const [overviewRows] = await pool.query(
+      `SELECT po.current_avg, po.previous_avg, po.sessions_this_month,
+              u.name AS teacher_name
+       FROM parent_overviews po
+       LEFT JOIN users u ON u.role = 'teacher'
+       WHERE po.student_id = ?
+       LIMIT 1`,
+      [studentId]
+    );
+
+    // Student level from users table (stored in level or bio field)
+    const [[studentRow]] = await pool.query(
+      "SELECT name FROM users WHERE id = ?", [studentId]
+    );
+
+    // XP from completed sessions (+100 each)
+    const [[sessionsRow]] = await pool.query(
+      `SELECT COUNT(*) as cnt FROM sessions WHERE student_id = ? AND status = 'effectué�'`,
+      [studentId]
+    ).catch(() => [[{ cnt: 0 }]]);
+
+    // XP from quiz attempts: 50 base + score bonus
+    const [quizRows] = await pool.query(
+      `SELECT score FROM quiz_attempts WHERE student_id = ?`,
+      [studentId]
+    ).catch(() => [[]]);
+
+    // XP from completed lessons
+    const [[lessonRow]] = await pool.query(
+      `SELECT JSON_LENGTH(completed_lessons) as cnt
+       FROM user_course_progress WHERE user_id = ?
+       ORDER BY last_accessed_at DESC LIMIT 1`,
+      [studentId]
+    ).catch(() => [[{ cnt: 0 }]]);
+
+    // XP from bookmarks (engagement)
+    const [[bookmarkRow]] = await pool.query(
+      `SELECT COUNT(*) as cnt FROM course_bookmarks WHERE user_id = ?`,
+      [studentId]
+    ).catch(() => [[{ cnt: 0 }]]);
+
+    const sessionXP = (sessionsRow?.cnt || 0) * 100;
+    const quizXP = quizRows.reduce((sum, r) => sum + 50 + (r.score || 0), 0);
+    const lessonXP = (lessonRow?.cnt || 0) * 30;
+    const bookmarkXP = (bookmarkRow?.cnt || 0) * 10;
+    const totalXP = sessionXP + quizXP + lessonXP + bookmarkXP;
+
+    const gradeInfo = getGradeInfo(totalXP);
+
+    // Login streak: consecutive days with activity (sessions OR quiz_attempts)
+    const [activityRows] = await pool.query(
+      `SELECT DATE(created_at) as day FROM quiz_attempts WHERE student_id = ?
+       UNION
+       SELECT DATE(session_date) as day FROM sessions WHERE student_id = ? AND status = 'effectué�'
+       ORDER BY day DESC`,
+      [studentId, studentId]
+    ).catch(() => [[]]);
+
+    let streak = 0;
+    if (activityRows.length > 0) {
+      let prevDay = null;
+      let today = new Date();
+      today.setHours(0,0,0,0);
+      for (const row of activityRows) {
+        const d = new Date(row.day);
+        d.setHours(0,0,0,0);
+        if (!prevDay) {
+          // Allow today or yesterday to start streak
+          const diff = Math.round((today - d) / 86400000);
+          if (diff <= 1) { streak = 1; prevDay = d; }
+          else break;
+        } else {
+          const diff = Math.round((prevDay - d) / 86400000);
+          if (diff === 1) { streak++; prevDay = d; }
+          else break;
+        }
+      }
+    }
+
+    // XP leaderboard among all students
+    const [allStudents] = await pool.query(
+      "SELECT id, name FROM users WHERE role = 'student' ORDER BY created_at ASC LIMIT 20"
+    ).catch(() => [[]]);
+
+    // For leaderboard we do a simplified XP: session count * 100 + quiz score sum
+    const leaderboard = await Promise.all(
+      allStudents.map(async (s) => {
+        const [[sr]] = await pool.query(
+          "SELECT COUNT(*) as cnt FROM sessions WHERE student_id = ? AND status = 'effectué�'", [s.id]
+        ).catch(() => [[{ cnt: 0 }]]);
+        const [qr] = await pool.query(
+          "SELECT COALESCE(SUM(score),0) as total FROM quiz_attempts WHERE student_id = ?", [s.id]
+        ).catch(() => [[{ total: 0 }]]);
+        const xp = (sr?.cnt || 0) * 100 + Number(qr[0]?.total || 0) + 50;
+        return { id: s.id, name: s.name, xp };
+      })
+    );
+    leaderboard.sort((a, b) => b.xp - a.xp);
+    const myRank = leaderboard.findIndex(l => l.id === studentId) + 1;
+    const top5 = leaderboard.slice(0, 5);
+
+    const base = overviewRows[0] || {};
+    res.json({
+      currentAvg: base.current_avg || 14.5,
+      previousAvg: base.previous_avg || 11.8,
+      sessionsThisMonth: base.sessions_this_month || 0,
+      streak,
+      level: "3e",
+      subject: "Mathématiques",
+      teacher: base.teacher_name || "Dr. Clémentine Abanda",
+      xp: totalXP,
+      xpBreakdown: { sessionXP, quizXP, lessonXP, bookmarkXP },
+      ...gradeInfo,
+      myRank,
+      leaderboard: top5,
+    });
+  } catch (error) {
+    console.error("Student overview error", error);
     res.status(500).json({ message: "Erreur serveur." });
   }
 });

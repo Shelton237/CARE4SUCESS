@@ -24,6 +24,8 @@ import ParentLayout from "@/pages/parent/ParentLayout";
 import AdvisorLayout from "@/pages/advisor/AdvisorLayout";
 import StudentLayout from "@/pages/student/StudentLayout";
 import VirtualClassroom from "@/pages/common/VirtualClassroom";
+import AccountProfile from "@/pages/common/AccountProfile";
+import Notifications from "@/pages/common/Notifications";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +97,22 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <VirtualClassroom />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/account"
+                element={
+                  <ProtectedRoute>
+                    <AccountProfile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/notifications"
+                element={
+                  <ProtectedRoute>
+                    <Notifications />
                   </ProtectedRoute>
                 }
               />

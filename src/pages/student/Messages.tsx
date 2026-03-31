@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Send, MessageCircle, Paperclip, Search, Loader2, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -8,8 +9,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 const ROLE_COLOR: Record<string, string> = {
     teacher: "#1A6CC8",
-    advisor: "#a855f7",
-    student: "#22c55e",
+    advisor: "#F5A623",
+    student: "#0D2D5A",
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -36,12 +37,13 @@ interface Message {
 // IDs réels depuis la base de données (table users)
 const DEFAULT_CONTACTS = [
     { id: "t1", name: "Dr. Clémentine Abanda", role: "teacher", avatar: "CA", color: "#1A6CC8" },
-    { id: "c1", name: "Brice Owona", role: "advisor", avatar: "BO", color: "#a855f7" },
+    { id: "c1", name: "Brice Owona", role: "advisor", avatar: "BO", color: "#F5A623" },
 ];
 
 export default function StudentMessages() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
+    const location = useLocation();
     const scrollRef = useRef<HTMLDivElement>(null);
     const userId = user?.id || "s1"; // Fallback pour dev (s1 = Koffi Diallo en base)
     const userName = user?.name || "Koffi Diallo";
@@ -52,6 +54,18 @@ export default function StudentMessages() {
     const [contactFilter, setContactFilter] = useState<"all" | "teacher" | "advisor">("all");
     const [isUploading, setIsUploading] = useState(false);
 
+    // Initialisation du contact sélectionné via l'état de navigation
+    useEffect(() => {
+        const state = location.state as { contactName?: string, contactId?: string, contactRole?: string };
+        if (state?.contactId) {
+            setSelectedContactId(state.contactId);
+        } else if (state?.contactName) {
+            // Rechercher le contact par nom dans les par défaut
+            const found = DEFAULT_CONTACTS.find(c => c.name === state.contactName);
+            if (found) setSelectedContactId(found.id);
+        }
+    }, [location.state]);
+
     // 1. Fetch de tous les messages de l'utilisateur
     const { data: messages = [], isLoading } = useQuery<Message[]>({
         queryKey: ["messages", userId],
@@ -60,7 +74,7 @@ export default function StudentMessages() {
             if (!res.ok) throw new Error("Erreur serveur");
             return res.json();
         },
-        refetchInterval: 10000, // Rafraîchissement automatique toutes les 10s (Simili temps réel)
+        refetchInterval: 10000,
     });
 
     // 2. Envoi de message (Mutation)
@@ -115,12 +129,25 @@ export default function StudentMessages() {
         }
     });
 
-    // Construction dynamique de la liste de contacts basée sur l'historique + par défaut
+    // Construction dynamique de la liste de contacts basée sur l'historique + par défaut + navigation
     const contacts = useMemo(() => {
         const contactMap = new Map<string, typeof DEFAULT_CONTACTS[0] & { unread: number, lastMessage?: Message }>();
 
         // Insérer contacts par défaut
         DEFAULT_CONTACTS.forEach(c => contactMap.set(c.id, { ...c, unread: 0 }));
+
+        // Insérer contact de la navigation s'il existe
+        const state = location.state as { contactId?: string, contactName?: string, contactRole?: string };
+        if (state?.contactId && !contactMap.has(state.contactId)) {
+            contactMap.set(state.contactId, {
+                id: state.contactId,
+                name: state.contactName || "Contact",
+                role: state.contactRole || "teacher",
+                avatar: (state.contactName || "C").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase(),
+                color: ROLE_COLOR[state.contactRole || "teacher"] || "#9ca3af",
+                unread: 0,
+            });
+        }
 
         // Remplir avec l'historique
         messages.forEach(msg => {
@@ -336,7 +363,7 @@ export default function StudentMessages() {
                                         <div className={`max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-1`}>
                                             <div
                                                 className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${isMe
-                                                    ? "bg-[#22c55e] text-white rounded-br-sm shadow-sm"
+                                                    ? "bg-[#1A6CC8] text-white rounded-br-sm shadow-sm"
                                                     : "bg-gray-100 text-gray-800 rounded-bl-sm"
                                                     }`}
                                             >
@@ -358,14 +385,14 @@ export default function StudentMessages() {
                         {sendMessageMutation.isPending && (
                             <div className="flex items-end gap-2 flex-row-reverse opacity-50">
                                 <div className="w-8" />
-                                <div className="bg-[#22c55e] text-white px-4 py-2 rounded-2xl rounded-br-sm text-sm">Envoi en cours...</div>
+                                <div className="bg-[#1A6CC8] text-white px-4 py-2 rounded-2xl rounded-br-sm text-sm">Envoi en cours...</div>
                             </div>
                         )}
                     </div>
 
                     {/* Composer */}
                     <div className="px-4 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0">
-                        <div className="flex items-end gap-2 bg-white border border-gray-200 p-2 rounded-2xl focus-within:ring-2 focus-within:ring-[#22c55e]/20 focus-within:border-[#22c55e] transition-all shadow-sm">
+                        <div className="flex items-end gap-2 bg-white border border-gray-200 p-2 rounded-2xl focus-within:ring-2 focus-within:ring-[#1A6CC8]/20 focus-within:border-[#1A6CC8] transition-all shadow-sm">
                             <button
                                 onClick={triggerUpload}
                                 disabled={isUploading || sendMessageMutation.isPending}

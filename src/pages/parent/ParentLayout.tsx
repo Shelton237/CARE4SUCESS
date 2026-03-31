@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { LayoutDashboard, CalendarDays, TrendingUp, Receipt, Star, ClipboardList } from "lucide-react";
+import { LayoutDashboard, CalendarDays, TrendingUp, Receipt, Star, ClipboardList, Users, GraduationCap } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import ParentDashboard from "./Dashboard";
 import ParentSchedule from "./Schedule";
@@ -7,9 +7,13 @@ import ParentProgress from "./Progress";
 import ParentInvoices from "./Invoices";
 import ParentFeedback from "./Feedback";
 import ParentHomework from "./Homework";
+import ParentChildren from "./Children";
+import ParentTeam from "./Team";
 
 const NAV = [
     { to: "/parent", label: "Tableau de bord", icon: LayoutDashboard },
+    { to: "/parent/children", label: "Mes Enfants", icon: Users },
+    { to: "/parent/team", label: "Équipe Pédagogique", icon: GraduationCap },
     { to: "/parent/schedule", label: "Planning", icon: CalendarDays },
     { to: "/parent/homework", label: "Devoirs", icon: ClipboardList },
     { to: "/parent/progress", label: "Progression", icon: TrendingUp },
@@ -24,6 +28,8 @@ export default function ParentLayout() {
             <main className="flex-1 ml-60 min-h-screen overflow-y-auto">
                 <Routes>
                     <Route index element={<ParentDashboard />} />
+                    <Route path="children" element={<ParentChildren />} />
+                    <Route path="team" element={<ParentTeam />} />
                     <Route path="schedule" element={<ParentSchedule />} />
                     <Route path="homework" element={<ParentHomework />} />
                     <Route path="progress" element={<ParentProgress />} />

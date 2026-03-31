@@ -11,6 +11,54 @@ DROP TABLE IF EXISTS parent_invoices;
 DROP TABLE IF EXISTS student_progress_points;
 DROP TABLE IF EXISTS parent_overviews;
 DROP TABLE IF EXISTS platform_settings;
+DROP TABLE IF EXISTS parent_child;
+DROP TABLE IF EXISTS student_teacher;
+DROP TABLE IF EXISTS users;
+
+-- Utilisateurs et profils
+CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('admin','teacher','parent','advisor','student') NOT NULL,
+    avatar VARCHAR(10) NULL,
+    phone VARCHAR(50) NULL,
+    location VARCHAR(120) NULL,
+    timezone VARCHAR(64) NOT NULL DEFAULT 'Africa/Douala',
+    language VARCHAR(10) NOT NULL DEFAULT 'fr',
+    bio TEXT NULL,
+    notify_email TINYINT(1) NOT NULL DEFAULT 1,
+    notify_sms TINYINT(1) NOT NULL DEFAULT 0,
+    notify_whatsapp TINYINT(1) NOT NULL DEFAULT 0,
+    parent_id VARCHAR(255) NULL,
+    last_login_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_users_email (email),
+    CONSTRAINT fk_users_parent FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Liaison parents/enfants
+CREATE TABLE IF NOT EXISTS parent_child (
+    parent_id VARCHAR(255) NOT NULL,
+    child_id VARCHAR(255) NOT NULL,
+    PRIMARY KEY (parent_id, child_id),
+    KEY idx_pc_child (child_id),
+    CONSTRAINT fk_pc_parent FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_pc_child FOREIGN KEY (child_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Liaison élèves/enseignants
+CREATE TABLE IF NOT EXISTS student_teacher (
+    student_id VARCHAR(255) NOT NULL,
+    teacher_id VARCHAR(255) NOT NULL,
+    PRIMARY KEY (student_id, teacher_id),
+    KEY idx_st_teacher (teacher_id),
+    CONSTRAINT fk_st_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_st_teacher FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Demandes de bilan
 CREATE TABLE IF NOT EXISTS requests (
@@ -59,6 +107,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     student_name VARCHAR(191) NOT NULL,
     parent_id VARCHAR(36) NOT NULL,
     parent_name VARCHAR(191) NOT NULL,
+    virtual_link VARCHAR(255) NULL,
+    actual_start_time TIMESTAMP NULL,
+    actual_end_time TIMESTAMP NULL,
+    report_text TEXT NULL,
+    understanding_score INT NULL,
+    course_id CHAR(36) NULL,
+    lesson_id CHAR(36) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_sessions_teacher (teacher_id),
@@ -102,6 +157,20 @@ CREATE TABLE IF NOT EXISTS teacher_feedback (
     KEY idx_teacher_feedback_teacher (teacher_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Evaluations des élèves par les enseignants
+CREATE TABLE IF NOT EXISTS student_evaluations (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    student_id VARCHAR(36) NOT NULL,
+    teacher_id VARCHAR(36) NOT NULL,
+    teacher_name VARCHAR(191) NOT NULL,
+    rating TINYINT NOT NULL DEFAULT 5 CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_student_eval_student (student_id),
+    KEY idx_student_eval_teacher (teacher_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Donnees de synthese parent
 CREATE TABLE IF NOT EXISTS parent_overviews (
     parent_id VARCHAR(36) NOT NULL,
@@ -120,15 +189,15 @@ CREATE TABLE IF NOT EXISTS parent_overviews (
 
 CREATE TABLE IF NOT EXISTS student_progress_points (
     id CHAR(36) NOT NULL DEFAULT (UUID()),
-    parent_id VARCHAR(36) NOT NULL,
+    student_id VARCHAR(36) NOT NULL,
     month_label VARCHAR(20) NOT NULL,
     month_order INT NOT NULL,
     maths DECIMAL(4,1) NOT NULL,
     francais DECIMAL(4,1) NOT NULL,
     anglais DECIMAL(4,1) NOT NULL,
     PRIMARY KEY (id),
-    KEY idx_progress_parent (parent_id),
-    KEY idx_progress_order (parent_id, month_order)
+    KEY idx_progress_student (student_id),
+    KEY idx_progress_order (student_id, month_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS parent_invoices (
@@ -230,4 +299,67 @@ CREATE TABLE IF NOT EXISTS platform_settings (
     data JSON NOT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Contestation de notes
+CREATE TABLE IF NOT EXISTS grade_disputes (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    student_id VARCHAR(191) NOT NULL,
+    session_id CHAR(36) NOT NULL,
+    reason TEXT NOT NULL,
+    status ENUM('pending', 'resolved', 'rejected') NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_disputes_student (student_id),
+    CONSTRAINT fk_disputes_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Devoirs
+CREATE TABLE IF NOT EXISTS homework (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    teacher_id VARCHAR(255) NOT NULL,
+    student_id VARCHAR(255) NOT NULL,
+    session_id CHAR(36) NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    due_date DATE NOT NULL,
+    subject VARCHAR(120) NOT NULL,
+    status ENUM('à faire', 'rendu', 'corrigé') NOT NULL DEFAULT 'à faire',
+    file_url VARCHAR(255) NULL,
+    submission_url VARCHAR(255) NULL,
+    feedback TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_homework_student (student_id),
+    KEY idx_homework_teacher (teacher_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Ressources de cours
+CREATE TABLE IF NOT EXISTS lesson_resources (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    teacher_id VARCHAR(255) NOT NULL,
+    student_id VARCHAR(255) NULL,
+    title VARCHAR(255) NOT NULL,
+    file_url VARCHAR(255) NOT NULL,
+    file_type VARCHAR(50) NOT NULL DEFAULT 'link',
+    subject VARCHAR(120) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_resources_student (student_id),
+    KEY idx_resources_teacher (teacher_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Notifications
+CREATE TABLE IF NOT EXISTS notifications (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    user_id VARCHAR(191) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'info',
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    link VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_notif_user (user_id),
+    KEY idx_notif_read (is_read)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

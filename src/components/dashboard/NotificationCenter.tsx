@@ -49,7 +49,8 @@ export function NotificationCenter() {
         }
     });
 
-    const unreadCount = notifications.filter(n => !n.isRead).length;
+    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+    const unreadCount = safeNotifications.filter(n => !n.isRead).length;
 
     const handleNotificationClick = (notif: any) => {
         if (!notif.isRead) {
@@ -84,7 +85,7 @@ export function NotificationCenter() {
                 </div>
 
                 <ScrollArea className="h-[400px]">
-                    {notifications.length === 0 ? (
+                    {safeNotifications.length === 0 ? (
                         <div className="p-12 text-center flex flex-col items-center gap-3">
                             <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
                                 <Bell className="w-6 h-6" />
@@ -93,7 +94,7 @@ export function NotificationCenter() {
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-50">
-                            {notifications.map((notif) => {
+                            {safeNotifications.map((notif) => {
                                 const Icon = ICON_MAP[notif.type] || Info;
                                 const colors = COLOR_MAP[notif.type] || COLOR_MAP.info;
 
@@ -132,9 +133,16 @@ export function NotificationCenter() {
                     )}
                 </ScrollArea>
 
-                {notifications.length > 0 && (
+                {safeNotifications.length > 0 && (
                     <div className="p-3 bg-gray-50/50 border-t border-gray-100 text-center">
-                        <Button variant="ghost" className="text-[10px] font-bold text-gray-400 uppercase tracking-widest h-auto p-1 hover:bg-transparent hover:text-blue-500 transition-colors">
+                        <Button 
+                            variant="ghost" 
+                            onClick={() => {
+                                navigate("/notifications");
+                                setIsOpen(false);
+                            }}
+                            className="text-[10px] font-bold text-gray-400 uppercase tracking-widest h-auto p-1 hover:bg-transparent hover:text-blue-500 transition-colors"
+                        >
                             Voir tout l'historique
                         </Button>
                     </div>
