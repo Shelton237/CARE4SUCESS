@@ -1163,13 +1163,13 @@ const mapUserRow = (row) => ({
 const ensureParentChildTable = async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS parent_child (
-      parent_id VARCHAR(255) NOT NULL,
-      child_id VARCHAR(255) NOT NULL,
+      parent_id VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+      child_id VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
       PRIMARY KEY (parent_id, child_id),
       KEY idx_pc_child (child_id),
       CONSTRAINT fk_pc_parent FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE CASCADE,
       CONSTRAINT fk_pc_child FOREIGN KEY (child_id) REFERENCES users(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
   `);
 };
 
