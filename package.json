@@ -12,8 +12,9 @@
     "build:map": "vite build --sourcemap",
     "lint": "eslint .",
     "preview": "vite preview",
-    "preview:dev": "npm run build:dev && npm run preview",
-    "test:edge-functions": "cd supabase/edge_function && deno task test"
+    "test:edge-functions": "cd supabase/edge_function && deno task test",
+    "test:ui": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -89,6 +90,9 @@
     "@eslint/js": "^9.9.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.5.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -97,11 +101,14 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
     "globals": "^15.9.0",
+    "happy-dom": "^20.8.9",
+    "jsdom": "^29.0.1",
     "lovable-tagger": "1.1.9",
     "postcss": "^8.4.47",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
-    "vite": "^5.4.1"
+    "vite": "^5.4.1",
+    "vitest": "^4.1.2"
   }
 }
