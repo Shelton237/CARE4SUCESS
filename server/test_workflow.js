@@ -2,12 +2,12 @@ import mysql from 'mysql2/promise';
 import crypto from 'crypto';
 import http from 'http';
 
-const API_BASE = 'http://127.0.0.1:4000/api';
+const API_BASE = 'http://127.0.0.1:4002/api';
 
 async function apiRequest(path, method = 'GET', body = null) {
     const options = {
         hostname: '127.0.0.1',
-        port: 4000,
+        port: 4002,
         path: '/api' + path,
         method,
         headers: {
