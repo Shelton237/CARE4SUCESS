@@ -170,8 +170,10 @@ export const fetchScheduleByRole = (role: ScheduleRole, userId: string) => {
     return request<ScheduleSession[]>(`/sessions?${params.toString()}`);
 };
 
-export const fetchParentOverview = (parentId: string) =>
-    request<ParentOverview>(`/parents/${parentId}/overview`);
+export const fetchParentOverview = (parentId: string, studentId?: string) => {
+    const params = studentId ? `?studentId=${studentId}` : "";
+    return request<ParentOverview>(`/parents/${parentId}/overview${params}`);
+};
 
 export const fetchStudentOverview = (studentId: string) =>
     request<any>(`/students/${studentId}/overview`);
@@ -179,8 +181,10 @@ export const fetchStudentOverview = (studentId: string) =>
 export const fetchStudentsByTeacher = (teacherId: string) =>
     request<any[]>(`/teachers/${teacherId}/students`);
 
-export const fetchParentProgress = (parentId: string) =>
-    request<ParentProgressPoint[]>(`/parents/${parentId}/progress`);
+export const fetchParentProgress = (parentId: string, studentId?: string) => {
+    const params = studentId ? `?studentId=${studentId}` : "";
+    return request<ParentProgressPoint[]>(`/parents/${parentId}/progress${params}`);
+};
 
 export const fetchProgressReport = (parentId: string) =>
     request<any>(`/parents/${parentId}/progress-report`);

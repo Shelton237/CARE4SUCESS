@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2 } from "lucide-react";
+import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,15 +17,41 @@ export default function Inscription() {
         parentEmail: "",
         parentPassword: "",
         parentPhone: "",
-        childName: "",
-        childEmail: "",
-        childPassword: "",
-        childLevel: "6ème",
-        subject: "Mathématiques",
+        children: [
+            { id: Date.now(), name: "", level: "6ème", subject: "Mathématiques", email: "", password: "" }
+        ]
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleChildChange = (id: number, field: string, value: string) => {
+        setFormData({
+            ...formData,
+            children: formData.children.map(child =>
+                child.id === id ? { ...child, [field]: value } : child
+            )
+        });
+    };
+
+    const addChild = () => {
+        setFormData({
+            ...formData,
+            children: [
+                ...formData.children,
+                { id: Date.now(), name: "", level: "6ème", subject: "Mathématiques", email: "", password: "" }
+            ]
+        });
+    };
+
+    const removeChild = (id: number) => {
+        if (formData.children.length > 1) {
+            setFormData({
+                ...formData,
+                children: formData.children.filter(c => c.id !== id)
+            });
+        }
     };
 
     const handleNext = () => setStep(step + 1);
@@ -36,11 +62,21 @@ export default function Inscription() {
         setLoading(true);
         try {
             const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
-            // Normalisation des emails pour le backend
+            
+            // Format data for backend
             const payload = {
-                ...formData,
-                // Si l'élève s'inscrit lui-même, on peut utiliser son email comme email principal si besoin,
-                // mais le backend actuel attend parentEmail comme login principal parent.
+                parentName: formData.parentName,
+                parentEmail: formData.parentEmail,
+                parentPassword: formData.parentPassword,
+                parentPhone: formData.parentPhone,
+                userType,
+                children: formData.children.map(c => ({
+                    name: c.name,
+                    email: c.email,
+                    password: c.password,
+                    level: c.level,
+                    subject: c.subject
+                }))
             };
 
             const response = await fetch(`${API_BASE_URL}/parents/enroll`, {
@@ -175,48 +211,85 @@ export default function Inscription() {
 
                         {step === 2 && (
                             <div className="space-y-6">
-                                <h2 className="text-xl font-semibold flex items-center gap-2">
-                                    <GraduationCap className="text-[#1A6CC8]" /> {userType === "parent" ? "Informations de votre enfant" : "Informations scolaires"}
+                                <h2 className="text-xl font-semibold flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <GraduationCap className="text-[#1A6CC8]" /> 
+                                        {userType === "parent" ? "Informations de vos enfants" : "Mes informations scolaires"}
+                                    </div>
+                                    {userType === "parent" && (
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={addChild}
+                                            className="text-xs border-[#1A6CC8] text-[#1A6CC8] hover:bg-blue-50"
+                                        >
+                                            <Plus className="w-3 h-3 mr-1" /> Ajouter un enfant
+                                        </Button>
+                                    )}
                                 </h2>
-                                <div className="grid gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">{userType === "parent" ? "Nom de l'enfant" : "Mon nom complet"}</label>
-                                        <Input name="childName" placeholder={userType === "parent" ? "Ex: Marie Dupont" : "Votre nom complet"} value={formData.childName} onChange={handleChange} />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Niveau scolaire</label>
-                                            <select
-                                                className="w-full p-2 border rounded-md"
-                                                name="childLevel"
-                                                value={formData.childLevel}
-                                                onChange={handleChange}
-                                            >
-                                                <option>6ème</option>
-                                                <option>5ème</option>
-                                                <option>4ème</option>
-                                                <option>3ème</option>
-                                                <option>Seconde</option>
-                                                <option>Première</option>
-                                                <option>Terminale</option>
-                                            </select>
+                                
+                                <div className="space-y-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {formData.children.map((child, index) => (
+                                        <div key={child.id} className="p-4 rounded-xl border-2 border-slate-100 space-y-4 relative bg-slate-50/30">
+                                            {userType === "parent" && (
+                                                <div className="flex justify-between items-center bg-white -mx-4 -mt-4 p-2 px-4 rounded-t-xl border-b mb-2">
+                                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Enfant #{index + 1}</span>
+                                                    {formData.children.length > 1 && (
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="sm" 
+                                                            onClick={() => removeChild(child.id)}
+                                                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            )}
+                                            
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">{userType === "parent" ? "Nom de l'enfant" : "Mon nom complet"}</label>
+                                                <Input 
+                                                    placeholder={userType === "parent" ? "Ex: Marie Dupont" : "Votre nom complet"} 
+                                                    value={child.name} 
+                                                    onChange={(e) => handleChildChange(child.id, "name", e.target.value)} 
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-sm font-medium">Niveau scolaire</label>
+                                                    <select
+                                                        className="w-full p-2 border rounded-md bg-white"
+                                                        value={child.level}
+                                                        onChange={(e) => handleChildChange(child.id, "level", e.target.value)}
+                                                    >
+                                                        <option>6ème</option>
+                                                        <option>5ème</option>
+                                                        <option>4ème</option>
+                                                        <option>3ème</option>
+                                                        <option>Seconde</option>
+                                                        <option>Première</option>
+                                                        <option>Terminale</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-sm font-medium">Matière prioritaire</label>
+                                                    <select
+                                                        className="w-full p-2 border rounded-md bg-white"
+                                                        value={child.subject}
+                                                        onChange={(e) => handleChildChange(child.id, "subject", e.target.value)}
+                                                    >
+                                                        <option>Mathématiques</option>
+                                                        <option>Physique-Chimie</option>
+                                                        <option>Français</option>
+                                                        <option>Anglais</option>
+                                                        <option>Informatique</option>
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Matière prioritaire</label>
-                                            <select
-                                                className="w-full p-2 border rounded-md"
-                                                name="subject"
-                                                value={formData.subject}
-                                                onChange={handleChange}
-                                            >
-                                                <option>Mathématiques</option>
-                                                <option>Physique-Chimie</option>
-                                                <option>Français</option>
-                                                <option>Anglais</option>
-                                                <option>Informatique</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
                                 <div className="flex gap-4">
                                     <Button variant="outline" className="w-1/2" onClick={handlePrev}>Retour</Button>
@@ -227,11 +300,24 @@ export default function Inscription() {
 
                         {step === 3 && (
                             <div className="space-y-6 text-center">
-                                <div className="p-4 bg-blue-50 rounded-lg text-left text-sm text-blue-800">
+                                <div className="p-4 bg-blue-50 rounded-lg text-left text-sm text-blue-800 space-y-2">
                                     <strong>Résumé :</strong><br />
-                                    {userType === "parent" ? `Parent : ${formData.parentName}` : `Étudiant : ${formData.childName}`}<br />
-                                    Contact : {formData.parentPhone}<br />
-                                    Niveau : {formData.childLevel} / Besoin : {formData.subject}
+                                    <div className="flex justify-between">
+                                        <span>Responsable :</span>
+                                        <span className="font-bold">{formData.parentName}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Contact :</span>
+                                        <span className="font-bold">{formData.parentPhone}</span>
+                                    </div>
+                                    <div className="pt-2 border-t border-blue-100">
+                                        <span className="font-bold">{formData.children.length} Enfant(s) inscrit(s) :</span>
+                                        <ul className="mt-2 space-y-1 pl-4 list-disc">
+                                            {formData.children.map((c, i) => (
+                                                <li key={i}>{c.name} ({c.level}) - {c.subject}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 </div>
                                 <div className="space-y-4">
                                     <label className="text-sm font-medium text-slate-500">Mode de paiement préféré</label>

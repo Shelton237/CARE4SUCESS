@@ -1313,18 +1313,31 @@ app.use("/uploads", express.static(uploadDir));
 app.post("/api/parents/enroll", async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { parentName, parentEmail, parentPassword, parentPhone, childName, childEmail, childPassword, childLevel, subject } = req.body;
+    const { parentName, parentEmail, parentPassword, parentPhone, children, childName, childEmail, childPassword, childLevel, subject } = req.body;
     console.log("DEBUG: Enrollment start for", parentEmail);
 
-    if (!parentEmail || !parentPassword || !childName) {
+    const finalChildren = Array.isArray(children) ? children : [
+      { name: childName, email: childEmail, password: childPassword, level: childLevel, subject: subject }
+    ].filter(c => c.name);
+
+    if (!parentEmail || !parentPassword || finalChildren.length === 0) {
       return res.status(400).json({ message: "Champs obligatoires manquants." });
     }
 
-    // Check if emails already exist
-    const [existing] = await connection.query("SELECT email FROM users WHERE email IN (?, ?)", [parentEmail, childEmail]);
-    if (existing.length > 0) {
-      const existingEmails = existing.map(u => u.email).join(", ");
-      return res.status(400).json({ message: `Erreur: Les emails suivants sont déjà utilisés : ${existingEmails}` });
+    // Check if parent email already exists
+    const [existingParent] = await connection.query("SELECT email FROM users WHERE email = ? LIMIT 1", [parentEmail]);
+    if (existingParent.length > 0) {
+      return res.status(400).json({ message: `Erreur: L'email parent ${parentEmail} est déjà utilisé.` });
+    }
+
+    // Check if children emails exist
+    const childEmails = finalChildren.map(c => c.email).filter(Boolean);
+    if (childEmails.length > 0) {
+      const [existingChildren] = await connection.query("SELECT email FROM users WHERE email IN (?)", [childEmails]);
+      if (existingChildren.length > 0) {
+        const dupes = existingChildren.map(u => u.email).join(", ");
+        return res.status(400).json({ message: `Erreur: Les emails élèves suivants sont déjà utilisés : ${dupes}` });
+      }
     }
 
     await ensureParentChildTable();
@@ -1335,40 +1348,52 @@ app.post("/api/parents/enroll", async (req, res) => {
     const hashedParentPwd = bcrypt.hashSync(parentPassword, 10);
     await connection.query(
       "INSERT INTO users (id, name, email, password, role, phone, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?)",
-      [parentId, parentName, parentEmail, hashedParentPwd, parentPhone || null, parentName[0]]
+      [parentId, parentName, parentEmail, hashedParentPwd, parentPhone || null, (parentName || "P")[0]]
     );
 
-    // 2. Create Student User (if email provided, else use a placeholder)
-    const studentId = crypto.randomUUID();
-    const finalStudentEmail = childEmail || `student.${crypto.randomBytes(4).toString('hex')}@care4success.cm`;
-    const hashedStudentPwd = bcrypt.hashSync(childPassword || "eleve123", 10);
-    await connection.query(
-      "INSERT INTO users (id, name, email, password, role, parent_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?)",
-      [studentId, childName, finalStudentEmail, hashedStudentPwd, parentId, childName[0]]
-    );
+    const results = {
+      parentId,
+      students: []
+    };
 
-    await connection.query(
-      "INSERT IGNORE INTO parent_child (parent_id, child_id) VALUES (?, ?)",
-      [parentId, studentId]
-    );
+    // 2. Process each child
+    for (const child of finalChildren) {
+      const studentId = crypto.randomUUID();
+      const finalStudentEmail = child.email || `student.${crypto.randomBytes(4).toString('hex')}@care4success.cm`;
+      const hashedStudentPwd = bcrypt.hashSync(child.password || "eleve123", 10);
+      
+      // Create Student User
+      await connection.query(
+        "INSERT INTO users (id, name, email, password, role, parent_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?)",
+        [studentId, child.name, finalStudentEmail, hashedStudentPwd, parentId, (child.name || "S")[0]]
+      );
 
-    // 3. Create initial Request (lead)
-    await ensureRequestsTable();
-    const requestId = crypto.randomUUID();
-    await connection.query(
-      `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, status, request_date)
-       VALUES (?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
-      [requestId, parentName, childName, childLevel || "", subject || "", parentPhone || ""]
-    );
+      // Link Parent-Child
+      await connection.query(
+        "INSERT IGNORE INTO parent_child (parent_id, child_id) VALUES (?, ?)",
+        [parentId, studentId]
+      );
+
+      // Create Request (Lead)
+      await ensureRequestsTable();
+      const requestId = crypto.randomUUID();
+      await connection.query(
+        `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, status, request_date)
+         VALUES (?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
+        [requestId, parentName, child.name, child.level || "", child.subject || "", parentPhone || ""]
+      );
+
+      results.students.push({ id: studentId, name: child.name, email: finalStudentEmail });
+    }
 
     await connection.commit();
     res.status(201).json({
-      message: "Enrôlement réussi.",
+      message: `${finalChildren.length} enfant(s) enrôlé(s) avec succès.`,
       parent: { id: parentId, email: parentEmail },
-      student: { id: studentId, email: finalStudentEmail }
+      students: results.students
     });
   } catch (error) {
-    await connection.rollback();
+    if (connection) await connection.rollback();
     console.error("Enrollment Error:", error);
     res.status(500).json({ message: error.message || "Erreur lors de l'enrôlement." });
   } finally {
@@ -3005,6 +3030,7 @@ const ensureUsersTable = async () => {
       role ENUM('admin','teacher','parent','advisor','student') NOT NULL,
       avatar VARCHAR(10),
       phone VARCHAR(50),
+      avatar_url VARCHAR(255) NULL,
       location VARCHAR(120),
       timezone VARCHAR(64) NOT NULL DEFAULT 'Africa/Douala',
       language VARCHAR(10) NOT NULL DEFAULT 'fr',
@@ -3034,6 +3060,7 @@ const ensureUsersTable = async () => {
     await ensureColumn("timezone", "VARCHAR(64) NOT NULL DEFAULT 'Africa/Douala'");
     await ensureColumn("language", "VARCHAR(10) NOT NULL DEFAULT 'fr'");
     await ensureColumn("bio", "TEXT NULL");
+    await ensureColumn("avatar_url", "VARCHAR(255) NULL");
     await ensureColumn("notify_email", "TINYINT(1) NOT NULL DEFAULT 1");
     await ensureColumn("notify_sms", "TINYINT(1) NOT NULL DEFAULT 0");
     await ensureColumn("notify_whatsapp", "TINYINT(1) NOT NULL DEFAULT 0");
@@ -3700,13 +3727,20 @@ const studentGrades = [
 
 app.get("/api/parents/:parentId/overview", async (req, res) => {
   const { parentId } = req.params;
+  const { studentId } = req.query;
   try {
     const [[parent]] = await pool.query("SELECT name FROM users WHERE id = ?", [parentId]);
     if (!parent) return res.status(404).json({ message: "Parent introuvable." });
 
-    const [[student]] = await pool.query("SELECT id, name FROM users WHERE parent_id = ? AND role = 'student' LIMIT 1", [parentId]);
+    let student;
+    if (studentId) {
+      [[student]] = await pool.query("SELECT id, name FROM users WHERE id = ? AND parent_id = ? AND role = 'student'", [studentId, parentId]);
+    } else {
+      [[student]] = await pool.query("SELECT id, name FROM users WHERE parent_id = ? AND role = 'student' LIMIT 1", [parentId]);
+    }
+
     const childName = student?.name || "Enfant";
-    const [requests] = await pool.query("SELECT level, subject FROM requests WHERE parent_name = ? LIMIT 1", [parent.name]);
+    const [requests] = await pool.query("SELECT level, subject FROM requests WHERE child_name = ? AND parent_name = ? LIMIT 1", [childName, parent.name]);
     const childLevel = requests[0]?.level || "N/A";
 
     let latestEvaluations = [];
@@ -3729,11 +3763,11 @@ app.get("/api/parents/:parentId/overview", async (req, res) => {
     }
 
     const [[upcoming]] = await pool.query(
-      "SELECT DATE_FORMAT(session_date, '%d/%m') as date, session_time as time FROM sessions WHERE parent_id = ? AND session_date >= CURDATE() ORDER BY session_date ASC LIMIT 1", [parentId]
+      "SELECT DATE_FORMAT(session_date, '%d/%m') as date, session_time as time FROM sessions WHERE parent_id = ? AND (student_id = ? OR student_id IS NULL) AND session_date >= CURDATE() ORDER BY session_date ASC LIMIT 1", [parentId, student?.id]
     );
 
     const [[{ sessionsThisMonth }]] = await pool.query(
-      "SELECT COUNT(*) as count FROM sessions WHERE parent_id = ? AND MONTH(session_date) = MONTH(CURDATE())", [parentId]
+      "SELECT COUNT(*) as count FROM sessions WHERE parent_id = ? AND (student_id = ? OR student_id IS NULL) AND MONTH(session_date) = MONTH(CURDATE())", [parentId, student?.id]
     );
 
     res.json({
@@ -4128,8 +4162,15 @@ app.post("/api/students/:studentId/evaluations", authenticateRequest, async (req
 
 app.get("/api/parents/:parentId/progress", async (req, res) => {
   const { parentId } = req.params;
+  const { studentId } = req.query;
   try {
-    const [[student]] = await pool.query("SELECT id FROM users WHERE parent_id = ? AND role = 'student' LIMIT 1", [parentId]);
+    let student;
+    if (studentId) {
+      [[student]] = await pool.query("SELECT id FROM users WHERE id = ? AND parent_id = ? AND role = 'student'", [studentId, parentId]);
+    } else {
+      [[student]] = await pool.query("SELECT id FROM users WHERE parent_id = ? AND role = 'student' LIMIT 1", [parentId]);
+    }
+    
     if (!student) return res.json(studentProgressData);
     
     const [rows] = await pool.query(

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
     CalendarDays, 
@@ -13,7 +13,7 @@ import {
     Loader2,
     ShieldCheck
 } from "lucide-react";
-import { fetchScheduleByRole, fetchParentOverview, fetchParentProgress } from "@/api/backoffice";
+import { fetchScheduleByRole, fetchParentOverview, fetchParentProgress, fetchChildrenByParent } from "@/api/backoffice";
 import type { ScheduleSession } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
@@ -26,6 +26,21 @@ import { useNavigate } from "react-router-dom";
 export default function ParentDashboard() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [selectedStudentId, setSelectedStudentId] = useState<string | undefined>(undefined);
+
+    const childrenQuery = useQuery({
+        queryKey: ["parentChildren", user?.id],
+        queryFn: () => fetchChildrenByParent(user!.id),
+        enabled: Boolean(user?.id),
+    });
+
+    const children = childrenQuery.data ?? [];
+
+    useEffect(() => {
+        if (children.length > 0 && !selectedStudentId) {
+            setSelectedStudentId(children[0].id);
+        }
+    }, [children, selectedStudentId]);
 
     const scheduleQuery = useQuery({
         queryKey: ["schedule", "parent", user?.id],
@@ -34,15 +49,15 @@ export default function ParentDashboard() {
     });
 
     const overviewQuery = useQuery({
-        queryKey: ["parentOverview", user?.id],
-        queryFn: () => fetchParentOverview(user!.id),
-        enabled: Boolean(user?.id),
+        queryKey: ["parentOverview", user?.id, selectedStudentId],
+        queryFn: () => fetchParentOverview(user!.id, selectedStudentId),
+        enabled: Boolean(user?.id && !!selectedStudentId),
     });
 
     const progressQuery = useQuery({
-        queryKey: ["parentProgress", user?.id],
-        queryFn: () => fetchParentProgress(user!.id),
-        enabled: Boolean(user?.id),
+        queryKey: ["parentProgress", user?.id, selectedStudentId],
+        queryFn: () => fetchParentProgress(user!.id, selectedStudentId),
+        enabled: Boolean(user?.id && !!selectedStudentId),
     });
 
     const schedule = useMemo(() => scheduleQuery.data ?? [], [scheduleQuery.data]);
@@ -72,14 +87,39 @@ export default function ParentDashboard() {
         <div className="p-8 space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
             {/* Header Sober & Pro */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="space-y-1">
+                <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <Badge variant="outline" className="border-[#0D2D5A] text-[#0D2D5A] font-black px-3 py-1 bg-white uppercase tracking-tighter text-[10px]">
                             <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Compte Parent Premium
                         </Badge>
                     </div>
                     <h1 className="text-3xl font-black text-[#0D2D5A] tracking-tight">Centre de Pilotage</h1>
-                    <p className="text-gray-500 font-medium">Suivi en temps réel de <span className="text-[#0D2D5A] font-bold">{overview?.childName || "votre famille"}</span>.</p>
+                    
+                    {/* Family Context Selector */}
+                    <div className="flex flex-col space-y-2">
+                        <p className="text-gray-500 font-medium text-sm">Sélectionner un enfant pour voir son suivi :</p>
+                        <div className="flex flex-wrap gap-2">
+                            {children.length > 0 ? (
+                                children.map((child) => (
+                                    <Button 
+                                        key={child.id}
+                                        size="sm"
+                                        variant={selectedStudentId === child.id ? "default" : "outline"}
+                                        onClick={() => setSelectedStudentId(child.id)}
+                                        className={`rounded-full px-4 font-bold text-xs ${
+                                            selectedStudentId === child.id 
+                                            ? "bg-[#0D2D5A] text-white hover:bg-[#0D2D5A]" 
+                                            : "text-gray-500 border-gray-200"
+                                        }`}
+                                    >
+                                        {child.name}
+                                    </Button>
+                                ))
+                            ) : (
+                                <Badge variant="secondary" className="bg-gray-100 text-gray-400">Chargement de la famille...</Badge>
+                            )}
+                        </div>
+                    </div>
                 </div>
                 <div className="flex items-center gap-3">
                     <Button onClick={() => navigate("/parent/children")} variant="outline" className="border-gray-200 hover:bg-gray-50 font-bold h-12 px-6 rounded-xl">
