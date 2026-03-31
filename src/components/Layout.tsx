@@ -68,9 +68,16 @@ export function Layout({ children }: LayoutProps) {
 
             <NavLink to="/login" className="flex items-center gap-1.5 border-l border-white/20 pl-5 font-bold hover:text-[#57c2dc] transition-colors group">
               <div className="w-5 h-5 rounded-full border border-current flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
+                <Lock className="w-3 h-3" />
+              </div>
+              Connexion
+            </NavLink>
+
+            <NavLink to="/inscription" className="flex items-center gap-1.5 border-l border-white/20 pl-5 font-bold text-[#F5A623] hover:text-white transition-colors group">
+              <div className="w-5 h-5 rounded-full border border-current flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
                 <User className="w-3 h-3" />
               </div>
-              Connexion à votre espace
+              S'inscrire
             </NavLink>
           </div>
         </div>
@@ -130,9 +137,16 @@ export function Layout({ children }: LayoutProps) {
             {/* ── CTA desktop ── */}
             <div className="hidden lg:flex items-center gap-4">
               <NavLink
+                to="/inscription"
+                className="h-[46px] px-6 rounded-full border-2 border-[#0D2D5A] text-[#0D2D5A] text-xs font-black uppercase tracking-widest hover:bg-[#0D2D5A] hover:text-white transition-all duration-300"
+              >
+                <span className="flex items-center h-full gap-2">S'inscrire</span>
+              </NavLink>
+
+              <NavLink
                 to={ROUTE_PATHS.CONTACT}
                 id="nav-cta"
-                className="group relative inline-flex items-center justify-center h-[46px] px-8 rounded-full bg-[#0D2D5A] text-white text-sm font-black uppercase tracking-widest overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                className="group relative inline-flex items-center justify-center h-[46px] px-8 rounded-full bg-[#0D2D5A] text-white text-xs font-black uppercase tracking-widest overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
               >
                 <span className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
                 <span className="relative flex items-center gap-2">
@@ -181,6 +195,13 @@ export function Layout({ children }: LayoutProps) {
                 ))}
 
                 <div className="flex flex-col gap-2 mt-3 pt-4 border-t border-[#0D2D5A]/10">
+                  <NavLink
+                    to="/inscription"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black border-2 border-[#0D2D5A] text-[#0D2D5A] hover:bg-[#0D2D5A] hover:text-white transition-colors"
+                  >
+                    S'inscrire
+                  </NavLink>
                   <NavLink
                     to={ROUTE_PATHS.CONTACT}
                     onClick={() => setMobileOpen(false)}

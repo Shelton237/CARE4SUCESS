@@ -202,22 +202,23 @@ export default function Home() {
             className="flex flex-wrap gap-4"
           >
             <NavLink
+              to="/inscription"
+              id="hero-cta-signup"
+              className="group relative inline-flex items-center gap-2 px-10 py-4 rounded-full bg-[#1A6CC8] text-white font-black text-lg overflow-hidden shadow-2xl shadow-[#1A6CC8]/30 hover:shadow-[#1A6CC8]/50 transition-all duration-300 hover:scale-105"
+            >
+              <span className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 skew-x-12" />
+              <span className="relative">S'inscrire maintenant</span>
+              <GraduationCap className="relative w-6 h-6 group-hover:rotate-12 transition-transform" />
+            </NavLink>
+
+            <NavLink
               to={ROUTE_PATHS.CONTACT}
               id="hero-cta-primary"
               className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#F5A623] text-[#0D2D5A] font-black text-base overflow-hidden shadow-xl shadow-[#F5A623]/20 hover:shadow-[#F5A623]/40 transition-shadow duration-300"
             >
-              {/* Shimmer */}
-              <span className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 skew-x-12" />
               <span className="relative">Bilan gratuit</span>
               <ArrowRight className="relative w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </NavLink>
-            <a
-              href="tel:+237675252048"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-full border border-white/20 text-white font-semibold text-base hover:bg-white/10 transition-colors duration-200"
-            >
-              <Phone className="w-4 h-4 text-[#F5A623]" />
-              Être rappelé(e)
-            </a>
           </motion.div>
 
           {/* Trust mini */}
