@@ -3322,11 +3322,42 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/api/users/:userId", authenticateRequest, async (req, res) => {
   const { userId } = req.params;
-  if (req.user?.sub !== userId && req.user?.role !== "admin") {
-    return res.status(403).json({ message: "Accès refusé." });
-  }
+  const requesterId = req.user?.sub;
+  const requesterRole = req.user?.role;
+
   try {
     await ensureUsersTable();
+    await ensureParentChildTable();
+
+    // 1. Fetch target user
+    const [userRows] = await pool.query("SELECT id, role, parent_id FROM users WHERE id = ?", [userId]);
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: "Utilisateur introuvable." });
+    }
+    const targetUser = userRows[0];
+
+    // 2. Authorization
+    let isAuthorized = (requesterId === userId) || (requesterRole === "admin");
+    
+    if (!isAuthorized && requesterRole === "parent") {
+      // Check column parent_id
+      if (targetUser.parent_id === requesterId) {
+        isAuthorized = true;
+      } else {
+        // Check link table
+        const [linkRows] = await pool.query(
+          "SELECT 1 FROM parent_child WHERE parent_id = ? AND child_id = ?",
+          [requesterId, userId]
+        );
+        if (linkRows.length > 0) isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({ message: "Accès refusé. Vous n'avez pas la permission de consulter ce profil." });
+    }
+
+    // 3. Fetch full profile
     const [rows] = await pool.query(
       `SELECT u.*, u.avatar_url, 
               t.bank_name, t.bank_iban, t.bank_account_holder, t.availability_json
@@ -3335,9 +3366,6 @@ app.get("/api/users/:userId", authenticateRequest, async (req, res) => {
        WHERE u.id = ?`,
       [userId]
     );
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "Utilisateur introuvable." });
-    }
     res.json(mapUserRow(rows[0]));
   } catch (error) {
     console.error("Failed to fetch user profile", error);
@@ -3748,7 +3776,7 @@ app.get("/api/parents/:parentId/overview", async (req, res) => {
 
     if (student) {
       const [attempts] = await pool.query(
-        `SELECT a.id, q.title as quizTitle, c.title as courseTitle, q.subject, a.score, q.total_points as totalPoints, a.created_at as createdAt
+        `SELECT a.id, q.title as quizTitle, c.title as courseTitle, c.subject, a.score, q.total_points as totalPoints, a.created_at as createdAt
          FROM quiz_attempts a
          JOIN quizzes q ON q.id = a.quiz_id
          JOIN courses c ON c.id = q.course_id
@@ -3807,6 +3835,38 @@ app.get("/api/parents/:parentId/invoices", async (req, res) => {
   }
 });
 
+app.get("/api/parents/:parentId/progress", async (req, res) => {
+  const { parentId } = req.params;
+  const { studentId: queryStudentId } = req.query;
+  try {
+    let studentId = queryStudentId;
+    if (!studentId) {
+       const [[child]] = await pool.query("SELECT id FROM users WHERE parent_id = ? AND role = 'student' LIMIT 1", [parentId]);
+       studentId = child?.id;
+    }
+
+    if (!studentId) return res.json([]);
+
+    const [rows] = await pool.query(
+      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
+      [studentId]
+    );
+
+    if (rows.length === 0) {
+      // Return mock data for demo if empty
+      return res.json([
+        { month: "Jan", maths: 12, francais: 13, anglais: 14 },
+        { month: "Fév", maths: 13, francais: 13, anglais: 14 },
+        { month: "Mar", maths: 14.5, francais: 14, anglais: 15 }
+      ]);
+    }
+    res.json(rows);
+  } catch (error) {
+    console.error("Progress fetch error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
 app.get("/api/parents/:parentId/progress-report", async (req, res) => {
   const { parentId } = req.params;
   try {
@@ -3820,11 +3880,12 @@ app.get("/api/parents/:parentId/progress-report", async (req, res) => {
     let grades = [];
     if (student) {
       const [attempts] = await pool.query(
-        `SELECT q.subject, AVG(a.score) as average, COUNT(*) as count
+        `SELECT c.subject, AVG(a.score) as average, COUNT(*) as count
          FROM quiz_attempts a
          JOIN quizzes q ON q.id = a.quiz_id
+         JOIN courses c ON c.id = q.course_id
          WHERE a.student_id = ?
-         GROUP BY q.subject`, [student.id]
+         GROUP BY c.subject`, [student.id]
       );
       grades = attempts;
     }
@@ -3884,6 +3945,49 @@ app.get("/api/students/:studentId/overview", async (req, res) => {
       subject: session?.subject || "Mathématiques",
       streak: 6
     });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/students/:studentId/quiz-attempts", async (req, res) => {
+  const { studentId } = req.params;
+  try {
+    const [rows] = await pool.query(
+      `SELECT a.id, q.title as quizTitle, c.title as courseTitle, c.subject, a.score, q.total_points as totalPoints, a.created_at as createdAt
+       FROM quiz_attempts a
+       JOIN quizzes q ON q.id = a.quiz_id
+       JOIN courses c ON c.id = q.course_id
+       WHERE a.student_id = ?
+       ORDER BY a.created_at DESC`, [studentId]
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/students/:studentId/homework", async (req, res) => {
+  const { studentId } = req.params;
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, title, subject, due_date as dueDate, status FROM homework WHERE student_id = ? ORDER BY due_date DESC",
+      [studentId]
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/students/:studentId/evaluations", async (req, res) => {
+  const { studentId } = req.params;
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, teacher_name as teacherName, rating, comment, created_at as createdAt FROM student_evaluations WHERE student_id = ? ORDER BY created_at DESC",
+      [studentId]
+    );
+    res.json(rows);
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur." });
   }

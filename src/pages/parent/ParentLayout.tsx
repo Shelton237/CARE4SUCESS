@@ -9,6 +9,7 @@ import ParentFeedback from "./Feedback";
 import ParentHomework from "./Homework";
 import ParentChildren from "./Children";
 import ParentTeam from "./Team";
+import ChildCockpit from "./ChildCockpit";
 
 const NAV = [
     { to: "/parent", label: "Tableau de bord", icon: LayoutDashboard },
@@ -25,10 +26,11 @@ export default function ParentLayout() {
     return (
         <div className="min-h-screen bg-gray-50 flex" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
             <DashboardSidebar items={NAV} roleLabel="Parent" roleColor="#22c55e" />
-            <main className="flex-1 ml-60 min-h-screen overflow-y-auto">
+            <main className="flex-1 ml-72 min-h-screen overflow-y-auto">
                 <Routes>
                     <Route index element={<ParentDashboard />} />
                     <Route path="children" element={<ParentChildren />} />
+                    <Route path="children/:id" element={<ChildCockpit />} />
                     <Route path="team" element={<ParentTeam />} />
                     <Route path="schedule" element={<ParentSchedule />} />
                     <Route path="homework" element={<ParentHomework />} />

@@ -25,7 +25,7 @@ export default function AdvisorLayout() {
         <div className="min-h-screen bg-gray-50 flex" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
             <DashboardSidebar items={NAV} roleLabel="Conseiller Pédagogique" roleColor="#1A6CC8" />
 
-            <main className="flex-1 ml-60 min-h-screen overflow-y-auto">
+            <main className="flex-1 ml-72 min-h-screen overflow-y-auto">
                 <Routes>
                     <Route index element={<AdvisorDashboard />} />
                     <Route path="families" element={<AdvisorFamilies />} />

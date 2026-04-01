@@ -571,3 +571,6 @@ export const fetchStudentProgressData = (studentId: string) =>
 export const fetchStudentSessions = (studentId: string) =>
     request<ScheduleSession[]>(`/students/${studentId}/sessions`);
 
+export const fetchStudentEvaluations = (studentId: string) =>
+    request<any[]>(`/students/${studentId}/evaluations`);
+

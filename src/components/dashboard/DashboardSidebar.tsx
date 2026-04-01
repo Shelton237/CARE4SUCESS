@@ -26,7 +26,7 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
     };
 
     return (
-        <aside className="fixed left-0 top-0 h-full w-60 flex flex-col z-40" style={{ background: "#0D2D5A" }}>
+        <aside className="fixed left-0 top-0 h-full w-72 flex flex-col z-40" style={{ background: "#0D2D5A" }}>
             {/* Logo & Notifications */}
             <div className="px-5 py-6 flex items-center justify-between">
                 <div className="flex flex-col gap-1.5">

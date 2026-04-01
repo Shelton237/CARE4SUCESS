@@ -1,19 +1,27 @@
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { 
-    Users, UserCircle2, GraduationCap, Calendar, 
-    BookOpen, ChevronRight, Star, Clock, 
-    TrendingUp, MessageCircle, FileText, Loader2,
-    CheckCircle2
+    Users, 
+    GraduationCap, 
+    Calendar, 
+    MessageCircle, 
+    FileText, 
+    Loader2,
+    ShieldCheck,
+    TrendingUp,
+    Timer,
+    Star,
+    LayoutDashboard
 } from "lucide-react";
 import { fetchChildrenByParent } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
 
 export default function ParentChildren() {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     const { data: children = [], isLoading } = useQuery({
         queryKey: ["children", user?.id],
@@ -23,107 +31,141 @@ export default function ParentChildren() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
-                <Loader2 className="animate-spin text-[#1A6CC8] w-10 h-10" />
-                <p className="text-gray-400 text-sm mt-4">Chargement de la fratrie...</p>
+            <div className="flex items-center justify-center min-h-[40vh]">
+                <Loader2 className="w-8 h-8 animate-spin text-[#0D2D5A]/20" />
             </div>
         );
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            {/* Header Parent Style */}
-            <div className="flex items-center justify-between">
+        <div className="p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
+            {/* Professional Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes Enfants</h1>
-                    <p className="text-gray-500 text-sm mt-1">Suivez le parcours académique et les tuteurs de vos enfants.</p>
+                    <h1 className="text-xl font-black text-[#0D2D5A] flex items-center gap-2">
+                        GESTION DE LA FRATRIE
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#F5A623]" />
+                    </h1>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">Suivi centralisé des tuteurs et parcours</p>
                 </div>
-                <div className="hidden sm:flex items-center gap-3">
-                    <div className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2.5">
-                        <Users className="w-4 h-4 text-[#1A6CC8]" />
-                        <span className="text-sm font-bold text-[#0D2D5A]">{children.length} {children.length > 1 ? 'Enfants' : 'Enfant'}</span>
+                <div className="flex items-center gap-3">
+                    <div className="px-4 py-1.5 bg-slate-50 border border-slate-100 rounded flex items-center gap-2.5">
+                        <Users className="w-3.5 h-3.5 text-[#1A6CC8]" />
+                        <span className="text-[11px] font-black uppercase text-[#0D2D5A]">{children.length} {children.length > 1 ? 'Étudiants' : 'Étudiant'} Actifs</span>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* Children Grid - Slim & Pro */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {children.map((child: any) => (
-                    <div key={child.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
-                        {/* Status / Level Header */}
-                        <div className="p-6 bg-gray-50/50 border-b border-gray-50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-xl bg-[#0D2D5A] border-4 border-white shadow-sm flex items-center justify-center text-white font-bold text-lg">
+                    <div key={child.id} className="bg-white border border-slate-200 rounded-none overflow-hidden flex flex-col transition-all hover:border-[#1A6CC8]/30">
+                        {/* Kid Header - High Density */}
+                        <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 bg-[#0D2D5A] text-white flex items-center justify-center font-black text-sm shrink-0 border border-whiteShadow">
                                     {child.name?.charAt(0)}
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-[#0D2D5A]">{child.name}</h3>
-                                    <p className="text-[10px] text-[#1A6CC8] font-bold uppercase tracking-widest">{child.level || 'Terminal'}</p>
+                                <div className="min-w-0">
+                                    <h3 className="font-black text-sm text-[#0D2D5A] truncate uppercase tracking-tight">{child.name}</h3>
+                                    <p className="text-[10px] text-[#1A6CC8] font-black uppercase tracking-widest leading-none mt-0.5">{child.level || 'Terminal'}</p>
                                 </div>
                             </div>
-                            <Badge variant="outline" className="bg-white text-emerald-600 border-emerald-100 text-[9px] font-bold uppercase tracking-wider">
-                                Actif
+                            <Badge className="bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/20 text-[8px] font-black uppercase tracking-widest px-2 h-4">
+                                ACTIF
                             </Badge>
                         </div>
 
-                        {/* Stats / Progress */}
-                        <div className="p-6 space-y-6 flex-1">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-white border border-gray-100 p-3 rounded-xl text-center">
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Moyenne Générale</p>
-                                    <p className="text-sm font-bold text-[#0D2D5A] mt-1">{child.average || "15.2"} / 20</p>
+                        {/* Core Stats - Flat Design */}
+                        <div className="p-4 space-y-4 flex-1">
+                            <div className="grid grid-cols-2 gap-px bg-slate-100 border border-slate-100 overflow-hidden rounded">
+                                <div className="bg-white p-3">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Moyenne</p>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-lg font-black text-[#0D2D5A]">{child.average || "15.2"}</span>
+                                        <span className="text-[10px] text-slate-300 font-bold">/20</span>
+                                    </div>
                                 </div>
-                                <div className="bg-white border border-gray-100 p-3 rounded-xl text-center">
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Heures Effectuées</p>
-                                    <p className="text-sm font-bold text-[#1A6CC8] mt-1">{child.sessionCount || "24"}h</p>
+                                <div className="bg-white p-3">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Total Heures</p>
+                                    <div className="flex items-center gap-1.5">
+                                        <Timer className="w-3.5 h-3.5 text-[#1A6CC8]" />
+                                        <span className="text-lg font-black text-[#1A6CC8]">{child.sessionCount || "24"}h</span>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 flex items-center justify-between">
-                                    Assiduité 🧑‍🎓
-                                    <span className="text-[#0D2D5A]">{child.attendance || "98"}%</span>
-                                </p>
-                                <Progress value={parseInt(child.attendance) || 98} className="h-1.5 bg-gray-50" />
+                            {/* Attendance Progress - Slim */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Assiduité Académique</p>
+                                    <span className="text-[10px] font-black text-[#0D2D5A]">{child.attendance || "98"}%</span>
+                                </div>
+                                <Progress value={parseInt(child.attendance) || 98} className="h-1 bg-slate-50 border-none" />
                             </div>
 
-                            <div className="space-y-3 pt-2">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Tuteur Assigné</p>
-                                <div className="flex items-center gap-3 p-3 bg-gray-50/50 rounded-xl border border-gray-100 group cursor-default">
-                                    <div className="w-8 h-8 rounded-lg bg-white border border-gray-100 flex items-center justify-center text-[#1A6CC8]">
-                                        <TrendingUp className="w-4 h-4" />
+                            {/* Assigned Tutor - Focus & Direct */}
+                            <div className="pt-2">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Enseignant Principal</p>
+                                <div className="flex items-center gap-3 p-3 bg-white border border-slate-100 group">
+                                    <div className="w-8 h-8 rounded-full bg-[#1A6CC8]/5 flex items-center justify-center text-[#1A6CC8] border border-[#1A6CC8]/10">
+                                        <GraduationCap className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold text-[#0D2D5A] truncate">{child.teacherName || "Chargement..."}</p>
-                                        <p className="text-[10px] text-gray-400 lowercase">{child.subject || "Multi-matières"}</p>
+                                        <p className="text-[11px] font-black text-[#0D2D5A] truncate uppercase">{child.teacherName || "Chargement..."}</p>
+                                        <p className="text-[9px] text-[#1A6CC8] font-bold uppercase mt-0.5">{child.subject || "Multi-matières"}</p>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white text-[#1A6CC8]">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-[#1A6CC8]/5 text-[#1A6CC8]">
                                         <MessageCircle className="w-3.5 h-3.5" />
                                     </Button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Footer Actions */}
-                        <div className="p-4 bg-gray-50/30 border-t border-gray-50 grid grid-cols-2 gap-3">
-                            <Button variant="outline" className="border-gray-200 text-gray-500 font-bold h-10 rounded-xl text-xs gap-2">
-                                <Calendar className="w-3.5 h-3.5" /> Planning
+                        {/* Actions - Brand Aligned */}
+                        <div className="p-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                            <Button 
+                                variant="outline" 
+                                onClick={() => navigate(`/parent/schedule?studentId=${child.id}`)}
+                                className="flex-1 h-8 text-[10px] font-black uppercase tracking-widest border-slate-200 text-slate-500 hover:bg-white rounded-none"
+                            >
+                                <Calendar className="w-3 h-3 mr-1.5" /> Planning
                             </Button>
-                            <Button className="bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-10 rounded-xl text-xs gap-2 shadow-sm">
-                                <FileText className="w-3.5 h-3.5" /> Bilan
+                            <Button 
+                                onClick={() => navigate(`/parent/children/${child.id}`)}
+                                className="flex-1 h-8 text-[10px] font-black uppercase tracking-widest bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white rounded-none shadow-none"
+                            >
+                                <LayoutDashboard className="w-3 h-3 mr-1.5" /> Cockpit
                             </Button>
                         </div>
                     </div>
                 ))}
 
                 {children.length === 0 && (
-                    <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-gray-200">
-                        <Users className="w-12 h-12 text-gray-100 mx-auto mb-4" />
-                        <h3 className="text-lg font-bold text-gray-300">Aucun enfant listé</h3>
-                        <p className="text-gray-400 text-xs mt-2 max-w-[240px] mx-auto">
-                            Si vos enfants n'apparaissent pas, veuillez contacter votre conseiller pédagogique.
+                    <div className="col-span-full py-16 text-center border-2 border-dashed border-slate-100">
+                        <Users className="w-10 h-10 text-slate-100 mx-auto mb-3" />
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Aucun enseignement en cours</h3>
+                        <p className="text-[10px] text-slate-300 mt-1 max-w-[280px] mx-auto font-bold">
+                            Veuillez contacter le support pédagogique pour l'activation d'un nouveau profil.
                         </p>
                     </div>
                 )}
+            </div>
+
+            {/* Professional Footer Info */}
+            <div className="pt-8 border-t border-slate-50">
+                <div className="p-4 bg-[#0D2D5A] text-white flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white/10 rounded">
+                            <ShieldCheck className="w-5 h-5 text-[#F5A623]" />
+                        </div>
+                        <div>
+                             <p className="text-[10px] font-black uppercase tracking-widest">Garantie Excellence Eureka</p>
+                             <p className="text-[10px] opacity-70">Accompagnement certifié par nos experts pédagogiques régis par la charte qualité.</p>
+                        </div>
+                    </div>
+                    <Button size="sm" className="bg-[#F5A623] hover:bg-[#F5A623]/90 text-white font-black text-[10px] uppercase tracking-widest px-6 h-8 rounded-none">Contacter un conseiller</Button>
+                </div>
             </div>
         </div>
     );

@@ -1,20 +1,21 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Receipt, Download, CheckCircle, Clock } from "lucide-react";
-import { StatCard } from "@/components/dashboard/StatCard";
-import { fetchParentInvoices } from "@/api/backoffice";
+import { Receipt, Download, CheckCircle, Clock, FileText, CreditCard, Filter, Loader2 } from "lucide-react";
+import { fetchParentInvoices, fetchChildrenByParent } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatFCFA } from "@/lib/money";
 import type { ParentInvoice } from "@/integrations/supabase/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
-const STATUS_UI: Record<ParentInvoice["status"], { label: string; chip: string }> = {
-    paid: { label: "Payée", chip: "bg-green-50 text-green-600" },
-    pending: { label: "En attente", chip: "bg-[#F5A623]/10 text-[#F5A623]" },
+const STATUS_UI: Record<ParentInvoice["status"], { label: string; color: string; bg: string }> = {
+    paid: { label: "PAYÉE", color: "text-emerald-700", bg: "bg-emerald-50" },
+    pending: { label: "EN ATTENTE", color: "text-[#F5A623]", bg: "bg-[#F5A623]/10" },
 };
 
 const formatDate = (value: string) => {
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("fr-FR");
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("fr-FR", { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
 };
 
 export default function ParentInvoices() {
@@ -26,7 +27,14 @@ export default function ParentInvoices() {
         enabled: Boolean(user?.id),
     });
 
+    const { data: children = [] } = useQuery({
+        queryKey: ["parent-children", user?.id],
+        queryFn: () => fetchChildrenByParent(user?.id || ""),
+        enabled: Boolean(user?.id)
+    });
+
     const invoices = useMemo(() => invoicesQuery.data ?? [], [invoicesQuery.data]);
+    
     const { totalPaid, totalPending } = useMemo(() => {
         return invoices.reduce(
             (acc, invoice) => {
@@ -41,123 +49,163 @@ export default function ParentInvoices() {
         );
     }, [invoices]);
 
-    if (!user) {
+    if (!user) return null;
+
+    if (invoicesQuery.isLoading) {
         return (
-            <div className="p-8 text-sm text-gray-500">
-                Connectez-vous pour consulter vos factures.
+            <div className="flex items-center justify-center min-h-screen">
+                <Loader2 className="w-8 h-8 animate-spin text-[#0D2D5A]/20" />
             </div>
         );
     }
 
     return (
-        <div className="p-8 space-y-8">
-            <div>
-                <h1 className="text-2xl font-bold text-[#0D2D5A]">Factures & Paiements</h1>
-                <p className="text-gray-500 text-sm mt-1">Historique complet de vos règlements Care4Success</p>
+        <div className="p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
+            {/* Slim Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                    <h1 className="text-xl font-black text-[#0D2D5A] uppercase tracking-tight flex items-center gap-3">
+                        Comptabilité & Factures
+                        <Receipt className="w-5 h-5 text-[#1A6CC8]" />
+                    </h1>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Historique des transactions et règlements</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest border-slate-200 rounded-none">
+                        <Download className="w-3.5 h-3.5 mr-2" /> Rapport Annuel
+                    </Button>
+                    <Button className="h-8 bg-[#0D2D5A] text-white text-[10px] font-black uppercase tracking-widest rounded-none shadow-none">
+                        <CreditCard className="w-3.5 h-3.5 mr-2" /> Moyens de Paiement
+                    </Button>
+                </div>
             </div>
 
-            {invoicesQuery.isError && (
-                <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl p-4">
-                    Impossible de récupérer les factures pour le moment.
-                </div>
-            )}
-
-            <div className="grid grid-cols-2 xl:grid-cols-3 gap-5">
-                <StatCard label="Total payé" value={formatFCFA(totalPaid)} icon={CheckCircle} accentColor="#22c55e" description="Depuis le début" />
-                <StatCard
-                    label="En attente"
-                    value={formatFCFA(totalPending)}
-                    icon={Clock}
-                    accentColor="#F5A623"
-                    description={totalPending > 0 ? "À régler" : "Aucune dette 🎉"}
-                />
-                <StatCard label="Nombre de factures" value={invoices.length} icon={Receipt} accentColor="#1A6CC8" description="Historique complet" />
+            {/* Quick Stats Grid - Eureka Style */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                    { label: "Total réglé", value: formatFCFA(totalPaid), sub: "DEPUIS L'INSCRIPTION", icon: CheckCircle, color: "text-emerald-600", bg: "bg-slate-50/50" },
+                    { label: "Solde en attente", value: formatFCFA(totalPending), sub: totalPending > 0 ? "À RÉGLER" : "COMPTE À JOUR", icon: Clock, color: totalPending > 0 ? "text-[#F5A623]" : "text-slate-300", bg: "bg-slate-50/50" },
+                    { label: "Volume Factures", value: invoices.length, sub: "TRANSACTIONS TOTALES", icon: Receipt, color: "text-[#1A6CC8]", bg: "bg-slate-50/50" },
+                    { label: "Enfants inscrits", value: children.length, sub: "RATTACHÉS AU COMPTE", icon: graduationCapIcon, color: "text-purple-600", bg: "bg-slate-50/50" }
+                ].map((stat, i) => (
+                    <div key={i} className={`p-4 border border-slate-100 rounded-none shadow-none flex flex-col ${stat.bg}`}>
+                        <div className="flex items-center gap-3 mb-3">
+                            <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{stat.label}</h4>
+                        </div>
+                        <div className="text-xl font-black text-[#0D2D5A] tracking-tight leading-none mb-2">{stat.value}</div>
+                        <div className="text-[9px] font-black uppercase text-slate-300 tracking-widest">{stat.sub}</div>
+                    </div>
+                ))}
             </div>
 
             {totalPending > 0 && (
-                <div className="flex items-center justify-between gap-4 bg-[#F5A623]/5 border border-[#F5A623]/20 rounded-2xl p-5">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#F5A623]/15 flex items-center justify-center">
-                            <Clock className="w-5 h-5 text-[#F5A623]" />
+                <div className="flex items-center justify-between gap-4 bg-[#F5A623]/5 border-l-4 border-[#F5A623] p-4 rounded-none">
+                    <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 rounded-none bg-[#F5A623]/10 flex items-center justify-center">
+                            <Clock className="w-4 h-4 text-[#F5A623]" />
                         </div>
                         <div>
-                            <div className="font-bold text-[#0D2D5A] text-sm">Vous avez une facture en attente</div>
-                            <div className="text-xs text-gray-500">Montant dû : {formatFCFA(totalPending)}</div>
+                            <div className="text-[11px] font-black text-[#0D2D5A] uppercase tracking-wide">Action Requise : Facture en attente</div>
+                            <div className="text-[10px] font-bold text-[#F5A623] uppercase">Montant total dû : {formatFCFA(totalPending)}</div>
                         </div>
                     </div>
-                    <button className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[#F5A623] hover:bg-[#e09612] transition-colors shadow-md whitespace-nowrap">
-                        Payer maintenant
-                    </button>
+                    <Button className="h-8 bg-[#F5A623] hover:bg-[#e09612] text-white font-black text-[10px] uppercase tracking-widest rounded-none shadow-none">
+                        Régler Maintenant
+                    </Button>
                 </div>
             )}
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                    <div className="w-8 h-8 rounded-lg bg-[#1A6CC8]/10 flex items-center justify-center">
-                        <Receipt className="w-4 h-4 text-[#1A6CC8]" />
-                    </div>
-                    <div>
-                        <h2 className="font-bold text-[#0D2D5A] text-sm">Toutes les factures</h2>
-                        <p className="text-xs text-gray-400">{invoices.length} factures · {formatFCFA(totalPaid + totalPending)} cumulés</p>
+            {/* Main Table Section */}
+            <div className="border border-slate-100 bg-white shadow-none">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                    <h2 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-[#1A6CC8]" />
+                        Registre des factures parentales
+                    </h2>
+                    <div className="flex items-center gap-2">
+                         <Filter className="w-3 h-3 text-slate-300" />
+                         <span className="text-[9px] font-black text-slate-400 uppercase">{invoices.length} Items</span>
                     </div>
                 </div>
+
                 <div className="overflow-x-auto">
-                    {invoicesQuery.isLoading ? (
-                        <div className="text-sm text-gray-400 text-center py-10">Chargement…</div>
-                    ) : invoices.length === 0 ? (
-                        <div className="text-sm text-gray-400 text-center py-10">Aucune facture enregistrée.</div>
-                    ) : (
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-gray-100">
-                                    <th className="text-left px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Référence</th>
-                                    <th className="text-left px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Date</th>
-                                    <th className="text-left px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Description</th>
-                                    <th className="text-right px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Montant</th>
-                                    <th className="text-center px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Statut</th>
-                                    <th className="text-center px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Action</th>
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-slate-100 bg-white">
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Référence</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date émission</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Détails de la prestation</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Montant</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">État</th>
+                                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {invoices.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-4 py-12 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                                        Aucun historique de facturation détecté
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {invoices.map((inv, i) => {
-                                    const statusUi = STATUS_UI[inv.status];
+                            ) : (
+                                invoices.map((inv) => {
+                                    const status = STATUS_UI[inv.status];
                                     return (
-                                        <tr key={inv.id} className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${i % 2 === 0 ? "" : "bg-gray-50/30"}`}>
-                                            <td className="px-6 py-4 font-mono text-xs text-[#1A6CC8] font-bold uppercase">{inv.id}</td>
-                                            <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{formatDate(inv.date)}</td>
-                                            <td className="px-6 py-4 text-gray-700 max-w-xs truncate">{inv.description}</td>
-                                            <td className="px-6 py-4 text-right font-bold text-[#0D2D5A] whitespace-nowrap">{formatFCFA(inv.amount)}</td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`text-xs font-bold px-3 py-1 rounded-full ${statusUi.chip}`}>{statusUi.label}</span>
+                                        <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-4 py-3">
+                                                <span className="text-[10px] font-black text-[#1A6CC8] bg-[#1A6CC8]/5 px-1.5 py-0.5 border border-[#1A6CC8]/10 uppercase">#{inv.id.slice(0, 8)}</span>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                {inv.status === "paid" ? (
-                                                    <button className="inline-flex items-center gap-1.5 text-xs text-[#1A6CC8] hover:underline font-medium">
-                                                        <Download className="w-3.5 h-3.5" />
-                                                        PDF
-                                                    </button>
-                                                ) : (
-                                                    <button className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg bg-[#F5A623] text-white hover:bg-[#e09612] transition-colors">
-                                                        Régler
-                                                    </button>
-                                                )}
+                                            <td className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase">{formatDate(inv.date)}</td>
+                                            <td className="px-4 py-3">
+                                                <div className="text-[11px] font-black text-[#0D2D5A] uppercase truncate max-w-[250px]">{inv.description}</div>
+                                                <div className="text-[9px] font-bold text-slate-300 uppercase mt-0.5">Prestation académique</div>
+                                            </td>
+                                            <td className="px-4 py-3 text-right text-[11px] font-black text-[#0D2D5A]">{formatFCFA(inv.amount)}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <Badge className={`text-[8px] font-black uppercase tracking-widest px-2 h-4 rounded-none border-none shadow-none ${status.bg} ${status.color}`}>
+                                                    {status.label}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {inv.status === "paid" ? (
+                                                        <Button variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-[#1A6CC8] hover:bg-[#1A6CC8]/5 rounded-none">
+                                                            <Download className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                    ) : (
+                                                        <Button className="h-6 px-3 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-none shadow-none">
+                                                            Payer
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
+                                })
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/30 flex justify-between items-center">
-                    <span className="text-xs text-gray-400">
-                        Affichage de {invoices.length} factures
+
+                {/* Table Footer */}
+                <div className="px-4 py-3 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        Affranchissement total réglé :
                     </span>
-                    <div className="text-sm font-bold text-[#0D2D5A]">
-                        Total réglé : <span className="text-[#22c55e]">{formatFCFA(totalPaid)}</span>
+                    <div className="text-[11px] font-black text-[#0D2D5A] uppercase">
+                        {formatFCFA(totalPaid)}
                     </div>
                 </div>
             </div>
         </div>
     );
 }
+
+// Minimal icons wrapper for the map
+const graduationCapIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+        <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+    </svg>
+);
