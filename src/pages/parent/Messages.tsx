@@ -80,7 +80,11 @@ export default function ParentMessages() {
         
         sendMutation.mutate({
             senderId: user!.id,
+            senderName: user!.name,
+            senderRole: user!.role,
             receiverId: selectedContact.id,
+            receiverName: selectedContact.name,
+            receiverRole: selectedContact.role,
             content: newMessage,
         });
     };
@@ -97,7 +101,11 @@ export default function ParentMessages() {
             const { fileUrl } = await uploadMessageAttachment(formData);
             sendMutation.mutate({
                 senderId: user!.id,
+                senderName: user!.name,
+                senderRole: user!.role,
                 receiverId: selectedContact.id,
+                receiverName: selectedContact.name,
+                receiverRole: selectedContact.role,
                 content: "Pièce jointe",
                 attachmentUrl: fileUrl
             });
