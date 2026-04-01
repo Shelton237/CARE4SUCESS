@@ -344,6 +344,9 @@ export const fetchTeacherStudents = (teacherId: string) =>
 export const fetchTeacherContacts = (teacherId: string) =>
     request<any[]>(`/teachers/${teacherId}/contacts`);
 
+export const fetchParentContacts = (parentId: string) =>
+    request<any[]>(`/parents/${parentId}/contacts`);
+
 export const fetchAdvisorDashboard = (advisorId: string) =>
     request<any>(`/advisors/${advisorId}/dashboard`);
 

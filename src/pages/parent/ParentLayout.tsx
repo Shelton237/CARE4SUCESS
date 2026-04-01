@@ -9,7 +9,9 @@ import ParentFeedback from "./Feedback";
 import ParentHomework from "./Homework";
 import ParentChildren from "./Children";
 import ParentTeam from "./Team";
+import ParentMessages from "./Messages";
 import ChildCockpit from "./ChildCockpit";
+import { MessageSquare } from "lucide-react";
 
 const NAV = [
     { to: "/parent", label: "Tableau de bord", icon: LayoutDashboard },
@@ -20,6 +22,7 @@ const NAV = [
     { to: "/parent/progress", label: "Progression", icon: TrendingUp },
     { to: "/parent/invoices", label: "Factures", icon: Receipt },
     { to: "/parent/feedback", label: "Avis profs", icon: Star },
+    { to: "/parent/messages", label: "Messages", icon: MessageSquare },
 ];
 
 export default function ParentLayout() {
@@ -37,6 +40,7 @@ export default function ParentLayout() {
                     <Route path="progress" element={<ParentProgress />} />
                     <Route path="invoices" element={<ParentInvoices />} />
                     <Route path="feedback" element={<ParentFeedback />} />
+                    <Route path="messages" element={<ParentMessages />} />
                     <Route path="*" element={<Navigate to="/parent" replace />} />
                 </Routes>
             </main>

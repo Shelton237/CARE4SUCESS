@@ -2840,12 +2840,44 @@ app.get("/api/teachers/:teacherId/contacts", async (req, res) => {
       id: c.id,
       name: c.name,
       role: c.role,
-      avatar: c.avatar || c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+      avatar: c.avatar || (c.name ? c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "?")
     }));
 
     res.json(contacts);
   } catch (error) {
     console.error("Failed to fetch teacher contacts", error);
+    res.status(500).json({ message: "Erreur lors de la récupération des contacts." });
+  }
+});
+
+app.get("/api/parents/:parentId/contacts", async (req, res) => {
+  const { parentId } = req.params;
+  try {
+    // Teachers assigned to parent's children
+    const [teachers] = await pool.query(
+      `SELECT DISTINCT u.id, u.name, u.role, u.avatar 
+       FROM parent_child pc
+       JOIN student_teacher st ON pc.child_id = st.student_id
+       JOIN users u ON st.teacher_id = u.id
+       WHERE pc.parent_id = ?`,
+      [parentId]
+    );
+
+    // All advisors
+    const [advisors] = await pool.query(
+      `SELECT id, name, role, avatar FROM users WHERE role = 'advisor'`
+    );
+
+    const contacts = [...teachers, ...advisors].map(c => ({
+      id: c.id,
+      name: c.name,
+      role: c.role,
+      avatar: c.avatar || (c.name ? c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "?")
+    }));
+
+    res.json(contacts);
+  } catch (error) {
+    console.error("Failed to fetch parent contacts", error);
     res.status(500).json({ message: "Erreur lors de la récupération des contacts." });
   }
 });
