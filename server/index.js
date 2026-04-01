@@ -2773,6 +2773,21 @@ app.get("/api/messages/:userId", async (req, res) => {
   }
 });
 
+app.get("/api/messages/unread-count/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    await ensureMessagesTable();
+    const [result] = await pool.query(
+      "SELECT COUNT(*) as count FROM messages WHERE receiver_id = ? AND is_read = FALSE",
+      [userId]
+    );
+    res.json({ count: result[0].count || 0 });
+  } catch (error) {
+    console.error("Failed to fetch unread count", error);
+    res.status(500).json({ message: "Impossible de récupérer le nombre de messages non lus." });
+  }
+});
+
 app.post("/api/messages", async (req, res) => {
   const { senderId, senderName, senderRole, receiverId, receiverName, receiverRole, content, attachmentUrl } = req.body ?? {};
 

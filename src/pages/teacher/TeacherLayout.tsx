@@ -1,5 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { useQuery } from "@tanstack/react-query";
+import { fetchUnreadMessagesCount } from "@/api/backoffice";
+import { useAuth } from "@/contexts/AuthContext";
 import TeacherDashboard from "./Dashboard";
 import TeacherSchedule from "./Schedule";
 import TeacherStudents from "./Students";
@@ -9,20 +12,31 @@ import TeacherMessages from "./Messages";
 import TeacherHomework from "./Homework";
 import { ClipboardList, LayoutDashboard, CalendarDays, Users, Banknote, BookOpen, MessageCircle } from "lucide-react";
 
-const NAV = [
-    { to: "/teacher", label: "Tableau de bord", icon: LayoutDashboard },
-    { to: "/teacher/schedule", label: "Mon planning", icon: CalendarDays },
-    { to: "/teacher/students", label: "Mes élèves", icon: Users },
-    { to: "/teacher/homework", label: "Devoirs", icon: ClipboardList },
-    { to: "/teacher/courses", label: "Cours & Quiz", icon: BookOpen },
-    { to: "/teacher/messages", label: "Messages", icon: MessageCircle },
-    { to: "/teacher/earnings", label: "Mes revenus", icon: Banknote },
-];
-
 export default function TeacherLayout() {
+    const { user } = useAuth();
+
+    const unreadQuery = useQuery({
+        queryKey: ["unreadCount", user?.id],
+        queryFn: () => fetchUnreadMessagesCount(user!.id),
+        enabled: !!user?.id,
+        refetchInterval: 10000,
+    });
+
+    const unreadCount = unreadQuery.data?.count || 0;
+
+    const navItems = [
+        { to: "/teacher", label: "Tableau de bord", icon: LayoutDashboard },
+        { to: "/teacher/schedule", label: "Mon planning", icon: CalendarDays },
+        { to: "/teacher/students", label: "Mes élèves", icon: Users },
+        { to: "/teacher/homework", label: "Devoirs", icon: ClipboardList },
+        { to: "/teacher/courses", label: "Cours & Quiz", icon: BookOpen },
+        { to: "/teacher/messages", label: "Messages", icon: MessageCircle, badgeCount: unreadCount },
+        { to: "/teacher/earnings", label: "Mes revenus", icon: Banknote },
+    ];
+
     return (
         <div className="min-h-screen bg-gray-50 flex" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
-            <DashboardSidebar items={NAV} roleLabel="Enseignant" roleColor="#1A6CC8" />
+            <DashboardSidebar items={navItems} roleLabel="Enseignant" roleColor="#1A6CC8" />
             <main className="flex-1 ml-72 min-h-screen overflow-y-auto">
                 <Routes>
                     <Route index element={<TeacherDashboard />} />

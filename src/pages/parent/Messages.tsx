@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     MessageCircle,
@@ -15,7 +15,7 @@ import {
     Loader2,
     ShieldCheck
 } from "lucide-react";
-import { fetchParentContacts, fetchMessages, sendMessage, uploadMessageAttachment } from "@/api/backoffice";
+import { fetchParentContacts, fetchMessages, sendMessage, uploadMessageAttachment, markMessageAsRead } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,23 @@ export default function ParentMessages() {
             queryClient.invalidateQueries({ queryKey: ["messages", selectedContact?.id] });
         }
     });
+
+    const markAsReadMutation = useMutation({
+        mutationFn: markMessageAsRead,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["unreadCount", user?.id] });
+        }
+    });
+
+    useEffect(() => {
+        if (selectedContact && messages.length > 0) {
+            messages.forEach((m: any) => {
+                if (m.receiverId === user?.id && !m.isRead) {
+                    markAsReadMutation.mutate(m.id);
+                }
+            });
+        }
+    }, [messages, selectedContact, user?.id]);
 
     const filteredContacts = contacts.filter((c: any) =>
         c.name?.toLowerCase().includes(searchTerm.toLowerCase())

@@ -365,6 +365,9 @@ export const createAdvisorAppointment = (advisorId: string, payload: any) =>
 export const fetchMessages = (userId: string) =>
     request<any[]>(`/messages/${userId}`);
 
+export const fetchUnreadMessagesCount = (userId: string) =>
+    request<{ count: number }>(`/messages/unread-count/${userId}`);
+
 export const sendMessage = (payload: any) =>
     request<any>("/messages", {
         method: "POST",

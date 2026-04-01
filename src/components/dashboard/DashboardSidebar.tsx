@@ -8,6 +8,7 @@ export interface SidebarItem {
     to: string;
     label: string;
     icon: LucideIcon;
+    badgeCount?: number;
 }
 
 interface Props {
@@ -56,7 +57,7 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
                         to={item.to}
                         end
                         className={({ isActive }) =>
-                            `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${isActive
+                            `flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${isActive
                                 ? "text-white shadow-lg"
                                 : "text-blue-100/60 hover:text-white hover:bg-white/5"
                             }`
@@ -65,8 +66,15 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
                     >
                         {() => (
                             <>
-                                <item.icon className="w-4 h-4 flex-shrink-0" />
-                                <span className="tracking-tight">{item.label}</span>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <item.icon className="w-4 h-4 flex-shrink-0" />
+                                    <span className="tracking-tight truncate">{item.label}</span>
+                                </div>
+                                {item.badgeCount && item.badgeCount > 0 ? (
+                                    <div className="bg-red-500 text-white text-[9px] font-black h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center border-none shadow-sm shadow-red-900/40">
+                                        {item.badgeCount}
+                                    </div>
+                                ) : null}
                             </>
                         )}
                     </NavLink>
