@@ -272,14 +272,31 @@ const ensureTeachersTable = async () => {
       rating DECIMAL(3,1) NOT NULL DEFAULT 5.0,
       students INT NOT NULL DEFAULT 0,
       hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 7500,
+      bank_name VARCHAR(191) NULL,
+      bank_iban VARCHAR(191) NULL,
+      bank_account_holder VARCHAR(191) NULL,
+      availability_json JSON NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
-  // Migration: add hourly_rate to existing tables that don't have it yet
-  await pool.query(
-    `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 7500`
-  ).catch(() => {}); // ignore if column already exists on older MySQL versions
+  // Migration: add columns missing from existing production tables
+  // MySQL 8.0 ne supporte pas ADD COLUMN IF NOT EXISTS — on vérifie via INFORMATION_SCHEMA
+  const [existingCols] = await pool.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'teachers'`
+  );
+  const cols = new Set(existingCols.map(r => r.COLUMN_NAME));
+  const migrations = [
+    ["hourly_rate",          "ALTER TABLE teachers ADD COLUMN hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 7500"],
+    ["bank_name",            "ALTER TABLE teachers ADD COLUMN bank_name VARCHAR(191) NULL"],
+    ["bank_iban",            "ALTER TABLE teachers ADD COLUMN bank_iban VARCHAR(191) NULL"],
+    ["bank_account_holder",  "ALTER TABLE teachers ADD COLUMN bank_account_holder VARCHAR(191) NULL"],
+    ["availability_json",    "ALTER TABLE teachers ADD COLUMN availability_json JSON NULL"],
+  ];
+  for (const [col, sql] of migrations) {
+    if (!cols.has(col)) await pool.query(sql).catch(() => {});
+  }
 };
 
 const ensureSessionsTable = async () => {
