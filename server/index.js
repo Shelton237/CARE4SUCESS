@@ -271,10 +271,15 @@ const ensureTeachersTable = async () => {
       status ENUM('actif', 'inactif', 'suspendu') NOT NULL DEFAULT 'actif',
       rating DECIMAL(3,1) NOT NULL DEFAULT 5.0,
       students INT NOT NULL DEFAULT 0,
+      hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 7500,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  // Migration: add hourly_rate to existing tables that don't have it yet
+  await pool.query(
+    `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 7500`
+  ).catch(() => {}); // ignore if column already exists on older MySQL versions
 };
 
 const ensureSessionsTable = async () => {
