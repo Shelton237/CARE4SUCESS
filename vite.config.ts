@@ -7,6 +7,7 @@ import type { Dirent } from 'node:fs';
 import nodePath from 'node:path';
 import { componentTagger } from 'lovable-tagger';
 import path from "path";
+import { VitePWA } from 'vite-plugin-pwa';
 
 import { parse } from '@babel/parser';
 import _traverse from '@babel/traverse';
@@ -235,9 +236,37 @@ export default defineConfig(({ mode }) => {
     plugins: [
       tailwindcss(),
       react(),
-      mode === 'development' &&
-      componentTagger(),
+      mode === 'development' && componentTagger(),
       cdnPrefixImages(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['favicon.ico', 'favicon.png', 'favicon.svg'],
+        manifest: {
+          name: 'Care4Success',
+          short_name: 'Care4Success',
+          description: 'Soutien scolaire personnalisé au Cameroun',
+          theme_color: '#0D2D5A',
+          background_color: '#0D2D5A',
+          display: 'standalone',
+          start_url: '/',
+          lang: 'fr',
+          icons: [
+            { src: '/favicon.png', sizes: '192x192', type: 'image/png' },
+            { src: '/logo/Care 4 Success-logo-Ok_large.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          ],
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/care4success\.usra-care\.com\/api\/.*/i,
+              handler: 'NetworkFirst',
+              options: { cacheName: 'api-cache', expiration: { maxAgeSeconds: 300 } },
+            },
+          ],
+        },
+      }),
     ].filter(Boolean),
     resolve: {
       alias: {

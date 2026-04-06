@@ -1,14 +1,15 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { 
-    LayoutDashboard, 
-    CalendarDays, 
-    BookOpen, 
-    ClipboardList, 
-    GraduationCap, 
+import {
+    LayoutDashboard,
+    CalendarDays,
+    BookOpen,
+    ClipboardList,
+    GraduationCap,
     MessageSquare,
-    TrendingUp, 
+    TrendingUp,
     History,
-    FileQuestion
+    FileQuestion,
+    Library
 } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import StudentDashboard from "./Dashboard";
@@ -20,6 +21,7 @@ import StudentProgress from "./Progress";
 import StudentCourses from "./Courses";
 import StudentMessages from "./Messages";
 import StudentHistory from "./History";
+import StudentResources from "./Resources";
 
 const NAV = [
     { to: "/student", label: "Dashboard", icon: LayoutDashboard },
@@ -31,6 +33,7 @@ const NAV = [
     { to: "/student/courses", label: "Mes Cours", icon: BookOpen },
     { to: "/student/progress", label: "Mes Notes", icon: TrendingUp },
     { to: "/student/history", label: "Historique Cours", icon: History },
+    { to: "/student/resources", label: "Bibliothèque", icon: Library },
 ];
 
 export default function StudentLayout() {
@@ -48,6 +51,7 @@ export default function StudentLayout() {
                     <Route path="progress" element={<StudentProgress />} />
                     <Route path="messages" element={<StudentMessages />} />
                     <Route path="history" element={<StudentHistory />} />
+                    <Route path="resources" element={<StudentResources />} />
                     <Route path="*" element={<Navigate to="/student" replace />} />
                 </Routes>
             </main>

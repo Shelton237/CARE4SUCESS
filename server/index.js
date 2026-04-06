@@ -3148,6 +3148,45 @@ app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
     );
     const [[ratingRow]] = await pool.query("SELECT AVG(rating) as avgRating FROM teacher_feedback");
 
+    // Taux d'occupation (sessions effectuées / sessions planifiées ce mois)
+    const [[occupancyRow]] = await pool.query(
+      `SELECT
+         COUNT(*) AS total,
+         SUM(IF(status = 'effectué', 1, 0)) AS done
+       FROM sessions
+       WHERE DATE_FORMAT(date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')`
+    );
+    const occupancyRate = occupancyRow.total > 0
+      ? Math.round((occupancyRow.done / occupancyRow.total) * 100)
+      : 0;
+
+    // CA par matière (ce mois)
+    const [subjectRows] = await pool.query(
+      `SELECT s.subject,
+              SUM(ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL,
+                TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time)/60, 2)
+                * COALESCE(t.hourly_rate, 7500), 0)) AS amount
+       FROM sessions s
+       LEFT JOIN teachers t ON t.id = s.teacher_id
+       WHERE DATE_FORMAT(s.date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+         AND s.status = 'effectué'
+       GROUP BY s.subject
+       ORDER BY amount DESC
+       LIMIT 8`
+    );
+
+    // Profs actifs ce mois
+    const [[activeTeachersRow]] = await pool.query(
+      `SELECT COUNT(DISTINCT teacher_id) AS count FROM sessions
+       WHERE DATE_FORMAT(date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') AND status = 'effectué'`
+    );
+
+    // Leads du mois
+    const [[leadsRow]] = await pool.query(
+      `SELECT COUNT(*) AS count FROM leads
+       WHERE DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')`
+    ).catch(() => [[{ count: 0 }]]);
+
     const [invoiceRows] = await pool.query(
       `SELECT DATE_FORMAT(invoice_date, '%Y-%m') AS month_key, SUM(amount) AS total_amount
        FROM parent_invoices
@@ -3192,8 +3231,12 @@ app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
         previousRevenue,
         satisfactionRate: Number(ratingRow?.avgRating ?? 0),
         newFamiliesThisMonth: familiesRow?.count ?? 0,
+        occupancyRate,
+        activeTeachersThisMonth: activeTeachersRow?.count ?? 0,
+        leadsThisMonth: leadsRow?.count ?? 0,
       },
       monthlyRevenue,
+      revenueBySubject: subjectRows,
       latestRequests: latestRequestRows.map(mapRequestRow),
     });
   } catch (error) {
@@ -5549,6 +5592,204 @@ app.get("/api/teachers/:teacherId/performance-index", authenticateRequest, async
   }
 });
 
+// ─── Matching automatique prof/élève ─────────────────────────────────────────
+app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const [[student]] = await pool.query(
+      `SELECT u.name, u.id, r.subject, r.level
+       FROM users u
+       LEFT JOIN requests r ON r.parent_id = u.parent_id OR r.email = u.email
+       WHERE u.id = ?
+       LIMIT 1`,
+      [studentId]
+    );
+    if (!student) return res.status(404).json({ message: "Élève introuvable" });
+
+    const [[diag]] = await pool.query(
+      `SELECT scores FROM academic_diagnostics WHERE student_id = ? ORDER BY created_at DESC LIMIT 1`,
+      [studentId]
+    ).catch(() => [[null]]);
+
+    const diagScores = diag?.scores ? JSON.parse(diag.scores) : {};
+    const weakSubjects = Object.entries(diagScores)
+      .filter(([, s]) => (s as number) < 5)
+      .map(([subj]) => subj);
+
+    const [teachers] = await pool.query(
+      `SELECT t.id, u.name, t.subjects, t.levels, t.availability_json,
+              COALESCE(t.performance_index, 3.0) AS perf,
+              COALESCE(t.hourly_rate, 7500) AS rate,
+              COUNT(s.id) AS sessionCount
+       FROM teachers t
+       JOIN users u ON u.id = t.user_id
+       LEFT JOIN sessions s ON s.teacher_id = t.id AND s.status = 'effectué'
+       WHERE u.role IN ('teacher','tutor')
+       GROUP BY t.id`
+    );
+
+    const scored = (teachers as any[]).map(t => {
+      const subjs = t.subjects ? JSON.parse(t.subjects) : [];
+      const levels = t.levels ? JSON.parse(t.levels) : [];
+      const avail = t.availability_json ? JSON.parse(t.availability_json) : {};
+
+      let score = Number(t.perf) * 20;
+      if (student.subject && subjs.some((s: string) => s.toLowerCase().includes(student.subject?.toLowerCase()))) score += 30;
+      if (weakSubjects.some(ws => subjs.some((s: string) => s.toLowerCase().includes(ws.toLowerCase())))) score += 20;
+      if (student.level && levels.some((l: string) => l.toLowerCase().includes(student.level?.toLowerCase()))) score += 15;
+      if (Object.keys(avail).length > 0) score += 10;
+      if (t.sessionCount > 10) score += 5;
+
+      return { id: t.id, name: t.name, subjects: subjs, levels, rate: t.rate, perf: Number(t.perf), score: Math.round(score) };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+
+    res.json({
+      student: { id: student.id, name: student.name, subject: student.subject, level: student.level, weakSubjects },
+      matches: scored.slice(0, 5),
+    });
+  } catch (err) {
+    console.error("[matching]", err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+// ─── Portail ressources pédagogiques ─────────────────────────────────────────
+const ensureResourcesTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS resources (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      title VARCHAR(255) NOT NULL,
+      description TEXT NULL,
+      subject VARCHAR(100) NOT NULL,
+      level VARCHAR(100) NOT NULL,
+      type ENUM('pdf','video','link','image') NOT NULL DEFAULT 'pdf',
+      file_url VARCHAR(500) NOT NULL,
+      teacher_id VARCHAR(36) NOT NULL,
+      teacher_name VARCHAR(255) NOT NULL,
+      downloads INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_resources_subject (subject),
+      KEY idx_resources_level (level)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+app.get("/api/resources", authenticateRequest, async (req, res) => {
+  try {
+    await ensureResourcesTable();
+    const { subject, level } = req.query;
+    let q = `SELECT * FROM resources WHERE 1=1`;
+    const params: any[] = [];
+    if (subject) { q += ` AND subject = ?`; params.push(subject); }
+    if (level) { q += ` AND level = ?`; params.push(level); }
+    q += ` ORDER BY created_at DESC`;
+    const [rows] = await pool.query(q, params);
+    res.json(rows);
+  } catch (err) {
+    console.error("[resources GET]", err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+app.post("/api/resources", authenticateRequest, upload.single("file"), async (req, res) => {
+  try {
+    await ensureResourcesTable();
+    const { title, description, subject, level, type, fileUrl } = req.body;
+    if (!title || !subject || !level) return res.status(400).json({ message: "Champs obligatoires manquants" });
+    const url = req.file ? `/uploads/${req.file.filename}` : (fileUrl || "");
+    const [[teacher]] = await pool.query(`SELECT id, name FROM users WHERE id = ?`, [req.user.sub]);
+    const id = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO resources (id, title, description, subject, level, type, file_url, teacher_id, teacher_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, title, description || null, subject, level, type || "pdf", url, req.user.sub, (teacher as any)?.name || ""]
+    );
+    const [[row]] = await pool.query(`SELECT * FROM resources WHERE id = ?`, [id]);
+    res.status(201).json(row);
+  } catch (err) {
+    console.error("[resources POST]", err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+app.delete("/api/resources/:id", authenticateRequest, async (req, res) => {
+  try {
+    await ensureResourcesTable();
+    const [result] = await pool.query(`DELETE FROM resources WHERE id = ? AND teacher_id = ?`, [req.params.id, req.user.sub]) as any;
+    if (result.affectedRows === 0) return res.status(404).json({ message: "Ressource introuvable ou non autorisé" });
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+app.patch("/api/resources/:id/download", async (req, res) => {
+  await pool.query(`UPDATE resources SET downloads = downloads + 1 WHERE id = ?`, [req.params.id]).catch(() => {});
+  res.json({ ok: true });
+});
+
+// ─── Leads (landing page bilan gratuit) ──────────────────────────────────────
+const ensureLeadsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      parent_name VARCHAR(255) NOT NULL,
+      child_name VARCHAR(255) NOT NULL,
+      phone VARCHAR(50) NOT NULL,
+      email VARCHAR(255) NULL,
+      level VARCHAR(100) NOT NULL,
+      subject VARCHAR(100) NULL,
+      city VARCHAR(100) NULL,
+      message TEXT NULL,
+      source VARCHAR(50) NOT NULL DEFAULT 'landing',
+      status ENUM('new','contacted','converted','closed') NOT NULL DEFAULT 'new',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+app.post("/api/leads", async (req, res) => {
+  try {
+    await ensureLeadsTable();
+    const { parentName, childName, phone, email, level, subject, city, message } = req.body;
+    if (!parentName || !childName || !phone || !level) return res.status(400).json({ message: "Champs obligatoires manquants" });
+    const id = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO leads (id, parent_name, child_name, phone, email, level, subject, city, message)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, parentName, childName, phone, email || null, level, subject || null, city || null, message || null]
+    );
+    await sendMail({
+      to: FROM_EMAIL,
+      subject: `Nouveau lead — ${childName} (${level})`,
+      html: `<div style="font-family:sans-serif;padding:24px"><h2 style="color:#0D2D5A">Nouveau bilan gratuit</h2>
+        <p><b>Parent :</b> ${parentName}</p><p><b>Élève :</b> ${childName} — ${level}</p>
+        <p><b>Tél :</b> ${phone}</p><p><b>Email :</b> ${email || "—"}</p>
+        <p><b>Matière :</b> ${subject || "—"}</p><p><b>Ville :</b> ${city || "—"}</p>
+        ${message ? `<p><b>Message :</b> ${message}</p>` : ""}</div>`,
+    });
+    res.status(201).json({ id, message: "Demande enregistrée" });
+  } catch (err) {
+    console.error("[leads]", err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+app.get("/api/leads", authenticateRequest, async (req, res) => {
+  if (!["admin", "advisor"].includes(req.user?.role)) return res.status(403).json({ message: "Accès refusé" });
+  try {
+    await ensureLeadsTable();
+    const [rows] = await pool.query(`SELECT * FROM leads ORDER BY created_at DESC`);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
 app.use((req, res) => {
   res.status(404).json({ message: "Route introuvable." });
 });
@@ -5683,6 +5924,81 @@ cron.schedule("0 * * * *", async () => {
     }
   } catch (err) {
     console.error("[cron/reminder]", err.message);
+  }
+});
+
+// ─── Cron : facturation automatique (1er du mois à 0h30) ────────────────────
+cron.schedule("30 0 1 * *", async () => {
+  try {
+    const prevMonth = new Date();
+    prevMonth.setDate(1);
+    prevMonth.setMonth(prevMonth.getMonth() - 1);
+    const y = prevMonth.getFullYear();
+    const m = String(prevMonth.getMonth() + 1).padStart(2, "0");
+    const monthKey = `${y}-${m}`;
+    const monthLabel = prevMonth.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
+    // Sessions effectuées le mois précédent groupées par parent
+    const [rows] = await pool.query(
+      `SELECT s.student_id,
+              u_student.parent_id,
+              u_parent.email AS parentEmail, u_parent.name AS parentName, u_student.name AS childName,
+              COUNT(s.id) AS sessionCount,
+              SUM(ROUND(
+                IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL,
+                   TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2)
+                * COALESCE(t.hourly_rate, 7500), 0
+              )) AS totalAmount
+       FROM sessions s
+       JOIN users u_student ON u_student.id = s.student_id
+       JOIN users u_parent ON u_parent.id = u_student.parent_id
+       LEFT JOIN teachers t ON t.id = s.teacher_id
+       WHERE DATE_FORMAT(s.date, '%Y-%m') = ? AND s.status = 'effectué'
+       GROUP BY s.student_id, u_student.parent_id`,
+      [monthKey]
+    );
+
+    let generated = 0;
+    for (const row of rows as any[]) {
+      // Éviter les doublons
+      const [[exists]] = await pool.query(
+        `SELECT id FROM parent_invoices WHERE parent_id = ? AND DATE_FORMAT(invoice_date, '%Y-%m') = ?`,
+        [row.parent_id, monthKey]
+      );
+      if (exists) continue;
+
+      const invId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO parent_invoices (id, parent_id, invoice_date, description, amount, status)
+         VALUES (?, ?, ?, ?, ?, 'en attente')`,
+        [invId, row.parent_id, `${y}-${m}-01`, `Cours de soutien — ${monthLabel} (${row.sessionCount} séance${row.sessionCount > 1 ? "s" : ""})`, row.totalAmount]
+      );
+
+      // Email parent
+      await sendMail({
+        to: row.parentEmail,
+        subject: `Votre facture ${monthLabel} — Care4Success`,
+        html: `<div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A">
+          <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+            <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+            <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Facture ${monthLabel}</p>
+          </div>
+          <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+            <p>Bonjour <b>${row.parentName}</b>,</p>
+            <p>Voici votre facture pour les cours de <b>${row.childName}</b> en ${monthLabel}.</p>
+            <table style="width:100%;border-collapse:collapse;margin:24px 0">
+              <tr style="background:#f9fafb"><td style="padding:12px 16px;border:1px solid #e5e7eb">Séances effectuées</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${row.sessionCount}</td></tr>
+              <tr><td style="padding:12px 16px;border:1px solid #e5e7eb">Montant total</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold;color:#1A6CC8">${new Intl.NumberFormat("fr-FR").format(row.totalAmount)} FCFA</td></tr>
+            </table>
+            <p style="font-size:13px;color:#6b7280">Pour tout renseignement, contactez votre conseiller.</p>
+          </div>
+        </div>`,
+      });
+      generated++;
+    }
+    console.log(`[cron/billing] ${generated} factures générées pour ${monthLabel}`);
+  } catch (err) {
+    console.error("[cron/billing]", err.message);
   }
 });
 

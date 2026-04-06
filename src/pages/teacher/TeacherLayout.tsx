@@ -10,7 +10,8 @@ import TeacherEarnings from "./Earnings";
 import TeacherCourses from "./Courses";
 import TeacherMessages from "./Messages";
 import TeacherHomework from "./Homework";
-import { ClipboardList, LayoutDashboard, CalendarDays, Users, Banknote, BookOpen, MessageCircle } from "lucide-react";
+import TeacherResources from "./Resources";
+import { ClipboardList, LayoutDashboard, CalendarDays, Users, Banknote, BookOpen, MessageCircle, Library } from "lucide-react";
 
 export default function TeacherLayout() {
     const { user } = useAuth();
@@ -31,6 +32,7 @@ export default function TeacherLayout() {
         { to: "/teacher/homework", label: "Devoirs", icon: ClipboardList },
         { to: "/teacher/courses", label: "Cours & Quiz", icon: BookOpen },
         { to: "/teacher/messages", label: "Messages", icon: MessageCircle, badgeCount: unreadCount },
+        { to: "/teacher/resources", label: "Ressources", icon: Library },
         { to: "/teacher/earnings", label: "Mes revenus", icon: Banknote },
     ];
 
@@ -47,6 +49,7 @@ export default function TeacherLayout() {
                     <Route path="courses/:id" element={<TeacherCourses />} />
                     <Route path="courses/new" element={<TeacherCourses />} />
                     <Route path="messages" element={<TeacherMessages />} />
+                    <Route path="resources" element={<TeacherResources />} />
                     <Route path="earnings" element={<TeacherEarnings />} />
                     <Route path="*" element={<Navigate to="/teacher" replace />} />
                 </Routes>

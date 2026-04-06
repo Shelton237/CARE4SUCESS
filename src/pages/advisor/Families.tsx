@@ -5,7 +5,8 @@ import {
     TrendingUp, MessageCircle, FileText, Loader2, ChevronRight,
     SearchCheck, Briefcase, PlusCircle, AlertTriangle,
     ThumbsUp, Lightbulb, Eye, UserCircle2,
-    ClipboardCheck, CalendarRange, ChevronDown, ChevronUp, Trash2
+    ClipboardCheck, CalendarRange, ChevronDown, ChevronUp, Trash2,
+    Zap, Star
 } from "lucide-react";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,7 +30,7 @@ export default function AdvisorFamilies() {
     const [noteContent, setNoteContent] = useState("");
     const [noteType, setNoteType] = useState("observation");
     const [showNoteForm, setShowNoteForm] = useState(false);
-    const [activePanel, setActivePanel] = useState<"notes"|"diagnostic"|"plan">("notes");
+    const [activePanel, setActivePanel] = useState<"notes"|"diagnostic"|"plan"|"matching">("notes");
 
     // Diagnostic form state
     const SUBJECTS_DIAG = ["Mathématiques","Français","Anglais","Physique","SVT","Histoire-Géo"];
@@ -128,6 +129,18 @@ export default function AdvisorFamilies() {
             setDiagStrengths("");
             setDiagWeaknesses("");
         }
+    });
+
+    // Matching query
+    const { data: matching, isFetching: matchFetching } = useQuery({
+        queryKey: ["matching", studentId],
+        queryFn: async () => {
+            const res = await fetch(`${API}/advisor/match/${studentId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return res.json();
+        },
+        enabled: !!studentId && !!token && activePanel === "matching",
     });
 
     // Plan query & mutation
@@ -300,8 +313,9 @@ export default function AdvisorFamilies() {
                                 <div className="flex border border-gray-100 rounded-xl overflow-hidden">
                                     {([
                                         { key: "notes", label: "Notes", icon: FileText },
-                                        { key: "diagnostic", label: "Diagnostic", icon: ClipboardCheck },
+                                        { key: "diagnostic", label: "Diag.", icon: ClipboardCheck },
                                         { key: "plan", label: "Plan", icon: CalendarRange },
+                                        { key: "matching", label: "Match", icon: Zap },
                                     ] as const).map(({ key, label, icon: Icon }) => (
                                         <button
                                             key={key}
@@ -575,6 +589,53 @@ export default function AdvisorFamilies() {
                                                     {planMutation.isPending ? "..." : "Enregistrer le plan"}
                                                 </button>
                                             </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Panel Matching */}
+                                {activePanel === "matching" && (
+                                    <div className="space-y-2">
+                                        {matchFetching ? (
+                                            <div className="flex items-center justify-center py-8">
+                                                <Loader2 className="w-5 h-5 animate-spin text-[#1A6CC8]/40" />
+                                            </div>
+                                        ) : matching?.matches?.length > 0 ? (
+                                            <>
+                                                {matching.student?.weakSubjects?.length > 0 && (
+                                                    <div className="p-2 bg-red-50 rounded-lg border border-red-100 mb-2">
+                                                        <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mb-0.5">Matières à renforcer</p>
+                                                        <div className="flex gap-1 flex-wrap">
+                                                            {matching.student.weakSubjects.map((s: string) => (
+                                                                <span key={s} className="text-[8px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">{s}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tuteurs recommandés</p>
+                                                {matching.matches.map((t: any, i: number) => (
+                                                    <div key={t.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                                                        <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] font-black text-white ${i === 0 ? "bg-[#F5A623]" : "bg-[#1A6CC8]/30 text-[#1A6CC8]"}`}>{i + 1}</div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center justify-between">
+                                                                <p className="text-[11px] font-black text-[#0D2D5A]">{t.name}</p>
+                                                                <div className="flex items-center gap-0.5">
+                                                                    <Star className="w-2.5 h-2.5 text-[#F5A623] fill-[#F5A623]" />
+                                                                    <span className="text-[9px] font-black text-[#0D2D5A]">{t.perf.toFixed(1)}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-1 mt-0.5 flex-wrap">
+                                                                {t.subjects.slice(0, 3).map((s: string) => (
+                                                                    <span key={s} className="text-[7px] bg-[#1A6CC8]/10 text-[#1A6CC8] px-1 rounded font-bold">{s}</span>
+                                                                ))}
+                                                            </div>
+                                                            <p className="text-[8px] text-gray-400 mt-0.5">{new Intl.NumberFormat("fr-FR").format(t.rate)} FCFA/h · Score : {t.score}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </>
+                                        ) : (
+                                            <p className="text-[9px] text-gray-300 italic text-center py-6">Aucun tuteur disponible pour le moment</p>
                                         )}
                                     </div>
                                 )}

@@ -9,6 +9,7 @@ import { ROUTE_PATHS } from "@/lib/index";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "@/pages/Home";
+import Landing from "@/pages/public/Landing";
 import Services from "@/pages/Services";
 import Niveaux from "@/pages/Niveaux";
 import Professeurs from "@/pages/Professeurs";
@@ -48,6 +49,8 @@ const App = () => (
               <Route path={ROUTE_PATHS.CONTACT} element={<Layout><Contact /></Layout>} />
               <Route path={ROUTE_PATHS.RECRUTEMENT} element={<Layout><Recrutement /></Layout>} />
               <Route path="/inscription" element={<Layout><Inscription /></Layout>} />
+
+              <Route path="/bilan" element={<Landing />} />
 
               {/* Auth */}
               <Route path="/login" element={<Login />} />
