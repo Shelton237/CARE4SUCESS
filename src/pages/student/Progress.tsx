@@ -1,12 +1,15 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { 
-    TrendingUp, 
-    AlertCircle, 
-    Star, 
+import {
+    TrendingUp,
+    AlertCircle,
+    Star,
     Loader2,
     History as HistoryIcon,
-    ArrowUpRight
+    ClipboardCheck,
+    CalendarRange,
+    CheckCircle2,
+    Circle
 } from "lucide-react";
 import { fetchStudentProgressData, fetchStudentSessions, submitGradeDispute } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,10 +24,36 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 
+const API = import.meta.env.VITE_API_URL || "/api";
+
 export default function StudentProgress() {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [disputeModal, setDisputeModal] = useState<{ open: boolean; sessionId?: string; sessionTitle?: string }>({ open: false });
     const [reason, setReason] = useState("");
+
+    const diagnosticQuery = useQuery({
+        queryKey: ["studentDiagnostic", user?.id],
+        queryFn: async () => {
+            const res = await fetch(`${API}/students/${user!.id}/diagnostic`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) return null;
+            return res.json();
+        },
+        enabled: Boolean(user?.id && token),
+    });
+
+    const planQuery = useQuery({
+        queryKey: ["studentPlan", user?.id],
+        queryFn: async () => {
+            const res = await fetch(`${API}/students/${user!.id}/academic-plan`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) return null;
+            return res.json();
+        },
+        enabled: Boolean(user?.id && token),
+    });
 
     const progressQuery = useQuery({
         queryKey: ["studentProgress", user?.id],
@@ -211,6 +240,95 @@ export default function StudentProgress() {
                     </div>
                 </div>
             </div>
+
+            {/* Diagnostic Initial */}
+            {diagnosticQuery.data && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-4 border-b border-gray-50 bg-gray-50/30 flex items-center gap-2">
+                        <ClipboardCheck className="w-4 h-4 text-[#1A6CC8]" />
+                        <h3 className="text-sm font-bold text-[#0D2D5A]">Diagnostic initial</h3>
+                        <span className="ml-auto text-[9px] font-bold text-gray-400 uppercase">
+                            {new Date(diagnosticQuery.data.created_at).toLocaleDateString("fr-FR")}
+                        </span>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scores par matière</p>
+                                {Object.entries(diagnosticQuery.data.scores || {}).map(([subject, score]: any) => (
+                                    <div key={subject} className="space-y-1">
+                                        <div className="flex justify-between text-[11px] font-bold text-[#0D2D5A]">
+                                            <span>{subject}</span>
+                                            <span className={score >= 7 ? "text-emerald-600" : score >= 5 ? "text-[#F5A623]" : "text-red-500"}>
+                                                {score}/10
+                                            </span>
+                                        </div>
+                                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${score >= 7 ? "bg-emerald-500" : score >= 5 ? "bg-[#F5A623]" : "bg-red-400"}`}
+                                                style={{ width: `${score * 10}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="space-y-4">
+                                {diagnosticQuery.data.strengths && (
+                                    <div>
+                                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Points forts</p>
+                                        <p className="text-[11px] text-gray-600 leading-relaxed">{diagnosticQuery.data.strengths}</p>
+                                    </div>
+                                )}
+                                {diagnosticQuery.data.weaknesses && (
+                                    <div>
+                                        <p className="text-[10px] font-black text-[#F5A623] uppercase tracking-widest mb-1">Axes de renforcement</p>
+                                        <p className="text-[11px] text-gray-600 leading-relaxed">{diagnosticQuery.data.weaknesses}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Plan pédagogique */}
+            {planQuery.data && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-4 border-b border-gray-50 bg-gray-50/30 flex items-center gap-2">
+                        <CalendarRange className="w-4 h-4 text-[#1A6CC8]" />
+                        <h3 className="text-sm font-bold text-[#0D2D5A]">{planQuery.data.title}</h3>
+                        <span className="ml-2 text-[9px] font-bold text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-full">Actif</span>
+                        <span className="ml-auto text-[9px] font-bold text-gray-400 uppercase">
+                            Depuis {new Date(planQuery.data.start_date).toLocaleDateString("fr-FR")}
+                        </span>
+                    </div>
+                    <div className="p-6">
+                        <div className="space-y-3">
+                            {(planQuery.data.weeks || []).map((week: any, i: number) => (
+                                <div key={i} className="flex items-start gap-4 p-3 rounded-xl border border-gray-100 bg-gray-50/30 hover:bg-gray-50 transition-colors">
+                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${week.done ? "bg-emerald-100" : "bg-[#1A6CC8]/10"}`}>
+                                        {week.done
+                                            ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                            : <Circle className="w-4 h-4 text-[#1A6CC8]" />
+                                        }
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Semaine {i + 1}</div>
+                                        <div className="text-[12px] font-bold text-[#0D2D5A] mt-0.5">{week.objective}</div>
+                                        {week.subjects && (
+                                            <div className="flex gap-1 mt-1 flex-wrap">
+                                                {week.subjects.map((s: string) => (
+                                                    <span key={s} className="text-[8px] font-black uppercase bg-[#1A6CC8]/10 text-[#1A6CC8] px-1.5 py-0.5 rounded-md">{s}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modal */}
             {disputeModal.open && (

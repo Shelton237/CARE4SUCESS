@@ -219,39 +219,69 @@ export default function VirtualClassroom() {
         ctx.moveTo(x, y);
     };
 
-    // Jitsi Init
-    useEffect(() => {
-        if (!sessionId || !user) return;
-        const timer = setInterval(() => {
-            if (window.JitsiMeetExternalAPI) {
-                clearInterval(timer);
-                const api = new window.JitsiMeetExternalAPI("meet.jit.si", {
-                    roomName: `Care4Success-${sessionId}`,
-                    width: "100%",
-                    height: "100%",
-                    parentNode: jitsiContainerRef.current,
-                    userInfo: { displayName: user.name, email: user.email },
-                    interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview'] }
-                });
-                
-                setLoading(false);
+    // Keep a ref to currentSession to avoid stale closures in Jitsi events
+    const currentSessionRef = useRef<any>(null);
+    useEffect(() => { currentSessionRef.current = currentSession; }, [currentSession]);
 
-                // Auto Check-in when visio starts
-                if (user.role === 'teacher' && !currentSession?.actualStartTime) {
+    // Jitsi Init — runs once per sessionId+user, never re-runs on session data changes
+    const jitsiApiRef = useRef<any>(null);
+    useEffect(() => {
+        if (!sessionId || !user || !jitsiContainerRef.current) return;
+        if (jitsiApiRef.current) return; // already initialized
+
+        const initJitsi = () => {
+            if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) return;
+            if (jitsiApiRef.current) return;
+
+            const api = new window.JitsiMeetExternalAPI("meet.jit.si", {
+                roomName: `Care4Success-${sessionId}`,
+                width: "100%",
+                height: "100%",
+                parentNode: jitsiContainerRef.current,
+                userInfo: { displayName: user.name, email: user.email },
+                interfaceConfigOverwrite: {
+                    TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview']
+                },
+                configOverwrite: { disableDeepLinking: true, prejoinPageEnabled: false },
+            });
+            jitsiApiRef.current = api;
+            setLoading(false);
+
+            api.addEventListener('videoConferenceJoined', () => {
+                if (user.role === 'teacher' && !currentSessionRef.current?.actualStartTime) {
                     checkInMutation.mutate(sessionId);
                 }
+            });
 
-                api.addEventListener('videoConferenceLeft', () => {
-                    if (user.role === 'teacher' && !currentSession?.actualEndTime) {
-                        checkOutMutation.mutate(sessionId);
-                    } else {
-                        navigate(-1);
-                    }
-                });
+            api.addEventListener('videoConferenceLeft', () => {
+                if (user.role === 'teacher' && !currentSessionRef.current?.actualEndTime) {
+                    checkOutMutation.mutate(sessionId);
+                } else {
+                    navigate(-1);
+                }
+            });
+        };
+
+        if (window.JitsiMeetExternalAPI) {
+            initJitsi();
+        } else {
+            const timer = setInterval(() => {
+                if (window.JitsiMeetExternalAPI) {
+                    clearInterval(timer);
+                    initJitsi();
+                }
+            }, 300);
+            return () => clearInterval(timer);
+        }
+
+        return () => {
+            if (jitsiApiRef.current) {
+                try { jitsiApiRef.current.dispose(); } catch {}
+                jitsiApiRef.current = null;
             }
-        }, 500);
-        return () => clearInterval(timer);
-    }, [sessionId, user, currentSession?.actualStartTime, currentSession?.actualEndTime]);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sessionId, user?.id]);
 
     return (
         <div className="fixed inset-0 z-50 bg-[#0D2D5A] flex flex-col h-screen w-screen overflow-hidden text-slate-900">

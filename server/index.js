@@ -8,6 +8,8 @@ import mysql from "mysql2/promise";
 import multer from "multer";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
+import cron from "node-cron";
 
 const rootDir = process.cwd();
 const envFiles = [".env.local", ".env"];
@@ -791,6 +793,8 @@ const initDB = async () => {
     await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS performance_index DECIMAL(4,2) NULL`).catch(() => {});
     // Migration: tutor dans le ENUM role (MySQL ne supporte pas IF NOT EXISTS sur ENUM — on tente silencieusement)
     await pool.query(`ALTER TABLE users MODIFY COLUMN role ENUM('admin','teacher','parent','advisor','student','tutor') NOT NULL`).catch(() => {});
+    // Migration: reminder_sent sur sessions
+    await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS reminder_sent TINYINT(1) NOT NULL DEFAULT 0`).catch(() => {});
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
@@ -4722,11 +4726,38 @@ app.post("/api/homework", async (req, res) => {
     // Notification élève
     await createNotification(
       studentId,
-      "Nouveau devoir assign�",
+      "Nouveau devoir assign\u00e9",
       `Votre professeur a ajouté : ${title}`,
       'homework',
       '/student/homework'
     );
+
+    // Email parent
+    try {
+      const [[parentRow]] = await pool.query(
+        `SELECT u_parent.email AS parentEmail, u_parent.name AS parentName, u_student.name AS childName
+         FROM users u_student
+         JOIN users u_parent ON u_parent.id = u_student.parent_id
+         WHERE u_student.id = ?`,
+        [studentId]
+      );
+      if (parentRow?.parentEmail) {
+        const dueFmt = new Date(dueDate).toLocaleDateString("fr-FR");
+        await sendMail({
+          to: parentRow.parentEmail,
+          subject: `Nouveau devoir assigné à ${parentRow.childName} — Care4Success`,
+          html: tplHomeworkAdded({
+            parentName: parentRow.parentName,
+            childName: parentRow.childName,
+            title,
+            subject,
+            dueDate: dueFmt,
+          }),
+        });
+      }
+    } catch (mailErr) {
+      console.warn("[mail/homework]", mailErr.message);
+    }
 
     res.status(201).json(hw);
   } catch (error) {
@@ -5520,6 +5551,222 @@ app.get("/api/teachers/:teacherId/performance-index", authenticateRequest, async
 
 app.use((req, res) => {
   res.status(404).json({ message: "Route introuvable." });
+});
+
+// ─── Nodemailer ───────────────────────────────────────────────────────────────
+const mailTransport = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: Number(process.env.SMTP_PORT ?? 587),
+  secure: process.env.SMTP_SECURE === "true",
+  auth: {
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+  },
+});
+
+const FROM_EMAIL = process.env.SMTP_FROM || '"Care4Success" <no-reply@care4success.cm>';
+
+async function sendMail({ to, subject, html }) {
+  if (!process.env.SMTP_USER) {
+    console.log(`[mail] SMTP not configured — would send "${subject}" to ${to}`);
+    return;
+  }
+  try {
+    await mailTransport.sendMail({ from: FROM_EMAIL, to, subject, html });
+    console.log(`[mail] sent "${subject}" → ${to}`);
+  } catch (err) {
+    console.error(`[mail] failed for ${to}:`, err.message);
+  }
+}
+
+// ─── Helpers email templates ──────────────────────────────────────────────────
+function tplCourseReminder({ parentName, childName, subject, teacherName, dateStr, timeStr }) {
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A">
+      <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+        <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+      </div>
+      <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:15px">Bonjour <strong>${parentName}</strong>,</p>
+        <p>Un rappel : <strong>${childName}</strong> a un cours de <strong>${subject}</strong> avec <strong>${teacherName}</strong> demain.</p>
+        <div style="background:#f0f6ff;border-left:4px solid #1A6CC8;padding:16px 20px;border-radius:0 8px 8px 0;margin:24px 0">
+          <p style="margin:0;font-size:14px">📅 <strong>${dateStr}</strong> à <strong>${timeStr}</strong></p>
+        </div>
+        <p style="font-size:13px;color:#6b7280">N'hésitez pas à nous contacter si vous avez des questions.</p>
+        <p style="font-size:13px;color:#6b7280">L'équipe Care4Success</p>
+      </div>
+    </div>`;
+}
+
+function tplHomeworkAdded({ parentName, childName, title, subject, dueDate }) {
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A">
+      <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+        <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+      </div>
+      <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:15px">Bonjour <strong>${parentName}</strong>,</p>
+        <p>Un nouveau devoir a été assigné à <strong>${childName}</strong>.</p>
+        <div style="background:#fffbeb;border-left:4px solid #F5A623;padding:16px 20px;border-radius:0 8px 8px 0;margin:24px 0">
+          <p style="margin:0 0 6px;font-weight:bold">${title}</p>
+          <p style="margin:0;font-size:13px;color:#6b7280">Matière : ${subject} · À rendre le <strong>${dueDate}</strong></p>
+        </div>
+        <p style="font-size:13px;color:#6b7280">L'équipe Care4Success</p>
+      </div>
+    </div>`;
+}
+
+function tplMonthlyReport({ parentName, childName, month, sessionCount, avgScore, teacherName }) {
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A">
+      <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+        <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+        <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Bilan mensuel — ${month}</p>
+      </div>
+      <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:15px">Bonjour <strong>${parentName}</strong>,</p>
+        <p>Voici le bilan du mois de <strong>${month}</strong> pour <strong>${childName}</strong>.</p>
+        <table style="width:100%;border-collapse:collapse;margin:24px 0">
+          <tr style="background:#f9fafb">
+            <td style="padding:12px 16px;font-size:13px;color:#6b7280;border:1px solid #e5e7eb">Cours effectués</td>
+            <td style="padding:12px 16px;font-size:15px;font-weight:bold;border:1px solid #e5e7eb">${sessionCount}</td>
+          </tr>
+          <tr>
+            <td style="padding:12px 16px;font-size:13px;color:#6b7280;border:1px solid #e5e7eb">Note de compréhension moy.</td>
+            <td style="padding:12px 16px;font-size:15px;font-weight:bold;border:1px solid #e5e7eb">${avgScore ? avgScore + "/5" : "—"}</td>
+          </tr>
+          <tr style="background:#f9fafb">
+            <td style="padding:12px 16px;font-size:13px;color:#6b7280;border:1px solid #e5e7eb">Tuteur</td>
+            <td style="padding:12px 16px;font-size:15px;font-weight:bold;border:1px solid #e5e7eb">${teacherName || "—"}</td>
+          </tr>
+        </table>
+        <p style="font-size:13px;color:#6b7280">Pour toute question, contactez votre conseiller.</p>
+        <p style="font-size:13px;color:#6b7280">L'équipe Care4Success</p>
+      </div>
+    </div>`;
+}
+
+// ─── Cron : rappel cours 24h avant (toutes les heures) ───────────────────────
+cron.schedule("0 * * * *", async () => {
+  try {
+    const tomorrow = new Date();
+    tomorrow.setHours(tomorrow.getHours() + 24);
+    const dayStr = tomorrow.toISOString().slice(0, 10);
+    const [sessions] = await pool.query(
+      `SELECT s.id, s.date, s.start_time,
+              u_parent.email AS parentEmail, u_parent.name AS parentName,
+              u_student.name AS childName,
+              t.name AS teacherName, s.subject
+       FROM sessions s
+       JOIN users u_student ON u_student.id = s.student_id
+       JOIN users u_parent ON u_parent.id = u_student.parent_id
+       JOIN teachers t ON t.id = s.teacher_id
+       WHERE DATE(s.date) = ? AND s.status = 'programmé' AND s.reminder_sent = 0`,
+      [dayStr]
+    );
+    for (const sess of sessions) {
+      const dateStr = new Date(sess.date).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" });
+      const timeStr = sess.start_time ? sess.start_time.slice(0, 5) : "—";
+      await sendMail({
+        to: sess.parentEmail,
+        subject: `Rappel cours de ${sess.subject} demain — Care4Success`,
+        html: tplCourseReminder({
+          parentName: sess.parentName,
+          childName: sess.childName,
+          subject: sess.subject,
+          teacherName: sess.teacherName,
+          dateStr,
+          timeStr,
+        }),
+      });
+      await pool.query(`UPDATE sessions SET reminder_sent = 1 WHERE id = ?`, [sess.id]).catch(() => {});
+    }
+  } catch (err) {
+    console.error("[cron/reminder]", err.message);
+  }
+});
+
+// ─── Cron : rapport mensuel (1er de chaque mois à 8h) ───────────────────────
+cron.schedule("0 8 1 * *", async () => {
+  try {
+    const now = new Date();
+    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const monthStr = prevMonth.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    const y = prevMonth.getFullYear();
+    const m = String(prevMonth.getMonth() + 1).padStart(2, "0");
+    const [students] = await pool.query(
+      `SELECT DISTINCT s.student_id,
+              u_student.name AS childName,
+              u_parent.email AS parentEmail, u_parent.name AS parentName,
+              t.name AS teacherName
+       FROM sessions s
+       JOIN users u_student ON u_student.id = s.student_id
+       JOIN users u_parent ON u_parent.id = u_student.parent_id
+       LEFT JOIN teachers t ON t.id = s.teacher_id
+       WHERE DATE_FORMAT(s.date, '%Y-%m') = ?`,
+      [`${y}-${m}`]
+    );
+    for (const row of students) {
+      const [[stats]] = await pool.query(
+        `SELECT COUNT(*) AS sessionCount,
+                ROUND(AVG(f.understanding_score), 1) AS avgScore
+         FROM sessions s
+         LEFT JOIN session_feedback f ON f.session_id = s.id
+         WHERE s.student_id = ? AND DATE_FORMAT(s.date, '%Y-%m') = ?`,
+        [row.student_id, `${y}-${m}`]
+      );
+      await sendMail({
+        to: row.parentEmail,
+        subject: `Bilan mensuel ${monthStr} — Care4Success`,
+        html: tplMonthlyReport({
+          parentName: row.parentName,
+          childName: row.childName,
+          month: monthStr,
+          sessionCount: stats.sessionCount,
+          avgScore: stats.avgScore,
+          teacherName: row.teacherName,
+        }),
+      });
+    }
+    console.log(`[cron/monthly] sent ${students.length} reports for ${monthStr}`);
+  } catch (err) {
+    console.error("[cron/monthly]", err.message);
+  }
+});
+
+// ─── API : envoyer email devoir (appelé lors de la création d'un devoir) ──────
+app.post("/api/notify/homework", authenticateRequest, async (req, res) => {
+  try {
+    const { homeworkId } = req.body;
+    if (!homeworkId) return res.status(400).json({ message: "homeworkId requis" });
+    const [[hw]] = await pool.query(
+      `SELECT h.title, h.subject, h.due_date,
+              u_student.name AS childName, u_student.parent_id,
+              u_parent.email AS parentEmail, u_parent.name AS parentName
+       FROM homework h
+       JOIN users u_student ON u_student.id = h.student_id
+       JOIN users u_parent ON u_parent.id = u_student.parent_id
+       WHERE h.id = ?`,
+      [homeworkId]
+    );
+    if (!hw) return res.status(404).json({ message: "Devoir introuvable" });
+    const dueDate = hw.due_date ? new Date(hw.due_date).toLocaleDateString("fr-FR") : "—";
+    await sendMail({
+      to: hw.parentEmail,
+      subject: `Nouveau devoir assigné à ${hw.childName} — Care4Success`,
+      html: tplHomeworkAdded({
+        parentName: hw.parentName,
+        childName: hw.childName,
+        title: hw.title,
+        subject: hw.subject,
+        dueDate,
+      }),
+    });
+    res.json({ sent: true });
+  } catch (err) {
+    console.error("[notify/homework]", err);
+    res.status(500).json({ message: "Erreur envoi email" });
+  }
 });
 
 initDB().then(() => {
