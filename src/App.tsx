@@ -23,6 +23,7 @@ import TeacherLayout from "@/pages/teacher/TeacherLayout";
 import ParentLayout from "@/pages/parent/ParentLayout";
 import AdvisorLayout from "@/pages/advisor/AdvisorLayout";
 import StudentLayout from "@/pages/student/StudentLayout";
+import TutorLayout from "@/pages/tutor/TutorLayout";
 import VirtualClassroom from "@/pages/common/VirtualClassroom";
 import AccountProfile from "@/pages/common/AccountProfile";
 import Notifications from "@/pages/common/Notifications";
@@ -89,6 +90,14 @@ const App = () => (
                 element={
                   <ProtectedRoute role="student">
                     <StudentLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tutor/*"
+                element={
+                  <ProtectedRoute role="tutor">
+                    <TutorLayout />
                   </ProtectedRoute>
                 }
               />

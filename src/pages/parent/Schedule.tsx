@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { fetchScheduleByRole } from "@/api/backoffice";
 import type { SessionStatus } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { CalendarDays, MapPin, GraduationCap, RefreshCw, FileText, ChevronLeft } from "lucide-react";
+import { CalendarDays, MapPin, GraduationCap, RefreshCw, FileText, ChevronLeft, Star, MessageSquare } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -29,7 +29,38 @@ export default function ParentSchedule() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const studentIdFilter = searchParams.get("studentId");
+    const { token } = useAuth();
+    const qc = useQueryClient();
     const [viewedNote, setViewedNote] = useState<any | null>(null);
+    const [feedbackSession, setFeedbackSession] = useState<any | null>(null);
+    const [feedbackRating, setFeedbackRating] = useState(5);
+    const [feedbackComment, setFeedbackComment] = useState("");
+
+    const feedbackMutation = useMutation({
+        mutationFn: async () => {
+            const API = import.meta.env.VITE_API_URL || "/api";
+            const res = await fetch(`${API}/session-feedback`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    sessionId: feedbackSession?.id,
+                    parentId: user?.id,
+                    parentName: user?.name,
+                    studentId: feedbackSession?.studentId,
+                    teacherId: feedbackSession?.teacherId,
+                    rating: feedbackRating,
+                    comment: feedbackComment || null,
+                })
+            });
+            if (!res.ok) throw new Error();
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["schedule", "parent"] });
+            setFeedbackSession(null);
+            setFeedbackRating(5);
+            setFeedbackComment("");
+        }
+    });
 
     const { data, isLoading, isError, error, refetch } = useQuery({
         queryKey: ["schedule", "parent", user?.id],
@@ -206,6 +237,16 @@ export default function ParentSchedule() {
                                             <FileText className="w-2.5 h-2.5 mr-1" /> Rapport
                                         </Button>
                                     )}
+                                    {s.status === 'effectué' && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setFeedbackSession(s)}
+                                            className="h-5 text-[8px] font-black uppercase text-[#1A6CC8] border-[#1A6CC8]/20 bg-[#1A6CC8]/5 rounded-none px-2"
+                                        >
+                                            <Star className="w-2.5 h-2.5 mr-1" /> Avis
+                                        </Button>
+                                    )}
                                     <Badge className={`text-[8px] font-black uppercase px-2 h-4 rounded-none border ${STATUS_COLORS[s.status as SessionStatus]}`}>
                                         {s.status}
                                     </Badge>
@@ -218,6 +259,57 @@ export default function ParentSchedule() {
                     )}
                 </div>
             </div>
+
+            {/* Feedback Modal */}
+            <Dialog open={!!feedbackSession} onOpenChange={(open) => !open && setFeedbackSession(null)}>
+                <DialogContent className="sm:max-w-[400px] rounded-none border-t-4 border-t-[#1A6CC8] p-6 shadow-none">
+                    <DialogHeader>
+                        <DialogTitle className="text-sm font-black uppercase tracking-widest text-[#0D2D5A] flex items-center gap-2">
+                            <Star className="w-4 h-4 text-[#1A6CC8]" /> Votre avis sur la séance
+                        </DialogTitle>
+                        <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-1">
+                            {feedbackSession?.subject} • {feedbackSession?.student} • {feedbackSession?.date}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4 space-y-4">
+                        <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Note globale</p>
+                            <div className="flex gap-2">
+                                {[1, 2, 3, 4, 5].map(n => (
+                                    <button
+                                        key={n}
+                                        onClick={() => setFeedbackRating(n)}
+                                        className={`w-9 h-9 text-sm font-black border transition-colors ${
+                                            feedbackRating >= n ? "bg-[#F5A623] text-white border-[#F5A623]" : "bg-white text-slate-300 border-slate-200"
+                                        }`}
+                                    >
+                                        ★
+                                    </button>
+                                ))}
+                                <span className="text-[11px] font-black text-[#0D2D5A] self-center ml-2">{feedbackRating}/5</span>
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Commentaire (optionnel)</p>
+                            <textarea
+                                value={feedbackComment}
+                                onChange={e => setFeedbackComment(e.target.value)}
+                                rows={3}
+                                placeholder="Votre retour sur le cours..."
+                                className="w-full border border-slate-200 px-3 py-2 text-[11px] font-bold text-[#0D2D5A] outline-none focus:border-[#1A6CC8] resize-none"
+                            />
+                        </div>
+                        <Button
+                            disabled={feedbackMutation.isPending}
+                            onClick={() => feedbackMutation.mutate()}
+                            className="w-full bg-[#0D2D5A] text-white font-black text-[10px] uppercase tracking-widest h-10 rounded-none"
+                        >
+                            <MessageSquare className="w-3.5 h-3.5 mr-2" />
+                            {feedbackMutation.isPending ? "Envoi..." : "Soumettre mon avis"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Bilan Modal */}
             <Dialog open={!!viewedNote} onOpenChange={(open) => !open && setViewedNote(null)}>

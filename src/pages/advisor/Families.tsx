@@ -1,24 +1,84 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Users, Search, Filter, MoreVertical, Phone, Mail,
-    MapPin, Calendar, Clock, BookOpen, GraduationCap,
+    Users, Search, Phone, Mail,
     TrendingUp, MessageCircle, FileText, Loader2, ChevronRight,
-    SearchCheck,
-    Briefcase
+    SearchCheck, Briefcase, PlusCircle, AlertTriangle,
+    ThumbsUp, Lightbulb, Eye, UserCircle2
 } from "lucide-react";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
+import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const API = import.meta.env.VITE_API_URL || "/api";
+const NOTE_TYPES = [
+    { value: "observation", label: "Observation", icon: Eye, color: "text-slate-500" },
+    { value: "recommandation", label: "Recommandation", icon: Lightbulb, color: "text-[#1A6CC8]" },
+    { value: "alerte", label: "Alerte", icon: AlertTriangle, color: "text-[#F5A623]" },
+    { value: "positif", label: "Positif", icon: ThumbsUp, color: "text-emerald-600" },
+];
+
 export default function AdvisorFamilies() {
+    const { user, token } = useAuth();
+    const qc = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedFamily, setSelectedFamily] = useState<any>(null);
+    const [noteContent, setNoteContent] = useState("");
+    const [noteType, setNoteType] = useState("observation");
+    const [showNoteForm, setShowNoteForm] = useState(false);
 
     const { data: families = [], isLoading } = useQuery({
         queryKey: ["advisorFamilies"],
         queryFn: fetchAdvisorFamilies,
+    });
+
+    const studentId = selectedFamily?.studentId || selectedFamily?.childId;
+
+    const { data: advisorNotes = [] } = useQuery({
+        queryKey: ["advisorNotes", studentId],
+        queryFn: async () => {
+            if (!studentId) return [];
+            const res = await fetch(`${API}/advisor-notes/${studentId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return res.json();
+        },
+        enabled: !!studentId && !!token,
+    });
+
+    const addNoteMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch(`${API}/advisor-notes`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    studentId,
+                    studentName: selectedFamily?.childName,
+                    advisorId: user?.id,
+                    advisorName: user?.name,
+                    noteType,
+                    content: noteContent,
+                })
+            });
+            if (!res.ok) throw new Error();
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["advisorNotes", studentId] });
+            setNoteContent("");
+            setShowNoteForm(false);
+        }
+    });
+
+    const deleteNoteMutation = useMutation({
+        mutationFn: async (noteId: string) => {
+            await fetch(`${API}/advisor-notes/${noteId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        },
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["advisorNotes", studentId] })
     });
 
     const filteredFamilies = (Array.isArray(families) ? families : []).filter((f: any) =>
@@ -152,7 +212,76 @@ export default function AdvisorFamilies() {
                                     </div>
                                 </div>
 
-                                <div className="pt-4 space-y-2">
+                                {/* Observations conseiller */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">
+                                            Observations ({(advisorNotes as any[]).length})
+                                        </p>
+                                        <button
+                                            onClick={() => setShowNoteForm(!showNoteForm)}
+                                            className="text-[9px] font-black text-[#1A6CC8] uppercase tracking-widest flex items-center gap-1"
+                                        >
+                                            <PlusCircle className="w-3 h-3" /> Ajouter
+                                        </button>
+                                    </div>
+                                    {showNoteForm && (
+                                        <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                            <div className="flex gap-1 flex-wrap">
+                                                {NOTE_TYPES.map(nt => (
+                                                    <button
+                                                        key={nt.value}
+                                                        onClick={() => setNoteType(nt.value)}
+                                                        className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest border rounded-md transition-colors flex items-center gap-1 ${
+                                                            noteType === nt.value ? "bg-[#0D2D5A] text-white border-[#0D2D5A]" : "bg-white text-slate-400 border-slate-200"
+                                                        }`}
+                                                    >
+                                                        <nt.icon className="w-2.5 h-2.5" /> {nt.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <textarea
+                                                value={noteContent}
+                                                onChange={e => setNoteContent(e.target.value)}
+                                                rows={3}
+                                                placeholder="Votre observation..."
+                                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[11px] outline-none focus:border-[#1A6CC8] resize-none"
+                                            />
+                                            <button
+                                                disabled={!noteContent.trim() || addNoteMutation.isPending}
+                                                onClick={() => addNoteMutation.mutate()}
+                                                className="w-full h-8 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
+                                            >
+                                                {addNoteMutation.isPending ? "..." : "Enregistrer"}
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                                        {(advisorNotes as any[]).map((note: any) => {
+                                            const nt = NOTE_TYPES.find(n => n.value === note.note_type) || NOTE_TYPES[0];
+                                            return (
+                                                <div key={note.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 group">
+                                                    <nt.icon className={`w-3 h-3 mt-0.5 flex-shrink-0 ${nt.color}`} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[10px] font-bold text-[#0D2D5A] leading-relaxed">{note.content}</p>
+                                                        <p className="text-[8px] text-gray-300 mt-0.5">{new Date(note.created_at).toLocaleDateString("fr-FR")}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => deleteNoteMutation.mutate(note.id)}
+                                                        className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 text-[8px] font-black transition-opacity"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                        {(advisorNotes as any[]).length === 0 && !showNoteForm && (
+                                            <p className="text-[9px] text-gray-300 italic px-1">Aucune observation enregistrée</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="pt-2 space-y-2">
                                     <Button className="w-full bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-11 rounded-xl shadow-sm gap-2">
                                         <MessageCircle className="w-4 h-4" /> Contacter la famille
                                     </Button>

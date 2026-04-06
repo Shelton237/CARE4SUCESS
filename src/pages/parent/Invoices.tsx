@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Receipt, Download, CheckCircle, Clock, FileText, CreditCard, Filter, Loader2 } from "lucide-react";
+import jsPDF from "jspdf";
 import { fetchParentInvoices, fetchChildrenByParent } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatFCFA } from "@/lib/money";
@@ -48,6 +49,83 @@ export default function ParentInvoices() {
             { totalPaid: 0, totalPending: 0 }
         );
     }, [invoices]);
+
+    const downloadInvoicePDF = (inv: ParentInvoice) => {
+        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        const W = 210;
+        // En-tête
+        doc.setFillColor(13, 45, 90);
+        doc.rect(0, 0, W, 35, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.text("CARE4SUCCESS", 14, 16);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text("Accompagnement éducatif de qualité", 14, 23);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(`FACTURE #${inv.id.slice(0, 8).toUpperCase()}`, W - 14, 16, { align: "right" });
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(formatDate(inv.date), W - 14, 23, { align: "right" });
+        // Statut
+        doc.setTextColor(inv.status === "paid" ? 5 : 245, inv.status === "paid" ? 150 : 166, inv.status === "paid" ? 105 : 35);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(inv.status === "paid" ? "PAYÉE" : "EN ATTENTE", W - 14, 30, { align: "right" });
+        // Infos client
+        doc.setTextColor(13, 45, 90);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text("FACTURÉ À", 14, 52);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(user?.name || "", 14, 59);
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 120);
+        doc.text(user?.email || "", 14, 65);
+        if (user?.phone) doc.text(user.phone, 14, 71);
+        // Ligne séparatrice
+        doc.setDrawColor(230, 230, 240);
+        doc.setLineWidth(0.3);
+        doc.line(14, 80, W - 14, 80);
+        // Tableau
+        const colX = [14, 100, 145, W - 14];
+        doc.setFillColor(245, 247, 252);
+        doc.rect(14, 84, W - 28, 8, "F");
+        doc.setTextColor(80, 100, 130);
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        ["DESCRIPTION", "DATE", "MONTANT", "STATUT"].forEach((h, i) => {
+            doc.text(h, i < 3 ? colX[i] : colX[i], 89, i < 3 ? {} : { align: "right" });
+        });
+        doc.setTextColor(13, 45, 90);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        const y = 100;
+        doc.text(inv.description, colX[0], y);
+        doc.text(formatDate(inv.date), colX[1], y);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${inv.amount.toLocaleString("fr-FR")} FCFA`, W - 14, y, { align: "right" });
+        // Total
+        doc.setDrawColor(230, 230, 240);
+        doc.line(14, y + 8, W - 14, y + 8);
+        doc.setFillColor(13, 45, 90);
+        doc.rect(W - 80, y + 12, 66, 14, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.text("TOTAL DÛ", W - 77, y + 18);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${inv.amount.toLocaleString("fr-FR")} FCFA`, W - 14, y + 22, { align: "right" });
+        // Pied de page
+        doc.setTextColor(160, 160, 180);
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.text("Care4Success — Plateforme d'accompagnement éducatif | care4success.usra-care.com", W / 2, 280, { align: "center" });
+        doc.save(`facture-care4success-${inv.id.slice(0, 8)}.pdf`);
+    };
 
     if (!user) return null;
 
@@ -170,7 +248,11 @@ export default function ParentInvoices() {
                                             <td className="px-4 py-3 text-center">
                                                 <div className="flex items-center justify-center gap-2">
                                                     {inv.status === "paid" ? (
-                                                        <Button variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-[#1A6CC8] hover:bg-[#1A6CC8]/5 rounded-none">
+                                                        <Button
+                                                            variant="ghost"
+                                                            onClick={() => downloadInvoicePDF(inv)}
+                                                            className="h-7 w-7 p-0 text-slate-400 hover:text-[#1A6CC8] hover:bg-[#1A6CC8]/5 rounded-none"
+                                                        >
                                                             <Download className="w-3.5 h-3.5" />
                                                         </Button>
                                                     ) : (

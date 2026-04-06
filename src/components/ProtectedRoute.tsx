@@ -22,6 +22,7 @@ export function ProtectedRoute({ children, role }: Props) {
             parent: "/parent",
             advisor: "/advisor",
             student: "/student",
+            tutor: "/tutor",
         };
         return <Navigate to={roleRoutes[user!.role]} replace />;
     }

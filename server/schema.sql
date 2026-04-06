@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role ENUM('admin','teacher','parent','advisor','student') NOT NULL,
+    role ENUM('admin','teacher','parent','advisor','student','tutor') NOT NULL,
     avatar VARCHAR(10) NULL,
     phone VARCHAR(50) NULL,
     location VARCHAR(120) NULL,
@@ -132,11 +132,15 @@ CREATE TABLE IF NOT EXISTS teacher_applications (
     availability VARCHAR(120) NOT NULL,
     motivation TEXT NOT NULL,
     cv_url VARCHAR(255) NULL,
-    status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+    status ENUM('pending', 'interview_scheduled', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
     reviewed_by VARCHAR(191) NULL,
-    reviewer_role ENUM('admin', 'advisor') NULL,
+    reviewer_role ENUM('admin', 'advisor', 'tutor') NULL,
     review_notes TEXT NULL,
     reviewed_at TIMESTAMP NULL,
+    interview_date TIMESTAMP NULL,
+    interview_notes TEXT NULL,
+    interview_status ENUM('scheduled', 'done', 'cancelled') NULL,
+    level_classification JSON NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_teacher_applications_status (status)
@@ -347,6 +351,92 @@ CREATE TABLE IF NOT EXISTS lesson_resources (
     PRIMARY KEY (id),
     KEY idx_resources_student (student_id),
     KEY idx_resources_teacher (teacher_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Feedback parent sur une séance (distinct du teacher_feedback)
+CREATE TABLE IF NOT EXISTS session_feedback (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    session_id CHAR(36) NOT NULL,
+    parent_id VARCHAR(36) NOT NULL,
+    parent_name VARCHAR(191) NOT NULL,
+    student_id VARCHAR(36) NOT NULL,
+    teacher_id VARCHAR(36) NOT NULL,
+    rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_sfeedback_session (session_id),
+    KEY idx_sfeedback_parent (parent_id),
+    KEY idx_sfeedback_teacher (teacher_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Observations conseiller sur un élève
+CREATE TABLE IF NOT EXISTS advisor_notes (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    student_id VARCHAR(36) NOT NULL,
+    student_name VARCHAR(191) NOT NULL,
+    advisor_id VARCHAR(36) NOT NULL,
+    advisor_name VARCHAR(191) NOT NULL,
+    note_type ENUM('observation','recommandation','alerte','positif') NOT NULL DEFAULT 'observation',
+    content TEXT NOT NULL,
+    is_visible_to_parent TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_anotes_student (student_id),
+    KEY idx_anotes_advisor (advisor_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Rapport d'évaluation tuteur sur un enseignant
+CREATE TABLE IF NOT EXISTS tutor_evaluations (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    application_id CHAR(36) NULL,
+    teacher_id VARCHAR(36) NULL,
+    teacher_name VARCHAR(191) NOT NULL,
+    tutor_id VARCHAR(36) NOT NULL,
+    tutor_name VARCHAR(191) NOT NULL,
+    pedagogical_score TINYINT NOT NULL DEFAULT 3 CHECK (pedagogical_score BETWEEN 1 AND 5),
+    punctuality_score TINYINT NOT NULL DEFAULT 3 CHECK (punctuality_score BETWEEN 1 AND 5),
+    communication_score TINYINT NOT NULL DEFAULT 3 CHECK (communication_score BETWEEN 1 AND 5),
+    level_classification JSON NULL,
+    overall_notes TEXT NULL,
+    recommendation ENUM('approved','rejected','pending_training') NOT NULL DEFAULT 'pending_training',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_teval_application (application_id),
+    KEY idx_teval_teacher (teacher_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Diagnostic initial (évaluation d'entrée élève)
+CREATE TABLE IF NOT EXISTS academic_diagnostics (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    student_id VARCHAR(36) NOT NULL,
+    student_name VARCHAR(191) NOT NULL,
+    evaluator_id VARCHAR(36) NOT NULL,
+    evaluator_name VARCHAR(191) NOT NULL,
+    scores JSON NOT NULL,
+    strengths TEXT NULL,
+    weaknesses TEXT NULL,
+    recommended_subjects JSON NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_diag_student (student_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Plan pédagogique personnalisé
+CREATE TABLE IF NOT EXISTS academic_plans (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    student_id VARCHAR(36) NOT NULL,
+    student_name VARCHAR(191) NOT NULL,
+    created_by VARCHAR(36) NOT NULL,
+    title VARCHAR(191) NOT NULL,
+    weeks JSON NOT NULL,
+    status ENUM('draft','active','completed') NOT NULL DEFAULT 'active',
+    start_date DATE NOT NULL,
+    end_date DATE NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_aplan_student (student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Notifications

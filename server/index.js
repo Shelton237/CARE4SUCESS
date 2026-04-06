@@ -34,7 +34,7 @@ const pool = mysql.createPool({
 const JWT_SECRET = process.env.JWT_SECRET || "care4success_dev_secret";
 console.log("DEBUG: JWT_SECRET start with:", JWT_SECRET[0]);
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
-const allowedUserRoles = new Set(["admin", "teacher", "parent", "advisor", "student"]);
+const allowedUserRoles = new Set(["admin", "teacher", "parent", "advisor", "student", "tutor"]);
 
 const generateToken = (payload) =>
   jwt.sign({ sub: payload.id, role: payload.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -645,6 +645,107 @@ const ensureAssignmentsTable = async () => {
   );
 };
 
+const ensureSessionFeedbackTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS session_feedback (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      session_id CHAR(36) NOT NULL,
+      parent_id VARCHAR(36) NOT NULL,
+      parent_name VARCHAR(191) NOT NULL,
+      student_id VARCHAR(36) NOT NULL,
+      teacher_id VARCHAR(36) NOT NULL,
+      rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      comment TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_sfeedback_session (session_id),
+      KEY idx_sfeedback_parent (parent_id),
+      KEY idx_sfeedback_teacher (teacher_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureAdvisorNotesTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS advisor_notes (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      student_id VARCHAR(36) NOT NULL,
+      student_name VARCHAR(191) NOT NULL,
+      advisor_id VARCHAR(36) NOT NULL,
+      advisor_name VARCHAR(191) NOT NULL,
+      note_type ENUM('observation','recommandation','alerte','positif') NOT NULL DEFAULT 'observation',
+      content TEXT NOT NULL,
+      is_visible_to_parent TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_anotes_student (student_id),
+      KEY idx_anotes_advisor (advisor_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureTutorEvaluationsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS tutor_evaluations (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      application_id CHAR(36) NULL,
+      teacher_id VARCHAR(36) NULL,
+      teacher_name VARCHAR(191) NOT NULL,
+      tutor_id VARCHAR(36) NOT NULL,
+      tutor_name VARCHAR(191) NOT NULL,
+      pedagogical_score TINYINT NOT NULL DEFAULT 3 CHECK (pedagogical_score BETWEEN 1 AND 5),
+      punctuality_score TINYINT NOT NULL DEFAULT 3 CHECK (punctuality_score BETWEEN 1 AND 5),
+      communication_score TINYINT NOT NULL DEFAULT 3 CHECK (communication_score BETWEEN 1 AND 5),
+      level_classification JSON NULL,
+      overall_notes TEXT NULL,
+      recommendation ENUM('approved','rejected','pending_training') NOT NULL DEFAULT 'pending_training',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_teval_application (application_id),
+      KEY idx_teval_teacher (teacher_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureAcademicDiagnosticsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS academic_diagnostics (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      student_id VARCHAR(36) NOT NULL,
+      student_name VARCHAR(191) NOT NULL,
+      evaluator_id VARCHAR(36) NOT NULL,
+      evaluator_name VARCHAR(191) NOT NULL,
+      scores JSON NOT NULL,
+      strengths TEXT NULL,
+      weaknesses TEXT NULL,
+      recommended_subjects JSON NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_diag_student (student_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
+const ensureAcademicPlansTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS academic_plans (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      student_id VARCHAR(36) NOT NULL,
+      student_name VARCHAR(191) NOT NULL,
+      created_by VARCHAR(36) NOT NULL,
+      title VARCHAR(191) NOT NULL,
+      weeks JSON NOT NULL,
+      status ENUM('draft','active','completed') NOT NULL DEFAULT 'active',
+      start_date DATE NOT NULL,
+      end_date DATE NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_aplan_student (student_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
 const initDB = async () => {
   console.log("Initializing database...");
   try {
@@ -676,6 +777,20 @@ const initDB = async () => {
     await ensureNotificationsTable();
     await ensureCourseBookmarksTable();
     await ensureUserCourseProgressTable();
+    await ensureSessionFeedbackTable();
+    await ensureAdvisorNotesTable();
+    await ensureTutorEvaluationsTable();
+    await ensureAcademicDiagnosticsTable();
+    await ensureAcademicPlansTable();
+    // Migration: colonnes interview sur teacher_applications
+    await pool.query(`ALTER TABLE teacher_applications ADD COLUMN IF NOT EXISTS interview_date TIMESTAMP NULL`).catch(() => {});
+    await pool.query(`ALTER TABLE teacher_applications ADD COLUMN IF NOT EXISTS interview_notes TEXT NULL`).catch(() => {});
+    await pool.query(`ALTER TABLE teacher_applications ADD COLUMN IF NOT EXISTS interview_status VARCHAR(20) NULL`).catch(() => {});
+    await pool.query(`ALTER TABLE teacher_applications ADD COLUMN IF NOT EXISTS level_classification JSON NULL`).catch(() => {});
+    // Migration: performance_index sur teachers
+    await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS performance_index DECIMAL(4,2) NULL`).catch(() => {});
+    // Migration: tutor dans le ENUM role (MySQL ne supporte pas IF NOT EXISTS sur ENUM — on tente silencieusement)
+    await pool.query(`ALTER TABLE users MODIFY COLUMN role ENUM('admin','teacher','parent','advisor','student','tutor') NOT NULL`).catch(() => {});
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
@@ -5021,6 +5136,384 @@ app.get("/api/students/:studentId/overview", async (req, res) => {
     });
   } catch (error) {
     console.error("Student overview error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// ─────────────────────────────────────────────
+// TUTOR DASHBOARD
+// ─────────────────────────────────────────────
+app.get("/api/tutor/dashboard", authenticateRequest, async (req, res) => {
+  try {
+    const [[{ pendingCount }]] = await pool.query(
+      `SELECT COUNT(*) as pendingCount FROM teacher_applications WHERE status = 'pending'`
+    );
+    const [[{ interviewCount }]] = await pool.query(
+      `SELECT COUNT(*) as interviewCount FROM teacher_applications WHERE status = 'interview_scheduled'`
+    );
+    const [[{ approvedCount }]] = await pool.query(
+      `SELECT COUNT(*) as approvedCount FROM teacher_applications WHERE status = 'approved'`
+    );
+    const [[{ evalCount }]] = await pool.query(
+      `SELECT COUNT(*) as evalCount FROM tutor_evaluations`
+    );
+    const [recentApps] = await pool.query(
+      `SELECT id, full_name, subjects, experience_years, status, interview_date, created_at
+       FROM teacher_applications ORDER BY created_at DESC LIMIT 10`
+    );
+    res.json({
+      stats: { pendingCount, interviewCount, approvedCount, evalCount },
+      recentApplications: recentApps.map(a => ({
+        ...a,
+        subjects: parseJson(a.subjects, []),
+      }))
+    });
+  } catch (error) {
+    console.error("Tutor dashboard error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// Planifier un entretien
+app.patch("/api/teacher-applications/:id/interview", authenticateRequest, async (req, res) => {
+  const { id } = req.params;
+  const { interviewDate, interviewNotes, interviewStatus } = req.body;
+  try {
+    await pool.query(
+      `UPDATE teacher_applications SET
+         interview_date = ?, interview_notes = ?,
+         interview_status = ?, status = 'interview_scheduled'
+       WHERE id = ?`,
+      [interviewDate || null, interviewNotes || null, interviewStatus || "scheduled", id]
+    );
+    const [[app]] = await pool.query(`SELECT * FROM teacher_applications WHERE id = ?`, [id]);
+    res.json(app);
+  } catch (error) {
+    console.error("Interview scheduling error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// Rapport d'évaluation tuteur
+app.post("/api/tutor-evaluations", authenticateRequest, async (req, res) => {
+  const {
+    applicationId, teacherId, teacherName, tutorId, tutorName,
+    pedagogicalScore, punctualityScore, communicationScore,
+    levelClassification, overallNotes, recommendation
+  } = req.body;
+  if (!teacherName || !tutorId || !tutorName) {
+    return res.status(400).json({ message: "Champs requis manquants." });
+  }
+  try {
+    const overall = ((pedagogicalScore + punctualityScore + communicationScore) / 3).toFixed(2);
+    await pool.query(
+      `INSERT INTO tutor_evaluations
+         (application_id, teacher_id, teacher_name, tutor_id, tutor_name,
+          pedagogical_score, punctuality_score, communication_score,
+          level_classification, overall_notes, recommendation)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        applicationId || null, teacherId || null, teacherName, tutorId, tutorName,
+        pedagogicalScore || 3, punctualityScore || 3, communicationScore || 3,
+        levelClassification ? JSON.stringify(levelClassification) : null,
+        overallNotes || null, recommendation || "pending_training"
+      ]
+    );
+    // Mettre à jour le performance_index de l'enseignant si teacherId fourni
+    if (teacherId) {
+      await pool.query(
+        `UPDATE teachers SET performance_index = ? WHERE id = ?`,
+        [overall, teacherId]
+      ).catch(() => {});
+    }
+    res.status(201).json({ message: "Évaluation enregistrée.", overallScore: overall });
+  } catch (error) {
+    console.error("Tutor evaluation error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/tutor-evaluations", authenticateRequest, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM tutor_evaluations ORDER BY created_at DESC`
+    );
+    res.json(rows.map(r => ({ ...r, levelClassification: parseJson(r.level_classification, []) })));
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// ─────────────────────────────────────────────
+// SESSION FEEDBACK (parent → séance)
+// ─────────────────────────────────────────────
+app.post("/api/session-feedback", authenticateRequest, async (req, res) => {
+  const { sessionId, parentId, parentName, studentId, teacherId, rating, comment } = req.body;
+  if (!sessionId || !parentId || !teacherId || !rating) {
+    return res.status(400).json({ message: "sessionId, parentId, teacherId, rating sont requis." });
+  }
+  try {
+    // Un seul feedback par parent par session
+    const [[existing]] = await pool.query(
+      `SELECT id FROM session_feedback WHERE session_id = ? AND parent_id = ?`,
+      [sessionId, parentId]
+    );
+    if (existing) {
+      await pool.query(
+        `UPDATE session_feedback SET rating = ?, comment = ? WHERE id = ?`,
+        [rating, comment || null, existing.id]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO session_feedback
+           (session_id, parent_id, parent_name, student_id, teacher_id, rating, comment)
+         VALUES (?,?,?,?,?,?,?)`,
+        [sessionId, parentId, parentName || "", studentId || "", teacherId, rating, comment || null]
+      );
+    }
+    res.status(201).json({ message: "Feedback enregistré." });
+  } catch (error) {
+    console.error("Session feedback error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/session-feedback/:sessionId", authenticateRequest, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM session_feedback WHERE session_id = ?`,
+      [req.params.sessionId]
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/parents/:parentId/session-feedback", authenticateRequest, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT sf.*, s.session_date, s.subject, s.teacher_name
+       FROM session_feedback sf
+       LEFT JOIN sessions s ON s.id = sf.session_id
+       WHERE sf.parent_id = ? ORDER BY sf.created_at DESC`,
+      [req.params.parentId]
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// ─────────────────────────────────────────────
+// ADVISOR NOTES (observations conseiller)
+// ─────────────────────────────────────────────
+app.post("/api/advisor-notes", authenticateRequest, async (req, res) => {
+  const { studentId, studentName, advisorId, advisorName, noteType, content, isVisibleToParent } = req.body;
+  if (!studentId || !advisorId || !content) {
+    return res.status(400).json({ message: "studentId, advisorId, content sont requis." });
+  }
+  try {
+    await pool.query(
+      `INSERT INTO advisor_notes
+         (student_id, student_name, advisor_id, advisor_name, note_type, content, is_visible_to_parent)
+       VALUES (?,?,?,?,?,?,?)`,
+      [
+        studentId, studentName || "", advisorId, advisorName || "",
+        noteType || "observation", content,
+        isVisibleToParent !== false ? 1 : 0
+      ]
+    );
+    res.status(201).json({ message: "Note enregistrée." });
+  } catch (error) {
+    console.error("Advisor note error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/advisor-notes/:studentId", authenticateRequest, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM advisor_notes WHERE student_id = ? ORDER BY created_at DESC`,
+      [req.params.studentId]
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.delete("/api/advisor-notes/:noteId", authenticateRequest, async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM advisor_notes WHERE id = ?`, [req.params.noteId]);
+    res.json({ message: "Note supprimée." });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// ─────────────────────────────────────────────
+// DIAGNOSTIC INITIAL (dossier académique)
+// ─────────────────────────────────────────────
+app.post("/api/students/:studentId/diagnostic", authenticateRequest, async (req, res) => {
+  const { studentName, evaluatorId, evaluatorName, scores, strengths, weaknesses, recommendedSubjects } = req.body;
+  if (!scores || !evaluatorId) {
+    return res.status(400).json({ message: "scores et evaluatorId sont requis." });
+  }
+  try {
+    await pool.query(
+      `INSERT INTO academic_diagnostics
+         (student_id, student_name, evaluator_id, evaluator_name, scores, strengths, weaknesses, recommended_subjects)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      [
+        req.params.studentId, studentName || "", evaluatorId, evaluatorName || "",
+        JSON.stringify(scores), strengths || null, weaknesses || null,
+        recommendedSubjects ? JSON.stringify(recommendedSubjects) : null
+      ]
+    );
+    res.status(201).json({ message: "Diagnostic enregistré." });
+  } catch (error) {
+    console.error("Diagnostic error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/students/:studentId/diagnostic", authenticateRequest, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM academic_diagnostics WHERE student_id = ? ORDER BY created_at DESC LIMIT 1`,
+      [req.params.studentId]
+    );
+    if (!rows.length) return res.json(null);
+    const d = rows[0];
+    res.json({
+      ...d,
+      scores: parseJson(d.scores, {}),
+      recommendedSubjects: parseJson(d.recommended_subjects, [])
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// ─────────────────────────────────────────────
+// PLAN PÉDAGOGIQUE
+// ─────────────────────────────────────────────
+app.post("/api/students/:studentId/academic-plan", authenticateRequest, async (req, res) => {
+  const { studentName, createdBy, title, weeks, startDate, endDate } = req.body;
+  if (!createdBy || !title || !weeks || !startDate) {
+    return res.status(400).json({ message: "createdBy, title, weeks, startDate sont requis." });
+  }
+  try {
+    // Archiver le plan actif précédent
+    await pool.query(
+      `UPDATE academic_plans SET status = 'completed' WHERE student_id = ? AND status = 'active'`,
+      [req.params.studentId]
+    );
+    await pool.query(
+      `INSERT INTO academic_plans (student_id, student_name, created_by, title, weeks, start_date, end_date)
+       VALUES (?,?,?,?,?,?,?)`,
+      [
+        req.params.studentId, studentName || "", createdBy, title,
+        JSON.stringify(weeks), startDate, endDate || null
+      ]
+    );
+    res.status(201).json({ message: "Plan pédagogique créé." });
+  } catch (error) {
+    console.error("Academic plan error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/students/:studentId/academic-plan", authenticateRequest, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM academic_plans WHERE student_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
+      [req.params.studentId]
+    );
+    if (!rows.length) return res.json(null);
+    const p = rows[0];
+    res.json({ ...p, weeks: parseJson(p.weeks, []) });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// ─────────────────────────────────────────────
+// HISTORIQUE COURS ÉLÈVE (avec rapport + compréhension)
+// ─────────────────────────────────────────────
+app.get("/api/students/:studentId/course-history", authenticateRequest, async (req, res) => {
+  try {
+    const [sessions] = await pool.query(
+      `SELECT s.*, h.title as homework_title, h.due_date as homework_due
+       FROM sessions s
+       LEFT JOIN homework h ON h.session_id = s.id
+       WHERE s.student_id = ? AND s.status = 'effectué'
+       ORDER BY s.session_date DESC`,
+      [req.params.studentId]
+    );
+    res.json(sessions.map(s => ({
+      id: s.id,
+      date: s.session_date,
+      subject: s.subject,
+      teacherName: s.teacher_name,
+      location: s.location,
+      startTime: s.actual_start_time,
+      endTime: s.actual_end_time,
+      reportText: s.report_text,
+      understandingScore: s.understanding_score,
+      homeworkTitle: s.homework_title || null,
+      homeworkDue: s.homework_due || null,
+    })));
+  } catch (error) {
+    console.error("Course history error", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// Performance index enseignant (calcul à la demande)
+app.get("/api/teachers/:teacherId/performance-index", authenticateRequest, async (req, res) => {
+  const { teacherId } = req.params;
+  try {
+    // Moyenne des feedbacks (pondération 40%)
+    const [[feedbackRow]] = await pool.query(
+      `SELECT AVG(rating) as avgFeedback, COUNT(*) as feedbackCount FROM teacher_feedback WHERE teacher_id = ?`,
+      [teacherId]
+    );
+    // Ponctualité = % séances avec actual_start_time (pondération 30%)
+    const [[punctRow]] = await pool.query(
+      `SELECT
+         COUNT(*) as total,
+         SUM(CASE WHEN actual_start_time IS NOT NULL THEN 1 ELSE 0 END) as onTime
+       FROM sessions WHERE teacher_id = ? AND status = 'effectué'`,
+      [teacherId]
+    );
+    // Progression élèves via quiz (pondération 30%)
+    const [[progressRow]] = await pool.query(
+      `SELECT AVG(a.score / q.total_points * 5) as avgProgress
+       FROM quiz_attempts a
+       JOIN quizzes q ON q.id = a.quiz_id
+       JOIN sessions s ON s.student_id = a.student_id AND s.teacher_id = ?`,
+      [teacherId]
+    );
+    const feedbackScore = feedbackRow.avgFeedback ? Number(feedbackRow.avgFeedback) : 3;
+    const punctScore = punctRow.total > 0 ? (punctRow.onTime / punctRow.total) * 5 : 3;
+    const progressScore = progressRow.avgProgress ? Number(progressRow.avgProgress) : 3;
+    const index = ((feedbackScore * 0.4) + (punctScore * 0.3) + (progressScore * 0.3)).toFixed(2);
+    // Sauvegarder en base
+    await pool.query(`UPDATE teachers SET performance_index = ? WHERE id = ?`, [index, teacherId]).catch(() => {});
+    res.json({
+      teacherId,
+      performanceIndex: Number(index),
+      breakdown: {
+        feedbackScore: Number(feedbackScore.toFixed(2)),
+        punctualityScore: Number(punctScore.toFixed(2)),
+        progressScore: Number(progressScore.toFixed(2)),
+        feedbackCount: feedbackRow.feedbackCount
+      }
+    });
+  } catch (error) {
+    console.error("Performance index error", error);
     res.status(500).json({ message: "Erreur serveur." });
   }
 });

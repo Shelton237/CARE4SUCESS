@@ -122,4 +122,5 @@ export const ROLE_REDIRECTS: Record<Role, string> = {
     parent: "/parent",
     advisor: "/advisor",
     student: "/student",
+    tutor: "/tutor",
 };

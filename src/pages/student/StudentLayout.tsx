@@ -19,6 +19,7 @@ import StudentQuizzes from "./Quizzes";
 import StudentProgress from "./Progress";
 import StudentCourses from "./Courses";
 import StudentMessages from "./Messages";
+import StudentHistory from "./History";
 
 const NAV = [
     { to: "/student", label: "Dashboard", icon: LayoutDashboard },
@@ -29,6 +30,7 @@ const NAV = [
     { to: "/student/quizzes", label: "Tests & Quiz", icon: FileQuestion },
     { to: "/student/courses", label: "Mes Cours", icon: BookOpen },
     { to: "/student/progress", label: "Mes Notes", icon: TrendingUp },
+    { to: "/student/history", label: "Historique Cours", icon: History },
 ];
 
 export default function StudentLayout() {
@@ -45,6 +47,7 @@ export default function StudentLayout() {
                     <Route path="courses" element={<StudentCourses />} />
                     <Route path="progress" element={<StudentProgress />} />
                     <Route path="messages" element={<StudentMessages />} />
+                    <Route path="history" element={<StudentHistory />} />
                     <Route path="*" element={<Navigate to="/student" replace />} />
                 </Routes>
             </main>

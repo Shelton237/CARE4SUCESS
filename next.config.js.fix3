@@ -1,0 +1,56 @@
+const runtimeCaching = require("next-pwa/cache");
+const nextTranslate = require("next-translate");
+
+const withPWA = require("next-pwa")({
+  dest: "public",
+  register: true,
+  runtimeCaching,
+  buildExcludes: [/middleware-manifest\.json$/],
+  scope: "/",
+  sw: "service-worker.js",
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === "development",
+});
+
+const nextConfig = {
+  reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  images: {
+    domains: ["res.cloudinary.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+  },
+};
+
+const translatedConfig = nextTranslate(nextConfig);
+
+module.exports = withPWA({
+  ...translatedConfig,
+  webpack: (config, options) => {
+    // Call the translated config's webpack if it exists
+    if (typeof translatedConfig.webpack === "function") {
+      config = translatedConfig.webpack(config, options);
+    }
+    
+    // Add fallbacks for Node modules on the client side
+    if (!options.isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+        net: false,
+        tls: false,
+        child_process: false,
+      };
+    }
+    
+    return config;
+  },
+});
