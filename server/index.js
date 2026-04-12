@@ -795,6 +795,8 @@ const initDB = async () => {
     await pool.query(`ALTER TABLE users MODIFY COLUMN role ENUM('admin','teacher','parent','advisor','student','tutor') NOT NULL`).catch(() => {});
     // Migration: reminder_sent sur sessions
     await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS reminder_sent TINYINT(1) NOT NULL DEFAULT 0`).catch(() => {});
+    // Migration: secondary_role — permet à un tuteur d'être aussi enseignant
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secondary_role ENUM('admin','teacher','parent','advisor','student','tutor') NULL DEFAULT NULL`).catch(() => {});
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
@@ -1272,7 +1274,7 @@ const mapParentProgressRow = (row) => ({
   anglais: Number(row.anglais),
 });
 
-const USER_PUBLIC_COLUMNS = `id, name, email, role, avatar, avatar_url, phone, location, timezone, language, bio,
+const USER_PUBLIC_COLUMNS = `id, name, email, role, secondary_role, avatar, avatar_url, phone, location, timezone, language, bio,
   notify_email, notify_sms, notify_whatsapp, parent_id, last_login_at, created_at, updated_at`;
 
 const mapUserRow = (row) => ({
@@ -1280,6 +1282,7 @@ const mapUserRow = (row) => ({
   name: fixEncoding(row.name),
   email: row.email,
   role: row.role,
+  secondaryRole: row.secondary_role || null,
   avatar: row.avatar,
   phone: row.phone,
   location: row.location ? fixEncoding(row.location) : row.location,
@@ -3678,6 +3681,7 @@ app.put("/api/users/:userId", authenticateRequest, async (req, res) => {
     bankIban,
     bankAccountHolder,
     availability,
+    secondaryRole,
   } = req.body ?? {};
 
   const allowedLanguages = new Set(["fr", "en"]);
@@ -3706,6 +3710,11 @@ app.put("/api/users/:userId", authenticateRequest, async (req, res) => {
   if (typeof notifyEmail === "boolean") pushUpdate("notify_email", notifyEmail ? 1 : 0);
   if (typeof notifySms === "boolean") pushUpdate("notify_sms", notifySms ? 1 : 0);
   if (typeof notifyWhatsapp === "boolean") pushUpdate("notify_whatsapp", notifyWhatsapp ? 1 : 0);
+  // secondaryRole : seul l'admin peut le modifier (ou l'utilisateur lui-même via un endpoint dédié admin)
+  const allowedRoles = new Set(["admin","teacher","parent","advisor","student","tutor"]);
+  if (secondaryRole !== undefined && req.user?.role === "admin") {
+    pushUpdate("secondary_role", secondaryRole === null ? null : allowedRoles.has(secondaryRole) ? secondaryRole : null);
+  }
 
   if (updates.length === 0) {
     return res.status(400).json({ message: "Aucun champ à mettre à jour." });
@@ -3723,9 +3732,10 @@ app.put("/api/users/:userId", authenticateRequest, async (req, res) => {
       return res.status(404).json({ message: "Utilisateur introuvable." });
     }
 
-    // Update teacher info if it's a teacher
-    const [[userRoleRow]] = await pool.query("SELECT role FROM users WHERE id = ?", [userId]);
-    if (userRoleRow?.role === 'teacher') {
+    // Update teacher info if it's a teacher or a tutor with secondary_role = 'teacher'
+    const [[userRoleRow]] = await pool.query("SELECT role, secondary_role FROM users WHERE id = ?", [userId]);
+    const isTeacher = userRoleRow?.role === 'teacher' || userRoleRow?.secondary_role === 'teacher';
+    if (isTeacher) {
       const teacherUpdates = [];
       const teacherParams = [];
       if (typeof bankName === "string") { teacherUpdates.push("bank_name = ?"); teacherParams.push(bankName); }
@@ -3734,6 +3744,11 @@ app.put("/api/users/:userId", authenticateRequest, async (req, res) => {
       if (availability && Array.isArray(availability)) { teacherUpdates.push("availability_json = ?"); teacherParams.push(JSON.stringify(availability)); }
 
       if (teacherUpdates.length > 0) {
+        // Upsert : crée la ligne dans teachers si elle n'existe pas encore (cas tuteur devenant enseignant)
+        await pool.query(
+          `INSERT INTO teachers (id) VALUES (?) ON DUPLICATE KEY UPDATE id = id`,
+          [userId]
+        ).catch(() => {});
         await pool.query(
           `UPDATE teachers SET ${teacherUpdates.join(", ")} WHERE id = ?`,
           [...teacherParams, userId]
@@ -5613,7 +5628,7 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
 
     const diagScores = diag?.scores ? JSON.parse(diag.scores) : {};
     const weakSubjects = Object.entries(diagScores)
-      .filter(([, s]) => (s as number) < 5)
+      .filter(([, s]) => Number(s) < 5)
       .map(([subj]) => subj);
 
     const [teachers] = await pool.query(
@@ -5628,15 +5643,15 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
        GROUP BY t.id`
     );
 
-    const scored = (teachers as any[]).map(t => {
+    const scored = teachers.map(t => {
       const subjs = t.subjects ? JSON.parse(t.subjects) : [];
       const levels = t.levels ? JSON.parse(t.levels) : [];
       const avail = t.availability_json ? JSON.parse(t.availability_json) : {};
 
       let score = Number(t.perf) * 20;
-      if (student.subject && subjs.some((s: string) => s.toLowerCase().includes(student.subject?.toLowerCase()))) score += 30;
-      if (weakSubjects.some(ws => subjs.some((s: string) => s.toLowerCase().includes(ws.toLowerCase())))) score += 20;
-      if (student.level && levels.some((l: string) => l.toLowerCase().includes(student.level?.toLowerCase()))) score += 15;
+      if (student.subject && subjs.some((s) => s.toLowerCase().includes(student.subject?.toLowerCase()))) score += 30;
+      if (weakSubjects.some(ws => subjs.some((s) => s.toLowerCase().includes(ws.toLowerCase())))) score += 20;
+      if (student.level && levels.some((l) => l.toLowerCase().includes(student.level?.toLowerCase()))) score += 15;
       if (Object.keys(avail).length > 0) score += 10;
       if (t.sessionCount > 10) score += 5;
 
@@ -5682,7 +5697,7 @@ app.get("/api/resources", authenticateRequest, async (req, res) => {
     await ensureResourcesTable();
     const { subject, level } = req.query;
     let q = `SELECT * FROM resources WHERE 1=1`;
-    const params: any[] = [];
+    const params = [];
     if (subject) { q += ` AND subject = ?`; params.push(subject); }
     if (level) { q += ` AND level = ?`; params.push(level); }
     q += ` ORDER BY created_at DESC`;
@@ -5705,7 +5720,7 @@ app.post("/api/resources", authenticateRequest, upload.single("file"), async (re
     await pool.query(
       `INSERT INTO resources (id, title, description, subject, level, type, file_url, teacher_id, teacher_name)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, title, description || null, subject, level, type || "pdf", url, req.user.sub, (teacher as any)?.name || ""]
+      [id, title, description || null, subject, level, type || "pdf", url, req.user.sub, teacher?.name || ""]
     );
     const [[row]] = await pool.query(`SELECT * FROM resources WHERE id = ?`, [id]);
     res.status(201).json(row);
@@ -5718,7 +5733,7 @@ app.post("/api/resources", authenticateRequest, upload.single("file"), async (re
 app.delete("/api/resources/:id", authenticateRequest, async (req, res) => {
   try {
     await ensureResourcesTable();
-    const [result] = await pool.query(`DELETE FROM resources WHERE id = ? AND teacher_id = ?`, [req.params.id, req.user.sub]) as any;
+    const [result] = await pool.query(`DELETE FROM resources WHERE id = ? AND teacher_id = ?`, [req.params.id, req.user.sub]);
     if (result.affectedRows === 0) return res.status(404).json({ message: "Ressource introuvable ou non autorisé" });
     res.json({ deleted: true });
   } catch (err) {
@@ -5959,7 +5974,7 @@ cron.schedule("30 0 1 * *", async () => {
     );
 
     let generated = 0;
-    for (const row of rows as any[]) {
+    for (const row of rows) {
       // Éviter les doublons
       const [[exists]] = await pool.query(
         `SELECT id FROM parent_invoices WHERE parent_id = ? AND DATE_FORMAT(invoice_date, '%Y-%m') = ?`,

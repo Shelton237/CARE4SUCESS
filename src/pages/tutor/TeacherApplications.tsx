@@ -23,7 +23,7 @@ const SUBJECTS = ["Mathématiques", "Français", "Anglais", "Physique-Chimie", "
 const STATUS_UI: Record<string, { label: string; dot: string }> = {
     pending: { label: "En attente", dot: "bg-[#F5A623]" },
     interview_scheduled: { label: "Entretien planifié", dot: "bg-[#1A6CC8]" },
-    approved: { label: "Approuvé", dot: "bg-emerald-500" },
+    approved: { label: "Approuvé", dot: "bg-[#0D2D5A]" },
     rejected: { label: "Refusé", dot: "bg-red-500" },
 };
 
@@ -153,18 +153,18 @@ export default function TutorTeacherApplications() {
     );
 
     return (
-        <div className="p-4 md:p-6 space-y-6 bg-white min-h-screen font-sans text-[#0D2D5A]">
-            <div className="border-b border-slate-100 pb-4 flex items-center gap-3">
-                <UserPlus className="w-5 h-5 text-[#1A6CC8]" />
+        <div className="w-full p-3 space-y-3 bg-white min-h-screen font-sans text-[#0D2D5A]">
+            <div className="border-b border-slate-100 pb-3 flex items-center gap-3">
+                <UserPlus className="w-4 h-4 text-[#1A6CC8]" />
                 <div>
                     <h1 className="text-xl font-black text-[#0D2D5A] uppercase tracking-tight">Candidatures Enseignants</h1>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Évaluation et qualification pédagogique</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-3">
                 {/* Liste candidatures */}
-                <div className="xl:col-span-5 space-y-2">
+                <div className="xl:col-span-5 space-y-1">
                     {(Array.isArray(apps) ? apps : []).map((a: any) => {
                         const ui = STATUS_UI[a.status] || { label: a.status, dot: "bg-slate-400" };
                         return (
@@ -307,16 +307,16 @@ export default function TutorTeacherApplications() {
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Recommandation finale</label>
                                             <div className="flex gap-2">
                                                 {[
-                                                    { value: "approved", label: "Approuver", color: "emerald" },
-                                                    { value: "pending_training", label: "Formation complémentaire", color: "blue" },
+                                                    { value: "approved", label: "Approuver", color: "blue" },
+                                                    { value: "pending_training", label: "Formation", color: "blue" },
                                                     { value: "rejected", label: "Refuser", color: "red" },
                                                 ].map(r => (
                                                     <button
                                                         key={r.value}
                                                         onClick={() => setRecommendation(r.value)}
-                                                        className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border transition-colors ${
+                                                        className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border transition-colors rounded-none ${
                                                             recommendation === r.value
-                                                                ? r.value === "approved" ? "bg-emerald-600 text-white border-emerald-600"
+                                                                ? r.value === "approved" ? "bg-[#0D2D5A] text-white border-[#0D2D5A]"
                                                                 : r.value === "rejected" ? "bg-red-600 text-white border-red-600"
                                                                 : "bg-[#1A6CC8] text-white border-[#1A6CC8]"
                                                                 : "bg-white text-slate-400 border-slate-200"

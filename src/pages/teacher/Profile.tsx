@@ -28,7 +28,7 @@ export default function TeacherProfile() {
         mutationFn: (payload: any) => updateUserProfile(authUser!.id, payload),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-            toast.success("Profil tuteur mis à jour ✅");
+            toast.success("Profil mis à jour ✅");
         }
     });
 
@@ -90,10 +90,24 @@ export default function TeacherProfile() {
                     <div className="text-center md:text-left space-y-1">
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                             <h1 className="text-2xl font-bold text-[#0D2D5A]">{profile?.name}</h1>
-                            <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold px-2 py-0 text-[9px] uppercase tracking-wider">Tuteur Vérifié <BadgeCheck className="w-3 h-3 ml-1 inline" /></Badge>
+                            {authUser?.role === 'tutor' && authUser?.secondaryRole === 'teacher' ? (
+                                <>
+                                    <Badge className="bg-purple-50 text-purple-600 border border-purple-100 font-bold px-2 py-0 text-[9px] uppercase tracking-wider">Tuteur Vérifié <BadgeCheck className="w-3 h-3 ml-1 inline" /></Badge>
+                                    <Badge className="bg-blue-50 text-blue-600 border border-blue-100 font-bold px-2 py-0 text-[9px] uppercase tracking-wider">Enseignant <BadgeCheck className="w-3 h-3 ml-1 inline" /></Badge>
+                                </>
+                            ) : authUser?.role === 'teacher' ? (
+                                <Badge className="bg-blue-50 text-blue-600 border border-blue-100 font-bold px-2 py-0 text-[9px] uppercase tracking-wider">Enseignant Vérifié <BadgeCheck className="w-3 h-3 ml-1 inline" /></Badge>
+                            ) : (
+                                <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold px-2 py-0 text-[9px] uppercase tracking-wider">Tuteur Vérifié <BadgeCheck className="w-3 h-3 ml-1 inline" /></Badge>
+                            )}
                         </div>
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs text-gray-500 font-medium">
-                            <span className="flex items-center gap-1.5"><Briefcase className="w-3.5 h-3.5 text-[#1A6CC8]" /> Tuteur Expert</span>
+                            <span className="flex items-center gap-1.5">
+                                <Briefcase className="w-3.5 h-3.5 text-[#1A6CC8]" />
+                                {authUser?.role === 'tutor' && authUser?.secondaryRole === 'teacher'
+                                    ? "Tuteur-Enseignant"
+                                    : authUser?.role === 'teacher' ? "Enseignant" : "Tuteur Expert"}
+                            </span>
                             <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-[#1A6CC8]" /> {profile?.location || "Cameroun"}</span>
                             <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-[#1A6CC8]" /> {profile?.email}</span>
                         </div>
@@ -133,7 +147,9 @@ export default function TeacherProfile() {
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                         <div className="px-8 py-6 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
                             <h2 className="text-base font-bold text-[#0D2D5A]">
-                                {activeTab === 'personal' ? 'Informations du Tuteur' : activeTab === 'banking' ? 'Coordoonnées de Reversement' : 'Sécurité du compte'}
+                                {activeTab === 'personal'
+                                    ? (authUser?.role === 'teacher' ? 'Informations de l\'Enseignant' : 'Informations du Tuteur')
+                                    : activeTab === 'banking' ? 'Coordonnées de Reversement' : 'Sécurité du compte'}
                             </h2>
                             <Button 
                                 onClick={handleSave} 

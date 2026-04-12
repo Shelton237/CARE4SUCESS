@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchScheduleByRole, sessionCheckIn, sessionCheckOut } from "@/api/backoffice";
+import { fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession } from "@/api/backoffice";
+import type { CreateSessionPayload } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
-import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send } from "lucide-react";
+import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -16,6 +17,11 @@ import { toast } from "sonner";
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const WEEK_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+
+const SUBJECTS = [
+    "Mathématiques", "Français", "Anglais", "Physique-Chimie", "SVT",
+    "Histoire-Géographie", "Philosophie", "Informatique", "Espagnol", "Arabe",
+];
 
 const STATUS_COLORS: Record<string, string> = {
     "effectué": "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -35,11 +41,27 @@ const COMPREHENSION_LABELS: Record<number, string> = {
     5: "🌟 Excellent",
 };
 
+const defaultForm = (): CreateSessionPayload => ({
+    studentId: "",
+    subject: "",
+    sessionDate: "",
+    sessionTime: "16:00",
+    locationType: "presentiel",
+    location: "",
+    recurrence: "none",
+    sessionCount: 1,
+});
+
 export default function TeacherSchedule() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const [viewedNote, setViewedNote] = useState<any | null>(null);
-    // Dialog clôture pédagogique
+
+    // --- Dialog création de séance ---
+    const [showCreate, setShowCreate] = useState(false);
+    const [form, setForm] = useState<CreateSessionPayload>(defaultForm());
+
+    // --- Dialog clôture pédagogique ---
     const [closingSession, setClosingSession] = useState<any | null>(null);
     const [reportText, setReportText] = useState("");
     const [understandingScore, setUnderstandingScore] = useState(3);
@@ -52,6 +74,29 @@ export default function TeacherSchedule() {
         queryKey: ["teacherSchedule", user?.id],
         queryFn: () => fetchScheduleByRole("teacher", user!.id),
         enabled: Boolean(user?.id),
+    });
+
+    const { data: students = [] } = useQuery({
+        queryKey: ["teacherStudents", user?.id],
+        queryFn: () => fetchTeacherStudents(user!.id),
+        enabled: Boolean(user?.id),
+    });
+
+    const createMutation = useMutation({
+        mutationFn: createSession,
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["teacherSchedule"] });
+            toast.success(
+                data.count > 1
+                    ? `${data.count} séances créées avec succès !`
+                    : "Séance créée avec succès !"
+            );
+            setShowCreate(false);
+            setForm(defaultForm());
+        },
+        onError: (err: any) => {
+            toast.error(err?.message || "Erreur lors de la création de la séance.");
+        },
     });
 
     const checkInMutation = useMutation({
@@ -67,7 +112,6 @@ export default function TeacherSchedule() {
         mutationFn: (session: any) => sessionCheckOut(session.id),
         onSuccess: (_data, session) => {
             queryClient.invalidateQueries({ queryKey: ["teacherSchedule"] });
-            // Ouvrir le dialog de clôture pédagogique
             setClosingSession(session);
             setReportText("");
             setUnderstandingScore(3);
@@ -90,7 +134,6 @@ export default function TeacherSchedule() {
             const headers: Record<string, string> = { "Content-Type": "application/json" };
             if (token) headers["Authorization"] = `Bearer ${token}`;
 
-            // 1. Enregistrer le rapport de cours
             const rRes = await fetch(`${API_BASE}/sessions/${closingSession.id}/report`, {
                 method: "POST",
                 headers,
@@ -98,7 +141,6 @@ export default function TeacherSchedule() {
             });
             if (!rRes.ok) throw new Error("Rapport non enregistré");
 
-            // 2. Devoir optionnel
             if (homeworkTitle.trim() && homeworkDue) {
                 await fetch(`${API_BASE}/homework`, {
                     method: "POST",
@@ -119,11 +161,19 @@ export default function TeacherSchedule() {
             queryClient.invalidateQueries({ queryKey: ["teacherHomework"] });
             toast.success("Clôture pédagogique enregistrée 🎉");
             setClosingSession(null);
-        } catch (e) {
+        } catch {
             toast.error("Une erreur est survenue. Veuillez réessayer.");
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleCreateSubmit = () => {
+        if (!form.studentId || !form.subject || !form.sessionDate || !form.sessionTime) {
+            toast.error("Veuillez remplir tous les champs obligatoires.");
+            return;
+        }
+        createMutation.mutate(form);
     };
 
     const weekSessions = useMemo(() => {
@@ -159,10 +209,18 @@ export default function TeacherSchedule() {
                     <h1 className="text-2xl font-bold text-[#0D2D5A]">Mon Emploi du Temps</h1>
                     <p className="text-gray-500 text-sm mt-1">Gérez vos sessions de cours et gardez une trace de vos interventions.</p>
                 </div>
-                <div className="hidden md:flex gap-2">
-                    <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_COLORS["planifié"]}`}>Planifié</span>
-                    <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_COLORS["en cours"]}`}>En cours</span>
-                    <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_COLORS["effectué"]}`}>Terminé</span>
+                <div className="flex items-center gap-3">
+                    <div className="hidden md:flex gap-2">
+                        <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_COLORS["planifié"]}`}>Planifié</span>
+                        <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_COLORS["en cours"]}`}>En cours</span>
+                        <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_COLORS["effectué"]}`}>Terminé</span>
+                    </div>
+                    <Button
+                        onClick={() => setShowCreate(true)}
+                        className="bg-[#1A6CC8] hover:bg-[#0D2D5A] h-9 px-4 rounded-xl font-bold shadow-sm gap-2 text-xs"
+                    >
+                        <Plus className="w-4 h-4" /> Nouvelle séance
+                    </Button>
                 </div>
             </div>
 
@@ -247,7 +305,6 @@ export default function TeacherSchedule() {
                                 <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2">
                                     {renderStatusBadge(s.status)}
 
-                                    {/* ACTIONS PROFESSEUR */}
                                     {(s.status === 'scheduled' || s.status === 'planifié' || s.status === 'à venir') && (
                                         <Button size="sm" onClick={() => checkInMutation.mutate(s.id)} disabled={checkInMutation.isPending} className="h-6 text-[10px] bg-[#0D2D5A] hover:bg-emerald-600 gap-1 px-2 shadow-sm">
                                             <Play className="w-3 h-3 text-white" /> Démarrer
@@ -258,7 +315,6 @@ export default function TeacherSchedule() {
                                             <Square className="w-3 h-3 text-white" /> Clôturer
                                         </Button>
                                     )}
-                                    {/* REJOINDRE EN LIGNE */}
                                     {s.virtualLink && (s.status === 'planifié' || s.status === 'à venir' || s.status === 'en cours' || s.status === 'scheduled' || s.status === 'in_progress') && (
                                         <a href={s.virtualLink} target="_blank" rel="noopener noreferrer">
                                             <Button size="sm" className="h-6 text-[10px] bg-purple-600 hover:bg-purple-700 gap-1 px-2 shadow-sm text-white">
@@ -280,6 +336,192 @@ export default function TeacherSchedule() {
                     )}
                 </div>
             </div>
+
+            {/* ===== DIALOG CRÉATION DE SÉANCE ===== */}
+            <Dialog open={showCreate} onOpenChange={(open) => { if (!open) { setShowCreate(false); setForm(defaultForm()); } }}>
+                <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-[#0D2D5A] text-lg">
+                            <CalendarDays className="w-5 h-5 text-[#1A6CC8]" /> Planifier une séance
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Créez une ou plusieurs séances avec l'un de vos élèves.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="mt-4 space-y-5">
+                        {/* Élève */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Élève <span className="text-red-400">*</span></label>
+                            <select
+                                value={form.studentId}
+                                onChange={e => setForm(f => ({ ...f, studentId: e.target.value }))}
+                                className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
+                            >
+                                <option value="">— Sélectionner un élève —</option>
+                                {(Array.isArray(students) ? students : []).map((s: any) => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Matière */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Matière <span className="text-red-400">*</span></label>
+                            <select
+                                value={form.subject}
+                                onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+                                className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
+                            >
+                                <option value="">— Sélectionner une matière —</option>
+                                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+
+                        {/* Date + Heure */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date <span className="text-red-400">*</span></label>
+                                <input
+                                    type="date"
+                                    value={form.sessionDate}
+                                    min={new Date().toISOString().split("T")[0]}
+                                    onChange={e => setForm(f => ({ ...f, sessionDate: e.target.value }))}
+                                    className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Heure <span className="text-red-400">*</span></label>
+                                <input
+                                    type="time"
+                                    value={form.sessionTime}
+                                    onChange={e => setForm(f => ({ ...f, sessionTime: e.target.value }))}
+                                    className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Type : Présentiel / En ligne */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Type de séance <span className="text-red-400">*</span></label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => setForm(f => ({ ...f, locationType: "presentiel", location: "" }))}
+                                    className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${form.locationType === "presentiel" ? "border-[#1A6CC8] bg-[#1A6CC8]/5" : "border-gray-100 hover:border-gray-200 bg-gray-50"}`}
+                                >
+                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${form.locationType === "presentiel" ? "bg-[#1A6CC8] text-white" : "bg-gray-100 text-gray-400"}`}>
+                                        <Home className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className={`text-xs font-bold ${form.locationType === "presentiel" ? "text-[#1A6CC8]" : "text-gray-500"}`}>Présentiel</p>
+                                        <p className="text-[10px] text-gray-400">Domicile / École</p>
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => setForm(f => ({ ...f, locationType: "online", location: "" }))}
+                                    className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${form.locationType === "online" ? "border-purple-500 bg-purple-50" : "border-gray-100 hover:border-gray-200 bg-gray-50"}`}
+                                >
+                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${form.locationType === "online" ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-400"}`}>
+                                        <Wifi className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className={`text-xs font-bold ${form.locationType === "online" ? "text-purple-600" : "text-gray-500"}`}>En ligne</p>
+                                        <p className="text-[10px] text-gray-400">Lien Jitsi auto-généré</p>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Adresse (présentiel uniquement) */}
+                        {form.locationType === "presentiel" && (
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Adresse / Lieu</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Domicile de l'élève, Lycée Général Leclerc..."
+                                    value={form.location || ""}
+                                    onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                                    className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
+                                />
+                            </div>
+                        )}
+
+                        {form.locationType === "online" && (
+                            <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 flex items-start gap-2">
+                                <Wifi className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                                <p className="text-xs text-purple-700 font-medium">
+                                    Un lien de visioconférence Jitsi sera généré automatiquement et accessible depuis votre planning le jour J.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Récurrence */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Récurrence</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => setForm(f => ({ ...f, recurrence: "none", sessionCount: 1 }))}
+                                    className={`p-3 rounded-xl border-2 text-xs font-bold transition-all ${form.recurrence === "none" ? "border-[#1A6CC8] bg-[#1A6CC8]/5 text-[#1A6CC8]" : "border-gray-100 text-gray-400 hover:border-gray-200"}`}
+                                >
+                                    Séance unique
+                                </button>
+                                <button
+                                    onClick={() => setForm(f => ({ ...f, recurrence: "weekly", sessionCount: 4 }))}
+                                    className={`p-3 rounded-xl border-2 text-xs font-bold transition-all ${form.recurrence === "weekly" ? "border-[#1A6CC8] bg-[#1A6CC8]/5 text-[#1A6CC8]" : "border-gray-100 text-gray-400 hover:border-gray-200"}`}
+                                >
+                                    Hebdomadaire
+                                </button>
+                            </div>
+                        </div>
+
+                        {form.recurrence === "weekly" && (
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    Nombre de séances <span className="text-gray-300 font-normal">(max 12)</span>
+                                </label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="range"
+                                        min={1}
+                                        max={12}
+                                        value={form.sessionCount || 4}
+                                        onChange={e => setForm(f => ({ ...f, sessionCount: parseInt(e.target.value) }))}
+                                        className="flex-1 accent-[#1A6CC8]"
+                                    />
+                                    <span className="text-sm font-bold text-[#1A6CC8] w-8 text-center">{form.sessionCount}</span>
+                                </div>
+                                <p className="text-[10px] text-gray-400">
+                                    {form.sessionCount} séance{(form.sessionCount || 1) > 1 ? "s" : ""} créée{(form.sessionCount || 1) > 1 ? "s" : ""} à partir du {form.sessionDate ? new Date(form.sessionDate).toLocaleDateString("fr-FR") : "..."}, chaque semaine.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="mt-6 flex gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => { setShowCreate(false); setForm(defaultForm()); }}
+                            disabled={createMutation.isPending}
+                            className="flex-1 border-gray-200"
+                        >
+                            Annuler
+                        </Button>
+                        <Button
+                            onClick={handleCreateSubmit}
+                            disabled={createMutation.isPending || !form.studentId || !form.subject || !form.sessionDate}
+                            className="flex-1 bg-[#1A6CC8] hover:bg-[#0D2D5A] gap-2 font-bold"
+                        >
+                            <Plus className="w-4 h-4" />
+                            {createMutation.isPending
+                                ? "Création..."
+                                : form.recurrence === "weekly"
+                                    ? `Créer ${form.sessionCount} séance${(form.sessionCount || 1) > 1 ? "s" : ""}`
+                                    : "Créer la séance"
+                            }
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* DIALOG BILAN DE SÉANCE */}
             <Dialog open={!!viewedNote} onOpenChange={(open) => !open && setViewedNote(null)}>
@@ -316,7 +558,6 @@ export default function TeacherSchedule() {
                     </DialogHeader>
 
                     <div className="mt-4 space-y-6">
-                        {/* Rapport de cours - OBLIGATOIRE */}
                         <div>
                             <label className="text-sm font-bold text-[#0D2D5A] flex items-center gap-1 mb-2">
                                 <FileText className="w-4 h-4 text-[#1A6CC8]" />
@@ -332,7 +573,6 @@ export default function TeacherSchedule() {
                             {!reportText.trim() && <p className="text-xs text-red-400 mt-1">Ce champ est obligatoire pour finaliser la séance.</p>}
                         </div>
 
-                        {/* Note de compréhension */}
                         <div>
                             <label className="text-sm font-bold text-[#0D2D5A] flex items-center gap-1 mb-3">
                                 <Star className="w-4 h-4 text-amber-400" />
@@ -351,7 +591,6 @@ export default function TeacherSchedule() {
                             </div>
                         </div>
 
-                        {/* Devoir - OPTIONNEL */}
                         <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100 space-y-3">
                             <h3 className="text-sm font-bold text-[#0D2D5A] flex items-center gap-1">
                                 📚 Travail à faire <span className="text-gray-400 font-normal text-xs ml-1">(optionnel)</span>

@@ -9,6 +9,7 @@ export interface SidebarItem {
     label: string;
     icon: LucideIcon;
     badgeCount?: number;
+    section?: string;
 }
 
 interface Props {
@@ -24,6 +25,13 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
     const handleLogout = () => {
         logout();
         navigate("/login");
+    };
+
+    const handleProfile = () => {
+        if (user?.role === 'teacher') navigate("/teacher/profile");
+        else if (user?.role === 'tutor' && user?.secondaryRole === 'teacher') navigate("/tutor/enseignant/profile");
+        else if (user?.role === 'tutor') navigate("/tutor/profile");
+        else navigate("/account");
     };
 
     return (
@@ -51,34 +59,44 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
 
             {/* Nav */}
             <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto scrollbar-hide">
-                {items.map((item) => (
-                    <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end
-                        className={({ isActive }) =>
-                            `flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${isActive
-                                ? "text-white shadow-lg"
-                                : "text-blue-100/60 hover:text-white hover:bg-white/5"
-                            }`
-                        }
-                        style={({ isActive }) => isActive ? { background: roleColor } : {}}
-                    >
-                        {() => (
-                            <>
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <item.icon className="w-4 h-4 flex-shrink-0" />
-                                    <span className="tracking-tight truncate">{item.label}</span>
+                {items.map((item, idx) => {
+                    const prevSection = idx > 0 ? items[idx - 1].section : undefined;
+                    const showSectionHeader = item.section && item.section !== prevSection;
+                    return (
+                        <div key={item.to}>
+                            {showSectionHeader && (
+                                <div className={`px-4 pb-1 text-[9px] font-black uppercase tracking-widest text-white/30 ${idx > 0 ? "pt-5 border-t border-white/10 mt-3" : "pt-0"}`}>
+                                    {item.section}
                                 </div>
-                                {item.badgeCount && item.badgeCount > 0 ? (
-                                    <div className="bg-red-500 text-white text-[9px] font-black h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center border-none shadow-sm shadow-red-900/40">
-                                        {item.badgeCount}
-                                    </div>
-                                ) : null}
-                            </>
-                        )}
-                    </NavLink>
-                ))}
+                            )}
+                            <NavLink
+                                to={item.to}
+                                end
+                                className={({ isActive }) =>
+                                    `flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${isActive
+                                        ? "text-white shadow-lg"
+                                        : "text-blue-100/60 hover:text-white hover:bg-white/5"
+                                    }`
+                                }
+                                style={({ isActive }) => isActive ? { background: roleColor } : {}}
+                            >
+                                {() => (
+                                    <>
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <item.icon className="w-4 h-4 flex-shrink-0" />
+                                            <span className="tracking-tight truncate">{item.label}</span>
+                                        </div>
+                                        {item.badgeCount && item.badgeCount > 0 ? (
+                                            <div className="bg-red-500 text-white text-[9px] font-black h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center border-none shadow-sm shadow-red-900/40">
+                                                {item.badgeCount}
+                                            </div>
+                                        ) : null}
+                                    </>
+                                )}
+                            </NavLink>
+                        </div>
+                    );
+                })}
             </nav>
 
             {/* User footer */}
@@ -96,10 +114,7 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
                     </div>
                 </div>
                 <button
-                    onClick={() => {
-                        if (user?.role === 'teacher') navigate("/teacher/profile");
-                        else navigate("/account");
-                    }}
+                    onClick={handleProfile}
                     className="w-full flex items-center gap-2 px-4 py-2 mb-2 rounded-xl text-[11px] font-bold uppercase tracking-widest text-blue-100/90 bg-white/5 hover:bg-white/10 transition-colors"
                 >
                     <UserCircle2 className="w-4 h-4" />

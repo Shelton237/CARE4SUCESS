@@ -44,86 +44,86 @@ export default function TeacherDashboard() {
     const students = dashData?.students || [];
 
     const kpiCards = [
-        { label: "Heures ce mois", value: `${stats.monthlyEarnings ? Math.round(stats.monthlyEarnings / 10000) : 0}h`, icon: Clock, color: "text-blue-600", bg: "bg-blue-50" },
-        { label: "Apprenants actifs", value: stats.activeStudents || 0, icon: Users, color: "text-indigo-600", bg: "bg-indigo-50" },
-        { label: "Moyenne globale", value: stats.avgGrade || "14.5", icon: Target, color: "text-emerald-600", bg: "bg-emerald-50" },
-        { label: "Satisfaction", value: `${stats.avgRating || "5.0"}/5`, icon: GraduationCap, color: "text-amber-600", bg: "bg-amber-50" },
+        { label: "Heures ce mois", value: `${stats.monthlyEarnings ? Math.round(stats.monthlyEarnings / 10000) : 0}h`, icon: Clock, color: "text-[#1A6CC8]", bg: "bg-blue-50/50" },
+        { label: "Apprenants actifs", value: stats.activeStudents || 0, icon: Users, color: "text-[#0D2D5A]", bg: "bg-slate-50/50" },
+        { label: "Moyenne globale", value: stats.avgGrade || "14.5", icon: Target, color: "text-[#1A6CC8]", bg: "bg-blue-50/50" },
+        { label: "Satisfaction", value: `${stats.avgRating || "5.0"}/5`, icon: GraduationCap, color: "text-[#F5A623]", bg: "bg-orange-50/50" },
     ];
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
+        <div className="w-full p-3 space-y-3 animate-in fade-in duration-500 bg-white">
             {/* Header Sober & Pro */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="outline" className="border-[#0D2D5A] text-[#0D2D5A] font-bold px-3 py-1 bg-white">
-                            <Briefcase className="w-3 h-3 mr-1.5" /> Enseignant Certifié
+                    <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="border-slate-200 text-[#0D2D5A] font-black px-2 py-0.5 rounded-none bg-white text-[10px] uppercase tracking-wider">
+                            <Briefcase className="w-3 h-3 mr-1" /> Enseignant Certifié
                         </Badge>
                         {stats.activeStudents > 0 && (
-                            <Badge className="bg-emerald-500 text-white border-none font-bold px-3 py-1">
+                            <Badge className="bg-[#F5A623] text-white border-none font-black px-2 py-0.5 rounded-none text-[10px] uppercase tracking-wider">
                                 Tuteur Actif
                             </Badge>
                         )}
                     </div>
-                    <h1 className="text-3xl font-black text-[#0D2D5A] tracking-tight">Espace Mission</h1>
-                    <p className="text-gray-500 font-medium mt-1">Plateforme de suivi pédagogique — Bienvenue, {user?.name}.</p>
+                    <h1 className="text-xl font-black text-[#0D2D5A] tracking-tight uppercase">Espace Mission</h1>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-wide">Plateforme de suivi pédagogique — Bienvenue, {user?.name}.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button onClick={() => navigate("/teacher/schedule")} variant="outline" className="border-gray-200 hover:bg-gray-50 font-bold h-12 px-6 rounded-xl">
+                <div className="flex items-center gap-2">
+                    <Button onClick={() => navigate("/teacher/schedule")} variant="outline" className="border-slate-200 hover:bg-slate-50 text-[#0D2D5A] font-black uppercase text-[10px] h-8 px-3 rounded-none shadow-none">
                         Mon Agenda
                     </Button>
-                    <Button onClick={() => navigate("/teacher/homework")} className="bg-[#0D2D5A] hover:bg-[#1a3d6e] font-bold h-12 px-6 rounded-xl shadow-lg shadow-blue-900/10">
-                        <Plus className="w-4 h-4 mr-2" /> Nouveau Devoir
+                    <Button onClick={() => navigate("/teacher/homework")} className="bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white font-black uppercase text-[10px] h-8 px-3 rounded-none shadow-none">
+                        <Plus className="w-3 h-3 mr-1" /> Nouveau Devoir
                     </Button>
                 </div>
             </div>
 
             {/* KPIs Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {kpiCards.map((kpi, i) => (
-                    <Card key={i} className="border-none shadow-sm bg-white overflow-hidden group hover:shadow-md transition-all duration-300">
-                        <CardContent className="p-6">
+                    <Card key={i} className="border border-slate-200 shadow-none bg-white rounded-none">
+                        <CardContent className="p-3">
                             <div className="flex items-start justify-between">
-                                <div className={`p-3 rounded-2xl ${kpi.bg} ${kpi.color} transition-transform group-hover:scale-110 duration-300`}>
-                                    <kpi.icon className="w-6 h-6" />
+                                <div className={`p-2 ${kpi.bg} ${kpi.color}`}>
+                                    <kpi.icon className="w-4 h-4" />
                                 </div>
-                                <TrendingUp className="w-4 h-4 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <TrendingUp className="w-3 h-3 text-[#1A6CC8]" />
                             </div>
-                            <div className="mt-4">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{kpi.label}</p>
-                                <h3 className="text-2xl font-black text-[#0D2D5A] mt-1">{kpi.value}</h3>
+                            <div className="mt-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{kpi.label}</p>
+                                <h3 className="text-lg font-black text-[#0D2D5A] mt-0.5 tracking-tight">{kpi.value}</h3>
                             </div>
                         </CardContent>
                     </Card>
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 {/* Section Priorités - DYNAMIQUE */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center gap-3">
-                        <div className="w-1.5 h-6 bg-[#0D2D5A] rounded-full" />
-                        <h2 className="text-xl font-black text-[#0D2D5A]">Actions Prioritaires</h2>
+                <div className="lg:col-span-2 space-y-3">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                        <div className="w-1 h-3 bg-[#F5A623] rounded-none" />
+                        <h2 className="text-xs font-black text-[#0D2D5A] uppercase tracking-tight">Actions Prioritaires</h2>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {/* Devoirs à corriger */}
                         <div 
                             onClick={() => navigate("/teacher/homework")}
-                            className={`p-6 rounded-3xl border cursor-pointer transition-all ${
+                            className={`p-3 border border-slate-200 rounded-none cursor-pointer shadow-none ${
                                 stats.pendingHomework > 0 
-                                ? "bg-amber-50 border-amber-100 hover:bg-amber-100 shadow-sm" 
-                                : "bg-gray-50 border-gray-100 opacity-60"
+                                ? "bg-orange-50/20" 
+                                : "bg-slate-50/50 opacity-80"
                             }`}
                         >
-                            <div className="flex items-center justify-between mb-4">
-                                <div className={`p-3 rounded-2xl ${stats.pendingHomework > 0 ? "bg-white text-amber-600" : "bg-white text-gray-400"}`}>
-                                    <AlertCircle className="w-5 h-5" />
+                            <div className="flex items-center justify-between mb-2">
+                                <div className={`p-1.5 ${stats.pendingHomework > 0 ? "bg-[#F5A623]/10 text-[#F5A623]" : "bg-slate-100 text-slate-400"}`}>
+                                    <AlertCircle className="w-4 h-4" />
                                 </div>
-                                {stats.pendingHomework > 0 && <Badge className="bg-amber-600 text-white font-black">{stats.pendingHomework}</Badge>}
+                                {stats.pendingHomework > 0 && <Badge className="bg-[#F5A623] text-white font-black text-[10px] rounded-none px-1.5 border-none">{stats.pendingHomework}</Badge>}
                             </div>
-                            <h3 className="font-bold text-[#0D2D5A] mb-1">Corrections en attente</h3>
-                            <p className="text-xs text-gray-500 font-medium">
+                            <h3 className="font-black text-[#0D2D5A] text-[10px] uppercase mb-0.5 tracking-tight">Corrections en attente</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
                                 {stats.pendingHomework > 0 
                                     ? `Vous avez ${stats.pendingHomework} devoir(s) à évaluer.` 
                                     : "Aucun nouveau rendu à corriger."}
@@ -133,20 +133,20 @@ export default function TeacherDashboard() {
                         {/* Rapports à rédiger */}
                         <div 
                             onClick={() => navigate("/teacher/schedule")}
-                            className={`p-6 rounded-3xl border cursor-pointer transition-all ${
+                            className={`p-3 border border-slate-200 rounded-none cursor-pointer shadow-none ${
                                 stats.pendingReports > 0 
-                                ? "bg-rose-50 border-rose-100 hover:bg-rose-100 shadow-sm" 
-                                : "bg-gray-50 border-gray-100 opacity-60"
+                                ? "bg-blue-50/20" 
+                                : "bg-slate-50/50 opacity-80"
                             }`}
                         >
-                            <div className="flex items-center justify-between mb-4">
-                                <div className={`p-3 rounded-2xl ${stats.pendingReports > 0 ? "bg-white text-rose-600" : "bg-white text-gray-400"}`}>
-                                    <Clock className="w-5 h-5" />
+                            <div className="flex items-center justify-between mb-2">
+                                <div className={`p-1.5 ${stats.pendingReports > 0 ? "bg-[#1A6CC8]/10 text-[#1A6CC8]" : "bg-slate-100 text-slate-400"}`}>
+                                    <Clock className="w-4 h-4" />
                                 </div>
-                                {stats.pendingReports > 0 && <Badge className="bg-rose-600 text-white font-black">{stats.pendingReports}</Badge>}
+                                {stats.pendingReports > 0 && <Badge className="bg-[#1A6CC8] text-white font-black text-[10px] rounded-none px-1.5 border-none">{stats.pendingReports}</Badge>}
                             </div>
-                            <h3 className="font-bold text-[#0D2D5A] mb-1">Rapports de séance</h3>
-                            <p className="text-xs text-gray-500 font-medium">
+                            <h3 className="font-black text-[#0D2D5A] text-[10px] uppercase mb-0.5 tracking-tight">Rapports de séance</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
                                 {stats.pendingReports > 0 
                                     ? `Complétez ${stats.pendingReports} rapport(s) pour valider vos heures.` 
                                     : "Tous vos rapports sont à jour."}
@@ -155,42 +155,42 @@ export default function TeacherDashboard() {
                     </div>
 
                     {/* Prochaines séances */}
-                    <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm space-y-6">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-black text-[#0D2D5A]">Séances imminentes</h3>
-                            <Button variant="ghost" className="text-blue-600 font-bold text-sm" onClick={() => navigate("/teacher/schedule")}>Tout voir</Button>
+                    <div className="bg-white border border-slate-200 p-3 shadow-none space-y-3 rounded-none">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <h3 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-tight">Séances imminentes</h3>
+                            <Button variant="ghost" className="text-[#1A6CC8] font-black text-[10px] uppercase h-6 px-2 rounded-none hover:bg-slate-50" onClick={() => navigate("/teacher/schedule")}>Tout voir</Button>
                         </div>
                         
-                        <div className="space-y-4">
+                        <div className="space-y-2">
                             {upcomingSessions.length === 0 ? (
-                                <div className="py-12 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                                    <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                                    <p className="text-gray-400 font-bold text-sm">Votre planning est vide pour le moment</p>
+                                <div className="py-6 text-center bg-slate-50/50 border border-slate-100 rounded-none">
+                                    <Calendar className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                                    <p className="text-slate-400 font-bold text-[10px] uppercase tracking-wide">Votre planning est vide pour le moment</p>
                                 </div>
                             ) : (
                                 upcomingSessions.slice(0, 2).map((s: any) => (
                                     <div 
                                         key={s.id} 
-                                        className="flex items-center gap-6 p-5 rounded-2xl bg-gray-50 hover:bg-white border border-transparent hover:border-blue-100 transition-all cursor-pointer group shadow-sm"
+                                        className="flex items-center gap-3 p-3 bg-white border border-slate-100 hover:border-[#1A6CC8] cursor-pointer shadow-none rounded-none"
                                         onClick={() => navigate("/teacher/schedule")}
                                     >
-                                        <div className="w-14 h-14 rounded-xl bg-white border border-gray-100 flex flex-col items-center justify-center text-[#0D2D5A] group-hover:bg-[#0D2D5A] group-hover:text-white transition-all duration-300">
-                                            <span className="text-[10px] font-black group-hover:text-white/70 uppercase">{s.day?.slice(0, 3)}</span>
-                                            <span className="text-lg font-black">{s.date?.split('-')[2]}</span>
+                                        <div className="w-10 h-10 bg-slate-50 border border-slate-100 flex flex-col items-center justify-center text-[#0D2D5A]">
+                                            <span className="text-[8px] font-black uppercase text-slate-400">{s.day?.slice(0, 3)}</span>
+                                            <span className="text-sm font-black">{s.date?.split('-')[2]}</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
-                                                <h4 className="font-bold text-[#0D2D5A] text-base truncate">{s.student}</h4>
-                                                <Badge variant="secondary" className="bg-white text-[#0D2D5A] text-[9px] font-black border-gray-200 uppercase px-2 py-0.5">
+                                                <h4 className="font-black text-[#0D2D5A] text-xs uppercase tracking-tight truncate">{s.student}</h4>
+                                                <Badge variant="secondary" className="bg-slate-100 text-[#0D2D5A] text-[8px] font-black border-none uppercase px-1.5 py-0 rounded-none">
                                                     {s.subject}
                                                 </Badge>
                                             </div>
-                                            <div className="flex items-center gap-4 text-xs text-gray-500 font-bold">
-                                                <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {s.time}</span>
-                                                <span className="flex items-center gap-1.5 text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /> Confirmé</span>
+                                            <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                                                <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {s.time}</span>
+                                                <span className="flex items-center gap-1 text-[#F5A623]"><CheckCircle2 className="w-3 h-3" /> Confirmé</span>
                                             </div>
                                         </div>
-                                        <ArrowUpRight className="w-5 h-5 text-gray-300 group-hover:text-[#0D2D5A] group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" />
+                                        <ArrowUpRight className="w-4 h-4 text-[#1A6CC8]" />
                                     </div>
                                 ))
                             )}
@@ -199,51 +199,49 @@ export default function TeacherDashboard() {
                 </div>
 
                 {/* Sidebar - Performance & Liens */}
-                <div className="space-y-6">
-                    <div className="bg-[#0D2D5A] rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
-                        <div className="relative z-10 space-y-6">
-                            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                                <div className="p-2 bg-white/10 rounded-lg">
-                                    <BookOpen className="w-5 h-5 text-blue-300" />
+                <div className="space-y-3">
+                    <div className="bg-[#0D2D5A] p-4 text-white shadow-none rounded-none border border-[#0D2D5A]">
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                                <div className="p-1.5 bg-white/10">
+                                    <BookOpen className="w-3 h-3 text-[#1A6CC8]" />
                                 </div>
-                                <h3 className="text-lg font-black">Mes Apprenants</h3>
+                                <h3 className="text-[10px] font-black uppercase tracking-tight">Mes Apprenants</h3>
                             </div>
                             
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                                 {students.slice(0, 3).map((st: any) => (
-                                    <div key={st.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer" onClick={() => navigate("/teacher/students")}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-blue-400/20 flex items-center justify-center text-[10px] font-black">
+                                    <div key={st.id} className="flex items-center justify-between p-2 bg-white/5 border border-white/10 cursor-pointer rounded-none hover:bg-white/10" onClick={() => navigate("/teacher/students")}>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 bg-[#1A6CC8]/20 flex items-center justify-center text-[8px] font-black uppercase text-[#1A6CC8]">
                                                 {st.name?.split(' ').map((n:any)=>n[0]).join('')}
                                             </div>
-                                            <span className="text-sm font-bold truncate max-w-[100px]">{st.name}</span>
+                                            <span className="text-[10px] font-black uppercase tracking-tight truncate max-w-[90px]">{st.name}</span>
                                         </div>
-                                        <Badge className="bg-emerald-400 text-slate-900 font-bold text-[9px]">{st.avgGrade}/20</Badge>
+                                        <Badge className="bg-[#1A6CC8] text-white font-black text-[9px] rounded-none px-1.5 border-none">{st.avgGrade}/20</Badge>
                                     </div>
                                 ))}
                                 {students.length > 3 && (
-                                    <button onClick={() => navigate("/teacher/students")} className="w-full text-center text-xs font-bold text-blue-300 hover:text-white transition-colors">
+                                    <button onClick={() => navigate("/teacher/students")} className="w-full text-center text-[10px] font-black uppercase text-[#1A6CC8] hover:text-white transition-colors">
                                         + {students.length - 3} autres élèves
                                     </button>
                                 )}
                             </div>
 
-                            <Button onClick={() => navigate("/teacher/courses")} className="w-full bg-white text-[#0D2D5A] hover:bg-blue-50 font-black h-12 rounded-2xl shadow-lg mt-4">
+                            <Button onClick={() => navigate("/teacher/courses")} className="w-full bg-[#1A6CC8] text-white hover:bg-[#F5A623] font-black uppercase text-[10px] h-8 rounded-none shadow-none mt-2">
                                 Gérer mes Cours
                             </Button>
                         </div>
-                        {/* Decorative background element */}
-                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl" />
                     </div>
 
-                    <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
-                        <h4 className="text-xs font-black text-[#0D2D5A] uppercase tracking-widest border-b border-gray-50 pb-3">Ressources rapides</h4>
-                        <div className="grid grid-cols-1 gap-2">
-                            <Button variant="ghost" className="w-full justify-start font-bold text-gray-500 hover:text-[#0D2D5A] hover:bg-gray-50" onClick={() => navigate("/teacher/profile")}>
-                                <Users className="w-4 h-4 mr-3" /> Mon Profil Tuteur
+                    <div className="bg-white p-3 border border-slate-200 shadow-none space-y-3 rounded-none">
+                        <h4 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest border-b border-slate-100 pb-2">Ressources rapides</h4>
+                        <div className="grid grid-cols-1 gap-1">
+                            <Button variant="ghost" className="w-full justify-start font-black uppercase text-[10px] text-slate-400 hover:text-[#0D2D5A] hover:bg-slate-50 h-8 px-2 rounded-none" onClick={() => navigate("/teacher/profile")}>
+                                <Users className="w-3 h-3 mr-2" /> Mon Profil Tuteur
                             </Button>
-                            <Button variant="ghost" className="w-full justify-start font-bold text-gray-500 hover:text-[#0D2D5A] hover:bg-gray-50" onClick={() => navigate("/teacher/earnings")}>
-                                <Clock className="w-4 h-4 mr-3" /> Historique Gains
+                            <Button variant="ghost" className="w-full justify-start font-black uppercase text-[10px] text-slate-400 hover:text-[#0D2D5A] hover:bg-slate-50 h-8 px-2 rounded-none" onClick={() => navigate("/teacher/earnings")}>
+                                <Clock className="w-3 h-3 mr-2" /> Historique Gains
                             </Button>
                         </div>
                     </div>

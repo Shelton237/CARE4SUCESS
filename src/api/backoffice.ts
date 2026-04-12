@@ -469,6 +469,24 @@ export const markNotificationAsRead = (id: string) =>
 export const fetchAdminDashboard = () =>
     request<AdminDashboardResponse>("/admin/dashboard");
 
+export type CreateSessionPayload = {
+    studentId: string;
+    subject: string;
+    sessionDate: string;   // "YYYY-MM-DD"
+    sessionTime: string;   // "HH:MM"
+    locationType: "presentiel" | "online";
+    location?: string;
+    recurrence: "none" | "weekly";
+    sessionCount?: number;
+};
+
+export const createSession = (payload: CreateSessionPayload) =>
+    request<{ sessions: any[]; count: number }>("/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+
 export const sessionCheckIn = (sessionId: string) =>
     request<{ success: boolean }>(`/sessions/${sessionId}/check-in`, { method: "PATCH" });
 
