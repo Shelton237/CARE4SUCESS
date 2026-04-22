@@ -4382,28 +4382,10 @@ app.get("/api/teachers/:teacherId/earnings-history", async (req, res) => {
   }
 });
 
-app.get("/api/students/:studentId/overview", async (req, res) => {
-  const { studentId } = req.params;
-  try {
-    const [[student]] = await pool.query("SELECT name FROM users WHERE id = ?", [studentId]);
-    if (!student) return res.status(404).json({ message: "Élève introuvable." });
-
-    const [[{ avgScore }]] = await pool.query("SELECT AVG(score) as avgScore FROM quiz_attempts WHERE student_id = ?", [studentId]);
-    const [[session]] = await pool.query("SELECT teacher_name, subject FROM sessions WHERE student_id = ? LIMIT 1", [studentId]);
-
-    res.json({
-      name: student.name,
-      level: "3e",
-      currentAvg: avgScore ? Number((avgScore / 20 * 20).toFixed(1)) : 14.5,
-      previousAvg: 11.8,
-      teacher: session?.teacher_name || "Directeur Ngono",
-      subject: session?.subject || "Mathématiques",
-      streak: 6
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
+// Remplace par la version stabilisée plus bas (ligne 5338)
+/*
+app.get("/api/students/:studentId/overview", async (req, res) => { ... });
+*/
 
 app.get("/api/students/:studentId/quiz-attempts", async (req, res) => {
   const { studentId } = req.params;
@@ -4422,18 +4404,9 @@ app.get("/api/students/:studentId/quiz-attempts", async (req, res) => {
   }
 });
 
-app.get("/api/students/:studentId/homework", async (req, res) => {
-  const { studentId } = req.params;
-  try {
-    const [rows] = await pool.query(
-      "SELECT id, title, subject, due_date as dueDate, status FROM homework WHERE student_id = ? ORDER BY due_date DESC",
-      [studentId]
-    );
-    res.json(rows);
-  } catch (error) {
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
+/*
+app.get("/api/students/:studentId/homework", async (req, res) => { ... });
+*/
 
 app.get("/api/students/:studentId/evaluations", async (req, res) => {
   const { studentId } = req.params;
@@ -5338,22 +5311,21 @@ app.get("/api/students/:studentId/overview", async (req, res) => {
       [studentId]
     );
 
-    // Student level from users table (stored in level or bio field)
-    const [[studentRow]] = await pool.query(
-      "SELECT name FROM users WHERE id = ?", [studentId]
-    );
+    // Student name
+    const [userRows] = await pool.query("SELECT name FROM users WHERE id = ?", [studentId]);
+    const studentName = userRows[0]?.name || "Élève Care4Success";
 
-    // XP from completed sessions (+100 each)
-    const [[sessionsRow]] = await pool.query(
-      `SELECT COUNT(*) as cnt FROM sessions WHERE student_id = ? AND status = 'effectué�'`,
-      [studentId]
-    ).catch(() => [[{ cnt: 0 }]]);
-
-    // XP from quiz attempts: 50 base + score bonus
+    // Quiz attempts for XP
     const [quizRows] = await pool.query(
-      `SELECT score FROM quiz_attempts WHERE student_id = ?`,
+      "SELECT score FROM quiz_attempts WHERE student_id = ? LIMIT 10",
       [studentId]
     ).catch(() => [[]]);
+
+    // Sessions count for XP
+    const [[sessionsRow]] = await pool.query(
+      `SELECT COUNT(*) as cnt FROM sessions WHERE student_id = ? AND status = 'effectué'`,
+      [studentId]
+    ).catch(() => [[{ cnt: 0 }]]);
 
     // XP from completed lessons
     const [[lessonRow]] = await pool.query(
@@ -5377,11 +5349,11 @@ app.get("/api/students/:studentId/overview", async (req, res) => {
 
     const gradeInfo = getGradeInfo(totalXP);
 
-    // Login streak: consecutive days with activity (sessions OR quiz_attempts)
+    // Login streak: consecutive days with activity
     const [activityRows] = await pool.query(
       `SELECT DATE(created_at) as day FROM quiz_attempts WHERE student_id = ?
        UNION
-       SELECT DATE(session_date) as day FROM sessions WHERE student_id = ? AND status = 'effectué�'
+       SELECT DATE(session_date) as day FROM sessions WHERE student_id = ? AND status = 'effectué'
        ORDER BY day DESC`,
       [studentId, studentId]
     ).catch(() => [[]]);
@@ -5395,7 +5367,6 @@ app.get("/api/students/:studentId/overview", async (req, res) => {
         const d = new Date(row.day);
         d.setHours(0,0,0,0);
         if (!prevDay) {
-          // Allow today or yesterday to start streak
           const diff = Math.round((today - d) / 86400000);
           if (diff <= 1) { streak = 1; prevDay = d; }
           else break;
