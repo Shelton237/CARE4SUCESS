@@ -3432,6 +3432,159 @@ app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
   }
 });
 
+// Admin Finance Summary
+app.get("/api/admin/finance/summary", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  try {
+    const [[{ totalBilled }]] = await pool.query("SELECT SUM(amount) as totalBilled FROM parent_invoices");
+    const [[{ totalPaid }]] = await pool.query("SELECT SUM(amount) as totalPaid FROM parent_invoices WHERE status = 'paid'");
+
+    const [teachers] = await pool.query("SELECT id, rate_type, hourly_rate, monthly_rate FROM teachers");
+    let totalTeacherExpenses = 0;
+
+    for (const t of teachers) {
+      if (t.rate_type === 'monthly') {
+        const [[{ monthCount }]] = await pool.query(
+          "SELECT COUNT(DISTINCT DATE_FORMAT(session_date, '%Y-%m')) as cnt FROM sessions WHERE teacher_id = ? AND status = 'effectué'",
+          [t.id]
+        );
+        totalTeacherExpenses += (monthCount || 0) * (Number(t.monthly_rate) || 0);
+      } else {
+        const hRate = t.hourly_rate || 7500;
+        const [[{ hourlyTotal }]] = await pool.query(
+          `SELECT SUM(ROUND(TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time) / 60, 2) * ?) as cnt
+           FROM sessions WHERE teacher_id = ? AND status = 'effectué' AND actual_start_time IS NOT NULL AND actual_end_time IS NOT NULL`,
+          [hRate, t.id]
+        );
+        totalTeacherExpenses += Number(hourlyTotal || 0);
+      }
+    }
+
+    res.json({
+      totalBilled: totalBilled || 0,
+      totalPaid: totalPaid || 0,
+      totalTeacherExpenses,
+      margin: (totalBilled || 0) - totalTeacherExpenses
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur finance." });
+  }
+});
+
+// Admin Payroll
+app.get("/api/admin/finance/teacher-payroll", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  try {
+    const [teachers] = await pool.query("SELECT id, name, rate_type, hourly_rate, monthly_rate FROM teachers");
+    const payroll = await Promise.all(teachers.map(async (t) => {
+      let monthlyEarnings = 0;
+      let totalEarnings = 0;
+
+      if (t.rate_type === 'monthly') {
+        const [[{ monthCount }]] = await pool.query(
+          "SELECT COUNT(DISTINCT DATE_FORMAT(session_date, '%Y-%m')) as cnt FROM sessions WHERE teacher_id = ? AND status = 'effectué'",
+          [t.id]
+        );
+        totalEarnings = (monthCount || 0) * (Number(t.monthly_rate) || 0);
+
+        const [[{ activeThisMonth }]] = await pool.query(
+          "SELECT COUNT(*) as cnt FROM sessions WHERE teacher_id = ? AND status = 'effectué' AND DATE_FORMAT(session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')",
+          [t.id]
+        );
+        monthlyEarnings = activeThisMonth > 0 ? (Number(t.monthly_rate) || 0) : 0;
+      } else {
+        const hRate = t.hourly_rate || 7500;
+        const [[{ hTotal }]] = await pool.query(
+          `SELECT SUM(ROUND(TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time) / 60, 2) * ?) as cnt
+           FROM sessions WHERE teacher_id = ? AND status = 'effectué' AND actual_start_time IS NOT NULL AND actual_end_time IS NOT NULL`,
+          [hRate, t.id]
+        );
+        totalEarnings = hTotal || 0;
+
+        const [[{ hMonth }]] = await pool.query(
+          `SELECT SUM(ROUND(TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time) / 60, 2) * ?) as cnt
+           FROM sessions WHERE teacher_id = ? AND status = 'effectué' AND DATE_FORMAT(session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') AND actual_start_time IS NOT NULL AND actual_end_time IS NOT NULL`,
+          [hRate, t.id]
+        );
+        monthlyEarnings = hMonth || 0;
+      }
+
+      return {
+        id: t.id,
+        name: t.name,
+        rateType: t.rate_type,
+        rate: t.rate_type === 'monthly' ? t.monthly_rate : t.hourly_rate,
+        monthlyEarnings,
+        totalEarnings
+      };
+    }));
+    res.json(payroll);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur payroll." });
+  }
+});
+
+// Manual Invoice Generation
+app.post("/api/admin/finance/generate-invoices", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  try {
+    const { month } = req.body; // YYYY-MM
+    let targetDate;
+    if (month) {
+      targetDate = new Date(`${month}-15`);
+    } else {
+      targetDate = new Date();
+      targetDate.setMonth(targetDate.getMonth() - 1);
+    }
+
+    const y = targetDate.getFullYear();
+    const m = String(targetDate.getMonth() + 1).padStart(2, "0");
+    const monthKey = `${y}-${m}`;
+    const monthLabel = targetDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
+    const [rows] = await pool.query(
+      `SELECT s.student_id,
+              u_student.parent_id,
+              u_parent.email AS parentEmail, u_parent.name AS parentName, u_student.name AS childName,
+              COUNT(s.id) AS sessionCount,
+              SUM(ROUND(
+                IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL,
+                   TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2)
+                * COALESCE(t.hourly_rate, 7500), 0
+              )) AS totalAmount
+       FROM sessions s
+       JOIN users u_student ON u_student.id = s.student_id
+       JOIN users u_parent ON u_parent.id = u_student.parent_id
+       LEFT JOIN teachers t ON t.id = s.teacher_id
+       WHERE DATE_FORMAT(s.session_date, '%Y-%m') = ? AND s.status = 'effectué'
+       GROUP BY s.student_id, u_student.parent_id`,
+      [monthKey]
+    );
+
+    let generated = 0;
+    for (const row of rows) {
+      const [[exists]] = await pool.query(
+        `SELECT id FROM parent_invoices WHERE parent_id = ? AND DATE_FORMAT(invoice_date, '%Y-%m') = ?`,
+        [row.parent_id, monthKey]
+      );
+      if (exists) continue;
+
+      const invId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO parent_invoices (id, parent_id, invoice_date, description, amount, status)
+         VALUES (?, ?, ?, ?, ?, 'pending')`,
+        [invId, row.parent_id, `${y}-${m}-01`, `Cours de soutien — ${monthLabel} (${row.sessionCount} séance${row.sessionCount > 1 ? "s" : ""})`, row.totalAmount]
+      );
+      generated++;
+    }
+
+    res.json({ message: "Facturation terminée", generated, month: monthLabel });
+  } catch (error) {
+    console.error("Manual invoice error", error);
+    res.status(500).json({ message: "Erreur facturation." });
+  }
+});
+
 
 
 // ==========================================

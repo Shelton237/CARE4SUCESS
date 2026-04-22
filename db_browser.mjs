@@ -8,8 +8,8 @@ const pool = mysql.createPool({
 });
 
 async function run() {
-  const [users] = await pool.query('SELECT id, name, email, role FROM users WHERE role IN ("student", "parent")');
-  console.log('Users found:', JSON.stringify(users, null, 2));
+  const [users] = await pool.query('SELECT id, name, email, role FROM users WHERE role = "admin"');
+  console.log('Admins found:', JSON.stringify(users, null, 2));
   await pool.end();
 }
 
