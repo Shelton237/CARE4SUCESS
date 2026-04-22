@@ -3341,7 +3341,7 @@ app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
          COUNT(*) AS total,
          SUM(IF(status = 'effectué', 1, 0)) AS done
        FROM sessions
-       WHERE DATE_FORMAT(date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')`
+       WHERE DATE_FORMAT(session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')`
     );
     const occupancyRate = occupancyRow.total > 0
       ? Math.round((occupancyRow.done / occupancyRow.total) * 100)
@@ -3355,7 +3355,7 @@ app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
                 * COALESCE(t.hourly_rate, 7500), 0)) AS amount
        FROM sessions s
        LEFT JOIN teachers t ON t.id = s.teacher_id
-       WHERE DATE_FORMAT(s.date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+       WHERE DATE_FORMAT(s.session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
          AND s.status = 'effectué'
        GROUP BY s.subject
        ORDER BY amount DESC
@@ -3365,7 +3365,7 @@ app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
     // Profs actifs ce mois
     const [[activeTeachersRow]] = await pool.query(
       `SELECT COUNT(DISTINCT teacher_id) AS count FROM sessions
-       WHERE DATE_FORMAT(date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') AND status = 'effectué'`
+       WHERE DATE_FORMAT(session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') AND status = 'effectué'`
     );
 
     // Leads du mois
@@ -3528,7 +3528,7 @@ app.get("/api/admin/finance/teacher-payroll", authenticateRequest, async (req, r
 app.post("/api/admin/finance/generate-invoices", authenticateRequest, async (req, res) => {
   if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
   try {
-    const { month } = req.body; // YYYY-MM
+    const { month } = req.body || {}; // YYYY-MM
     let targetDate;
     if (month) {
       targetDate = new Date(`${month}-15`);
@@ -6291,7 +6291,7 @@ cron.schedule("0 * * * *", async () => {
     tomorrow.setHours(tomorrow.getHours() + 24);
     const dayStr = tomorrow.toISOString().slice(0, 10);
     const [sessions] = await pool.query(
-      `SELECT s.id, s.date, s.start_time,
+      `SELECT s.id, s.session_date AS date, s.start_time,
               u_parent.email AS parentEmail, u_parent.name AS parentName,
               u_student.name AS childName,
               t.name AS teacherName, s.subject
@@ -6299,7 +6299,7 @@ cron.schedule("0 * * * *", async () => {
        JOIN users u_student ON u_student.id = s.student_id
        JOIN users u_parent ON u_parent.id = u_student.parent_id
        JOIN teachers t ON t.id = s.teacher_id
-       WHERE DATE(s.date) = ? AND s.status = 'programmé' AND s.reminder_sent = 0`,
+       WHERE DATE(s.session_date) = ? AND s.status = 'programmé' AND s.reminder_sent = 0`,
       [dayStr]
     );
     for (const sess of sessions) {
