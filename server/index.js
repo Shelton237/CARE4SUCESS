@@ -3638,7 +3638,8 @@ app.post("/api/auth/login", async (req, res) => {
       console.warn("DB offline, using demo fallback for login:", email);
       const demoUsers = {
         'admin@care4success.cm': { id: 'a1', name: 'Admin Demo', role: 'admin' },
-        'prof@care4success.cm': { id: 't1', name: 'Prof Demo', role: 'teacher' }
+        'prof@care4success.cm': { id: 't1', name: 'Prof Demo', role: 'teacher' },
+        'test@care4success.com': { id: 'a1', name: 'Admin User', role: 'admin' }
       };
       if (demoUsers[email]) {
         const user = demoUsers[email];
