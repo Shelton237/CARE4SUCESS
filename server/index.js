@@ -1180,14 +1180,36 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
      ORDER BY order_index ASC`,
     [courseIds]
   );
-  const [quizRows] = await pool.query(
-    `SELECT q.id, q.course_id, q.lesson_id, q.title, q.instructions, q.total_points, COUNT(qq.id) AS question_count
-     FROM quizzes q
-     LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
-     WHERE q.course_id IN (?)
-     GROUP BY q.id`,
-    [courseIds]
-  );
+  let quizRows = [];
+  try {
+    const [rows] = await pool.query(
+      `SELECT q.id, q.course_id, q.lesson_id, q.title, q.instructions, q.total_points, COUNT(qq.id) AS question_count
+       FROM quizzes q
+       LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
+       WHERE q.course_id IN (?)
+       GROUP BY q.id`,
+      [courseIds]
+    );
+    quizRows = rows;
+  } catch (quizErr) {
+    // lesson_id column might not exist in older DB versions — fallback with minimal query
+    if (quizErr.code === 'ER_BAD_FIELD_ERROR') {
+      console.warn("quizzes.lesson_id column missing, using minimal quiz query");
+      try {
+        const [rows] = await pool.query(
+          `SELECT q.id, q.course_id, NULL AS lesson_id, q.title, q.instructions, q.total_points, COUNT(qq.id) AS question_count
+           FROM quizzes q
+           LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
+           WHERE q.course_id IN (?)
+           GROUP BY q.id`,
+          [courseIds]
+        );
+        quizRows = rows;
+      } catch { quizRows = []; }
+    } else {
+      throw quizErr;
+    }
+  }
 
   let progressMap = new Map();
   if (studentId) {
