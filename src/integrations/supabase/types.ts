@@ -155,11 +155,15 @@ export interface CreateTeacherApplicationPayload {
     cvUrl?: string;
 }
 
+export type RateType = "hourly" | "monthly";
+
 export type TeacherApplicationDecisionPayload = {
     status: Exclude<TeacherApplicationStatus, "pending">;
     reviewNotes?: string;
     reviewerName: string;
     reviewerRole: ReviewerRole;
+    rateType?: RateType;       // "hourly" | "monthly"
+    negotiatedRate?: number;   // tarif négocié (FCFA)
 };
 
 export type TeacherFeedbackReviewer = "parent" | "student" | "advisor";

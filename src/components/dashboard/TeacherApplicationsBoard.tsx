@@ -25,6 +25,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import type { RateType } from "@/integrations/supabase/types";
 import {
     CheckCircle2,
     XCircle,
@@ -39,6 +41,9 @@ import {
     GraduationCap,
     AlertCircle,
     Phone,
+    Clock,
+    CalendarDays,
+    DollarSign,
 } from "lucide-react";
 
 const STATUS_FILTERS: Array<{
@@ -90,6 +95,8 @@ export default function TeacherApplicationsBoard({
     } | null>(null);
     const [notes, setNotes] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
+    const [rateType, setRateType] = useState<RateType>("hourly");
+    const [negotiatedRate, setNegotiatedRate] = useState<string>("7500");
     const [newCredentials, setNewCredentials] = useState<{
         email: string;
         password?: string;
@@ -128,16 +135,22 @@ export default function TeacherApplicationsBoard({
             id,
             status,
             reviewNotes,
+            rateType,
+            negotiatedRate,
         }: {
             id: string;
             status: Exclude<TeacherApplicationStatus, "pending">;
             reviewNotes?: string;
+            rateType?: RateType;
+            negotiatedRate?: number;
         }) =>
             reviewTeacherApplication(id, {
                 status,
                 reviewNotes,
                 reviewerName: user?.name ?? reviewerRole.toUpperCase(),
                 reviewerRole,
+                rateType,
+                negotiatedRate,
             }),
         onSuccess: (data: any) => {
             if (data?.credentials) {
@@ -178,6 +191,8 @@ export default function TeacherApplicationsBoard({
         status: Exclude<TeacherApplicationStatus, "pending">
     ) => {
         setNotes("");
+        setRateType("hourly");
+        setNegotiatedRate("7500");
         setDecisionDialog({ app, status });
     };
 
@@ -377,15 +392,79 @@ export default function TeacherApplicationsBoard({
                                 : "Cette candidature sera refusée et l'enseignant en sera informé."}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <div className="space-y-2">
-                        <Label htmlFor="review-notes">Note interne (optionnel)</Label>
-                        <Textarea
-                            id="review-notes"
-                            rows={4}
-                            placeholder="Ajoutez un commentaire pour votre équipe..."
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                        />
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="review-notes">Note interne (optionnel)</Label>
+                            <Textarea
+                                id="review-notes"
+                                rows={3}
+                                placeholder="Ajoutez un commentaire pour votre équipe..."
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                            />
+                        </div>
+
+                        {decisionDialog?.status === "approved" && (
+                            <div className="space-y-3 border border-[#1A6CC8]/20 rounded-xl p-4 bg-[#1A6CC8]/5">
+                                <p className="text-xs font-black text-[#0D2D5A] uppercase tracking-widest flex items-center gap-2">
+                                    <DollarSign className="w-3.5 h-3.5 text-[#1A6CC8]" />
+                                    Tarification négociée
+                                </p>
+
+                                {/* Type de tarif */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setRateType("hourly")}
+                                        className={`flex flex-col items-center gap-1.5 p-3 border-2 rounded-xl transition-all ${
+                                            rateType === "hourly"
+                                                ? "border-[#1A6CC8] bg-white shadow-sm text-[#1A6CC8]"
+                                                : "border-gray-200 bg-white text-gray-400 hover:border-gray-300"
+                                        }`}
+                                    >
+                                        <Clock className="w-4 h-4" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Par heure</span>
+                                        {rateType === "hourly" && <div className="w-1.5 h-1.5 bg-[#1A6CC8] rounded-full" />}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRateType("monthly")}
+                                        className={`flex flex-col items-center gap-1.5 p-3 border-2 rounded-xl transition-all ${
+                                            rateType === "monthly"
+                                                ? "border-[#1A6CC8] bg-white shadow-sm text-[#1A6CC8]"
+                                                : "border-gray-200 bg-white text-gray-400 hover:border-gray-300"
+                                        }`}
+                                    >
+                                        <CalendarDays className="w-4 h-4" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Forfait mensuel</span>
+                                        {rateType === "monthly" && <div className="w-1.5 h-1.5 bg-[#1A6CC8] rounded-full" />}
+                                    </button>
+                                </div>
+
+                                {/* Montant */}
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">
+                                        {rateType === "hourly" ? "Tarif horaire (FCFA/h)" : "Forfait mensuel (FCFA/mois)"}
+                                    </Label>
+                                    <div className="relative">
+                                        <Input
+                                            type="number"
+                                            min={0}
+                                            value={negotiatedRate}
+                                            onChange={(e) => setNegotiatedRate(e.target.value)}
+                                            className="pr-16 font-bold text-[#0D2D5A]"
+                                            placeholder={rateType === "hourly" ? "Ex: 7500" : "Ex: 80000"}
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">
+                                            FCFA{rateType === "hourly" ? "/h" : "/mois"}
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400">
+                                        Ce tarif sera appliqué par défaut pour les cours de cet enseignant.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
@@ -396,6 +475,8 @@ export default function TeacherApplicationsBoard({
                                         id: decisionDialog.app.id,
                                         status: decisionDialog.status,
                                         reviewNotes: notes,
+                                        rateType: decisionDialog.status === "approved" ? rateType : undefined,
+                                        negotiatedRate: decisionDialog.status === "approved" ? parseFloat(negotiatedRate) || 7500 : undefined,
                                     });
                                 }
                             }}

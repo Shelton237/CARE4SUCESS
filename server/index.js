@@ -316,6 +316,8 @@ const ensureTeachersTable = async () => {
     ["bank_iban",            "ALTER TABLE teachers ADD COLUMN bank_iban VARCHAR(191) NULL"],
     ["bank_account_holder",  "ALTER TABLE teachers ADD COLUMN bank_account_holder VARCHAR(191) NULL"],
     ["availability_json",    "ALTER TABLE teachers ADD COLUMN availability_json JSON NULL"],
+    ["rate_type",            "ALTER TABLE teachers ADD COLUMN rate_type ENUM('hourly','monthly') NOT NULL DEFAULT 'hourly'"],
+    ["monthly_rate",         "ALTER TABLE teachers ADD COLUMN monthly_rate DECIMAL(10,2) NULL"],
   ];
   for (const [col, sql] of migrations) {
     if (!cols.has(col)) await pool.query(sql).catch(() => {});
@@ -2230,7 +2232,7 @@ app.get("/api/teacher-applications", async (req, res) => {
 
 app.patch("/api/teacher-applications/:id", async (req, res) => {
   const { id } = req.params;
-  const { status, reviewNotes, reviewerName, reviewerRole } = req.body ?? {};
+  const { status, reviewNotes, reviewerName, reviewerRole, rateType, negotiatedRate } = req.body ?? {};
 
   if (!allowedApplicationStatuses.has(status) || status === "pending") {
     return res.status(400).json({ message: "Statut invalide." });
@@ -2268,10 +2270,15 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
 
         const teacherId = crypto.randomUUID();
 
-        // 1. Créer le profil enseignant
+        // 1. Créer le profil enseignant avec tarification négociée
+        const resolvedRateType = rateType === "monthly" ? "monthly" : "hourly";
+        const resolvedRate = parseFloat(negotiatedRate) || 7500;
+        const hourlyRateValue  = resolvedRateType === "hourly"  ? resolvedRate : 0;
+        const monthlyRateValue = resolvedRateType === "monthly" ? resolvedRate : null;
+
         await pool.query(
-          `INSERT IGNORE INTO teachers (id, name, email, subjects, level, city, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT IGNORE INTO teachers (id, name, email, subjects, level, city, status, rate_type, hourly_rate, monthly_rate)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             teacherId,
             updatedApplication.full_name,
@@ -2279,9 +2286,13 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
             JSON.stringify(updatedApplication.subjects),
             "",
             "",
-            "actif"
+            "actif",
+            resolvedRateType,
+            hourlyRateValue,
+            monthlyRateValue,
           ]
         );
+        console.log(`Tarification prof: ${resolvedRateType} → ${resolvedRate} FCFA`);
 
         // 2. Générer un mot de passe aléatoire lisible (ex: Prof#4729)
         const randomSuffix = Math.floor(1000 + Math.random() * 9000);
