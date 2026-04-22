@@ -56,6 +56,7 @@ let fallbackSessions = [
   }
 ];
 let fallbackHomework = [];
+let fallbackCourses = [];
 const allowedUserRoles = new Set(["admin", "teacher", "parent", "advisor", "student", "tutor"]);
 
 const generateToken = (payload) =>
@@ -2506,6 +2507,16 @@ app.get("/api/courses", async (req, res) => {
     const payload = await buildCoursesPayload(rows, role === 'student' ? userId : null);
     res.json(payload);
   } catch (error) {
+    if (isDbConnectionError(error)) {
+      console.warn("DB offline, returning fallback courses for role:", role, userId);
+      let filtered = fallbackCourses;
+      if (role === "teacher" && userId) {
+        filtered = fallbackCourses.filter(c => c.createdBy === userId);
+      } else if (role === "student") {
+        filtered = fallbackCourses.filter(c => c.status === "published");
+      }
+      return res.json(filtered);
+    }
     console.error("Failed to fetch courses", error);
     res.status(500).json({ message: "Impossible de recuperer les cours." });
   }
@@ -2540,6 +2551,19 @@ app.post("/api/courses", async (req, res) => {
     const course = await fetchCourseDetails(courseId);
     res.status(201).json(course);
   } catch (error) {
+    if (isDbConnectionError(error)) {
+      console.warn("DB offline, saving course to memory:", title);
+      const fallbackCourse = {
+        id: crypto.randomUUID(),
+        title, description: description || "", subject, level,
+        mode, price: parseFloat(price) || 0, duration, status,
+        coverUrl: coverUrl || null, createdBy: createdBy || null,
+        lessons: [], enrolledCount: 0,
+        createdAt: new Date().toISOString()
+      };
+      fallbackCourses.push(fallbackCourse);
+      return res.status(201).json(fallbackCourse);
+    }
     console.error("Failed to create course", error);
     res.status(500).json({ message: "Impossible de creer le cours." });
   }
