@@ -2543,11 +2543,26 @@ app.post("/api/courses", async (req, res) => {
   }
   try {
     const courseId = crypto.randomUUID();
-    await pool.query(
-      `INSERT INTO courses (id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, teacher_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, createdBy || null, createdBy || null]
-    );
+    // We try to insert with teacher_id/teacher_name since production DB has extra columns.
+    // Fallback to minimal schema if those columns don't exist.
+    try {
+      await pool.query(
+        `INSERT INTO courses (id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, teacher_id, teacher_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, createdBy || null, createdBy || null, "Prof Demo"]
+      );
+    } catch (innerErr) {
+      if (innerErr.code === 'ER_BAD_FIELD_ERROR' || String(innerErr.message).includes("teacher_name")) {
+        // Fallback to base schema without extra columns
+        await pool.query(
+          `INSERT INTO courses (id, title, description, subject, level, mode, price, duration, status, cover_url, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, createdBy || null]
+        );
+      } else {
+        throw innerErr;
+      }
+    }
     const course = await fetchCourseDetails(courseId);
     res.status(201).json(course);
   } catch (error) {
