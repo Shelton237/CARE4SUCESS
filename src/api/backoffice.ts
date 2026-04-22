@@ -625,3 +625,14 @@ export const fetchStudentSessions = (studentId: string) =>
 export const fetchStudentEvaluations = (studentId: string) =>
     request<any[]>(`/students/${studentId}/evaluations`);
 
+export const fetchFinanceSummary = () =>
+    request<any>("/admin/finance/summary");
+
+export const fetchTeacherPayroll = () =>
+    request<any[]>("/admin/finance/teacher-payroll");
+
+export const generateManualInvoices = (month?: string) =>
+    request<any>("/admin/finance/generate-invoices", {
+        method: "POST",
+        body: JSON.stringify({ month }),
+    });

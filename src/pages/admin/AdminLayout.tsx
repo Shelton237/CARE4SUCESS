@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { LayoutDashboard, Users, GraduationCap, ClipboardList, Settings, UserPlus, BookOpen, UserCog } from "lucide-react";
+import { LayoutDashboard, Users, GraduationCap, ClipboardList, Settings, UserPlus, BookOpen, UserCog, Wallet } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import AdminDashboard from "./Dashboard";
 import AdminTeachers from "./Teachers";
@@ -8,6 +8,7 @@ import AdminRequests from "./Requests";
 import AdminSettings from "./Settings";
 import AdminTeacherApplications from "./TeacherApplications";
 import AdminCourses from "./Courses";
+import AdminFinance from "./Finance";
 import ProfileManager from "./ProfileManager";
 
 const NAV = [
@@ -18,6 +19,7 @@ const NAV = [
     { to: "/admin/students", label: "Élèves & Familles", icon: Users },
     { to: "/admin/requests", label: "Demandes de bilan", icon: ClipboardList },
     { to: "/admin/profiles", label: "Profils utilisateurs", icon: UserCog },
+    { to: "/admin/finance", label: "Finance & Paie", icon: Wallet },
     { to: "/admin/settings", label: "Paramètres", icon: Settings },
 ];
 
@@ -34,6 +36,7 @@ export default function AdminLayout() {
                     <Route path="students" element={<AdminStudents />} />
                     <Route path="requests" element={<AdminRequests />} />
                     <Route path="profiles" element={<ProfileManager />} />
+                    <Route path="finance" element={<AdminFinance />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="*" element={<Navigate to="/admin" replace />} />
                 </Routes>

@@ -4442,15 +4442,44 @@ app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
     );
 
     // Calcul des revenus réels basés sur la durée et le statut effectuer (utilisant le taux du prof)
-    const [[{ monthlyEarnings, totalEarnings }]] = await pool.query(
-      `SELECT 
-         IFNULL(SUM(ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * IFNULL(t.hourly_rate, 7500), 0)), 0) as totalEarnings,
-         IFNULL(SUM(IF(DATE_FORMAT(s.session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m'), ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * IFNULL(t.hourly_rate, 7500), 0), 0)), 0) as monthlyEarnings
-       FROM sessions s
-       JOIN teachers t ON t.id = s.teacher_id
-       WHERE s.teacher_id = ? AND s.status = 'effectué'`, 
-      [teacherId]
+    // Récupérer le profil du prof pour son type de tarif
+    const [[teacherProfile]] = await pool.query(
+      "SELECT rate_type, hourly_rate, monthly_rate FROM teachers WHERE id = ?", [teacherId]
     );
+
+    let monthlyEarnings = 0;
+    let totalEarnings = 0;
+
+    if (teacherProfile && teacherProfile.rate_type === 'monthly') {
+      const monthlyRate = Number(teacherProfile.monthly_rate || 0);
+      
+      // Total: Nombre de mois distincts avec au moins une session effectuée
+      const [[{ monthCount }]] = await pool.query(
+        "SELECT COUNT(DISTINCT DATE_FORMAT(session_date, '%Y-%m')) as monthCount FROM sessions WHERE teacher_id = ? AND status = 'effectué'",
+        [teacherId]
+      );
+      totalEarnings = (monthCount || 0) * monthlyRate;
+
+      // Ce mois: A-t-il fait une session ce mois-ci ?
+      const [[{ activeThisMonth }]] = await pool.query(
+        "SELECT COUNT(*) as activeThisMonth FROM sessions WHERE teacher_id = ? AND status = 'effectué' AND DATE_FORMAT(session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')",
+        [teacherId]
+      );
+      monthlyEarnings = activeThisMonth > 0 ? monthlyRate : 0;
+    } else {
+      // Logique horaire classique
+      const hRate = teacherProfile?.hourly_rate || 7500;
+      const [[rows]] = await pool.query(
+        `SELECT 
+           IFNULL(SUM(ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * ?, 0)), 0) as totalEarnings,
+           IFNULL(SUM(IF(DATE_FORMAT(s.session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m'), ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * ?, 0), 0)), 0) as monthlyEarnings
+         FROM sessions s
+         WHERE s.teacher_id = ? AND s.status = 'effectué'`,
+        [hRate, hRate, teacherId]
+      );
+      totalEarnings = rows.totalEarnings;
+      monthlyEarnings = rows.monthlyEarnings;
+    }
     const previousEarnings = totalEarnings - monthlyEarnings;
 
     const [[ratingRow]] = await pool.query(
@@ -4527,21 +4556,29 @@ app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
 app.get("/api/teachers/:teacherId/earnings", async (req, res) => {
   const { teacherId } = req.params;
   try {
+    const [[teacher]] = await pool.query("SELECT rate_type, hourly_rate, monthly_rate FROM teachers WHERE id = ?", [teacherId]);
+    const isMonthly = teacher?.rate_type === 'monthly';
+
     const [rows] = await pool.query(
       `SELECT 
           s.id, 
           s.session_date as date, 
           s.student_name as student, 
           ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2), 1) as hours, 
-          IFNULL(t.hourly_rate, 7500) as rate, 
-          ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * IFNULL(t.hourly_rate, 7500), 0) as amount, 
+          ? as rate, 
+          ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * ?, 0) as amount, 
           IF(s.is_paid = 1, 'payé', 'en attente') as status 
        FROM sessions s
-       JOIN teachers t ON t.id = s.teacher_id
        WHERE s.teacher_id = ? AND s.status = 'effectué' 
        ORDER BY s.session_date DESC`,
-      [teacherId]
+      [
+        isMonthly ? 0 : (teacher?.hourly_rate || 7500),
+        isMonthly ? 0 : (teacher?.hourly_rate || 7500),
+        teacherId
+      ]
     );
+    // Note: On monthly rates, individual sessions show 0 and a separate logic handles the lump sum.
+    res.json(rows);
     res.json(rows);
   } catch (error) {
     console.error("Earnings error", error);
