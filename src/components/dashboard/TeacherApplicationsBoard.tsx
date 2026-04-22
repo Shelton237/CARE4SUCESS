@@ -206,11 +206,11 @@ export default function TeacherApplicationsBoard({
     };
 
     return (
-        <div className="p-8 space-y-6">
+        <div className="w-full p-6 space-y-6 bg-white min-h-screen">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-[#0D2D5A]">{title}</h1>
-                    <p className="text-gray-500 mt-1">{description}</p>
+                    <h1 className="text-2xl font-black text-[#0D2D5A] tracking-tighter uppercase">{title}</h1>
+                    <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wide">{description}</p>
                 </div>
             </div>
 
