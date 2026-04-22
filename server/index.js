@@ -1036,6 +1036,9 @@ const mapTeacherRow = (row) => ({
   status: row.status,
   rating: Number(row.rating),
   students: row.students,
+  rate_type: row.rate_type,
+  hourly_rate: Number(row.hourly_rate),
+  monthly_rate: row.monthly_rate !== null ? Number(row.monthly_rate) : null,
 });
 
 const mapHomeworkRow = (row) => ({
@@ -2370,7 +2373,7 @@ app.get("/api/teachers", async (req, res) => {
   try {
     await ensureTeachersTable();
     const [rows] = await pool.query(
-      `SELECT id, name, email, subjects, level, city, status, rating, students, created_at
+      `SELECT id, name, email, subjects, level, city, status, rating, students, created_at, rate_type, hourly_rate, monthly_rate
        FROM teachers
        ORDER BY name ASC`
     );
