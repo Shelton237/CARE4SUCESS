@@ -151,51 +151,50 @@ export default function TeacherHomework() {
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            {/* Header - Aligné sur Schedule.tsx */}
-            <div className="flex items-center justify-between">
+        <div className="w-full p-3 space-y-3 bg-white min-h-screen">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Gestion des Devoirs</h1>
-                    <p className="text-gray-500 text-sm mt-1">Assignez et suivez le travail personnel de vos élèves.</p>
+                    <h1 className="text-xl font-black text-[#0D2D5A] uppercase tracking-tight">Gestion des Devoirs</h1>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                        Assignez et suivez le travail personnel de vos élèves.
+                    </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button onClick={() => setShowForm(true)} className="bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white gap-2 shadow-sm">
-                        <Plus className="w-4 h-4" /> Nouveau Devoir
-                    </Button>
-                </div>
+                <Button onClick={() => setShowForm(true)} className="bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white gap-1.5 rounded-none shadow-none h-8 font-black text-[10px] uppercase tracking-widest">
+                    <Plus className="w-3.5 h-3.5" /> Nouveau Devoir
+                </Button>
             </div>
 
-            {/* Stats Cards - Style Bento Sobre */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                 {[
-                    { label: "Total Assignés", value: stats.total, color: "text-[#1A6CC8]", bg: "bg-blue-50/30", border: "border-blue-100" },
-                    { label: "À faire", value: stats.aFaire, color: "text-blue-600", bg: "bg-blue-50/50", border: "border-blue-200" },
-                    { label: "Rendus / À corriger", value: stats.rendu, color: "text-emerald-600", bg: "bg-emerald-50/50", border: "border-emerald-200" },
-                    { label: "En retard", value: stats.enRetard, color: "text-red-600", bg: "bg-red-50/50", border: "border-red-200" },
+                    { label: "Total Assignés", value: stats.total, color: "text-[#1A6CC8]", bg: "bg-blue-50/30" },
+                    { label: "À faire", value: stats.aFaire, color: "text-[#1A6CC8]", bg: "bg-blue-50/50" },
+                    { label: "Rendus", value: stats.rendu, color: "text-[#0D2D5A]", bg: "bg-slate-50/50" },
+                    { label: "En retard", value: stats.enRetard, color: "text-red-600", bg: "bg-red-50/30" },
                 ].map((stat, i) => (
-                    <div key={i} className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center justify-between`}>
+                    <div key={i} className="border border-slate-200 bg-white p-3 flex items-center justify-between">
                         <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-2">{stat.label}</p>
-                            <p className={cn("text-3xl font-bold", stat.color)}>{stat.value}</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                            <p className={cn("text-lg font-black tracking-tight", stat.color)}>{stat.value}</p>
                         </div>
-                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", stat.bg, stat.border, "border")}>
-                            {i === 0 ? <Layers className={stat.color} /> : i === 1 ? <Clock className={stat.color} /> : i === 2 ? <CheckCircle2 className={stat.color} /> : <AlertCircle className={stat.color} />}
+                        <div className={cn("p-2", stat.bg)}>
+                            {i === 0 ? <Layers className={cn("w-4 h-4", stat.color)} /> : i === 1 ? <Clock className={cn("w-4 h-4", stat.color)} /> : i === 2 ? <CheckCircle2 className={cn("w-4 h-4", stat.color)} /> : <AlertCircle className={cn("w-4 h-4", stat.color)} />}
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Liste des devoirs - Style "Toutes les séances" */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+            {/* Liste des devoirs */}
+            <div className="border border-slate-200 bg-white overflow-hidden">
+                <div className="flex items-center gap-3 px-3 py-2 border-b border-slate-100 bg-slate-50/50">
                     <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 w-3.5 h-3.5" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 w-3.5 h-3.5" />
                         <input
                             type="text"
                             placeholder="Rechercher un devoir, un élève..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 transition-all"
+                            className="w-full bg-white border border-slate-200 pl-9 pr-4 py-1.5 text-[11px] font-bold text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
                         />
                     </div>
                     <div className="hidden sm:flex gap-1">
@@ -204,8 +203,8 @@ export default function TeacherHomework() {
                                 key={s}
                                 onClick={() => setStatusFilter(s)}
                                 className={cn(
-                                    "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
-                                    statusFilter === s ? "bg-[#1A6CC8] text-white shadow-sm" : "text-gray-400 hover:bg-gray-100"
+                                    "px-2 py-1 text-[9px] font-black uppercase tracking-widest transition-all",
+                                    statusFilter === s ? "bg-[#1A6CC8] text-white" : "text-slate-400 hover:bg-slate-100"
                                 )}
                             >
                                 {s === "all" ? "Tous" : s}
@@ -214,55 +213,53 @@ export default function TeacherHomework() {
                     </div>
                 </div>
 
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-slate-100">
                     {filteredHomework.map((h: any) => (
-                        <div key={h.id} onClick={() => setSelectedHomework(h)} className="flex flex-col sm:flex-row items-center gap-5 px-6 py-4 hover:bg-gray-50/50 transition-colors cursor-pointer group">
-                            <div className="w-12 text-center flex-shrink-0">
-                                <div className="text-[10px] font-bold text-[#1A6CC8]">ECHEANCE</div>
-                                <div className="text-lg font-bold text-[#0D2D5A]">{new Date(h.dueDate).getDate()}</div>
-                                <div className="text-[10px] text-gray-400 font-medium uppercase">{new Date(h.dueDate).toLocaleDateString('fr-FR', { month: 'short' })}</div>
+                        <div key={h.id} onClick={() => setSelectedHomework(h)} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50/50 transition-colors cursor-pointer group">
+                            <div className="w-10 text-center flex-shrink-0">
+                                <div className="text-[9px] font-black text-[#1A6CC8] uppercase">Échéance</div>
+                                <div className="text-base font-black text-[#0D2D5A]">{new Date(h.dueDate).getDate()}</div>
+                                <div className="text-[9px] text-slate-400 font-black uppercase">{new Date(h.dueDate).toLocaleDateString('fr-FR', { month: 'short' })}</div>
                             </div>
-                            <div className="hidden sm:block w-px h-10 bg-gray-100" />
-                            <div className="flex-1 min-w-0 w-full text-center sm:text-left">
-                                <div className="font-semibold text-[#0D2D5A] text-sm flex items-center justify-center sm:justify-start gap-2">
+                            <div className="hidden sm:block w-px h-8 bg-slate-100" />
+                            <div className="flex-1 min-w-0">
+                                <div className="font-black text-[#0D2D5A] text-[10px] uppercase tracking-tight flex items-center gap-2">
                                     {h.title}
-                                    <Badge variant="outline" className="text-[9px] font-normal text-gray-400 border-gray-100 py-0 px-1.5">{h.subject}</Badge>
+                                    <span className="text-[9px] font-bold text-[#1A6CC8] normal-case">{h.subject}</span>
                                 </div>
-                                <div className="flex items-center justify-center sm:justify-start gap-2 mt-1 text-xs text-gray-400">
-                                    <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[9px] font-bold text-gray-500">
+                                <div className="flex items-center gap-2 mt-0.5 text-[9px] text-slate-400 font-bold uppercase">
+                                    <div className="w-4 h-4 bg-slate-100 flex items-center justify-center text-[8px] font-black text-slate-500">
                                         {h.studentName?.[0] || 'S'}
                                     </div>
                                     <span>{h.studentName || "N/A"}</span>
                                     {h.sessionId && (
-                                        <span className="flex items-center gap-1 text-[10px] text-blue-400 font-medium ml-2">
+                                        <span className="flex items-center gap-1 text-[9px] text-[#1A6CC8] font-black uppercase">
                                             <ArrowUpRight className="w-3 h-3" /> Lié au cours
                                         </span>
                                     )}
                                 </div>
                             </div>
-                            <div className="text-center sm:text-right flex flex-col sm:items-end gap-2 mt-2 sm:mt-0">
-                                <div className="flex items-center justify-center sm:justify-end gap-3">
-                                    {renderStatusBadge(h.status)}
-                                    {h.status === "à faire" && (
-                                        <Button 
-                                            size="sm" 
-                                            onClick={(e) => handleMarkDone(h.id, e)} 
-                                            className="h-6 text-[10px] bg-emerald-500 hover:bg-emerald-600 gap-1 px-2 shadow-sm text-white"
-                                        >
-                                            <CheckCircle2 className="w-3 h-3" /> Rendu
-                                        </Button>
-                                    )}
-                                    <div className="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-[#0D2D5A] group-hover:text-white transition-all">
-                                        <ChevronRight className="w-3.5 h-3.5" />
-                                    </div>
-                                </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                {renderStatusBadge(h.status)}
+                                {h.status === "à faire" && (
+                                    <Button
+                                        size="sm"
+                                        onClick={(e) => handleMarkDone(h.id, e)}
+                                        className="h-6 text-[9px] bg-emerald-500 hover:bg-emerald-600 gap-1 px-2 rounded-none shadow-none text-white font-black uppercase"
+                                    >
+                                        <CheckCircle2 className="w-3 h-3" /> Rendu
+                                    </Button>
+                                )}
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
                             </div>
                         </div>
                     ))}
                     {filteredHomework.length === 0 && (
-                        <div className="px-6 py-12 text-center">
-                            <BookOpen className="w-8 h-8 text-gray-100 mx-auto mb-3" />
-                            <p className="text-xs text-gray-400 italic">Aucun devoir trouvé correspondant à vos critères.</p>
+                        <div className="px-3 py-10 text-center">
+                            <BookOpen className="w-8 h-8 text-slate-100 mx-auto mb-2" />
+                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                                Aucun devoir trouvé correspondant à vos critères.
+                            </p>
                         </div>
                     )}
                 </div>

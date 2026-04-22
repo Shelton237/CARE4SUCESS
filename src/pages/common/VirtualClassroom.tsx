@@ -223,11 +223,11 @@ export default function VirtualClassroom() {
     const currentSessionRef = useRef<any>(null);
     useEffect(() => { currentSessionRef.current = currentSession; }, [currentSession]);
 
-    // Jitsi Init — runs once per sessionId+user, never re-runs on session data changes
+    // Jitsi Init — loads script dynamically then initializes, with timeout fallback
     const jitsiApiRef = useRef<any>(null);
     useEffect(() => {
         if (!sessionId || !user || !jitsiContainerRef.current) return;
-        if (jitsiApiRef.current) return; // already initialized
+        if (jitsiApiRef.current) return;
 
         const initJitsi = () => {
             if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) return;
@@ -264,17 +264,40 @@ export default function VirtualClassroom() {
 
         if (window.JitsiMeetExternalAPI) {
             initJitsi();
-        } else {
-            const timer = setInterval(() => {
-                if (window.JitsiMeetExternalAPI) {
-                    clearInterval(timer);
-                    initJitsi();
+            return () => {
+                if (jitsiApiRef.current) {
+                    try { jitsiApiRef.current.dispose(); } catch {}
+                    jitsiApiRef.current = null;
                 }
-            }, 300);
-            return () => clearInterval(timer);
+            };
         }
 
+        // Dynamically load the Jitsi script (not in index.html to avoid global DNS errors)
+        const existingScript = document.getElementById('jitsi-api-script');
+        if (!existingScript) {
+            const script = document.createElement('script');
+            script.id = 'jitsi-api-script';
+            script.src = 'https://meet.jit.si/external_api.js';
+            script.async = true;
+            document.head.appendChild(script);
+        }
+
+        let attempts = 0;
+        const maxAttempts = 50; // 15 seconds total (50 × 300ms)
+        const timer = setInterval(() => {
+            attempts++;
+            if (window.JitsiMeetExternalAPI) {
+                clearInterval(timer);
+                initJitsi();
+            } else if (attempts >= maxAttempts) {
+                clearInterval(timer);
+                setError("Impossible de charger le module de visioconférence. Vérifiez votre connexion réseau.");
+                setLoading(false);
+            }
+        }, 300);
+
         return () => {
+            clearInterval(timer);
             if (jitsiApiRef.current) {
                 try { jitsiApiRef.current.dispose(); } catch {}
                 jitsiApiRef.current = null;
@@ -325,10 +348,24 @@ export default function VirtualClassroom() {
             <div className="flex-1 flex overflow-hidden relative">
                 {/* Video Feed (Major Area) */}
                 <div className="flex-1 bg-slate-950 relative overflow-hidden">
-                    {loading && (
+                    {(loading || error) && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#0D2D5A]">
-                            <Loader2 className="w-10 h-10 text-white animate-spin opacity-20" />
-                            <p className="text-white/30 font-black text-[8px] uppercase tracking-[0.3em] mt-4">Initializing Security Engine...</p>
+                            {error ? (
+                                <>
+                                    <div className="w-12 h-12 bg-red-500/10 border border-red-400/30 flex items-center justify-center mb-4">
+                                        <X className="w-6 h-6 text-red-400" />
+                                    </div>
+                                    <p className="text-white/70 font-black text-[10px] uppercase tracking-widest text-center max-w-xs px-4">{error}</p>
+                                    <button onClick={() => navigate(-1)} className="mt-6 px-6 py-2 bg-white/10 text-white font-black text-[9px] uppercase tracking-widest hover:bg-white/20 transition-colors border border-white/10">
+                                        Retour
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <Loader2 className="w-10 h-10 text-white animate-spin opacity-20" />
+                                    <p className="text-white/30 font-black text-[8px] uppercase tracking-[0.3em] mt-4">Initializing Security Engine...</p>
+                                </>
+                            )}
                         </div>
                     )}
                     <div ref={jitsiContainerRef} className="w-full h-full" />

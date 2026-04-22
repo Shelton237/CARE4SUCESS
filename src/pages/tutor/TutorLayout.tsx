@@ -78,7 +78,6 @@ export default function TutorLayout() {
                             <Route path="enseignant/homework" element={<TeacherHomework />} />
                             <Route path="enseignant/courses" element={<TeacherCourses />} />
                             <Route path="enseignant/courses/:id" element={<TeacherCourses />} />
-                            <Route path="enseignant/courses/new" element={<TeacherCourses />} />
                             <Route path="enseignant/messages" element={<TeacherMessages />} />
                             <Route path="enseignant/resources" element={<TeacherResources />} />
                             <Route path="enseignant/earnings" element={<TeacherEarnings />} />

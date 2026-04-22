@@ -59,37 +59,35 @@ export default function TeacherProfile() {
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            {/* Header / Profile Hero - Aligné sur Schedule Style */}
-            <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/20 rounded-full -mr-32 -mt-32" />
-                
-                <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
+        <div className="w-full p-3 space-y-3 bg-white min-h-screen">
+            {/* Header / Profile Hero */}
+            <div className="bg-white border border-slate-200 p-4 relative overflow-hidden">
+                <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
                     <div className="relative group">
-                        <div className="w-24 h-24 rounded-2xl bg-[#0D2D5A] border-4 border-white shadow-lg overflow-hidden flex items-center justify-center text-white text-3xl font-bold">
+                        <div className="w-16 h-16 bg-[#0D2D5A] border border-slate-200 overflow-hidden flex items-center justify-center text-white text-2xl font-black">
                             {profile?.avatarUrl ? (
                                 <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                             ) : (
                                 profile?.avatar || profile?.name?.charAt(0)
                             )}
                         </div>
-                        <button 
+                        <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#1A6CC8] text-white rounded-lg flex items-center justify-center shadow-lg hover:scale-110 transition-transform border-2 border-white"
+                            className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-[#1A6CC8] text-white flex items-center justify-center hover:bg-[#0D2D5A] transition-colors border border-white"
                         >
-                            <Camera className="w-3.5 h-3.5" />
+                            <Camera className="w-3 h-3" />
                         </button>
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            className="hidden" 
-                            onChange={(e) => e.target.files?.[0] && avatarMutation.mutate(e.target.files[0])} 
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            onChange={(e) => e.target.files?.[0] && avatarMutation.mutate(e.target.files[0])}
                         />
                     </div>
 
                     <div className="text-center md:text-left space-y-1">
-                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                            <h1 className="text-2xl font-bold text-[#0D2D5A]">{profile?.name}</h1>
+                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                            <h1 className="text-xl font-black text-[#0D2D5A] uppercase tracking-tight">{profile?.name}</h1>
                             {authUser?.role === 'tutor' && authUser?.secondaryRole === 'teacher' ? (
                                 <>
                                     <Badge className="bg-purple-50 text-purple-600 border border-purple-100 font-bold px-2 py-0 text-[9px] uppercase tracking-wider">Tuteur Vérifié <BadgeCheck className="w-3 h-3 ml-1 inline" /></Badge>
@@ -101,24 +99,24 @@ export default function TeacherProfile() {
                                 <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold px-2 py-0 text-[9px] uppercase tracking-wider">Tuteur Vérifié <BadgeCheck className="w-3 h-3 ml-1 inline" /></Badge>
                             )}
                         </div>
-                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs text-gray-500 font-medium">
+                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">
                             <span className="flex items-center gap-1.5">
-                                <Briefcase className="w-3.5 h-3.5 text-[#1A6CC8]" />
+                                <Briefcase className="w-3 h-3 text-[#1A6CC8]" />
                                 {authUser?.role === 'tutor' && authUser?.secondaryRole === 'teacher'
                                     ? "Tuteur-Enseignant"
                                     : authUser?.role === 'teacher' ? "Enseignant" : "Tuteur Expert"}
                             </span>
-                            <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-[#1A6CC8]" /> {profile?.location || "Cameroun"}</span>
-                            <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-[#1A6CC8]" /> {profile?.email}</span>
+                            <span className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-[#1A6CC8]" /> {profile?.location || "Cameroun"}</span>
+                            <span className="flex items-center gap-1.5"><Mail className="w-3 h-3 text-[#1A6CC8]" /> {profile?.email}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                 {/* Navigation Sidebar */}
-                <div className="lg:col-span-12 xl:col-span-3 space-y-2">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-1">
+                <div className="lg:col-span-12 xl:col-span-3">
+                    <div className="border border-slate-200 bg-white p-2 space-y-1">
                         {[
                             { id: "personal", label: "Infos Personnelles", icon: UserCircle2 },
                             { id: "banking", label: "Paiement & RIB", icon: CreditCard },
@@ -128,15 +126,15 @@ export default function TeacherProfile() {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={cn(
-                                    "w-full p-3 rounded-xl flex items-center gap-3 transition-all text-left",
-                                    activeTab === tab.id 
-                                        ? "bg-blue-50 text-[#1A6CC8] font-bold shadow-sm" 
-                                        : "text-gray-400 hover:bg-gray-50 hover:text-gray-600 font-medium"
+                                    "w-full px-3 py-2 flex items-center gap-3 transition-all text-left",
+                                    activeTab === tab.id
+                                        ? "bg-[#1A6CC8]/5 text-[#1A6CC8] border-l-2 border-[#1A6CC8]"
+                                        : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
                                 )}
                             >
-                                <tab.icon className="w-4 h-4" />
-                                <span className="text-sm">{tab.label}</span>
-                                {activeTab === tab.id && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-50" />}
+                                <tab.icon className="w-3.5 h-3.5" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span>
+                                {activeTab === tab.id && <ChevronRight className="w-3 h-3 ml-auto" />}
                             </button>
                         ))}
                     </div>
@@ -144,16 +142,16 @@ export default function TeacherProfile() {
 
                 {/* Content Area */}
                 <div className="lg:col-span-12 xl:col-span-9">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="px-8 py-6 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-                            <h2 className="text-base font-bold text-[#0D2D5A]">
+                    <div className="border border-slate-200 bg-white overflow-hidden">
+                        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                            <h2 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest">
                                 {activeTab === 'personal'
-                                    ? (authUser?.role === 'teacher' ? 'Informations de l\'Enseignant' : 'Informations du Tuteur')
+                                    ? (authUser?.role === 'teacher' ? "Informations de l'Enseignant" : "Informations du Tuteur")
                                     : activeTab === 'banking' ? 'Coordonnées de Reversement' : 'Sécurité du compte'}
                             </h2>
-                            <Button 
-                                onClick={handleSave} 
-                                className="bg-[#1A6CC8] hover:bg-[#0D2D5A] font-bold h-9 px-6 rounded-lg shadow-sm text-xs gap-2"
+                            <Button
+                                onClick={handleSave}
+                                className="bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black h-8 px-4 rounded-none shadow-none text-[10px] uppercase tracking-widest gap-2"
                                 disabled={updateMutation.isPending}
                             >
                                 {updateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -161,48 +159,48 @@ export default function TeacherProfile() {
                             </Button>
                         </div>
 
-                        <div className="p-8">
+                        <div className="p-4">
                             {activeTab === 'personal' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Nom complet</label>
-                                        <input 
-                                            value={formData.name || ""} 
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nom complet</label>
+                                        <input
+                                            value={formData.name || ""}
                                             onChange={e => setFormData({...formData, name: e.target.value})}
-                                            className="w-full h-11 bg-gray-50/50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all" 
+                                            className="w-full h-9 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Email (non modifiable)</label>
-                                        <input 
-                                            value={formData.email || ""} 
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email (non modifiable)</label>
+                                        <input
+                                            value={formData.email || ""}
                                             disabled
-                                            className="w-full h-11 bg-gray-100/50 rounded-xl px-4 border border-gray-100 font-medium text-gray-400" 
+                                            className="w-full h-9 bg-slate-100/50 px-3 border border-slate-100 font-bold text-[11px] text-slate-400"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Téléphone</label>
-                                        <input 
-                                            value={formData.phone || ""} 
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Téléphone</label>
+                                        <input
+                                            value={formData.phone || ""}
                                             onChange={e => setFormData({...formData, phone: e.target.value})}
-                                            className="w-full h-11 bg-gray-50/50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all" 
+                                            className="w-full h-9 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Localisation</label>
-                                        <input 
-                                            value={formData.location || ""} 
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Localisation</label>
+                                        <input
+                                            value={formData.location || ""}
                                             onChange={e => setFormData({...formData, location: e.target.value})}
-                                            className="w-full h-11 bg-gray-50/50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all" 
+                                            className="w-full h-9 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
                                         />
                                     </div>
                                     <div className="md:col-span-2 space-y-1.5">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Biographie / Présentation</label>
-                                        <textarea 
-                                            value={formData.bio || ""} 
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Biographie / Présentation</label>
+                                        <textarea
+                                            value={formData.bio || ""}
                                             onChange={e => setFormData({...formData, bio: e.target.value})}
                                             rows={4}
-                                            className="w-full bg-gray-50/50 rounded-xl p-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all resize-none" 
+                                            className="w-full bg-slate-50/50 p-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all resize-none"
                                             placeholder="Parlez-nous de votre expérience et de votre approche..."
                                         />
                                     </div>
@@ -210,29 +208,29 @@ export default function TeacherProfile() {
                             )}
 
                             {activeTab === 'banking' && (
-                                <div className="space-y-6">
-                                    <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex items-start gap-3">
-                                        <Info className="w-4 h-4 text-[#1A6CC8] mt-0.5" />
-                                        <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                                            Vos informations de paiement sont sécurisées. Les reversements sont effectués par virement ou Mobile Money selon vos préférences renseignées.
+                                <div className="space-y-4">
+                                    <div className="p-3 bg-[#1A6CC8]/5 border border-[#1A6CC8]/20 flex items-start gap-3">
+                                        <Info className="w-4 h-4 text-[#1A6CC8] mt-0.5 shrink-0" />
+                                        <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                                            Vos informations de paiement sont sécurisées. Les reversements sont effectués par virement ou Mobile Money.
                                         </p>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Établissement Bancaire / Service</label>
-                                            <input 
-                                                value={formData.bankName || ""} 
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Établissement Bancaire / Service</label>
+                                            <input
+                                                value={formData.bankName || ""}
                                                 onChange={e => setFormData({...formData, bankName: e.target.value})}
                                                 placeholder="Ex: Afriland, Orange Money, etc."
-                                                className="w-full h-11 bg-gray-50/50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all" 
+                                                className="w-full h-9 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Coordonnées (RIB/Numéro)</label>
-                                            <input 
-                                                value={formData.bankIban || ""} 
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Coordonnées (RIB/Numéro)</label>
+                                            <input
+                                                value={formData.bankIban || ""}
                                                 onChange={e => setFormData({...formData, bankIban: e.target.value})}
-                                                className="w-full h-11 bg-gray-50/50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all" 
+                                                className="w-full h-9 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
                                             />
                                         </div>
                                     </div>
@@ -240,15 +238,23 @@ export default function TeacherProfile() {
                             )}
 
                             {activeTab === 'security' && (
-                                <div className="space-y-6">
-                                    <p className="text-xs text-gray-500 font-medium">Pour modifier votre mot de passe, merci d'utiliser le module de sécurité global ou de contacter l'administrateur.</p>
-                                    <div className="flex items-center gap-3 p-4 border border-gray-100 rounded-xl bg-gray-50/30">
-                                        <Shield className="w-5 h-5 text-emerald-500" />
-                                        <div className="text-xs">
-                                            <p className="font-bold text-[#0D2D5A]">Authentification à deux facteurs</p>
-                                            <p className="text-gray-400 mt-0.5">Renforcez la sécurité de votre compte tuteur.</p>
+                                <div className="space-y-4">
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                        Pour modifier votre mot de passe, merci de contacter l'administrateur.
+                                    </p>
+                                    <div className="flex items-center gap-3 p-3 border border-slate-200 bg-slate-50/30">
+                                        <Shield className="w-4 h-4 text-emerald-500 shrink-0" />
+                                        <div>
+                                            <p className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-tight">
+                                                Authentification à deux facteurs
+                                            </p>
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                                                Renforcez la sécurité de votre compte.
+                                            </p>
                                         </div>
-                                        <Button variant="outline" size="sm" className="ml-auto text-[10px] h-7 border-gray-200">Activer</Button>
+                                        <Button variant="outline" size="sm" className="ml-auto text-[9px] h-7 border-slate-200 rounded-none shadow-none font-black uppercase">
+                                            Activer
+                                        </Button>
                                     </div>
                                 </div>
                             )}

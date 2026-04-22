@@ -203,58 +203,70 @@ export default function TeacherSchedule() {
     };
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
+        <div className="w-full p-3 space-y-3 bg-white min-h-screen">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Mon Emploi du Temps</h1>
-                    <p className="text-gray-500 text-sm mt-1">Gérez vos sessions de cours et gardez une trace de vos interventions.</p>
+                    <h1 className="text-xl font-black text-[#0D2D5A] uppercase tracking-tight">Mon Emploi du Temps</h1>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                        Gérez vos sessions de cours et suivez vos interventions.
+                    </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     <div className="hidden md:flex gap-2">
-                        <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_COLORS["planifié"]}`}>Planifié</span>
-                        <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_COLORS["en cours"]}`}>En cours</span>
-                        <span className={`text-[10px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_COLORS["effectué"]}`}>Terminé</span>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider ${STATUS_COLORS["planifié"]}`}>Planifié</span>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider ${STATUS_COLORS["en cours"]}`}>En cours</span>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider ${STATUS_COLORS["effectué"]}`}>Terminé</span>
                     </div>
                     <Button
                         onClick={() => setShowCreate(true)}
-                        className="bg-[#1A6CC8] hover:bg-[#0D2D5A] h-9 px-4 rounded-xl font-bold shadow-sm gap-2 text-xs"
+                        className="bg-[#1A6CC8] hover:bg-[#0D2D5A] h-8 px-3 rounded-none shadow-none font-black text-[10px] uppercase gap-1.5"
                     >
-                        <Plus className="w-4 h-4" /> Nouvelle séance
+                        <Plus className="w-3.5 h-3.5" /> Nouvelle séance
                     </Button>
                 </div>
             </div>
 
             {isError && (
-                <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl p-4 flex items-center justify-between">
+                <div className="bg-red-50 border border-red-100 text-red-700 text-[10px] font-bold p-3 flex items-center justify-between">
                     <span>{error instanceof Error ? error.message : "Impossible de charger le planning."}</span>
-                    <button onClick={() => refetch()} className="inline-flex items-center gap-1 text-red-700 font-semibold text-xs border border-red-200 rounded-lg px-3 py-1 hover:bg-red-100 transition-colors">
+                    <button onClick={() => refetch()} className="inline-flex items-center gap-1 text-red-700 font-black text-[9px] uppercase border border-red-200 px-2 py-1 hover:bg-red-100 transition-colors">
                         <RefreshCw className="w-3 h-3" /> Réessayer
                     </button>
                 </div>
             )}
 
             {/* GRID 6 JOURS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                 {weekSessions.map(({ dayLabel, date, sessions: daySessions }) => (
-                    <div key={dayLabel} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-                        <div className={`px-3 py-2.5 text-center text-xs font-bold uppercase tracking-wide ${daySessions.length > 0 ? "bg-[#1A6CC8] text-white" : "bg-gray-50 text-gray-400"}`}>
+                    <div key={dayLabel} className="bg-white border border-slate-200 overflow-hidden flex flex-col">
+                        <div className={`px-2 py-2 text-center text-[10px] font-black uppercase tracking-wide ${daySessions.length > 0 ? "bg-[#1A6CC8] text-white" : "bg-slate-50 text-slate-400"}`}>
                             {dayLabel.slice(0, 3)}
-                            <div className="text-[10px] font-normal opacity-80 mt-0.5 normal-case">{date}</div>
+                            <div className="text-[9px] font-normal opacity-80 mt-0.5 normal-case">{date}</div>
                         </div>
-                        <div className="p-3 min-h-[120px] space-y-3 flex-1">
+                        <div className="p-2 min-h-[100px] space-y-2 flex-1">
                             {daySessions.map((s: any) => (
-                                <div key={s.id} className={`rounded-xl p-3 border transition-all ${s.status === 'completed' || s.status === 'effectué' ? 'bg-emerald-50/30 border-emerald-100' : (s.status === 'in_progress' || s.status === 'en cours') ? 'bg-orange-50/30 border-orange-100' : 'bg-[#1A6CC8]/5 border-[#1A6CC8]/10'}`}>
-                                    <div className="flex items-center justify-between mb-1">
-                                        <div className={`text-[10px] font-bold ${s.status === 'completed' || s.status === 'effectué' ? 'text-emerald-600' : (s.status === 'in_progress' || s.status === 'en cours') ? 'text-orange-600' : 'text-[#1A6CC8]'}`}>{s.time}</div>
+                                <div key={s.id} className={`p-2 border transition-all ${
+                                    s.status === 'completed' || s.status === 'effectué'
+                                        ? 'bg-emerald-50/30 border-emerald-100'
+                                        : (s.status === 'in_progress' || s.status === 'en cours')
+                                        ? 'bg-orange-50/30 border-orange-100'
+                                        : 'bg-[#1A6CC8]/5 border-[#1A6CC8]/10'
+                                }`}>
+                                    <div className="flex items-center justify-between mb-0.5">
+                                        <div className={`text-[9px] font-black ${
+                                            s.status === 'completed' || s.status === 'effectué' ? 'text-emerald-600'
+                                            : (s.status === 'in_progress' || s.status === 'en cours') ? 'text-orange-600'
+                                            : 'text-[#1A6CC8]'
+                                        }`}>{s.time}</div>
                                         {(s.status === 'completed' || s.status === 'effectué') && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
                                         {(s.status === 'in_progress' || s.status === 'en cours') && <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />}
                                     </div>
-                                    <div className="text-xs font-bold text-[#0D2D5A]">{s.subject}</div>
-                                    <div className="text-[10px] text-gray-500 mt-0.5">{s.student}</div>
+                                    <div className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-tight">{s.subject}</div>
+                                    <div className="text-[9px] text-slate-500 font-bold mt-0.5 truncate">{s.student}</div>
                                 </div>
                             ))}
                             {daySessions.length === 0 && (
-                                <div className="flex items-center justify-center h-16 text-gray-200 text-[10px] italic">
+                                <div className="flex items-center justify-center h-14 text-slate-200 text-[9px] font-black uppercase tracking-widest">
                                     {isLoading ? "..." : "Libre"}
                                 </div>
                             )}
@@ -264,66 +276,66 @@ export default function TeacherSchedule() {
             </div>
 
             {/* LISTE HISTORIQUE */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                    <div className="w-8 h-8 rounded-lg bg-[#1A6CC8]/10 flex items-center justify-center">
-                        <CalendarDays className="w-4 h-4 text-[#1A6CC8]" />
+            <div className="border border-slate-200 bg-white overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50/50">
+                    <div className="p-1.5 bg-[#1A6CC8]/10">
+                        <CalendarDays className="w-3.5 h-3.5 text-[#1A6CC8]" />
                     </div>
-                    <h2 className="font-bold text-[#0D2D5A] text-sm">Toutes les séances</h2>
-                    <span className="ml-auto text-xs text-gray-400">{sessions.length ?? 0} séances</span>
+                    <h2 className="font-black text-[#0D2D5A] text-[10px] uppercase tracking-widest">Toutes les séances</h2>
+                    <span className="ml-auto text-[9px] font-bold text-slate-400 uppercase">{sessions.length ?? 0} séances</span>
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-slate-100">
                     {sessions.map((s: any) => (
-                        <div key={s.id} className="flex flex-col sm:flex-row items-center gap-5 px-6 py-4 hover:bg-gray-50/50 transition-colors">
-                            <div className="w-12 text-center flex-shrink-0">
-                                <div className="text-[10px] font-bold text-[#1A6CC8]">{s.day?.slice(0, 3).toUpperCase() || '---'}</div>
-                                <div className="text-lg font-bold text-[#0D2D5A]">{s.date?.split(/[-\/]/)[0] || '??'}</div>
+                        <div key={s.id} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50/50 transition-colors">
+                            <div className="w-10 text-center flex-shrink-0">
+                                <div className="text-[9px] font-black text-[#1A6CC8] uppercase">{s.day?.slice(0, 3).toUpperCase() || '---'}</div>
+                                <div className="text-base font-black text-[#0D2D5A]">{s.date?.split(/[-\/]/)[0] || '??'}</div>
                             </div>
-                            <div className="hidden sm:block w-px h-10 bg-gray-100" />
-                            <div className="flex-1 min-w-0 w-full text-center sm:text-left">
-                                <div className="font-semibold text-[#0D2D5A] text-sm flex flex-col md:flex-row items-center gap-2">
+                            <div className="hidden sm:block w-px h-8 bg-slate-100" />
+                            <div className="flex-1 min-w-0">
+                                <div className="font-black text-[#0D2D5A] text-[10px] uppercase tracking-tight flex items-center gap-2">
                                     {s.subject}
-                                    <span className="text-[10px] font-normal text-gray-400">— {s.student}</span>
+                                    <span className="text-[9px] font-bold text-slate-400 normal-case">— {s.student}</span>
                                 </div>
-                                <div className="flex items-center justify-center sm:justify-start gap-3 mt-1 flex-wrap">
-                                    <span className="flex items-center gap-1 text-xs text-gray-400">
+                                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                    <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase">
                                         {s.location?.toLowerCase().includes('ligne') ? <Globe className="w-3 h-3 text-purple-400" /> : <MapPin className="w-3 h-3" />}
                                         {s.location || "Plateforme Eureka"}
                                     </span>
                                     {s.understandingScore && (
-                                        <span className="flex items-center gap-1 text-xs text-amber-500 font-semibold">
-                                            <Star className="w-3 h-3 fill-amber-400" /> {s.understandingScore}/5
+                                        <span className="flex items-center gap-1 text-[9px] text-[#F5A623] font-black uppercase">
+                                            <Star className="w-3 h-3 fill-[#F5A623]" /> {s.understandingScore}/5
                                         </span>
                                     )}
                                 </div>
                             </div>
-                            <div className="text-center sm:text-right flex flex-col sm:items-end gap-1.5 mt-2 sm:mt-0">
-                                <div className="text-sm font-semibold text-[#0D2D5A] flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-gray-400" />
+                            <div className="text-right flex flex-col items-end gap-1.5">
+                                <div className="text-[10px] font-black text-[#0D2D5A] flex items-center gap-1.5">
+                                    <Clock className="w-3 h-3 text-slate-400" />
                                     {s.time}
                                 </div>
-                                <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2">
+                                <div className="flex flex-wrap items-center justify-end gap-1.5">
                                     {renderStatusBadge(s.status)}
 
                                     {(s.status === 'scheduled' || s.status === 'planifié' || s.status === 'à venir') && (
-                                        <Button size="sm" onClick={() => checkInMutation.mutate(s.id)} disabled={checkInMutation.isPending} className="h-6 text-[10px] bg-[#0D2D5A] hover:bg-emerald-600 gap-1 px-2 shadow-sm">
-                                            <Play className="w-3 h-3 text-white" /> Démarrer
+                                        <Button size="sm" onClick={() => checkInMutation.mutate(s.id)} disabled={checkInMutation.isPending} className="h-6 text-[9px] bg-[#0D2D5A] hover:bg-emerald-600 gap-1 px-2 rounded-none shadow-none font-black uppercase">
+                                            <Play className="w-3 h-3" /> Démarrer
                                         </Button>
                                     )}
                                     {(s.status === 'in_progress' || s.status === 'en cours') && (
-                                        <Button size="sm" onClick={() => checkOutMutation.mutate(s)} disabled={checkOutMutation.isPending} className="h-6 text-[10px] bg-orange-500 hover:bg-red-600 gap-1 px-2 shadow-sm text-white">
-                                            <Square className="w-3 h-3 text-white" /> Clôturer
+                                        <Button size="sm" onClick={() => checkOutMutation.mutate(s)} disabled={checkOutMutation.isPending} className="h-6 text-[9px] bg-orange-500 hover:bg-red-600 gap-1 px-2 rounded-none shadow-none text-white font-black uppercase">
+                                            <Square className="w-3 h-3" /> Clôturer
                                         </Button>
                                     )}
                                     {s.virtualLink && (s.status === 'planifié' || s.status === 'à venir' || s.status === 'en cours' || s.status === 'scheduled' || s.status === 'in_progress') && (
                                         <a href={s.virtualLink} target="_blank" rel="noopener noreferrer">
-                                            <Button size="sm" className="h-6 text-[10px] bg-purple-600 hover:bg-purple-700 gap-1 px-2 shadow-sm text-white">
+                                            <Button size="sm" className="h-6 text-[9px] bg-purple-600 hover:bg-purple-700 gap-1 px-2 rounded-none shadow-none text-white font-black uppercase">
                                                 <Video className="w-3 h-3" /> Rejoindre
                                             </Button>
                                         </a>
                                     )}
                                     {(s.status === 'completed' || s.status === 'effectué') && s.notes && (
-                                        <Button size="sm" variant="outline" onClick={() => setViewedNote(s)} className="h-6 text-[10px] gap-1 border-emerald-200 text-emerald-700 bg-emerald-50/50 px-2 shadow-sm">
+                                        <Button size="sm" variant="outline" onClick={() => setViewedNote(s)} className="h-6 text-[9px] gap-1 border-emerald-200 text-emerald-700 bg-emerald-50/50 px-2 rounded-none shadow-none font-black uppercase">
                                             <FileText className="w-3 h-3" /> Bilan
                                         </Button>
                                     )}
@@ -332,7 +344,9 @@ export default function TeacherSchedule() {
                         </div>
                     ))}
                     {sessions.length === 0 && !isLoading && (
-                        <div className="px-6 py-8 text-center text-xs text-gray-400 italic">Aucune séance enregistrée pour le moment.</div>
+                        <div className="px-3 py-8 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                            Aucune séance enregistrée pour le moment.
+                        </div>
                     )}
                 </div>
             </div>

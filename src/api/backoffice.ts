@@ -213,19 +213,33 @@ export const fetchCourses = (role: CourseRole = "admin", userId?: string) => {
 export const fetchCourseDetails = (courseId: string) =>
     request<CourseSummary>(`/courses/${courseId}`);
 
-export const createCourse = (payload: {
+export type CoursePayload = {
     title: string;
-    description: string;
+    description?: string;
     subject: string;
     level: string;
+    mode?: "presentiel" | "online" | "hybride";
+    price?: number;
+    duration?: string;
     status?: "draft" | "published";
     coverUrl?: string;
     createdBy?: string;
-}) =>
+};
+
+export const createCourse = (payload: CoursePayload) =>
     request<CourseSummary>("/courses", {
         method: "POST",
         body: JSON.stringify(payload),
     });
+
+export const updateCourse = (courseId: string, payload: CoursePayload) =>
+    request<CourseSummary>(`/courses/${courseId}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+    });
+
+export const deleteCourse = (courseId: string) =>
+    request<{ success: boolean }>(`/courses/${courseId}`, { method: "DELETE" });
 
 export const createCourseLesson = (
     courseId: string,
@@ -235,6 +249,19 @@ export const createCourseLesson = (
         method: "POST",
         body: JSON.stringify(payload),
     });
+
+export const updateCourseLesson = (
+    courseId: string,
+    lessonId: string,
+    payload: { title: string; content: string; videoUrl?: string; order?: number }
+) =>
+    request<CourseSummary>(`/courses/${courseId}/lessons/${lessonId}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+    });
+
+export const deleteCourseLesson = (courseId: string, lessonId: string) =>
+    request<CourseSummary>(`/courses/${courseId}/lessons/${lessonId}`, { method: "DELETE" });
 
 export const createLessonQuiz = (
     lessonId: string,
