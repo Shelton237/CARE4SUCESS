@@ -2544,9 +2544,9 @@ app.post("/api/courses", async (req, res) => {
   try {
     const courseId = crypto.randomUUID();
     await pool.query(
-      `INSERT INTO courses (id, title, description, subject, level, mode, price, duration, status, cover_url, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, createdBy || null]
+      `INSERT INTO courses (id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, teacher_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, createdBy || null, createdBy || null]
     );
     const course = await fetchCourseDetails(courseId);
     res.status(201).json(course);
