@@ -5165,6 +5165,10 @@ app.get("/api/notifications/:userId", async (req, res) => {
     );
     res.json(rows.map(mapNotificationRow));
   } catch (error) {
+    if (isDbConnectionError(error)) {
+        console.warn("DB offline, returning empty notifications for:", userId);
+        return res.json([]);
+    }
     console.error("Failed to fetch notifications", error);
     res.status(500).json({ message: "Erreur serveur." });
   }
