@@ -35,7 +35,7 @@ export default function AdminLayout() {
                     <Route path="applications" element={<AdminTeacherApplications />} />
                     <Route path="students" element={<AdminStudents />} />
                     <Route path="requests" element={<AdminRequests />} />
-                    <Route path="profiles" element={<ProfileManager />} />
+                    <Route path="profiles/:userId?" element={<ProfileManager />} />
                     <Route path="finance" element={<AdminFinance />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="*" element={<Navigate to="/admin" replace />} />

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Star, MapPin, Search, UserPlus, Filter, MoreHorizontal, Eye, Ban } from "lucide-react";
 
@@ -27,6 +28,7 @@ interface Teacher {
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 export default function AdminTeachers() {
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -295,7 +297,10 @@ export default function AdminTeachers() {
                                             <DropdownMenuContent align="end" className="w-[160px]">
                                                 <DropdownMenuLabel>Actions métier</DropdownMenuLabel>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem className="cursor-pointer">
+                                                <DropdownMenuItem 
+                                                    className="cursor-pointer"
+                                                    onSelect={() => navigate(`/admin/profiles/${t.id}?role=teacher`)}
+                                                >
                                                     <Eye className="mr-2 h-4 w-4" /> Consulter le profil
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />

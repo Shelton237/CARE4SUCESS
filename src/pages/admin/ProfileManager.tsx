@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   registerUser,
@@ -163,10 +164,12 @@ const diffIds = (next: string[], prev: string[]) => ({
 export default function ProfileManager() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { userId } = useParams();
+  const [searchParams] = useSearchParams();
 
   const [createForm, setCreateForm] = useState<CreateFormState>(createInitialCreateForm);
-  const [editRole, setEditRole] = useState<Role>("parent");
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [editRole, setEditRole] = useState<Role>((searchParams.get("role") as Role) || "parent");
+  const [selectedUserId, setSelectedUserId] = useState<string>(userId || "");
   const [editForm, setEditForm] = useState<EditFormState>(defaultEditForm);
   const [editLinks, setEditLinks] = useState<EditLinkState>(emptyEditLinks);
   const [initialLinks, setInitialLinks] = useState<EditLinkState>(emptyEditLinks);
@@ -217,19 +220,28 @@ export default function ProfileManager() {
   );
 
   useEffect(() => {
-    setSelectedUserId("");
+    // Si on a un userId dans l'URL et que c'est le premier chargement ou que le rôle correspond, on ne reset pas tout
+    if (userId && selectedUserId === userId) {
+      // On garde le userId mais on peut reset le reste si besoin
+    } else {
+      setSelectedUserId("");
+    }
     setEditForm(defaultEditForm);
     setEditLinks(emptyEditLinks);
     setInitialLinks(emptyEditLinks);
-  }, [editRole]);
+  }, [editRole, userId]);
 
   useEffect(() => {
     if (selectedUserId) return;
+    if (userId) {
+      setSelectedUserId(userId);
+      return;
+    }
     const firstUser = roleUsers[0];
     if (firstUser) {
       setSelectedUserId(firstUser.id);
     }
-  }, [selectedUserId, roleUsers]);
+  }, [selectedUserId, roleUsers, userId]);
 
   useEffect(() => {
     if (!selectedUser) {
