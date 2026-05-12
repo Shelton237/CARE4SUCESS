@@ -10,6 +10,7 @@ import AdminTeacherApplications from "./TeacherApplications";
 import AdminCourses from "./Courses";
 import AdminFinance from "./Finance";
 import ProfileManager from "./ProfileManager";
+import AdvisorMatching from "../advisor/Matching";
 
 const NAV = [
     { to: "/admin", label: "Tableau de bord", icon: LayoutDashboard },
@@ -36,6 +37,7 @@ export default function AdminLayout() {
                     <Route path="students" element={<AdminStudents />} />
                     <Route path="requests" element={<AdminRequests />} />
                     <Route path="profiles/:userId?" element={<ProfileManager />} />
+                    <Route path="matching" element={<AdvisorMatching />} />
                     <Route path="finance" element={<AdminFinance />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="*" element={<Navigate to="/admin" replace />} />

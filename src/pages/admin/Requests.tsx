@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { fetchRequests, updateRequestStatus, createRequest } from "@/api/backoffice";
 import type { RequestStatus, BackofficeRequest } from "@/integrations/supabase/types";
 import {
@@ -27,6 +27,7 @@ const buildInitialGroups = () =>
 const EMPTY_FORM = { parentName: "", childName: "", level: "", subject: "", phone: "" };
 
 export default function AdminRequests() {
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [search, setSearch] = useState("");
     const [filterStatus, setFilterStatus] = useState<RequestStatus | "">("");
@@ -263,14 +264,16 @@ export default function AdminRequests() {
 
                                         {/* Matching CTA */}
                                         {r.status === "en traitement" && (
-                                            <Link
-                                                to="/advisor/matching"
-                                                state={{ childName: r.child, level: r.level, subject: r.subject }}
-                                                className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 bg-violet-50 text-violet-600 border border-violet-100 rounded-lg text-[10px] font-black hover:bg-violet-100 transition-colors"
+                                            <Button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate("/admin/matching", { state: { childName: r.child, level: r.level, subject: r.subject } });
+                                                }}
+                                                className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 bg-violet-50 text-violet-600 border border-violet-100 rounded-lg text-[10px] font-black hover:bg-violet-100 transition-colors shadow-none"
                                             >
                                                 <GitMerge className="w-3 h-3" />
                                                 Lancer le matching
-                                            </Link>
+                                            </Button>
                                         )}
 
                                         {/* Date */}
