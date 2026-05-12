@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
-import { CalendarDays, Loader2, RefreshCw } from "lucide-react";
+import { CalendarDays, Loader2, RefreshCw, KeyRound } from "lucide-react";
+import { resetUserPassword } from "@/api/backoffice";
+import { toast } from "sonner";
 
 export default function AdminStudents() {
   const { data, isLoading, isError, refetch } = useQuery({
@@ -10,6 +12,24 @@ export default function AdminStudents() {
   });
 
   const families = useMemo(() => data ?? [], [data]);
+
+  const handleReset = async (email: string, name: string) => {
+    if (!email) {
+      toast.error("Cet élève n'a pas d'email configuré.");
+      return;
+    }
+    
+    const newPassword = prompt(`Entrez le nouveau mot de passe pour ${name} (laissez vide pour 'eleve123') :`, "eleve123");
+    
+    if (newPassword === null) return; // Annulé
+
+    try {
+      await resetUserPassword(email, newPassword || "eleve123");
+      toast.success(`Accès réinitialisé pour ${name}. Un email a été envoyé.`);
+    } catch (error) {
+      toast.error("Erreur lors de la réinitialisation.");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -57,6 +77,7 @@ export default function AdminStudents() {
                 <th className="text-left px-6 py-4 font-semibold text-gray-600">Enseignant</th>
                 <th className="text-left px-6 py-4 font-semibold text-gray-600">Prochain cours</th>
                 <th className="text-center px-6 py-4 font-semibold text-gray-600">Statut</th>
+                <th className="text-right px-6 py-4 font-semibold text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -96,6 +117,16 @@ export default function AdminStudents() {
                     >
                       {family.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => handleReset(family.childEmail, family.child)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors inline-flex items-center gap-1.5 text-xs font-medium"
+                      title="Réinitialiser l'accès élève et renvoyer les identifiants"
+                    >
+                      <KeyRound className="w-4 h-4" />
+                      Reset
+                    </button>
                   </td>
                 </tr>
               ))}

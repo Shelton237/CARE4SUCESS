@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth, ROLE_REDIRECTS } from "@/contexts/AuthContext";
 import { GraduationCap, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { forgotPassword } from "@/api/backoffice";
+import { toast } from "sonner";
 
 export default function Login() {
     const { login } = useAuth();
@@ -30,6 +32,24 @@ export default function Login() {
         if (stored) {
             const user = JSON.parse(stored);
             navigate(ROLE_REDIRECTS[user.role as keyof typeof ROLE_REDIRECTS]);
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        if (!email) {
+            setError("Veuillez saisir votre adresse email pour recevoir vos identifiants.");
+            return;
+        }
+        
+        setLoading(true);
+        try {
+            const res = await forgotPassword(email);
+            toast.success(res.message);
+            setError("");
+        } catch (err: any) {
+            setError(err.message || "Impossible de traiter la demande.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -133,6 +153,15 @@ export default function Login() {
                                         aria-label={showPwd ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                                     >
                                         {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                                <div className="flex justify-end mt-1.5">
+                                    <button 
+                                        type="button"
+                                        onClick={handleForgotPassword}
+                                        className="text-xs font-medium text-[#1A6CC8] hover:underline"
+                                    >
+                                        Mot de passe oublié ?
                                     </button>
                                 </div>
                             </div>

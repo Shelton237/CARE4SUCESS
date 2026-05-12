@@ -14,7 +14,7 @@ export function ProtectedRoute({ children, role }: Props) {
         return <Navigate to="/login" replace />;
     }
 
-    if (role && user?.role !== role && user?.secondaryRole !== role) {
+    if (role && user?.role !== 'admin' && user?.role !== role && user?.secondaryRole !== role) {
         // Redirect to their own dashboard
         const roleRoutes: Record<Role, string> = {
             admin: "/admin",

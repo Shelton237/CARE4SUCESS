@@ -12,7 +12,8 @@ import {
     CheckCircle2,
     Briefcase,
     GraduationCap,
-    TrendingUp
+    TrendingUp,
+    Zap
 } from "lucide-react";
 import { fetchTeacherDashboard } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
     BookOpen, 
@@ -283,6 +284,7 @@ function CourseCard({ course, isBookmarked, onToggleBookmark, onView }: { course
 
 function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose: () => void }) {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
 
@@ -428,6 +430,15 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
                                             className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest border-2 border-orange-100 text-[#F5A623] hover:bg-orange-50 transition-all"
                                         >
                                             <HelpCircle className="mr-2 w-4 h-4" /> Passer le Test
+                                        </Button>
+                                    )}
+
+                                    {course?.mode === 'online' && (
+                                        <Button 
+                                            onClick={() => navigate(`/virtual-class/${course.id}`)}
+                                            className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 active:scale-95 transition-all"
+                                        >
+                                            <Video className="mr-2 w-4 h-4" /> Rejoindre la Classe
                                         </Button>
                                     )}
                                 </div>

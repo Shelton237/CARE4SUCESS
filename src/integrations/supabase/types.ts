@@ -285,6 +285,7 @@ export interface CourseSummary {
     description: string;
     subject: string;
     level: string;
+    mode?: 'online' | 'onsite';
     status: CourseStatus;
     coverUrl?: string | null;
     createdBy?: string | null;

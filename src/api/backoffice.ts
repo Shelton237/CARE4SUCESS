@@ -636,3 +636,15 @@ export const generateManualInvoices = (month?: string) =>
         method: "POST",
         body: JSON.stringify({ month }),
     });
+
+export const resetUserPassword = (email: string, newPassword?: string) =>
+    request<{ success: boolean; message: string }>("/admin/reset-user-password", {
+        method: "POST",
+        body: JSON.stringify({ email, newPassword }),
+    });
+export const forgotPassword = (email: string) =>
+    request<{ success: boolean; message: string }>("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+    });
+

@@ -101,15 +101,14 @@ const parseJson = (value, fallback) => {
 
 const REQUEST_STATUS_ALIASES = new Map([
   ["reçu", "reçu"],
-  ["reçu", "reçu"],
   ["re├ºu", "reçu"],
   ["en traitement", "en traitement"],
-  ["assign�", "assign�"],
-  ["assigné", "assign�"],
-  ["assign├®", "assign�"],
-  ["cl�tur�", "cl�tur�"],
-  ["clôturé", "cl�tur�"],
-  ["cl├┤tur├®", "cl�tur�"],
+  ["assigné", "assigné"],
+  ["assign├®", "assigné"],
+  ["assign\u00e9", "assigné"],
+  ["clôturé", "clôturé"],
+  ["cl├┤tur├®", "clôturé"],
+  ["cl\u00f4tur\u00e9", "clôturé"],
 ]);
 
 const normalizeRequestStatus = (value) => {
@@ -645,11 +644,20 @@ const ensureRequestsTable = async () => {
       level VARCHAR(120) NOT NULL,
       subject VARCHAR(120) NOT NULL,
       phone VARCHAR(50),
-      status ENUM('reçu', 'en traitement', 'assign�', 'cl�tur�') NOT NULL DEFAULT 'reçu',
+      status ENUM('reçu', 'en traitement', 'assigné', 'clôturé') NOT NULL DEFAULT 'reçu',
       request_date DATE NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  // Migration: fix ENUM values if corrupted by encoding issue
+  try {
+    await pool.query(
+      `ALTER TABLE requests MODIFY COLUMN status ENUM('reçu', 'en traitement', 'assigné', 'clôturé') NOT NULL DEFAULT 'reçu'`
+    );
+    console.log("Migration: Fixed requests.status ENUM encoding ✅");
+  } catch (e) {
+    console.warn("Migration: requests.status ENUM already correct or failed:", e.message);
+  }
 };
 
 const ensureAssignmentsTable = async () => {
@@ -808,18 +816,30 @@ const initDB = async () => {
     await ensureAcademicDiagnosticsTable();
     await ensureAcademicPlansTable();
     // Migration: colonnes interview sur teacher_applications
-    await pool.query(`ALTER TABLE teacher_applications ADD COLUMN IF NOT EXISTS interview_date TIMESTAMP NULL`).catch(() => {});
-    await pool.query(`ALTER TABLE teacher_applications ADD COLUMN IF NOT EXISTS interview_notes TEXT NULL`).catch(() => {});
-    await pool.query(`ALTER TABLE teacher_applications ADD COLUMN IF NOT EXISTS interview_status VARCHAR(20) NULL`).catch(() => {});
-    await pool.query(`ALTER TABLE teacher_applications ADD COLUMN IF NOT EXISTS level_classification JSON NULL`).catch(() => {});
+    const [taCols] = await pool.query("SHOW COLUMNS FROM teacher_applications");
+    const taColNames = new Set(taCols.map(c => c.Field));
+    if (!taColNames.has("interview_date")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN interview_date TIMESTAMP NULL").catch(() => {});
+    if (!taColNames.has("interview_notes")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN interview_notes TEXT NULL").catch(() => {});
+    if (!taColNames.has("interview_status")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN interview_status VARCHAR(20) NULL").catch(() => {});
+    if (!taColNames.has("level_classification")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN level_classification JSON NULL").catch(() => {});
+
     // Migration: performance_index sur teachers
-    await pool.query(`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS performance_index DECIMAL(4,2) NULL`).catch(() => {});
-    // Migration: tutor dans le ENUM role (MySQL ne supporte pas IF NOT EXISTS sur ENUM — on tente silencieusement)
+    const [tCols] = await pool.query("SHOW COLUMNS FROM teachers");
+    const tColNames = new Set(tCols.map(c => c.Field));
+    if (!tColNames.has("performance_index")) await pool.query("ALTER TABLE teachers ADD COLUMN performance_index DECIMAL(4,2) NULL").catch(() => {});
+
+    // Migration: tutor dans le ENUM role
     await pool.query(`ALTER TABLE users MODIFY COLUMN role ENUM('admin','teacher','parent','advisor','student','tutor') NOT NULL`).catch(() => {});
+
     // Migration: reminder_sent sur sessions
-    await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS reminder_sent TINYINT(1) NOT NULL DEFAULT 0`).catch(() => {});
+    const [sCols] = await pool.query("SHOW COLUMNS FROM sessions");
+    const sColNames = new Set(sCols.map(c => c.Field));
+    if (!sColNames.has("reminder_sent")) await pool.query("ALTER TABLE sessions ADD COLUMN reminder_sent TINYINT(1) NOT NULL DEFAULT 0").catch(() => {});
+
     // Migration: secondary_role — permet à un tuteur d'être aussi enseignant
-    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS secondary_role ENUM('admin','teacher','parent','advisor','student','tutor') NULL DEFAULT NULL`).catch(() => {});
+    const [uCols] = await pool.query("SHOW COLUMNS FROM users");
+    const uColNames = new Set(uCols.map(c => c.Field));
+    if (!uColNames.has("secondary_role")) await pool.query("ALTER TABLE users ADD COLUMN secondary_role ENUM('admin','teacher','parent','advisor','student','tutor') NULL DEFAULT NULL").catch(() => {});
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
@@ -1546,6 +1566,13 @@ app.post("/api/parents/enroll", async (req, res) => {
       [parentId, parentName, parentEmail, hashedParentPwd, parentPhone || null, (parentName || "P")[0]]
     );
 
+    // Bienvenue Parent
+    await sendMail({
+      to: parentEmail,
+      subject: "Bienvenue sur Care4Success — Vos identifiants parent",
+      html: tplAccountCreated({ name: parentName, email: parentEmail, password: parentPassword, role: 'parent' })
+    }).catch(e => console.warn("Parent welcome mail failed:", e.message));
+
     const results = {
       parentId,
       students: []
@@ -1562,6 +1589,13 @@ app.post("/api/parents/enroll", async (req, res) => {
         "INSERT INTO users (id, name, email, password, role, parent_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?)",
         [studentId, child.name, finalStudentEmail, hashedStudentPwd, parentId, (child.name || "S")[0]]
       );
+
+      // Bienvenue Élève
+      await sendMail({
+        to: finalStudentEmail,
+        subject: "Bienvenue sur Care4Success — Tes identifiants élève",
+        html: tplAccountCreated({ name: child.name, email: finalStudentEmail, password: child.password || "eleve123", role: 'student' })
+      }).catch(e => console.warn("Student welcome mail failed:", e.message));
 
       // Link Parent-Child
       await connection.query(
@@ -1680,24 +1714,26 @@ app.post("/api/requests", async (req, res) => {
 app.patch("/api/requests/:id", async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
-  const validStatuses = new Set(["reçu", "en traitement", "assign�", "cl�tur�"]);
+  const validStatuses = new Set(["reçu", "en traitement", "assigné", "clôturé"]);
 
-  console.log(`PATCH /api/requests/${id} - New Status: ${status}`);
-  fs.appendFileSync('/tmp/debug_api.log', `PATCH /api/requests/${id} - New Status: ${status}\n`);
-  if (!status || !validStatuses.has(status)) {
-    console.log(`Invalid status: ${status}`);
-    return res.status(400).json({ message: "Statut invalide." });
+  // Normalize the incoming status to handle encoding variants
+  const normalizedStatus = normalizeRequestStatus(status);
+  console.log(`PATCH /api/requests/${id} - New Status: '${status}' -> normalized: '${normalizedStatus}'`);
+  try { fs.appendFileSync('/tmp/debug_api.log', `PATCH /api/requests/${id} - status: ${status} -> ${normalizedStatus}\n`); } catch {}
+  if (!normalizedStatus || !validStatuses.has(normalizedStatus)) {
+    console.log(`Invalid status: '${status}' (normalized: '${normalizedStatus}')`);
+    return res.status(400).json({ message: "Statut invalide.", received: status, normalized: normalizedStatus });
   }
 
   try {
-    fs.appendFileSync('/tmp/debug_api.log', `Updating database for request ${id} to ${status}...\n`);
+    try { fs.appendFileSync('/tmp/debug_api.log', `Updating database for request ${id} to ${normalizedStatus}...\n`); } catch {}
     await pool.query(
       "UPDATE requests SET status = ? WHERE id = ?",
-      [status, id]
+      [normalizedStatus, id]
     );
-    console.log(`Update successful. Checking if automation trigger 'en traitement' is met...`);
+    console.log(`Update successful. Status set to '${normalizedStatus}'. Checking if automation trigger 'en traitement' is met...`);
 
-    if (status === "en traitement") {
+    if (normalizedStatus === "en traitement") {
       try {
         const [reqRows] = await pool.query("SELECT * FROM requests WHERE id = ?", [id]);
         const r = reqRows[0];
@@ -1790,9 +1826,12 @@ app.patch("/api/assignments/:id", async (req, res) => {
       // Rechercher les IDs utilisateurs correspondants (logic de recherche par nom pour le MVP)
       const [[student]] = await pool.query("SELECT id FROM users WHERE name = ? AND role = 'student' LIMIT 1", [assignment.child_name]);
       const [[parent]] = await pool.query("SELECT id FROM users WHERE name = ? AND role = 'parent' LIMIT 1", [parentName]);
-      const [[teacher]] = await pool.query("SELECT id FROM users WHERE name = ? AND role = 'teacher' LIMIT 1", [selectedTeacher]);
+      const [[teacher]] = await pool.query("SELECT id FROM users WHERE name = ? AND (role = 'teacher' OR secondary_role = 'teacher') LIMIT 1", [selectedTeacher]);
 
       if (student && parent && teacher) {
+        // Enregistrement de la relation officielle
+        await linkStudentTeacherRelation(student.id, teacher.id);
+        
         const sessionId = crypto.randomUUID();
         // Planifier par défaut dans 7 jours
         const nextWeek = new Date();
@@ -1815,6 +1854,23 @@ app.patch("/api/assignments/:id", async (req, res) => {
           ]
         );
         console.log(`Automation: Session créée pour ${assignment.child_name} avec ${selectedTeacher}`);
+
+        // Envoi de l'alerte email au parent
+        const [[parentUser]] = await pool.query("SELECT email FROM users WHERE id = ?", [parent.id]);
+        if (parentUser?.email) {
+          await sendMail({
+            to: parentUser.email,
+            subject: `Nouveau cours planifié pour ${assignment.child_name} — Care4Success`,
+            html: tplCourseReminder({
+              parentName: parentName,
+              childName: assignment.child_name,
+              subject: assignment.subject,
+              teacherName: selectedTeacher,
+              dateStr: new Date(dateStr).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" }),
+              timeStr: "16:00"
+            })
+          }).catch(e => console.warn("Mail automation failed:", e.message));
+        }
       }
     } catch (autoErr) {
       console.warn("Automation partial failure:", autoErr.message);
@@ -2529,6 +2585,44 @@ app.get("/api/teacher-ratings", async (_req, res) => {
   }
 });
 
+async function notifyStudentsOfNewCourse(courseId, teacherId) {
+  if (!courseId || !teacherId) return;
+  try {
+    const course = await fetchCourseDetails(courseId);
+    if (!course || course.status !== "published") return;
+
+    const [[teacherUser]] = await pool.query("SELECT name FROM users WHERE id = ?", [teacherId]);
+    const teacherName = teacherUser?.name || "Votre professeur";
+
+    const [students] = await pool.query(
+      `SELECT u.email, u.name 
+       FROM users u
+       JOIN student_teacher st ON u.id = st.student_id
+       WHERE st.teacher_id = ?`,
+      [teacherId]
+    );
+
+    for (const student of students) {
+      if (student.email) {
+        await sendMail({
+          to: student.email,
+          subject: `Nouveau cours : ${course.title} — Care4Success`,
+          html: tplNewCourse({
+            studentName: student.name,
+            teacherName: teacherName,
+            courseTitle: course.title,
+            subject: course.subject,
+            mode: course.mode,
+            courseId: courseId
+          })
+        }).catch(e => console.warn(`Course mail failed for ${student.email}:`, e.message));
+      }
+    }
+  } catch (err) {
+    console.error("Course notification error:", err.message);
+  }
+}
+
 app.get("/api/courses", async (req, res) => {
   const { role, userId } = req.query;
   try {
@@ -2538,12 +2632,13 @@ app.get("/api/courses", async (req, res) => {
         return res.status(400).json({ message: "userId requis pour le role student." });
       }
       [rows] = await pool.query(
-        `SELECT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at
+        `SELECT DISTINCT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at
          FROM courses c
-         INNER JOIN course_enrollments ce ON ce.course_id = c.id
-         WHERE ce.student_id = ? AND c.status = 'published'
+         LEFT JOIN course_enrollments ce ON ce.course_id = c.id AND ce.student_id = ?
+         LEFT JOIN student_teacher st ON st.teacher_id = c.created_by AND st.student_id = ?
+         WHERE (ce.id IS NOT NULL OR st.student_id IS NOT NULL) AND c.status = 'published'
          ORDER BY c.created_at DESC`,
-        [userId]
+        [userId, userId]
       );
     } else if (role === "teacher") {
       if (!userId) {
@@ -2624,6 +2719,12 @@ app.post("/api/courses", async (req, res) => {
       }
     }
     const course = await fetchCourseDetails(courseId);
+    
+    // Notification asynchrone des élèves
+    if (status === "published" && createdBy) {
+      notifyStudentsOfNewCourse(courseId, createdBy);
+    }
+    
     res.status(201).json(course);
   } catch (error) {
     if (isDbConnectionError(error)) {
@@ -2658,6 +2759,12 @@ app.put("/api/courses/:courseId", async (req, res) => {
     );
     const course = await fetchCourseDetails(courseId, true);
     if (!course) return res.status(404).json({ message: "Cours introuvable." });
+
+    // Notification si le cours vient d'être publié
+    if (status === "published" && course.createdBy) {
+      notifyStudentsOfNewCourse(courseId, course.createdBy);
+    }
+
     res.json(course);
   } catch (error) {
     console.error("Failed to update course", error);
@@ -3251,6 +3358,8 @@ app.get("/api/advisor/families", async (_req, res) => {
          r.status          AS request_status,
          a.selected_teacher,
          a.status          AS assignment_status,
+         (SELECT email FROM users WHERE name = r.parent_name AND role = 'parent' LIMIT 1) AS parent_email,
+         (SELECT email FROM users WHERE name = r.child_name AND role = 'student' LIMIT 1) AS child_email,
          MIN(CASE WHEN DATE(s.session_date) >= CURDATE() THEN s.session_date END) AS next_date,
          MIN(CASE WHEN DATE(s.session_date) >= CURDATE() THEN s.session_time  END) AS next_time
        FROM requests r
@@ -3259,7 +3368,7 @@ app.get("/api/advisor/families", async (_req, res) => {
        LEFT JOIN sessions s
               ON s.student_name = r.child_name AND s.parent_name = r.parent_name
        GROUP BY r.id, r.parent_name, r.child_name, r.level, r.subject, r.status,
-                a.selected_teacher, a.assignment_status
+                a.selected_teacher, a.status
        ORDER BY r.request_date DESC`
     );
 
@@ -3273,7 +3382,7 @@ app.get("/api/advisor/families", async (_req, res) => {
         row.request_status === "en traitement"
       ) {
         status = "matching";
-      } else if (row.request_status === "assign�") {
+      } else if (row.request_status === "assigné") {
         status = "bilan planifié";
       }
 
@@ -3295,7 +3404,9 @@ app.get("/api/advisor/families", async (_req, res) => {
       return {
         id: row.id,
         parent: row.parent_name,
+        parentEmail: row.parent_email,
         child: row.child_name,
+        childEmail: row.child_email,
         level: row.level,
         subject: row.subject || undefined,
         teacher: row.selected_teacher || "—",
@@ -3635,6 +3746,7 @@ const ensureUsersTable = async () => {
     await ensureColumn("notify_email", "TINYINT(1) NOT NULL DEFAULT 1");
     await ensureColumn("notify_sms", "TINYINT(1) NOT NULL DEFAULT 0");
     await ensureColumn("notify_whatsapp", "TINYINT(1) NOT NULL DEFAULT 0");
+    await ensureColumn("secondary_role", "ENUM('admin','teacher','parent','advisor','student','tutor') NULL DEFAULT NULL");
     await ensureColumn("last_login_at", "TIMESTAMP NULL");
     await ensureColumn("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
     await ensureColumn("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
@@ -3852,6 +3964,14 @@ app.post("/api/auth/register", async (req, res) => {
     );
     const safeUser = mapUserRow(rows[0]);
     const token = generateToken(safeUser);
+
+    // Email de bienvenue avec identifiants
+    await sendMail({
+      to: email,
+      subject: "Bienvenue sur Care4Success — Vos identifiants",
+      html: tplAccountCreated({ name, email, password, role })
+    }).catch(e => console.warn("Welcome mail failed:", e.message));
+
     res.status(201).json({ token, user: safeUser });
   } catch (error) {
     console.error("Failed to register user", error);
@@ -3916,7 +4036,75 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-app.get("/api/users/:userId", authenticateRequest, async (req, res) => {
+app.post("/api/admin/reset-user-password", async (req, res) => {
+  const { email, newPassword = "eleve123" } = req.body;
+  if (!email) return res.status(400).json({ message: "Email requis." });
+
+  try {
+    await ensureUsersTable();
+    const [rows] = await pool.query("SELECT id, name, role FROM users WHERE email = ?", [email]);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Utilisateur non trouvé avec cet email." });
+    }
+
+    const user = rows[0];
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await pool.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, user.id]);
+
+    // Envoyer l'email de bienvenue/reset
+    await sendMail({
+      to: email,
+      subject: "Vos nouveaux identifiants — Care4Success",
+      html: tplAccountCreated({ 
+        name: user.name, 
+        email, 
+        password: newPassword, 
+        role: user.role 
+      })
+    }).catch(e => console.warn("Reset mail failed:", e.message));
+
+    res.json({ success: true, message: `Mot de passe réinitialisé et envoyé à ${user.name}` });
+  } catch (err) {
+    console.error("Reset error:", err);
+    res.status(500).json({ message: "Erreur serveur lors de la réinitialisation." });
+  }
+});
+
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: "Email requis." });
+
+  try {
+    await ensureUsersTable();
+    const [rows] = await pool.query("SELECT id, name, role FROM users WHERE email = ?", [email]);
+    if (rows.length === 0) {
+      // Pour la sécurité, on dit quand même que c'est envoyé (ou on dit non trouvé selon le besoin métier)
+      return res.json({ success: true, message: "Si cet email existe, les identifiants ont été envoyés." });
+    }
+
+    const user = rows[0];
+    const newPassword = Math.random().toString(36).slice(-8); // Génère un pass de 8 char
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await pool.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, user.id]);
+
+    await sendMail({
+      to: email,
+      subject: "Récupération de vos identifiants — Care4Success",
+      html: tplAccountCreated({ 
+        name: user.name, 
+        email, 
+        password: newPassword, 
+        role: user.role 
+      })
+    });
+
+    res.json({ success: true, message: "Vos nouveaux identifiants ont été envoyés par email." });
+  } catch (err) {
+    console.error("Forgot pass error:", err);
+    res.status(500).json({ message: "Erreur lors de la récupération." });
+  }
+});
+
   const { userId } = req.params;
   const requesterId = req.user?.sub;
   const requesterRole = req.user?.role;
@@ -6218,6 +6406,68 @@ async function sendMail({ to, subject, html }) {
 }
 
 // ─── Helpers email templates ──────────────────────────────────────────────────
+function tplNewCourse({ studentName, teacherName, courseTitle, subject, mode, courseId }) {
+  const visioLink = `https://care4success.usra-care.com/#/virtual-class/${courseId}`;
+  
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A;background:#f9fafb;padding:20px;border-radius:16px">
+      <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+        <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+        <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Nouveau contenu pédagogique disponible</p>
+      </div>
+      <div style="padding:32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:15px">Bonjour <strong>${studentName}</strong>,</p>
+        <p>Ton professeur <strong>${teacherName}</strong> vient de publier un nouveau cours : <strong>${courseTitle}</strong> (${subject}).</p>
+        
+        <div style="background:#f0f9ff;border-radius:8px;padding:20px;margin:24px 0;border:1px solid #bae6fd">
+          <p style="margin:0 0 10px;font-weight:bold;color:#0369a1">Détails du cours :</p>
+          <ul style="margin:0;padding-left:20px;font-size:14px;color:#0c4a6e">
+            <li>Matière : ${subject}</li>
+            <li>Mode : ${mode === 'online' ? '🌐 En ligne' : '🏠 Présentiel'}</li>
+          </ul>
+        </div>
+
+        ${mode === 'online' ? `
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:24px;text-align:center;margin:24px 0">
+          <p style="margin:0 0 16px;font-weight:bold;color:#991b1b">Ce cours dispose d'une classe virtuelle !</p>
+          <a href="${visioLink}" style="background:#ef4444;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:black;display:inline-block;text-transform:uppercase;letter-spacing:1px;font-size:13px">Rejoindre la visio</a>
+        </div>
+        ` : ''}
+
+        <p style="font-size:14px;margin-top:20px">Tu peux consulter le programme et les leçons dès maintenant sur ton espace élève.</p>
+        <p style="font-size:13px;color:#6b7280;margin-top:30px">L'équipe Care4Success</p>
+      </div>
+    </div>`;
+}
+function tplAccountCreated({ name, email, password, role }) {
+  const roleLabel = {
+    admin: "Administrateur",
+    teacher: "Professeur",
+    parent: "Parent",
+    student: "Élève",
+    advisor: "Conseiller"
+  }[role] || role;
+
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A;background:#f9fafb;padding:20px;border-radius:16px">
+      <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+        <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+        <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Bienvenue sur votre plateforme d'excellence</p>
+      </div>
+      <div style="padding:32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:15px">Bonjour <strong>${name}</strong>,</p>
+        <p>Votre compte <strong>${roleLabel}</strong> a été créé avec succès sur Care4Success.</p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:20px;border-radius:8px;margin:24px 0">
+          <p style="margin:0 0 10px;font-size:14px">Voici vos identifiants de connexion :</p>
+          <p style="margin:0 0 5px;font-size:14px">📧 Email : <strong>${email}</strong></p>
+          <p style="margin:0;font-size:14px">🔑 Mot de passe : <strong>${password}</strong></p>
+        </div>
+        <p style="font-size:14px">Vous pouvez vous connecter dès maintenant sur : <a href="https://care4success.usra-care.com" style="color:#1A6CC8;text-decoration:none;font-weight:bold">https://care4success.usra-care.com</a></p>
+        <p style="font-size:13px;color:#6b7280;margin-top:24px">Nous vous recommandons de changer votre mot de passe dès votre première connexion.</p>
+        <p style="font-size:13px;color:#6b7280;margin-top:20px">L'équipe Care4Success</p>
+      </div>
+    </div>`;
+}
 function tplCourseReminder({ parentName, childName, subject, teacherName, dateStr, timeStr }) {
   return `
     <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A">
