@@ -30,7 +30,7 @@ export default function StudentHistory() {
     );
 
     return (
-        <div className="p-4 md:p-6 space-y-6 bg-white min-h-screen font-sans text-[#0D2D5A]">
+        <div className="p-4 md:p-4 md:p-6 space-y-6 bg-white min-h-screen font-sans text-[#0D2D5A]">
             <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
                 <div>
                     <h1 className="text-xl font-black text-[#0D2D5A] uppercase tracking-tight flex items-center gap-3">

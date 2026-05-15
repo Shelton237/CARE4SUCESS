@@ -236,7 +236,7 @@ export default function StudentMessages() {
     };
 
     return (
-        <div className="p-4 md:p-8 space-y-6 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
+        <div className="p-4 md:p-4 md:p-8 space-y-6 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
             <div>
                 <h1 className="text-2xl font-bold text-[#0D2D5A]">Messages</h1>
                 <p className="text-gray-500 text-sm mt-1">
@@ -274,9 +274,9 @@ export default function StudentMessages() {
 
                     <div className="flex-1 overflow-y-auto p-2 space-y-1">
                         {isLoading && contacts.length === 0 ? (
-                            <div className="flex justify-center p-6"><Loader2 className="w-6 h-6 animate-spin text-gray-300" /></div>
+                            <div className="flex justify-center p-4 md:p-6"><Loader2 className="w-6 h-6 animate-spin text-gray-300" /></div>
                         ) : filteredContacts.length === 0 ? (
-                            <div className="text-center text-sm text-gray-400 p-6">Aucun contact trouvé.</div>
+                            <div className="text-center text-sm text-gray-400 p-4 md:p-6">Aucun contact trouvé.</div>
                         ) : (
                             filteredContacts.map((c) => (
                                 <div

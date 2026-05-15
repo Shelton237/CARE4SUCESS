@@ -22,10 +22,10 @@ const NAV = [
 
 export default function AdvisorLayout() {
     return (
-        <div className="min-h-screen bg-gray-50 flex" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+        <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
             <DashboardSidebar items={NAV} roleLabel="Conseiller Pédagogique" roleColor="#1A6CC8" />
 
-            <main className="flex-1 ml-72 min-h-screen overflow-y-auto">
+            <main className="flex-1 md:ml-72 ml-0 min-h-screen pt-16 md:pt-0 overflow-y-auto w-full">
                 <Routes>
                     <Route index element={<AdvisorDashboard />} />
                     <Route path="families" element={<AdvisorFamilies />} />

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { cn } from "@/lib/utils";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -19,7 +20,8 @@ import {
     Code2,
     Eraser,
     Share2,
-    Video
+    Video,
+    CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -79,8 +81,8 @@ export default function VirtualClassroom() {
     const [error, setError] = useState<string | null>(null);
 
     // Workspace state
-    const [activeTab, setActiveTab] = useState("notes");
-    const [showSidebar, setShowSidebar] = useState(true);
+    const [activeTab, setActiveTab] = useState(window.innerWidth < 768 ? "video" : "notes");
+    const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768);
 
     // Sync state
     const [notes, setNotes] = useState("");
@@ -225,6 +227,8 @@ export default function VirtualClassroom() {
 
     // Jitsi Init — loads script dynamically then initializes, with timeout fallback
     const jitsiApiRef = useRef<any>(null);
+    const hasJoinedRef = useRef(false);
+
     useEffect(() => {
         if (!sessionId || !user || !jitsiContainerRef.current) return;
         if (jitsiApiRef.current) return;
@@ -233,32 +237,52 @@ export default function VirtualClassroom() {
             if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) return;
             if (jitsiApiRef.current) return;
 
-            const api = new window.JitsiMeetExternalAPI("meet.jit.si", {
-                roomName: `Care4Success-${sessionId}`,
+            const sanitizedRoomName = `Care4Success-${sessionId?.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            const api = new window.JitsiMeetExternalAPI("meet.care4success.usra-care.com", {
+                roomName: sanitizedRoomName,
                 width: "100%",
                 height: "100%",
                 parentNode: jitsiContainerRef.current,
                 userInfo: { displayName: user.name, email: user.email },
                 interfaceConfigOverwrite: {
-                    TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview']
+                    TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview', 'fullscreen', 'participants-pane']
                 },
-                configOverwrite: { disableDeepLinking: true, prejoinPageEnabled: false },
+                configOverwrite: {
+                    disableDeepLinking: true,
+                    prejoinPageEnabled: false,
+                    startWithAudioMuted: false,
+                    startWithVideoMuted: false,
+                    enableWelcomePage: false,
+                    p2p: { enabled: false },
+                    disableH264: true,
+                    enableTcc: true,
+                    enableRemb: true,
+                    iceTransportPolicy: 'all',
+                },
             });
             jitsiApiRef.current = api;
             setLoading(false);
 
             api.addEventListener('videoConferenceJoined', () => {
+                hasJoinedRef.current = true;
                 if (user.role === 'teacher' && !currentSessionRef.current?.actualStartTime) {
                     checkInMutation.mutate(sessionId);
                 }
             });
 
             api.addEventListener('videoConferenceLeft', () => {
+                if (!hasJoinedRef.current) return; // Don't handle if we never joined
+                
                 if (user.role === 'teacher' && !currentSessionRef.current?.actualEndTime) {
                     checkOutMutation.mutate(sessionId);
                 } else {
                     navigate(-1);
                 }
+            });
+
+            api.addEventListener('error', (err: any) => {
+                console.error("Jitsi Error Event:", err);
+                toast.error("Erreur de connexion à la classe virtuelle.");
             });
         };
 
@@ -277,7 +301,7 @@ export default function VirtualClassroom() {
         if (!existingScript) {
             const script = document.createElement('script');
             script.id = 'jitsi-api-script';
-            script.src = 'https://meet.jit.si/external_api.js';
+            script.src = 'https://meet.care4success.usra-care.com/external_api.js';
             script.async = true;
             document.head.appendChild(script);
         }
@@ -309,19 +333,22 @@ export default function VirtualClassroom() {
     return (
         <div className="fixed inset-0 z-50 bg-[#0D2D5A] flex flex-col h-screen w-screen overflow-hidden text-slate-900">
             {/* Minimal Glossy Header */}
-            <header className="h-14 bg-white/5 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-6 shrink-0 z-30">
-                <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-xl shadow-blue-500/10">
+            <header className="h-14 bg-white/5 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-4 md:px-6 shrink-0 z-[70]">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center p-1.5">
                         <img src="/logo/Care 4 Success-logo-Ok_compact.png" className="w-full h-full object-contain" />
                     </div>
                     <div className="hidden sm:block">
                         <h1 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">{currentSession?.subject || "Session Live"}</h1>
                         <p className="text-blue-300/40 text-[8px] font-bold uppercase tracking-widest">{user?.name}</p>
                     </div>
+                    <div className="sm:hidden">
+                        <h1 className="text-white font-black text-[9px] uppercase tracking-tight truncate max-w-[100px]">{currentSession?.subject}</h1>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="bg-white/5 p-1 rounded-xl flex items-center gap-1 border border-white/5">
+                    <div className="hidden md:flex bg-white/5 p-1 rounded-xl items-center gap-1 border border-white/5">
                         <Button variant={activeTab === 'notes' ? 'secondary' : 'ghost'} size="sm" onClick={() => setActiveTab('notes')} className="h-8 rounded-lg text-[9px] font-black uppercase tracking-widest px-3">
                             <FileText className="w-3 h-3 mr-1.5" /> Notes
                         </Button>
@@ -333,9 +360,12 @@ export default function VirtualClassroom() {
                         </Button>
                     </div>
 
-                    <div className="w-px h-6 bg-white/10 mx-2" />
+                    <div className="hidden md:block w-px h-6 bg-white/10 mx-2" />
 
-                    <button onClick={() => setShowSidebar(!showSidebar)} className="p-2 text-white hover:bg-white/10 rounded-xl transition-colors">
+                    <button 
+                        onClick={() => setShowSidebar(!showSidebar)} 
+                        className="hidden md:flex p-2 text-white hover:bg-white/10 rounded-xl transition-colors"
+                    >
                         {showSidebar ? <ChevronRight /> : <ChevronLeft />}
                     </button>
 
@@ -345,9 +375,12 @@ export default function VirtualClassroom() {
                 </div>
             </header>
 
-            <div className="flex-1 flex overflow-hidden relative">
-                {/* Video Feed (Major Area) */}
-                <div className="flex-1 bg-slate-950 relative overflow-hidden">
+            <main className="flex-1 flex overflow-hidden relative">
+                {/* Video Area */}
+                <div className={cn(
+                    "flex-1 bg-slate-950 relative overflow-hidden transition-all duration-300",
+                    activeTab !== 'video' && "hidden md:block"
+                )}>
                     {(loading || error) && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#0D2D5A]">
                             {error ? (
@@ -371,90 +404,94 @@ export default function VirtualClassroom() {
                     <div ref={jitsiContainerRef} className="w-full h-full" />
                 </div>
 
-                {/* Interactive Sidebar */}
-                <aside className={`bg-white shadow-2xl transition-all duration-500 flex flex-col relative overflow-hidden ${showSidebar ? "w-[450px]" : "w-0"}`}>
-                    <div className="absolute top-4 right-4 z-10">
+                {/* Sidebar / Tools Area */}
+                <aside className={cn(
+                    "bg-white shadow-2xl transition-all duration-500 flex flex-col relative overflow-hidden",
+                    activeTab === 'video' ? "hidden md:flex" : "flex",
+                    showSidebar ? "w-full md:w-[450px]" : "w-0 md:w-0"
+                )}>
+                    <div className="absolute top-4 right-4 z-10 hidden md:block">
                         {isSaving ? (
-                            <Badge className="bg-blue-50 text-blue-500 border-none animate-pulse flex items-center gap-1.5 h-6">
+                            <Badge className="bg-blue-50 text-blue-500 border-none animate-pulse flex items-center gap-1.5 h-6 font-black text-[9px] uppercase tracking-widest">
                                 <RefreshCw className="w-3 h-3 animate-spin" /> SYNC
                             </Badge>
                         ) : (
-                            <Badge className="bg-green-50 text-green-500 border-none flex items-center gap-1.5 h-6">
-                                <Save className="w-3 h-3" /> SAUVEGARDÉ
+                            <Badge className="bg-emerald-500 text-white border-none flex items-center gap-1.5 h-6 font-black text-[9px] uppercase tracking-widest shadow-lg shadow-emerald-500/20">
+                                <CheckCircle2 className="w-3 h-3" /> SAUVEGARDÉ
                             </Badge>
                         )}
                     </div>
 
-                    <div className="flex-1 overflow-hidden flex flex-col pt-12">
-                        <Tabs value={activeTab} className="flex-1 flex flex-col">
+                    <div className="flex-1 flex flex-col pt-4 md:pt-12">
+                        {/* Notes View */}
+                        <div className={cn("flex-1 flex flex-col", activeTab !== 'notes' && "hidden")}>
+                            <div className="px-6 md:px-8 flex-1 flex flex-col">
+                                <h2 className="text-xl md:text-2xl font-black text-[#0D2D5A] mb-1 md:mb-1 uppercase tracking-tighter">Notes <span className="text-blue-600">Live</span></h2>
+                                <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-4 md:mb-8">Compte-rendu partagé en temps réel</p>
+                                <textarea
+                                    className="flex-1 w-full text-sm leading-relaxed text-slate-600 focus:outline-none resize-none border-none p-0 placeholder:italic bg-transparent"
+                                    placeholder="Commencez à rédiger..."
+                                    value={notes}
+                                    onChange={(e) => handleWorkspaceUpdate('notes', e.target.value)}
+                                />
+                            </div>
+                        </div>
 
-                            <TabsContent value="notes" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden">
-                                <div className="px-8 flex-1 flex flex-col">
-                                    <h2 className="text-2xl font-black text-[#0D2D5A] mb-2 uppercase tracking-tight">Notes <span className="text-blue-500">Live</span></h2>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6">Compte-rendu partagé en temps réel</p>
-                                    <textarea
-                                        className="flex-1 w-full text-sm leading-relaxed text-slate-600 focus:outline-none resize-none border-none p-0 placeholder:italic"
-                                        placeholder="Commencez à rédiger..."
-                                        value={notes}
-                                        onChange={(e) => handleWorkspaceUpdate('notes', e.target.value)}
-                                    />
+                        {/* Whiteboard View */}
+                        <div className={cn("flex-1 flex flex-col p-4 md:p-6 gap-4", activeTab !== 'whiteboard' && "hidden")}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex gap-2">
+                                    <button onClick={() => setTool('pen')} className={`p-2 rounded-xl transition-all ${tool === 'pen' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Palette className="w-4 h-4" /></button>
+                                    <button onClick={() => setTool('eraser')} className={`p-2 rounded-xl transition-all ${tool === 'eraser' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Eraser className="w-4 h-4" /></button>
                                 </div>
-                            </TabsContent>
+                                <input type="color" value={drawColor} onChange={e => setDrawColor(e.target.value)} className="w-8 h-8 rounded-xl cursor-pointer shadow-sm border-2 border-slate-50" />
+                            </div>
+                            <div className="flex-1 bg-slate-50 rounded-[2rem] shadow-inner overflow-hidden border border-slate-100 relative">
+                                <canvas
+                                    ref={canvasRef}
+                                    width={1200}
+                                    height={1600}
+                                    className="w-full h-full cursor-crosshair"
+                                    onMouseDown={startDrawing}
+                                    onMouseUp={stopDrawing}
+                                    onMouseMove={draw}
+                                    onTouchStart={startDrawing}
+                                    onTouchEnd={stopDrawing}
+                                    onTouchMove={draw}
+                                />
+                            </div>
+                        </div>
 
-                            <TabsContent value="whiteboard" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden p-6 gap-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex gap-2">
-                                        <button onClick={() => setTool('pen')} className={`p-2 rounded-xl transition-all ${tool === 'pen' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Palette className="w-4 h-4" /></button>
-                                        <button onClick={() => setTool('eraser')} className={`p-2 rounded-xl transition-all ${tool === 'eraser' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Eraser className="w-4 h-4" /></button>
-                                    </div>
-                                    <input type="color" value={drawColor} onChange={e => setDrawColor(e.target.value)} className="w-10 h-10 rounded-xl cursor-pointer shadow-sm border-2 border-slate-50" />
+                        {/* Code View */}
+                        <div className={cn("flex-1 flex flex-col", activeTab !== 'code' && "hidden")}>
+                            <div className="flex-1 bg-slate-900 mx-3 md:mx-4 mb-3 md:mb-4 rounded-[1.5rem] md:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
+                                <div className="p-3 md:p-4 flex items-center gap-2 border-b border-white/5">
+                                    <div className="flex gap-1.5"><div className="w-2 h-2 rounded-full bg-red-400/20" /><div className="w-2 h-2 rounded-full bg-yellow-400/20" /><div className="w-2 h-2 rounded-full bg-green-400/20" /></div>
+                                    <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Sandbox.js</span>
                                 </div>
-                                <div className="flex-1 bg-slate-50 rounded-[3rem] shadow-inner overflow-hidden border border-slate-100 p-0 relative">
-                                    <canvas
-                                        ref={canvasRef}
-                                        width={402}
-                                        height={550}
-                                        className="w-full h-full cursor-crosshair"
-                                        onMouseDown={startDrawing}
-                                        onMouseUp={stopDrawing}
-                                        onMouseMove={draw}
-                                        onTouchStart={startDrawing}
-                                        onTouchEnd={stopDrawing}
-                                        onTouchMove={draw}
-                                    />
-                                </div>
-                            </TabsContent>
+                                <textarea
+                                    className="flex-1 w-full bg-transparent text-blue-200 font-mono text-[10px] md:text-xs p-4 md:p-8 focus:outline-none resize-none"
+                                    value={code}
+                                    onChange={(e) => handleWorkspaceUpdate('code', e.target.value)}
+                                    spellCheck={false}
+                                />
+                            </div>
+                        </div>
 
-                            <TabsContent value="code" className="flex-1 flex flex-col m-0 data-[state=inactive]:hidden">
-                                <div className="flex-1 bg-slate-900 mx-4 mb-4 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
-                                    <div className="p-4 flex items-center gap-2 border-b border-white/5">
-                                        <div className="flex gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-400/20" /><div className="w-2.5 h-2.5 rounded-full bg-yellow-400/20" /><div className="w-2.5 h-2.5 rounded-full bg-green-400/20" /></div>
-                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Sandbox.js</span>
-                                    </div>
-                                    <textarea
-                                        className="flex-1 w-full bg-transparent text-blue-200 font-mono text-xs p-8 focus:outline-none resize-none"
-                                        value={code}
-                                        onChange={(e) => handleWorkspaceUpdate('code', e.target.value)}
-                                        spellCheck={false}
-                                    />
-                                </div>
-                            </TabsContent>
-
-                        </Tabs>
-
-                        <div className="p-8 bg-slate-50 border-t border-white flex flex-col gap-4">
-                            <div className="flex gap-4">
-                                <Button className="flex-1 h-12 rounded-2xl bg-[#0D2D5A] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-900/10">
-                                    <Download className="w-4 h-4 mr-2" /> Export PDF
+                        {/* Common Footer Actions */}
+                        <div className="p-4 md:p-8 bg-white border-t border-slate-50 flex flex-col gap-3 pb-20 md:pb-8">
+                            <div className="flex gap-3">
+                                <Button onClick={() => {}} className="flex-1 h-11 rounded-xl bg-[#0D2D5A] hover:bg-[#153460] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-slate-200 transition-all active:scale-95">
+                                    <Download className="w-4 h-4 mr-2" /> EXPORT PDF
                                 </Button>
                                 {user?.role === 'teacher' && !currentSession?.actualEndTime && (
                                     <Button 
                                         variant="destructive" 
                                         onClick={() => checkOutMutation.mutate(sessionId!)}
-                                        className="h-12 rounded-2xl font-black text-[10px] uppercase tracking-widest px-6"
+                                        className="h-11 rounded-xl bg-[#E91E63] hover:bg-rose-600 font-black text-[10px] uppercase tracking-widest px-6 shadow-xl shadow-rose-100 transition-all active:scale-95 border-none"
                                         disabled={checkOutMutation.isPending}
                                     >
-                                        Terminer
+                                        TERMINER
                                     </Button>
                                 )}
                             </div>
@@ -463,15 +500,59 @@ export default function VirtualClassroom() {
                                 <Button 
                                     variant="outline" 
                                     onClick={() => setShowHomeworkForm(true)}
-                                    className="h-10 rounded-xl font-bold text-[10px] uppercase tracking-widest border-blue-100 text-blue-600"
+                                    className="h-10 rounded-xl font-black text-[10px] uppercase tracking-[0.15em] border-blue-100 text-blue-600 bg-blue-50/10 hover:bg-blue-50 transition-all"
                                 >
-                                    Assigner un devoir
+                                    ASSIGNER UN DEVOIR
                                 </Button>
                             )}
                         </div>
                     </div>
                 </aside>
-            </div>
+            </main>
+
+            {/* Mobile Bottom Navigation */}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-100 flex items-center justify-around z-[80] px-2 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+                <button 
+                    onClick={() => { setActiveTab('video'); setShowSidebar(false); }}
+                    className={cn(
+                        "flex flex-col items-center gap-1 transition-all flex-1 py-2",
+                        activeTab === 'video' ? "text-blue-600 scale-110" : "text-slate-400"
+                    )}
+                >
+                    <Video className="w-5 h-5" />
+                    <span className="text-[8px] font-black uppercase tracking-tighter">Visio</span>
+                </button>
+                <button 
+                    onClick={() => { setActiveTab('notes'); setShowSidebar(true); }}
+                    className={cn(
+                        "flex flex-col items-center gap-1 transition-all flex-1 py-2",
+                        activeTab === 'notes' ? "text-blue-600 scale-110" : "text-slate-400"
+                    )}
+                >
+                    <FileText className="w-5 h-5" />
+                    <span className="text-[8px] font-black uppercase tracking-tighter">Notes</span>
+                </button>
+                <button 
+                    onClick={() => { setActiveTab('whiteboard'); setShowSidebar(true); }}
+                    className={cn(
+                        "flex flex-col items-center gap-1 transition-all flex-1 py-2",
+                        activeTab === 'whiteboard' ? "text-blue-600 scale-110" : "text-slate-400"
+                    )}
+                >
+                    <Palette className="w-5 h-5" />
+                    <span className="text-[8px] font-black uppercase tracking-tighter">Board</span>
+                </button>
+                <button 
+                    onClick={() => { setActiveTab('code'); setShowSidebar(true); }}
+                    className={cn(
+                        "flex flex-col items-center gap-1 transition-all flex-1 py-2",
+                        activeTab === 'code' ? "text-blue-600 scale-110" : "text-slate-400"
+                    )}
+                >
+                    <Code2 className="w-5 h-5" />
+                    <span className="text-[8px] font-black uppercase tracking-tighter">Code</span>
+                </button>
+            </nav>
 
             {/* Session Report Modal */}
             <SessionReportModal 
@@ -546,7 +627,7 @@ function SessionReportModal({ isOpen, onClose, sessionId, sessionDetails }: { is
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="sm:max-w-[500px] rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl">
-                <div className="bg-[#0D2D5A] p-8 text-white">
+                <div className="bg-[#0D2D5A] p-4 md:p-8 text-white">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-black uppercase tracking-tight">Rapport de Session</DialogTitle>
                         <DialogDescription className="text-blue-200/60 text-xs font-bold uppercase tracking-widest">
@@ -556,7 +637,7 @@ function SessionReportModal({ isOpen, onClose, sessionId, sessionDetails }: { is
                 </div>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="p-8 space-y-6">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="p-4 md:p-8 space-y-6">
                         {courseDetails && (
                             <FormField
                                 control={form.control}
@@ -602,7 +683,7 @@ function SessionReportModal({ isOpen, onClose, sessionId, sessionDetails }: { is
                             )}
                         />
 
-                        <div className="grid grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                             <FormField
                                 control={form.control}
                                 name="understandingScore"
@@ -703,7 +784,7 @@ function HomeworkModal({ isOpen, onClose, sessionId, sessionDetails, teacherId }
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[450px] rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl">
-                <div className="bg-blue-600 p-8 text-white">
+                <div className="bg-blue-600 p-4 md:p-8 text-white">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-black uppercase tracking-tight">Assigner un devoir</DialogTitle>
                         <DialogDescription className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">
@@ -713,7 +794,7 @@ function HomeworkModal({ isOpen, onClose, sessionId, sessionDetails, teacherId }
                 </div>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="p-8 space-y-6">
+                    <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="p-4 md:p-8 space-y-6">
                         <FormField
                             control={form.control}
                             name="title"

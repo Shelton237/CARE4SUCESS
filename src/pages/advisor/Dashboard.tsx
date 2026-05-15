@@ -29,7 +29,7 @@ export default function AdvisorDashboard() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[400px]">
+            <div className="p-4 md:p-8 flex items-center justify-center min-h-[400px]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
                 <span className="ml-3 text-gray-500">Chargement du tableau de bord...</span>
             </div>
@@ -38,7 +38,7 @@ export default function AdvisorDashboard() {
 
     if (error || !data) {
         return (
-            <div className="p-8 text-center text-red-500">
+            <div className="p-4 md:p-8 text-center text-red-500">
                 Erreur lors du chargement des données conseiller.
             </div>
         );
@@ -47,7 +47,7 @@ export default function AdvisorDashboard() {
     const { stats, families, requests } = data;
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-[#0D2D5A]">
                     Bonjour, {user?.name?.split(" ").pop()} 👋
@@ -56,7 +56,7 @@ export default function AdvisorDashboard() {
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                 <StatCard
                     label="Familles assignées"
                     value={stats.assignedFamilies}
@@ -102,9 +102,9 @@ export default function AdvisorDashboard() {
                 </div>
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-6">
+            <div className="grid lg:grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* Mes familles récentes */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
                     <h2 className="text-base font-bold text-[#0D2D5A] mb-4">Mes familles — aperçu</h2>
                     <div className="space-y-3">
                         {families.length === 0 ? (
@@ -127,7 +127,7 @@ export default function AdvisorDashboard() {
                 </div>
 
                 {/* Demandes récentes */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
                     <h2 className="text-base font-bold text-[#0D2D5A] mb-4">Dernières demandes reçues</h2>
                     <div className="space-y-3">
                         {requests.length === 0 ? (

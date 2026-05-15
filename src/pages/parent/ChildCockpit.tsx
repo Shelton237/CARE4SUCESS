@@ -103,7 +103,7 @@ export default function ChildCockpit() {
     }
 
     return (
-        <div className="p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
+        <div className="p-4 md:p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
             {/* Slim Navigation Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-4">
@@ -186,7 +186,7 @@ export default function ChildCockpit() {
                                 <BarChart3 className="w-4 h-4 text-[#1A6CC8]" /> Progression Scolaire
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-6">
+                        <CardContent className="p-4 md:p-6">
                             <div className="h-[250px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={progressData}>
@@ -211,7 +211,7 @@ export default function ChildCockpit() {
                     </Card>
 
                     {/* Secondary Metrics Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-6">
                         {/* Latest Grades */}
                         <div className="border border-slate-100 rounded-none bg-white">
                             <div className="p-3 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
@@ -267,7 +267,7 @@ export default function ChildCockpit() {
                         <h2 className="text-[11px] font-black uppercase tracking-widest text-[#0D2D5A] flex items-center gap-2 mb-4">
                             <Star className="w-4 h-4 text-[#F5A623]" /> Conseils & Observations Pédagogiques
                         </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4">
                             {evaluations.map((ev: any) => (
                                 <div key={ev.id} className="bg-white border border-slate-100 p-4 relative shadow-none">
                                     <div className="flex items-center gap-3 mb-3">

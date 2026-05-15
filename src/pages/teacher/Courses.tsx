@@ -251,7 +251,7 @@ export default function TeacherCourses() {
 
                 {/* ── Tab: Infos ─────────────────────────────────────────────── */}
                 {activeTab === "infos" && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Titre */}
                         <div className="lg:col-span-2 space-y-1.5">
                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Titre du cours *</label>
@@ -543,7 +543,7 @@ export default function TeacherCourses() {
             </div>
 
             {/* Course grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredCourses.length === 0 ? (
                     <div className="col-span-full py-16 text-center border-2 border-dashed border-slate-200">
                         <BookOpen className="w-8 h-8 text-slate-200 mx-auto mb-3" />

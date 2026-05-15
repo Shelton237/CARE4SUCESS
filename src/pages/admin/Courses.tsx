@@ -484,7 +484,7 @@ export default function AdminCourses() {
         });
     };
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-[#0D2D5A]">Cours & quiz</h1>
                 <p className="text-gray-500 text-sm mt-1">
@@ -517,7 +517,7 @@ export default function AdminCourses() {
                             <p className="text-sm text-gray-400">Aucun cours pour le moment.</p>
                         ) : (
                             <div className="space-y-4">
-                                <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="grid sm:grid-cols-1 sm:grid-cols-2 gap-4">
                                     {paginatedCourses.map((c) => {
                                         const badgeColor = STATUS_STYLES[c.status];
                                         const isSelected = selectedCourseId === c.id;
@@ -682,7 +682,7 @@ export default function AdminCourses() {
                 </div>
                 <div className="space-y-6">
                     {user?.role === 'admin' ? (
-                        <div className="bg-[#0D2D5A]/5 border border-[#0D2D5A]/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="bg-[#0D2D5A]/5 border border-[#0D2D5A]/10 rounded-2xl p-4 md:p-8 flex flex-col items-center justify-center text-center space-y-4">
                             <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-sm">
                                 <BookOpen className="w-8 h-8 text-[#0D2D5A]" />
                             </div>
@@ -722,7 +722,7 @@ export default function AdminCourses() {
                                     </div>
                                 </div>
                                 <form className="space-y-4" onSubmit={handleCreateCourse}>
-                                    <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <Label htmlFor="course-title">Titre</Label>
                                             <Input
@@ -957,7 +957,7 @@ export default function AdminCourses() {
                                                 placeholder="Intitule de la question"
                                             />
                                         </div>
-                                        <div className="grid md:grid-cols-2 gap-4">
+                                        <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="question-points">Points</Label>
                                                 <Input

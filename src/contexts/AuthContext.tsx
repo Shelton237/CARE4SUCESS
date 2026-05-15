@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(() => {
         try {
-            const stored = sessionStorage.getItem("c4s_user");
+            const stored = localStorage.getItem("c4s_user");
             return stored ? JSON.parse(stored) : null;
         } catch {
             return null;
@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const [token, setToken] = useState<string | null>(() => {
         try {
-            return sessionStorage.getItem("c4s_token");
+            return localStorage.getItem("c4s_token");
         } catch {
             return null;
         }
@@ -31,18 +31,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const persistUser = (value: User | null) => {
         if (!value) {
-            sessionStorage.removeItem("c4s_user");
+            localStorage.removeItem("c4s_user");
             return;
         }
-        sessionStorage.setItem("c4s_user", JSON.stringify(value));
+        localStorage.setItem("c4s_user", JSON.stringify(value));
     };
 
     const persistToken = (value: string | null) => {
         if (!value) {
-            sessionStorage.removeItem("c4s_token");
+            localStorage.removeItem("c4s_token");
             return;
         }
-        sessionStorage.setItem("c4s_token", value);
+        localStorage.setItem("c4s_token", value);
     };
 
     const login = async (email: string, password: string) => {

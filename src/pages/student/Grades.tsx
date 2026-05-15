@@ -45,19 +45,19 @@ export default function StudentGrades() {
     })();
 
     if (!user) {
-        return <div className="p-8 text-sm text-gray-500 text-center">Veuillez vous connecter pour accéder à vos notes.</div>;
+        return <div className="p-4 md:p-8 text-sm text-gray-500 text-center">Veuillez vous connecter pour accéder à vos notes.</div>;
     }
 
     if (gradesQuery.isLoading || progressQuery.isLoading) {
-        return <div className="p-8 text-sm text-gray-400 text-center">Récupération de vos notes en cours...</div>;
+        return <div className="p-4 md:p-8 text-sm text-gray-400 text-center">Récupération de vos notes en cours...</div>;
     }
 
     if (gradesQuery.isError || progressQuery.isError) {
-        return <div className="p-8 text-sm text-red-500 text-center">Erreur lors du chargement des notes.</div>;
+        return <div className="p-4 md:p-8 text-sm text-red-500 text-center">Erreur lors du chargement des notes.</div>;
     }
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes notes</h1>
                 <p className="text-gray-500 text-sm mt-1">
@@ -69,7 +69,7 @@ export default function StudentGrades() {
 
             <div className="grid lg:grid-cols-3 gap-6">
                 {/* Graphe évolution multi-matières */}
-                <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="lg:col-span-2 bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
                     <h2 className="text-base font-bold text-[#0D2D5A] mb-5">Évolution des notes — Oct à Mars</h2>
                     <ResponsiveContainer width="100%" height={240}>
                         <LineChart data={studentProgressData}>
@@ -88,7 +88,7 @@ export default function StudentGrades() {
                 </div>
 
                 {/* Radar profil */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
                     <h2 className="text-base font-bold text-[#0D2D5A] mb-2">Profil académique</h2>
                     <ResponsiveContainer width="100%" height={230}>
                         <RadarChart data={radarData}>

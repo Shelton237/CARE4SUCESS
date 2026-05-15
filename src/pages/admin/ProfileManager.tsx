@@ -548,8 +548,8 @@ export default function ProfileManager() {
           </div>
         </header>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <section className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-6">
+        <div className="grid gap-6 xl:grid-cols-1 sm:grid-cols-2">
+          <section className="bg-white border border-gray-100 rounded-3xl shadow-sm p-4 md:p-6 space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-[#22c55e]/10 text-[#22c55e] flex items-center justify-center">
                 <UserPlus className="w-5 h-5" />
@@ -561,7 +561,7 @@ export default function ProfileManager() {
             </div>
 
             <form onSubmit={handleCreateSubmit} className="space-y-5">
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Nom complet</label>
                   <Input
@@ -583,7 +583,7 @@ export default function ProfileManager() {
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Mot de passe</label>
                   <Input
@@ -621,7 +621,7 @@ export default function ProfileManager() {
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Téléphone</label>
                   <Input
@@ -642,7 +642,7 @@ export default function ProfileManager() {
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Fuseau horaire</label>
                   <select
@@ -745,7 +745,7 @@ export default function ProfileManager() {
               </div>
             </form>
           </section>
-          <section className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 space-y-6">
+          <section className="bg-white border border-gray-100 rounded-3xl shadow-sm p-4 md:p-6 space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-[#F5A623]/10 text-[#F5A623] flex items-center justify-center">
                 <Edit3 className="w-5 h-5" />
@@ -790,7 +790,7 @@ export default function ProfileManager() {
                   </select>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Nom complet</label>
                     <Input
@@ -811,7 +811,7 @@ export default function ProfileManager() {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Téléphone</label>
                     <Input
@@ -835,7 +835,7 @@ export default function ProfileManager() {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Langue</label>
                     <select

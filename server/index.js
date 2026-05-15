@@ -1916,6 +1916,60 @@ app.get("/api/sessions", async (req, res) => {
   }
 });
 
+
+app.post("/api/sessions", authenticateRequest, async (req, res) => {
+  const { studentIds, studentId, courseId, subject, sessionDate, sessionTime, locationType, location, recurrence, sessionCount } = req.body;
+  const teacherId = req.user.sub;
+
+  try {
+    const [teachers] = await pool.query("SELECT name FROM users WHERE id = ?", [teacherId]);
+    const teacherName = teachers.length > 0 ? teachers[0].name : "Enseignant";
+
+    const ids = Array.isArray(studentIds) ? studentIds : (studentId ? [studentId] : []);
+    if (ids.length === 0) return res.status(400).json({ message: "Au moins un élève est requis." });
+
+    const createdSessions = [];
+    const count = recurrence === "weekly" ? Math.min(12, sessionCount || 1) : 1;
+    const daysFr = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+
+    for (const sId of ids) {
+      const [students] = await pool.query("SELECT name, parent_id FROM users WHERE id = ?", [sId]);
+      if (students.length === 0) continue;
+      const studentName = students[0].name;
+      const parentId = students[0].parent_id;
+      let parentName = "Inconnu";
+      if (parentId) {
+        const [parents] = await pool.query("SELECT name FROM users WHERE id = ?", [parentId]);
+        if (parents.length > 0) parentName = parents[0].name;
+      }
+
+      for (let i = 0; i < count; i++) {
+        const date = new Date(sessionDate);
+        date.setDate(date.getDate() + (i * 7));
+        const dateStr = date.toISOString().split('T')[0];
+        const dayLabel = daysFr[date.getDay()];
+        const sessionId = crypto.randomUUID();
+        
+        // Use self-hosted Jitsi domain
+        const virtualLink = locationType === "online" 
+          ? `https://meet.care4success.usra-care.com/Care4Success-${sessionId.split('-')[0]}` 
+          : null;
+
+        await pool.query(
+          `INSERT INTO sessions (id, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, subject, session_day, session_date, session_time, location, status, virtual_link, course_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [sessionId, teacherId, teacherName, sId, studentName, parentId, parentName, subject, dayLabel, dateStr, sessionTime, location || (locationType === "online" ? "En ligne" : "Présentiel"), "planifié", virtualLink, courseId || null]
+        );
+        createdSessions.push({ id: sessionId, date: dateStr });
+      }
+    }
+    res.json({ sessions: createdSessions, count: createdSessions.length });
+  } catch (error) {
+    console.error("Failed to create sessions", error);
+    res.status(500).json({ message: "Erreur lors de la création des séances." });
+  }
+});
+
 app.patch("/api/sessions/:id/sync", async (req, res) => {
   const { id } = req.params;
   const { notes, whiteboardData, codeData } = req.body ?? {};
@@ -4105,6 +4159,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   }
 });
 
+app.get("/api/users/:userId", authenticateRequest, async (req, res) => {
   const { userId } = req.params;
   const requesterId = req.user?.sub;
   const requesterRole = req.user?.role;
@@ -4936,7 +4991,6 @@ app.get("/api/teachers/:teacherId/students", async (req, res) => {
           s.student_id as id, 
           s.student_name as name, 
           u.email,
-          s.subject, 
           u.bio as level
        FROM sessions s
        LEFT JOIN users u ON u.id = s.student_id
@@ -4987,12 +5041,12 @@ app.get("/api/teachers/:teacherId/students", async (req, res) => {
       }
 
       let lastScoreText = "À venir";
-      let lastScoreSubject = st.subject || "Général";
+      let lastScoreSubject = "Général";
 
       if (quizAttempts.length > 0) {
         const lastQ = quizAttempts[0];
         lastScoreText = `${lastQ.score}/${lastQ.total_points || 20}`;
-        lastScoreSubject = lastQ.subject || st.subject;
+        lastScoreSubject = lastQ.subject || "Général";
       }
 
       // 3. Parcours réels (cours enrollés)

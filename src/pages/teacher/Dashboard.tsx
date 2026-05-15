@@ -34,7 +34,7 @@ export default function TeacherDashboard() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+            <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#0D2D5A]" />
             </div>
         );
@@ -52,7 +52,7 @@ export default function TeacherDashboard() {
     ];
 
     return (
-        <div className="w-full p-6 space-y-6 animate-in fade-in duration-500 bg-white min-h-screen">
+        <div className="w-full p-4 md:p-6 space-y-6 animate-in fade-in duration-500 bg-white min-h-screen">
             {/* Header / Brand Section */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
@@ -82,7 +82,7 @@ export default function TeacherDashboard() {
             </div>
 
             {/* Performance Banner */}
-            <Card className="border border-slate-100 shadow-none bg-[#0D2D5A] text-white p-6 rounded-xl relative overflow-hidden group">
+            <Card className="border border-slate-100 shadow-none bg-[#0D2D5A] text-white p-4 md:p-6 rounded-xl relative overflow-hidden group">
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
                     <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shadow-none group-hover:rotate-3 transition-transform duration-500">
                         <GraduationCap className="w-10 h-10 text-[#F5A623] drop-shadow-[0_0_8px_rgba(245,166,35,0.4)]" />
@@ -111,7 +111,7 @@ export default function TeacherDashboard() {
             </Card>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                     { label: "Heures ce mois", value: `${stats.monthlyEarnings ? Math.round(stats.monthlyEarnings / 10000) : 0}h`, icon: Clock, color: "text-[#1A6CC8]" },
                     { label: "Apprenants Actifs", value: stats.activeStudents || 0, icon: Users, color: "text-[#0D2D5A]" },
@@ -138,7 +138,7 @@ export default function TeacherDashboard() {
                         <h2 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest">Actions Prioritaires</h2>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Devoirs à corriger */}
                         <div 
                             onClick={() => navigate("/teacher/homework")}

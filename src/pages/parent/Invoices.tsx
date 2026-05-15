@@ -138,7 +138,7 @@ export default function ParentInvoices() {
     }
 
     return (
-        <div className="p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
+        <div className="p-4 md:p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
             {/* Slim Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
@@ -159,7 +159,7 @@ export default function ParentInvoices() {
             </div>
 
             {/* Quick Stats Grid - Eureka Style */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                     { label: "Total réglé", value: formatFCFA(totalPaid), sub: "DEPUIS L'INSCRIPTION", icon: CheckCircle, color: "text-emerald-600", bg: "bg-slate-50/50" },
                     { label: "Solde en attente", value: formatFCFA(totalPending), sub: totalPending > 0 ? "À RÉGLER" : "COMPTE À JOUR", icon: Clock, color: totalPending > 0 ? "text-[#F5A623]" : "text-slate-300", bg: "bg-slate-50/50" },

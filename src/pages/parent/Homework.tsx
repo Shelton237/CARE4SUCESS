@@ -83,7 +83,7 @@ export default function ParentHomework() {
     if (!user) return null;
 
     return (
-        <div className="p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
+        <div className="p-4 md:p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
             {/* Slim Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-slate-100 pb-4 gap-4">
                 <div>
@@ -223,7 +223,7 @@ export default function ParentHomework() {
                                     {/* Content Area */}
                                     {isSelected && (
                                         <div className="bg-slate-50/50 px-4 py-4 border-t border-slate-50">
-                                            <div className="grid md:grid-cols-2 gap-4">
+                                            <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                                                 {/* Details Card */}
                                                 <div className="bg-white border border-slate-100 p-4">
                                                     <h5 className="text-[9px] font-black text-[#0D2D5A] uppercase tracking-widest flex items-center gap-2 mb-3">

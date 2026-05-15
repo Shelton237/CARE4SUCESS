@@ -126,7 +126,7 @@ export default function TeacherStudents() {
                             </div>
 
                             <div className="p-3 space-y-3">
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     <div className="bg-slate-50/50 p-2.5 border border-slate-100 text-center">
                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Assiduité</p>
                                         <p className="text-[11px] font-black text-[#0D2D5A]">{selectedStudent.attendance || "95%"}</p>
@@ -160,7 +160,7 @@ export default function TeacherStudents() {
                             </div>
                         </div>
                     ) : (
-                        <div className="border-2 border-dashed border-slate-200 min-h-[300px] flex flex-col items-center justify-center text-center p-6 space-y-3">
+                        <div className="border-2 border-dashed border-slate-200 min-h-[300px] flex flex-col items-center justify-center text-center p-4 md:p-6 space-y-3">
                             <Users className="w-8 h-8 text-slate-200" />
                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest max-w-[160px] leading-relaxed">
                                 Sélectionnez un élève pour voir ses performances.

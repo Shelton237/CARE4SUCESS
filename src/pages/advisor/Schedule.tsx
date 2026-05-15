@@ -72,7 +72,7 @@ export default function AdvisorSchedule() {
     };
 
     return (
-        <div className="p-4 md:p-8 space-y-8 max-w-6xl mx-auto">
+        <div className="p-4 md:p-4 md:p-8 space-y-8 max-w-6xl mx-auto">
             <div>
                 <h1 className="text-2xl font-bold text-[#0D2D5A]">Planificateur & Rendez-vous</h1>
                 <p className="text-gray-500 text-sm mt-1">Gérez vos rendez-vous avec les familles et enseignants</p>
@@ -96,7 +96,7 @@ export default function AdvisorSchedule() {
 
             <div className="grid lg:grid-cols-3 gap-8">
                 {/* Formulaire de planification */}
-                <div className="lg:col-span-1 border border-gray-100 bg-white rounded-2xl shadow-sm p-6 space-y-6 h-fit">
+                <div className="lg:col-span-1 border border-gray-100 bg-white rounded-2xl shadow-sm p-4 md:p-6 space-y-6 h-fit">
                     <div className="flex items-center gap-2 text-[#0D2D5A] font-bold pb-4 border-b border-gray-100">
                         <Plus className="w-5 h-5 text-[#1A6CC8]" />
                         <h2>Nouveau rendez-vous</h2>
@@ -132,7 +132,7 @@ export default function AdvisorSchedule() {
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-gray-400 uppercase">Date</label>
                                 <input
@@ -175,7 +175,7 @@ export default function AdvisorSchedule() {
                             <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8] opacity-50" />
                         </div>
                     ) : appointments.length === 0 ? (
-                        <div className="border border-gray-100 bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">
+                        <div className="border border-gray-100 bg-white rounded-2xl p-4 md:p-8 text-center text-gray-400 text-sm">
                             Aucun rendez-vous planifié.
                         </div>
                     ) : (

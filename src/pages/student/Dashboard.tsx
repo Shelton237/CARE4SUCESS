@@ -78,14 +78,14 @@ export default function StudentDashboard() {
 
     if (overviewQuery.isLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+            <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#0D2D5A]" />
             </div>
         );
     }
 
     return (
-        <div className="w-full p-6 space-y-6 animate-in fade-in duration-500 bg-white min-h-screen">
+        <div className="w-full p-4 md:p-6 space-y-6 animate-in fade-in duration-500 bg-white min-h-screen">
             {/* Header / Brand Section */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
@@ -110,7 +110,7 @@ export default function StudentDashboard() {
             </div>
 
             {/* Level & XP Banner */}
-            <Card className="border border-slate-100 shadow-none bg-[#0D2D5A] text-white p-6 rounded-xl relative overflow-hidden group">
+            <Card className="border border-slate-100 shadow-none bg-[#0D2D5A] text-white p-4 md:p-6 rounded-xl relative overflow-hidden group">
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
                     <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shadow-none group-hover:rotate-3 transition-transform duration-500">
                         <Trophy className="w-10 h-10 text-[#F5A623] drop-shadow-[0_0_8px_rgba(245,166,35,0.4)]" />
@@ -137,7 +137,7 @@ export default function StudentDashboard() {
             </Card>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                     { label: "Moyenne Générale", value: `${stats.currentAvg}/20`, icon: TrendingUp, color: "text-[#1A6CC8]" },
                     { label: "Objectif Visé", value: "16.0/20", icon: Target, color: "text-[#F5A623]" },
@@ -159,13 +159,13 @@ export default function StudentDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Evolution Chart */}
                 <Card className="lg:col-span-2 border border-slate-100 shadow-none bg-white rounded-xl">
-                    <CardHeader className="p-6 pb-2">
+                    <CardHeader className="p-4 md:p-6 pb-2">
                         <CardTitle className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest flex items-center gap-2">
                             <div className="w-1 h-3 bg-[#0D2D5A] rounded-full" />
                             Courbe de Réussite
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-6 pt-0">
+                    <CardContent className="p-4 md:p-6 pt-0">
                         <div className="h-[220px] w-full mt-4">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={chartData}>
@@ -243,9 +243,9 @@ export default function StudentDashboard() {
             </div>
 
             {/* Ranking & Tuteur */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
                 <Card className="border border-slate-100 shadow-none bg-white rounded-xl">
-                    <CardHeader className="p-6 pb-2">
+                    <CardHeader className="p-4 md:p-6 pb-2">
                         <CardTitle className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest flex items-center gap-2">
                             <Trophy className="w-3.5 h-3.5 text-[#F5A623]" />
                             Champions
@@ -271,7 +271,7 @@ export default function StudentDashboard() {
                 </Card>
 
                 <Card className="border border-slate-100 shadow-none bg-white rounded-xl">
-                    <CardHeader className="p-6 pb-2">
+                    <CardHeader className="p-4 md:p-6 pb-2">
                         <CardTitle className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest flex items-center gap-2">
                             <Award className="w-3.5 h-3.5 text-emerald-500" />
                             Mot du Tuteur
@@ -301,7 +301,7 @@ export default function StudentDashboard() {
                     </CardContent>
                 </Card>
 
-                <div className="bg-[#F5A623] text-white rounded-xl p-6 space-y-3 relative overflow-hidden border border-amber-600">
+                <div className="bg-[#F5A623] text-white rounded-xl p-4 md:p-6 space-y-3 relative overflow-hidden border border-amber-600">
                     <Star className="w-8 h-8 text-white/20 fill-current mb-1" />
                     <h3 className="text-lg font-black leading-tight uppercase tracking-tight">Objectifs</h3>
                     <p className="text-[11px] font-black opacity-90 leading-normal uppercase">

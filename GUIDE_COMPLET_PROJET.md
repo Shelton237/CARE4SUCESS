@@ -42,7 +42,8 @@ L'application est structurée autour de 5 rôles distincts :
 
 ### ⚙️ Espace Administration (Coordination)
 - **Recrutement** : Validation des candidatures d'enseignants.
-- **Gestion des Utilisateurs** : Supervision des comptes et rôles.
+- **Gestion des Utilisateurs (Élèves & Familles)** : Supervision des comptes. *Note : La création d'un compte élève génère automatiquement une demande de bilan.*
+- **Demandes de Bilan (Pipeline)** : Suivi des nouveaux prospects. *Note : Alimenté automatiquement par les nouvelles inscriptions.*
 - **Gestion des Sessions** : Contrôle de l'intégralité du planning.
 - **Facturation Globale** : Émission et suivi des factures.
 
@@ -102,6 +103,16 @@ L'application est structurée autour de 5 rôles distincts :
 | :--- | :--- | :--- | :--- |
 | **E.1 Approuver** | (Tuteur) Actions -> "Valider Enseignant". | Table `users` : `role` passe de 'applicant' à 'teacher'. | Valider un profil avec des champs obligatoires vides. |
 
+### 🤝 SCÉNARIO F : Matching Professeur ↔ Élèves
+*   **Objectif** : Associer manuellement des élèves à un professeur et vérifier la synchronisation.
+*   **Pré-requis** : Comptes `Élève Tech Satur`, `Élève Lesatur` et `Saturin Penlap` créés.
+
+| Cas | Étapes Précises | Impact DB / Technique | Cas Limites |
+| :--- | :--- | :--- | :--- |
+| **F.1 Association** | (Admin) Dans "Élèves & Familles", sélectionner `Tech Satur` et l'associer à `Saturin Penlap`. | Table `student_teacher_relations` mise à jour. | Élève déjà associé à un autre professeur. |
+| **F.2 Répétition** | Faire de même pour `Élève Lesatur`. | Seconde relation créée pour le professeur. | Vérifier la limite de quota d'élèves par prof. |
+| **F.3 Dashboard** | Se connecter (Prof) et vérifier la liste des élèves. | API `/api/sessions?role=teacher` retourne les sessions des 2 élèves. | Vérifier si les rapports d'évaluation sont accessibles pour les deux. |
+
 ---
 
 ## 🏢 4. Analyse des Processus Métier (Expert Audit)
@@ -116,7 +127,7 @@ Cette section décrit la logique métier et les points de contrôle critiques po
 ### 🎓 P2 : Onboarding & Acquisition (Familles)
 *   **Objectif** : Transformer un prospect en client actif avec un suivi personnalisé.
 *   **Logique** : Une "Famille" regroupe un responsable financier (Parent) et plusieurs bénéficiaires (Élèves).
-*   **Point de Contrôle Audit** : L'inscription déclenche un appel conseiller pour valider le sérieux et le besoin spécifique.
+*   **Point de Contrôle Audit** : L'inscription ou la création manuelle d'un compte déclenche **automatiquement** une "Demande de bilan" dans le pipeline pour assurer le suivi immédiat par un conseiller.
 
 ### 📝 P3 : Delivery Pédagogique (LMS)
 *   **Objectif** : Automatiser le suivi des acquis et la preuve de service fait.
@@ -156,4 +167,4 @@ L'application respecte le système **EUREKA UI** ("Slim & Professional").
 - **Responsive** : Testé sur Desktop (1920px) et Mobile (375px).
 
 ---
-*Dernière mise à jour : 22 Avril 2026*
+*Dernière mise à jour : 14 Mai 2026*

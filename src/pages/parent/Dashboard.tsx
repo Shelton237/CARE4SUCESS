@@ -140,7 +140,7 @@ export default function ParentDashboard() {
             </div>
 
             {/* Brand Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((s, i) => (
                     <div key={i} className={`border border-slate-100 rounded p-4 flex items-center gap-4 transition-all hover:bg-slate-50/50`}>
                         <div className={`w-10 h-10 rounded-full ${s.bg} flex items-center justify-center shrink-0`}>
@@ -203,7 +203,7 @@ export default function ParentDashboard() {
                                     <Medal className="w-3.5 h-3.5 text-[#F5A623]" /> Derniers Résultats
                                 </h2>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2">
+                            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2">
                                 {overview.latestEvaluations.slice(0, 4).map((evalItem) => (
                                     <div key={evalItem.id} className="p-3 border-r border-b border-slate-100 flex items-center justify-between gap-4 last:border-r-0">
                                         <div className="min-w-0">

@@ -28,7 +28,7 @@ export default function Login() {
         }
         // Le rôle est déterminé automatiquement à partir des identifiants via AuthContext
         // result.user contient le rôle → on redirige vers l'espace correspondant
-        const stored = sessionStorage.getItem("c4s_user");
+        const stored = localStorage.getItem("c4s_user");
         if (stored) {
             const user = JSON.parse(stored);
             navigate(ROLE_REDIRECTS[user.role as keyof typeof ROLE_REDIRECTS]);

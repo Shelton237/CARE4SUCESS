@@ -216,7 +216,7 @@ export default function AdminSettings() {
 
     if (isLoading && !hasData) {
         return (
-            <div className="p-8">
+            <div className="p-4 md:p-8">
                 <div className="bg-white border border-gray-100 rounded-2xl p-10 text-center text-gray-400 shadow-sm">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-3" />
                     Chargement des paramètres…
@@ -230,7 +230,7 @@ export default function AdminSettings() {
     }
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-[#0D2D5A]">Paramètres de la plateforme</h1>
@@ -550,8 +550,8 @@ export default function AdminSettings() {
                 </div>
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div className="grid lg:grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
                     <div className="flex items-center gap-3 mb-5">
                         <div className="w-8 h-8 rounded-lg bg-[#a855f7]/10 flex items-center justify-center">
                             <Bell className="w-4 h-4 text-[#a855f7]" />
@@ -581,7 +581,7 @@ export default function AdminSettings() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
                     <div className="flex items-center gap-3 mb-5">
                         <div className="w-8 h-8 rounded-lg bg-[#22c55e]/10 flex items-center justify-center">
                             <Shield className="w-4 h-4 text-[#22c55e]" />

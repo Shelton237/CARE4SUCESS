@@ -55,14 +55,14 @@ export default function StudentQuizzes() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+            <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
             </div>
         );
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             {playingQuizId && (
                 <QuizPlayer 
                     quizId={playingQuizId} 
@@ -101,7 +101,7 @@ export default function StudentQuizzes() {
                             <h3 className="text-sm font-bold text-[#0D2D5A] uppercase tracking-widest">Quiz disponibles</h3>
                             <button className="text-[10px] font-bold text-[#1A6CC8] hover:underline uppercase tracking-widest">Voir tout</button>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4">
                             {filteredQuizzes.length > 0 ? (
                                 filteredQuizzes.map((quiz) => (
                                     <QuizCard 
@@ -155,7 +155,7 @@ export default function StudentQuizzes() {
 
                 {/* Sidebar Stats */}
                 <div className="space-y-6">
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center">
+                    <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100 text-center">
                         <div className="w-14 h-14 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center mx-auto mb-4 text-orange-500">
                             <Trophy className="w-7 h-7" />
                         </div>
@@ -173,7 +173,7 @@ export default function StudentQuizzes() {
                         </div>
                     </div>
 
-                    <div className="bg-[#0D2D5A] rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group">
+                    <div className="bg-[#0D2D5A] rounded-2xl p-4 md:p-6 text-white shadow-lg relative overflow-hidden group">
                         <div className="relative z-10">
                             <h4 className="text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2 opacity-80">
                                 <Star className="w-3.5 h-3.5 text-orange-400 fill-current" />
@@ -198,7 +198,7 @@ function QuizCard({ quiz, attempts, onPlay }: { quiz: any, attempts: any[], onPl
     const bestScore = hasAttempt ? Math.max(...quizAttempts.map(a => a.score)) : 0;
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all group hover:border-[#1A6CC8]/20 relative overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 transition-all group hover:border-[#1A6CC8]/20 relative overflow-hidden">
             <div className="relative z-10 flex flex-col h-full gap-4">
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-[9px] font-bold text-[#1A6CC8] bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg uppercase tracking-wider">

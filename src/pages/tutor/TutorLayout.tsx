@@ -65,7 +65,7 @@ export default function TutorLayout() {
                 roleLabel={isAlsoTeacher ? "Tuteur-Enseignant" : "Tuteur Pédagogique"}
                 roleColor="#1A6CC8"
             />
-            <main className="flex-1 ml-72 min-h-screen overflow-y-auto">
+            <main className="flex-1 md:ml-72 ml-0 min-h-screen pt-16 md:pt-0 overflow-y-auto w-full">
                 <Routes>
                     <Route index element={<TutorDashboard />} />
                     <Route path="applications" element={<TutorTeacherApplications />} />

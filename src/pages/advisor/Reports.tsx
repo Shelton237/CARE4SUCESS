@@ -71,7 +71,7 @@ export default function AdvisorReports() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[60vh]">
+      <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
       </div>
     );
@@ -79,7 +79,7 @@ export default function AdvisorReports() {
 
   if (errored) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <div className="bg-red-50 border border-red-100 rounded-2xl p-5 text-sm text-red-700 flex items-center justify-between">
           <span>Impossible de charger les données conseillers.</span>
           <button
@@ -98,7 +98,7 @@ export default function AdvisorReports() {
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#0D2D5A]">Bilans pédagogiques</h1>
@@ -188,7 +188,7 @@ export default function AdvisorReports() {
           </div>
         ))}
         {reports.length === 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-sm text-gray-400">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-8 text-center text-sm text-gray-400">
             Aucune famille suivie pour l&apos;instant.
           </div>
         )}

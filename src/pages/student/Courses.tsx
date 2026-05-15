@@ -90,14 +90,14 @@ export default function StudentCourses() {
 
     if (coursesLoading || bookmarksLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+            <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
             </div>
         );
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes Cours</h1>
@@ -124,7 +124,7 @@ export default function StudentCourses() {
                 <TabButton active={activeTab === 'favorites'} onClick={() => setActiveTab('favorites')} label="Favoris" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredCourses.length > 0 ? (
                     filteredCourses.map((course) => (
                         <CourseCard 
@@ -148,7 +148,7 @@ export default function StudentCourses() {
 
             {/* Resume Section */}
             {activeCourse && (
-                <div className="mt-12 bg-[#0D2D5A] rounded-2xl p-8 text-white relative overflow-hidden group border border-blue-500/20 shadow-2xl shadow-blue-500/10 active:scale-[0.99] transition-all cursor-pointer" onClick={() => setViewingCourseId(activeCourse.courseId)}>
+                <div className="mt-12 bg-[#0D2D5A] rounded-2xl p-4 md:p-8 text-white relative overflow-hidden group border border-blue-500/20 shadow-2xl shadow-blue-500/10 active:scale-[0.99] transition-all cursor-pointer" onClick={() => setViewingCourseId(activeCourse.courseId)}>
                     <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
                         <div className="w-16 h-16 rounded-xl bg-white/10 flex items-center justify-center">
                             <TrendingUp className="w-8 h-8 text-[#1A6CC8]" />
@@ -235,7 +235,7 @@ function CourseCard({ course, isBookmarked, onToggleBookmark, onView }: { course
                 </div>
             </div>
 
-            <div className="p-6 flex-1 flex flex-col gap-6">
+            <div className="p-4 md:p-6 flex-1 flex flex-col gap-6">
                 <div className="flex-1 space-y-2 cursor-pointer" onClick={onView}>
                     <h4 className="text-base font-bold text-[#0D2D5A] leading-tight group-hover:text-[#1A6CC8] transition-colors line-clamp-2">
                         {course.title}
@@ -322,7 +322,7 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
             <DrawerContent className="h-[95vh] rounded-t-[2.5rem] bg-gray-50 border-none shadow-2xl">
                 <div className="flex h-full overflow-hidden">
                     {/* Sidebar Lessons */}
-                    <div className="w-80 bg-white border-r border-gray-100 flex flex-col p-6 overflow-hidden">
+                    <div className="w-80 bg-white border-r border-gray-100 flex flex-col p-4 md:p-6 overflow-hidden">
                         <div className="mb-8">
                             <h2 className="text-xl font-black text-[#0D2D5A] leading-tight mb-2">{course?.title}</h2>
                             <div className="flex items-center gap-2">
@@ -407,7 +407,7 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
                                 </div>
 
                                 {/* Bottom bar */}
-                                <div className="p-6 bg-white border-t border-gray-100 flex items-center justify-center gap-4">
+                                <div className="p-4 md:p-6 bg-white border-t border-gray-100 flex items-center justify-center gap-4">
                                     <Button 
                                         onClick={() => handleComplete(activeLesson.id)}
                                         className={cn(

@@ -185,7 +185,7 @@ export default function AdvisorFamilies() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
+            <div className="p-4 md:p-8 flex flex-col items-center justify-center min-h-[400px]">
                 <Loader2 className="animate-spin text-[#1A6CC8] w-10 h-10" />
                 <p className="text-gray-400 text-sm mt-4">Chargement des familles...</p>
             </div>
@@ -193,7 +193,7 @@ export default function AdvisorFamilies() {
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             {/* Header Advisor Style */}
             <div className="flex items-center justify-between">
                 <div>
@@ -273,7 +273,7 @@ export default function AdvisorFamilies() {
                 <div className="xl:col-span-4">
                     {selectedFamily ? (
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8 animate-in slide-in-from-right-4 duration-300">
-                            <div className="p-8 text-center border-b border-gray-50 bg-gray-50/30">
+                            <div className="p-4 md:p-8 text-center border-b border-gray-50 bg-gray-50/30">
                                 <div className="mx-auto w-20 h-20 rounded-2xl bg-[#0D2D5A] border-4 border-white shadow-lg flex items-center justify-center text-3xl font-bold text-white mb-4">
                                     {selectedFamily.parentName?.charAt(0)}
                                 </div>
@@ -281,10 +281,10 @@ export default function AdvisorFamilies() {
                                 <p className="text-[10px] text-[#1A6CC8] font-bold uppercase tracking-[2px] mt-1">{selectedFamily.level || "Niveau non défini"}</p>
                             </div>
 
-                            <div className="p-6 space-y-6">
+                            <div className="p-4 md:p-6 space-y-6">
                                 <div className="space-y-4">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Progression Académique</p>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-50 text-center">
                                             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Moyenne</p>
                                             <p className="text-sm font-bold text-[#0D2D5A]">{selectedFamily.average || "14.2"}/20</p>

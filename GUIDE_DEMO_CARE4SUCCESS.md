@@ -29,7 +29,19 @@ Ce guide vous permet de réaliser une démonstration fluide et impressionnante d
 
 ---
 
-## 📊 Scénario 3 : Pilotage & Finances (Côté Admin)
+## 🤝 Scénario 3 : Matching Professeur ↔ Élèves
+**Objectif :** Associer manuellement des élèves à un professeur et vérifier la synchronisation.
+
+1.  **Connexion** : `admin@care4success.cm` / `admin`
+2.  **Navigation** : Allez dans **"Élèves & Familles"** (ou "Relations").
+3.  **Action 1** : Sélectionnez l'élève **Élève Tech Satur** (`techsatur@gmail.com`) et associez-le au professeur **Saturin Penlap** (`penlapsaturin@gmail.com`).
+4.  **Action 2** : Répétez l'opération pour l'élève **Élève Lesatur** (`lesaturtech@gmail.com`).
+5.  **Vérification** : Connectez-vous en tant que **Saturin Penlap** et vérifiez que les 2 élèves apparaissent bien dans son tableau de bord.
+6.  *💡 Commentaire : "L'administration garde un contrôle total sur les relations pédagogiques, assurant que chaque élève est suivi par le bon intervenant."*
+
+---
+
+## 📊 Scénario 4 : Pilotage & Finances (Côté Admin)
 **Objectif :** Prouver la maîtrise des coûts et la rentabilité.
 
 1.  **Onglet Finance** : Allez sur le compte Admin -> **"Finance & Paie"**.
@@ -40,7 +52,7 @@ Ce guide vous permet de réaliser une démonstration fluide et impressionnante d
 
 ---
 
-**Identifiants :**
+**Identifiants de test :**
 *   **Admin** : `admin@care4success.cm` / `admin`
 *   **Élève** : `eleve@care4success.cm` / `student123`
 *   **Parent** : `parent@care4success.cm` / `parent123`

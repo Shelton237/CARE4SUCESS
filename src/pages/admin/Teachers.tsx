@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Star, MapPin, Search, UserPlus, Filter, MoreHorizontal, Eye, Ban } from "lucide-react";
+import { Star, MapPin, Search, UserPlus, Filter, MoreHorizontal, Eye, Ban, Edit3 } from "lucide-react";
 
 // UI Components
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,18 +12,33 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { updateTeacherSpecialties, createTeacher, updateTeacherStatus } from "@/api/backoffice";
 
 interface Teacher {
     id: string;
     name: string;
     email: string;
-    subjects: string[];
+    subjects: string | string[]; // Can be string from DB or array after fix
+    levels: string;
     level: string;
     city: string;
     status: string;
     rating: number;
     students: number;
 }
+
+const LEVELS = [
+    "SIL", "CP", "CE1", "CE2", "CM1", "CM2",
+    "6ème", "5ème", "4ème", "3ème",
+    "2nde", "1ère", "Tle",
+    "Supérieur", "Tous"
+];
+
+const SUBJECTS = [
+    "Mathématiques", "Physique-Chimie", "SVT", "Informatique",
+    "Anglais", "Français", "Allemand", "Espagnol",
+    "Philosophie", "Histoire-Géo", "Comptabilité"
+];
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
@@ -33,6 +48,11 @@ export default function AdminTeachers() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+    const [editSpecialties, setEditSpecialties] = useState<{ subjects: string[], levels: string[] }>({
+        subjects: [],
+        levels: []
+    });
 
     // Fetch Teachers
     const { data: teachers = [], isLoading } = useQuery<Teacher[]>({
@@ -40,7 +60,9 @@ export default function AdminTeachers() {
         queryFn: async () => {
             const res = await fetch(`${API_BASE_URL}/teachers`);
             if (!res.ok) throw new Error("Erreur de récupération des professeurs");
-            return res.json();
+            const data = await res.json();
+            console.log("Teachers Data Debug:", data);
+            return data;
         }
     });
 
@@ -56,13 +78,7 @@ export default function AdminTeachers() {
     // Create Teacher Mutation
     const createTeacherMutation = useMutation({
         mutationFn: async (payload: typeof newTeacher) => {
-            const res = await fetch(`${API_BASE_URL}/teachers`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-            if (!res.ok) throw new Error("Erreur d'ajout");
-            return res.json();
+            return createTeacher(payload);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["teachers"] });
@@ -80,13 +96,7 @@ export default function AdminTeachers() {
     // Update Status Mutation
     const updateStatusMutation = useMutation({
         mutationFn: async ({ id, status }: { id: string, status: string }) => {
-            const res = await fetch(`${API_BASE_URL}/teachers/${id}/status`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status }),
-            });
-            if (!res.ok) throw new Error("Erreur de modification");
-            return res.json();
+            return updateTeacherStatus(id, status);
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ["teachers"] });
@@ -98,6 +108,63 @@ export default function AdminTeachers() {
             toast.error("Erreur, impossible de modifier le statut.");
         }
     });
+
+    // Update Specialties Mutation
+    const updateSpecialtiesMutation = useMutation({
+        mutationFn: async ({ id, subjects, levels }: { id: string, subjects: string, levels: string }) => {
+            return updateTeacherSpecialties(id, { subjects, levels });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["teachers"] });
+            queryClient.invalidateQueries({ queryKey: ["advisorAssignments"] });
+            toast.success("Spécialités mises à jour", {
+                description: "L'enseignant sera maintenant proposé pour les matchings correspondants."
+            });
+            setEditingTeacher(null);
+        },
+        onError: () => {
+            toast.error("Erreur, impossible de mettre à jour les spécialités.");
+        }
+    });
+
+    const handleSaveSpecialties = () => {
+        if (!editingTeacher) return;
+        updateSpecialtiesMutation.mutate({
+            id: editingTeacher.id,
+            subjects: editSpecialties.subjects.join(", "),
+            levels: editSpecialties.levels.join(", ")
+        });
+    };
+
+    const toggleSubject = (subj: string) => {
+        setEditSpecialties(prev => ({
+            ...prev,
+            subjects: prev.subjects.includes(subj)
+                ? prev.subjects.filter(s => s !== subj)
+                : [...prev.subjects, subj]
+        }));
+    };
+
+    const toggleLevel = (lvl: string) => {
+        setEditSpecialties(prev => ({
+            ...prev,
+            levels: prev.levels.includes(lvl)
+                ? prev.levels.filter(l => l !== lvl)
+                : [...prev.levels, lvl]
+        }));
+    };
+
+    const openEditSpecialties = (teacher: Teacher) => {
+        setEditingTeacher(teacher);
+        const currentSubjects = typeof teacher.subjects === "string" 
+            ? teacher.subjects.split(", ").filter(Boolean)
+            : Array.isArray(teacher.subjects) ? teacher.subjects : [];
+        const currentLevels = teacher.levels ? teacher.levels.split(", ").filter(Boolean) : [];
+        setEditSpecialties({
+            subjects: currentSubjects,
+            levels: currentLevels
+        });
+    };
 
     const handleAddTeacher = (e: React.FormEvent) => {
         e.preventDefault();
@@ -126,7 +193,7 @@ export default function AdminTeachers() {
     });
 
     return (
-        <div className="p-4 md:p-8 space-y-6">
+        <div className="p-4 md:p-4 md:p-8 space-y-6">
             {/* Header section with Stats and Actions */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -160,7 +227,7 @@ export default function AdminTeachers() {
                                 <Input id="email" type="email" placeholder="jean.dupont@email.com" value={newTeacher.email} onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })} required disabled={createTeacherMutation.isPending} />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="subject">Matière principale</Label>
                                     <Input id="subject" placeholder="Ex: Mathématiques" value={newTeacher.subject} onChange={(e) => setNewTeacher({ ...newTeacher, subject: e.target.value })} disabled={createTeacherMutation.isPending} />
@@ -209,6 +276,81 @@ export default function AdminTeachers() {
                     </SelectContent>
                 </Select>
             </div>
+
+            <Dialog open={!!editingTeacher} onOpenChange={(open) => !open && setEditingTeacher(null)}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-[#0D2D5A] font-bold text-xl">Spécialités de l'enseignant</DialogTitle>
+                        <DialogDescription>
+                            Sélectionnez les classes et les matières que cet enseignant peut prendre en charge.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-6 py-4">
+                        <div className="space-y-3">
+                            <Label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Classes (Niveaux)</Label>
+                            <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto p-2 border border-gray-100 rounded-xl bg-gray-50/50">
+                                {LEVELS.map(lvl => {
+                                    const active = editSpecialties.levels.includes(lvl);
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={lvl}
+                                            onClick={() => toggleLevel(lvl)}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                                                active 
+                                                    ? "bg-[#1A6CC8] text-white border-transparent" 
+                                                    : "bg-white text-gray-600 border-gray-200 hover:border-[#1A6CC8]/40"
+                                            }`}
+                                        >
+                                            {lvl}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Matières maîtrisées</Label>
+                            <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto p-2 border border-gray-100 rounded-xl bg-gray-50/50">
+                                {SUBJECTS.map(subj => {
+                                    const active = editSpecialties.subjects.includes(subj);
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={subj}
+                                            onClick={() => toggleSubject(subj)}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                                                active 
+                                                    ? "bg-[#1A6CC8] text-white border-transparent" 
+                                                    : "bg-white text-gray-600 border-gray-200 hover:border-[#1A6CC8]/40"
+                                            }`}
+                                        >
+                                            {subj}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter className="pt-4 border-t border-gray-50">
+                        <Button 
+                            type="button" 
+                            variant="ghost" 
+                            onClick={() => setEditingTeacher(null)}
+                            className="rounded-xl text-gray-500"
+                        >
+                            Annuler
+                        </Button>
+                        <Button 
+                            onClick={handleSaveSpecialties}
+                            className="bg-[#1A6CC8] hover:bg-[#0D2D5A] rounded-xl font-bold px-8"
+                            disabled={updateSpecialtiesMutation.isPending}
+                        >
+                            {updateSpecialtiesMutation.isPending ? "Sauvegarde..." : "Enregistrer"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Content Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -259,12 +401,20 @@ export default function AdminTeachers() {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600">{t.subjects.join(", ")}</td>
+                                    <td className="px-6 py-4 text-gray-600">
+                                        <div className="flex flex-wrap gap-1">
+                                            {(typeof t.subjects === "string" ? t.subjects.split(", ") : t.subjects).map((s, idx) => (
+                                                <span key={idx} className="bg-blue-50 px-2 py-0.5 rounded text-blue-700 text-[10px] font-semibold">{s}</span>
+                                            ))}
+                                            {(!t.subjects || t.subjects.length === 0) && "—"}
+                                        </div>
+                                    </td>
                                     <td className="px-6 py-4 text-gray-500 text-xs">
                                         <div className="flex flex-wrap gap-1">
-                                            {t.level.split(',').map((lvl, idx) => (
+                                            {String(t.levels || t.level || "—").split(',').filter(Boolean).map((lvl, idx) => (
                                                 <span key={idx} className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{lvl.trim()}</span>
                                             ))}
+                                            {(!t.levels && !t.level) && <span className="text-gray-400 italic">Non défini</span>}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-center">
@@ -302,6 +452,13 @@ export default function AdminTeachers() {
                                                     onSelect={() => navigate(`/admin/profiles/${t.id}?role=teacher`)}
                                                 >
                                                     <Eye className="mr-2 h-4 w-4" /> Consulter le profil
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem 
+                                                    className="cursor-pointer"
+                                                    onSelect={() => openEditSpecialties(t)}
+                                                >
+                                                    <Edit3 className="mr-2 h-4 w-4 text-amber-600" /> 
+                                                    <span className="text-amber-600">Modifier spécialités</span>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem className="cursor-pointer focus:text-inherit" onClick={() => handleSuspend(t.id, t.status)}>

@@ -83,7 +83,7 @@ export default function TeacherHomework() {
         }
         setIsSubmitting(true);
         try {
-            const token = sessionStorage.getItem("c4s_token");
+            const token = localStorage.getItem("c4s_token");
             const headers: Record<string, string> = { "Content-Type": "application/json" };
             if (token) headers["Authorization"] = `Bearer ${token}`;
             const res = await fetch(`${API_BASE}/homework`, {
@@ -113,7 +113,7 @@ export default function TeacherHomework() {
     const handleMarkDone = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         try {
-            const token = sessionStorage.getItem("c4s_token");
+            const token = localStorage.getItem("c4s_token");
             const headers: Record<string, string> = { "Content-Type": "application/json" };
             if (token) headers["Authorization"] = `Bearer ${token}`;
             await fetch(`${API_BASE}/homework/${id}`, {
@@ -143,7 +143,7 @@ export default function TeacherHomework() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex flex-col items-center justify-center min-h-[400px] space-y-4">
+            <div className="p-4 md:p-8 flex flex-col items-center justify-center min-h-[400px] space-y-4">
                 <Loader2 className="w-10 h-10 animate-spin text-[#1A6CC8]" />
                 <p className="text-gray-400 text-sm">Chargement des devoirs...</p>
             </div>
@@ -165,7 +165,7 @@ export default function TeacherHomework() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 {[
                     { label: "Total Assignés", value: stats.total, color: "text-[#1A6CC8]", bg: "bg-blue-50/30" },
                     { label: "À faire", value: stats.aFaire, color: "text-[#1A6CC8]", bg: "bg-blue-50/50" },
@@ -278,7 +278,7 @@ export default function TeacherHomework() {
                     </DialogHeader>
 
                     <div className="mt-4 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-[#0D2D5A]">Élève</label>
                                 <select
@@ -376,7 +376,7 @@ export default function TeacherHomework() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Élève</p>
                                     <p className="text-xs font-bold text-[#0D2D5A]">{selectedHomework.studentName}</p>

@@ -214,7 +214,7 @@ export default function ParentMessages() {
                             </div>
 
                             {/* Messages Container */}
-                            <ScrollArea className="flex-1 p-6 bg-slate-50/30">
+                            <ScrollArea className="flex-1 p-4 md:p-6 bg-slate-50/30">
                                 <div className="space-y-6 max-w-4xl mx-auto">
                                     {loadingMessages ? (
                                         <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-slate-200" /></div>

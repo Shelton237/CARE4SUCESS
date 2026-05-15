@@ -93,7 +93,7 @@ export default function StudentProgress() {
 
     if (progressQuery.isLoading || sessionsQuery.isLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+            <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
             </div>
         );
@@ -109,7 +109,7 @@ export default function StudentProgress() {
     };
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-bold text-[#0D2D5A]">Progression Académique</h1>
@@ -130,7 +130,7 @@ export default function StudentProgress() {
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 {/* Evolution Chart */}
                 <div className="xl:col-span-2 space-y-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div className="flex items-center justify-between mb-8">
                             <h3 className="text-base font-bold text-[#0D2D5A]">Courbe d'apprentissage</h3>
                             <div className="flex items-center gap-4">
@@ -208,7 +208,7 @@ export default function StudentProgress() {
 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                    <div className="bg-[#0D2D5A] rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group">
+                    <div className="bg-[#0D2D5A] rounded-2xl p-4 md:p-6 text-white shadow-lg relative overflow-hidden group">
                         <div className="relative z-10 space-y-6">
                             <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
                                 <Star className="w-6 h-6 text-[#F5A623] fill-current" />
@@ -225,7 +225,7 @@ export default function StudentProgress() {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                    <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
                         <h4 className="text-sm font-bold text-[#0D2D5A] mb-4">Objectif du mois</h4>
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <p className="text-xs font-medium text-gray-600 italic">"Atteindre 16/20 en Français"</p>
@@ -251,8 +251,8 @@ export default function StudentProgress() {
                             {new Date(diagnosticQuery.data.created_at).toLocaleDateString("fr-FR")}
                         </span>
                     </div>
-                    <div className="p-6 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-4 md:p-6 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-6">
                             <div className="space-y-3">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scores par matière</p>
                                 {Object.entries(diagnosticQuery.data.scores || {}).map(([subject, score]: any) => (
@@ -302,7 +302,7 @@ export default function StudentProgress() {
                             Depuis {new Date(planQuery.data.start_date).toLocaleDateString("fr-FR")}
                         </span>
                     </div>
-                    <div className="p-6">
+                    <div className="p-4 md:p-6">
                         <div className="space-y-3">
                             {(planQuery.data.weeks || []).map((week: any, i: number) => (
                                 <div key={i} className="flex items-start gap-4 p-3 rounded-xl border border-gray-100 bg-gray-50/30 hover:bg-gray-50 transition-colors">
@@ -335,11 +335,11 @@ export default function StudentProgress() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => !mutation.isPending && setDisputeModal({ open: false })} />
                     <div className="bg-white rounded-2xl shadow-xl relative z-10 w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300">
-                        <div className="p-6 border-b border-gray-50 flex items-center justify-between">
+                        <div className="p-4 md:p-6 border-b border-gray-50 flex items-center justify-between">
                             <h3 className="text-lg font-bold text-[#0D2D5A]">Contester une note</h3>
                             <AlertCircle className="w-5 h-5 text-orange-500" />
                         </div>
-                        <div className="p-6 space-y-6">
+                        <div className="p-4 md:p-6 space-y-6">
                             <p className="text-xs text-gray-500">Session : <span className="font-bold text-[#0D2D5A]">{disputeModal.sessionTitle}</span></p>
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Motif de la demande</label>

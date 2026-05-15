@@ -115,7 +115,7 @@ export default function ParentTeam() {
     }
 
     return (
-        <div className="p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
+        <div className="p-4 md:p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
             {/* Slim Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-slate-100 pb-4 gap-4">
                 <div>
@@ -143,7 +143,7 @@ export default function ParentTeam() {
                     </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                     {teachers.map((teacher) => {
                         const subjects = teacherSubjects.get(teacher.id);
                         const counts = teacherSessionCounts.get(teacher.id);
@@ -193,7 +193,7 @@ export default function ParentTeam() {
                                     </div>
 
                                     {/* Stats Grid */}
-                                    <div className="grid grid-cols-2 divide-x divide-slate-100 border-y border-slate-50 py-3 bg-slate-50/30">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-x divide-slate-100 border-y border-slate-50 py-3 bg-slate-50/30">
                                         <div className="px-3 flex flex-col items-center">
                                             <span className="text-xs font-black text-emerald-600 tracking-tight">{counts?.completed || 0}</span>
                                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter text-center">Sessions Terminées</span>

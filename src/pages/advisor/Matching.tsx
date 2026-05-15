@@ -65,7 +65,7 @@ export default function AdvisorMatching() {
     const isConfirming = (matchId: string) => mutation.isPending && mutation.variables?.matchId === matchId;
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-[#0D2D5A]">Matching enseignant ↔ élève</h1>
                 <p className="text-gray-500 text-sm mt-1">
@@ -109,14 +109,14 @@ export default function AdvisorMatching() {
 
             <div className="space-y-6">
                 {isLoading && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-8 text-center text-gray-400 text-sm">
                         <Loader2 className="w-5 h-5 animate-spin mx-auto mb-3" />
                         Chargement des matching…
                     </div>
                 )}
 
                 {!isLoading && data?.length === 0 && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-8 text-center text-gray-400 text-sm">
                         Aucun élève en attente pour le moment.
                     </div>
                 )}
@@ -175,11 +175,11 @@ export default function AdvisorMatching() {
                                 </div>
                             </div>
 
-                            <div className="p-6">
+                            <div className="p-4 md:p-6">
                                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
                                     Enseignants compatibles ({match.candidates.length})
                                 </h3>
-                                <div className="grid sm:grid-cols-2 gap-3">
+                                <div className="grid sm:grid-cols-1 sm:grid-cols-2 gap-3">
                                     {match.candidates.map((candidate) => {
                                         const isSelected = currentSelection === candidate.name;
                                         return (

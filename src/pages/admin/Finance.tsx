@@ -48,7 +48,7 @@ export default function AdminFinance() {
 
     if (summaryQuery.isLoading || payrollQuery.isLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+            <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-10 h-10 animate-spin text-[#1A6CC8]" />
             </div>
         );
@@ -63,7 +63,7 @@ export default function AdminFinance() {
     ];
 
     return (
-        <div className="w-full p-6 space-y-6 animate-in fade-in duration-500 bg-white min-h-screen">
+        <div className="w-full p-4 md:p-6 space-y-6 animate-in fade-in duration-500 bg-white min-h-screen">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-black text-[#0D2D5A] tracking-tighter">FINANCE & PAIE</h1>
@@ -88,7 +88,7 @@ export default function AdminFinance() {
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 <StatCard 
                     label="Volume Facturé" 
                     value={formatFCFA(summary.totalBilled)} 

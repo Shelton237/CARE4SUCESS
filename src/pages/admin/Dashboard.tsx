@@ -48,7 +48,7 @@ export default function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[60vh]">
+      <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-10 h-10 animate-spin text-[#1A6CC8]" />
       </div>
     );
@@ -56,8 +56,8 @@ export default function AdminDashboard() {
 
   if (isError) {
     return (
-      <div className="p-8">
-        <div className="bg-red-50 border border-red-100 p-6 rounded-2xl flex items-center justify-between text-sm text-red-700">
+      <div className="p-4 md:p-8">
+        <div className="bg-red-50 border border-red-100 p-4 md:p-6 rounded-2xl flex items-center justify-between text-sm text-red-700">
           <span>Impossible de récupérer les statistiques.</span>
           <button onClick={() => refetch()} className="inline-flex items-center gap-1 rounded-xl border border-red-200 px-3 py-1 text-xs font-semibold hover:bg-red-100 transition-colors">
             <RefreshCw className="w-3 h-3" /> Réessayer
@@ -68,14 +68,14 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-[#0D2D5A]">Tableau de bord</h1>
         <p className="text-gray-500 text-sm mt-1">Vue consolidée des performances Care4Success</p>
       </div>
 
       {/* Row 1 — KPIs principaux */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <StatCard label="Enseignants actifs" value={stats.totalTeachers} icon={GraduationCap} accentColor="#1A6CC8" trend={8} description="vs mois précédent" />
         <StatCard label="Élèves suivis" value={stats.activeStudents} icon={Users} accentColor="#0D2D5A" trend={12} description="Actuellement" />
         <StatCard label="Demandes en attente" value={stats.pendingRequests} icon={ClipboardList} accentColor="#F5A623" description="À traiter" />
@@ -83,7 +83,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Row 2 — KPIs opérationnels */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Taux d'occupation</p>
           <div className="flex items-end gap-2">
@@ -120,7 +120,7 @@ export default function AdminDashboard() {
       {/* Row 3 — Graphiques */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* CA mensuel */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
           <div className="mb-6">
             <h2 className="text-base font-bold text-[#0D2D5A]">Chiffre d'affaires mensuel</h2>
             <p className="text-xs text-gray-400">Six derniers mois</p>
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Dernières demandes */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
           <h2 className="text-base font-bold text-[#0D2D5A] mb-4">Dernières demandes</h2>
           <div className="space-y-3">
             {latestRequests.length === 0 && <div className="text-sm text-gray-400 text-center py-6">Aucune demande récente.</div>}
@@ -163,9 +163,9 @@ export default function AdminDashboard() {
       </div>
 
       {/* Row 4 — CA par matière + Ratings */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-1 sm:grid-cols-2 gap-6">
         {revenueBySubject.length > 0 && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
             <div className="mb-4">
               <h2 className="text-base font-bold text-[#0D2D5A]">CA par matière</h2>
               <p className="text-xs text-gray-400">Ce mois-ci</p>

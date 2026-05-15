@@ -88,7 +88,7 @@ const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 const getAuthToken = () => {
     if (typeof window === "undefined") return null;
     try {
-        return window.sessionStorage.getItem("c4s_token");
+        return window.localStorage.getItem("c4s_token");
     } catch {
         return null;
     }
@@ -497,7 +497,9 @@ export const fetchAdminDashboard = () =>
     request<AdminDashboardResponse>("/admin/dashboard");
 
 export type CreateSessionPayload = {
-    studentId: string;
+    studentId?: string;
+    studentIds?: string[];
+    courseId?: string;
     subject: string;
     sessionDate: string;   // "YYYY-MM-DD"
     sessionTime: string;   // "HH:MM"
@@ -642,6 +644,31 @@ export const resetUserPassword = (email: string, newPassword?: string) =>
         method: "POST",
         body: JSON.stringify({ email, newPassword }),
     });
+
+export const updateFamilyDetails = (requestId: string, payload: { level: string; subject: string }) =>
+    request<{ success: boolean; message: string }>(`/advisor/families/${requestId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+
+export const updateTeacherSpecialties = (teacherId: string, payload: { subjects: string; levels: string }) =>
+    request<{ success: boolean; message: string }>(`/admin/teachers/${teacherId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+
+export const createTeacher = (payload: any) =>
+    request<{ success: boolean; message: string }>("/teachers", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
+export const updateTeacherStatus = (id: string, status: string) =>
+    request<{ success: boolean; message: string }>(`/teachers/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+    });
+
 export const forgotPassword = (email: string) =>
     request<{ success: boolean; message: string }>("/auth/forgot-password", {
         method: "POST",

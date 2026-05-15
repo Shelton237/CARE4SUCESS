@@ -43,7 +43,7 @@ export default function StudentResources() {
     };
 
     return (
-        <div className="p-4 md:p-6 space-y-6 bg-white min-h-screen font-sans text-[#0D2D5A]">
+        <div className="p-4 md:p-4 md:p-6 space-y-6 bg-white min-h-screen font-sans text-[#0D2D5A]">
             <div className="border-b border-slate-100 pb-4">
                 <h1 className="text-xl font-black text-[#0D2D5A] uppercase tracking-tight flex items-center gap-3">
                     Bibliothèque <BookOpen className="w-5 h-5 text-[#1A6CC8]" />
@@ -87,7 +87,7 @@ export default function StudentResources() {
                     <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Aucune ressource disponible</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filtered.map((r: any) => {
                         const Icon = TYPE_ICONS[r.type] || FileText;
                         const colorClass = TYPE_COLORS[r.type] || "text-gray-500 bg-gray-50";

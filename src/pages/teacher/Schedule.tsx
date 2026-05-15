@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession } from "@/api/backoffice";
+import { fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession, fetchCourses } from "@/api/backoffice";
 import type { CreateSessionPayload } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi } from "lucide-react";
@@ -42,7 +43,7 @@ const COMPREHENSION_LABELS: Record<number, string> = {
 };
 
 const defaultForm = (): CreateSessionPayload => ({
-    studentId: "",
+    studentIds: [],
     subject: "",
     sessionDate: "",
     sessionTime: "16:00",
@@ -50,10 +51,12 @@ const defaultForm = (): CreateSessionPayload => ({
     location: "",
     recurrence: "none",
     sessionCount: 1,
+    courseId: "",
 });
 
 export default function TeacherSchedule() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [viewedNote, setViewedNote] = useState<any | null>(null);
 
@@ -81,6 +84,17 @@ export default function TeacherSchedule() {
         queryFn: () => fetchTeacherStudents(user!.id),
         enabled: Boolean(user?.id),
     });
+
+    const { data: allCourses = [] } = useQuery({
+        queryKey: ["teacherCourses", user?.id],
+        queryFn: () => fetchCourses("teacher", user!.id),
+        enabled: Boolean(user?.id),
+    });
+
+    const filteredCourses = useMemo(() => {
+        if (!form.subject) return [];
+        return allCourses.filter(c => c.subject === form.subject);
+    }, [allCourses, form.subject]);
 
     const createMutation = useMutation({
         mutationFn: createSession,
@@ -130,7 +144,7 @@ export default function TeacherSchedule() {
         if (!closingSession) return;
         setIsSubmitting(true);
         try {
-            const token = sessionStorage.getItem("c4s_token");
+            const token = localStorage.getItem("c4s_token");
             const headers: Record<string, string> = { "Content-Type": "application/json" };
             if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -169,8 +183,8 @@ export default function TeacherSchedule() {
     };
 
     const handleCreateSubmit = () => {
-        if (!form.studentId || !form.subject || !form.sessionDate || !form.sessionTime) {
-            toast.error("Veuillez remplir tous les champs obligatoires.");
+        if (!form.studentIds?.length || !form.subject || !form.sessionDate || !form.sessionTime) {
+            toast.error("Veuillez remplir tous les champs obligatoires (Élèves, Matière, Date, Heure).");
             return;
         }
         createMutation.mutate(form);
@@ -185,7 +199,7 @@ export default function TeacherSchedule() {
     }, [sessions]);
 
     if (!user) {
-        return <div className="p-8 text-sm text-gray-500">Connectez-vous pour consulter votre planning.</div>;
+        return <div className="p-4 md:p-8 text-sm text-gray-500">Connectez-vous pour consulter votre planning.</div>;
     }
 
     const getStatusStyle = (status: string) => STATUS_COLORS[status?.toLowerCase()] || STATUS_COLORS["planifié"];
@@ -328,11 +342,13 @@ export default function TeacherSchedule() {
                                         </Button>
                                     )}
                                     {s.virtualLink && (s.status === 'planifié' || s.status === 'à venir' || s.status === 'en cours' || s.status === 'scheduled' || s.status === 'in_progress') && (
-                                        <a href={s.virtualLink} target="_blank" rel="noopener noreferrer">
-                                            <Button size="sm" className="h-6 text-[9px] bg-purple-600 hover:bg-purple-700 gap-1 px-2 rounded-none shadow-none text-white font-black uppercase">
-                                                <Video className="w-3 h-3" /> Rejoindre
-                                            </Button>
-                                        </a>
+                                        <Button 
+                                            size="sm" 
+                                            onClick={() => navigate(`/virtual-class/${s.id}`)}
+                                            className="h-6 text-[9px] bg-purple-600 hover:bg-purple-700 gap-1 px-2 rounded-none shadow-none text-white font-black uppercase"
+                                        >
+                                            <Video className="w-3 h-3" /> Rejoindre
+                                        </Button>
                                     )}
                                     {(s.status === 'completed' || s.status === 'effectué') && s.notes && (
                                         <Button size="sm" variant="outline" onClick={() => setViewedNote(s)} className="h-6 text-[9px] gap-1 border-emerald-200 text-emerald-700 bg-emerald-50/50 px-2 rounded-none shadow-none font-black uppercase">
@@ -364,36 +380,68 @@ export default function TeacherSchedule() {
                     </DialogHeader>
 
                     <div className="mt-4 space-y-5">
-                        {/* Élève */}
+                        {/* Élèves (Multi-sélection) */}
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Élève <span className="text-red-400">*</span></label>
-                            <select
-                                value={form.studentId}
-                                onChange={e => setForm(f => ({ ...f, studentId: e.target.value }))}
-                                className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
-                            >
-                                <option value="">— Sélectionner un élève —</option>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex justify-between items-center">
+                                <span>Élèves concernés <span className="text-red-400">*</span></span>
+                                <span className="text-[9px] lowercase font-normal italic">
+                                    {form.studentIds?.length ?? 0} sélectionné(s)
+                                </span>
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[120px] overflow-y-auto p-2 border border-gray-100 rounded-xl bg-gray-50/50">
                                 {(Array.isArray(students) ? students : []).map((s: any) => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                    <label key={s.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors border border-transparent hover:border-gray-100">
+                                        <input
+                                            type="checkbox"
+                                            checked={form.studentIds?.includes(s.id)}
+                                            onChange={e => {
+                                                const checked = e.target.checked;
+                                                setForm(f => ({
+                                                    ...f,
+                                                    studentIds: checked
+                                                        ? [...(f.studentIds || []), s.id]
+                                                        : (f.studentIds || []).filter(id => id !== s.id)
+                                                }));
+                                            }}
+                                            className="w-4 h-4 rounded border-gray-300 text-[#1A6CC8] focus:ring-[#1A6CC8]"
+                                        />
+                                        <span className="text-xs font-medium text-[#0D2D5A] truncate">{s.name}</span>
+                                    </label>
                                 ))}
-                            </select>
+                            </div>
                         </div>
 
-                        {/* Matière */}
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Matière <span className="text-red-400">*</span></label>
-                            <select
-                                value={form.subject}
-                                onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                                className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
-                            >
-                                <option value="">— Sélectionner une matière —</option>
-                                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
+                        {/* Matière & Cours */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Matière <span className="text-red-400">*</span></label>
+                                <select
+                                    value={form.subject}
+                                    onChange={e => setForm(f => ({ ...f, subject: e.target.value, courseId: "" }))}
+                                    className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
+                                >
+                                    <option value="">— Matière —</option>
+                                    {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Lier à un cours</label>
+                                <select
+                                    value={form.courseId}
+                                    onChange={e => setForm(f => ({ ...f, courseId: e.target.value }))}
+                                    disabled={!form.subject}
+                                    className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm disabled:opacity-50"
+                                >
+                                    <option value="">— Aucun cours —</option>
+                                    {filteredCourses.map((c: any) => (
+                                        <option key={c.id} value={c.id}>{c.title}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         {/* Date + Heure */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date <span className="text-red-400">*</span></label>
                                 <input
@@ -418,7 +466,7 @@ export default function TeacherSchedule() {
                         {/* Type : Présentiel / En ligne */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Type de séance <span className="text-red-400">*</span></label>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <button
                                     onClick={() => setForm(f => ({ ...f, locationType: "presentiel", location: "" }))}
                                     className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${form.locationType === "presentiel" ? "border-[#1A6CC8] bg-[#1A6CC8]/5" : "border-gray-100 hover:border-gray-200 bg-gray-50"}`}
@@ -472,7 +520,7 @@ export default function TeacherSchedule() {
                         {/* Récurrence */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Récurrence</label>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <button
                                     onClick={() => setForm(f => ({ ...f, recurrence: "none", sessionCount: 1 }))}
                                     className={`p-3 rounded-xl border-2 text-xs font-bold transition-all ${form.recurrence === "none" ? "border-[#1A6CC8] bg-[#1A6CC8]/5 text-[#1A6CC8]" : "border-gray-100 text-gray-400 hover:border-gray-200"}`}
@@ -522,7 +570,7 @@ export default function TeacherSchedule() {
                         </Button>
                         <Button
                             onClick={handleCreateSubmit}
-                            disabled={createMutation.isPending || !form.studentId || !form.subject || !form.sessionDate}
+                            disabled={createMutation.isPending || !form.studentIds?.length || !form.subject || !form.sessionDate}
                             className="flex-1 bg-[#1A6CC8] hover:bg-[#0D2D5A] gap-2 font-bold"
                         >
                             <Plus className="w-4 h-4" />

@@ -23,7 +23,7 @@ export default function StudentTeachers() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
+            <div className="p-4 md:p-8 flex flex-col items-center justify-center min-h-[400px]">
                 <Loader2 className="w-10 h-10 animate-spin text-[#1A6CC8]" />
                 <p className="text-gray-400 text-sm mt-4">Chargement de tes tuteurs...</p>
             </div>
@@ -31,7 +31,7 @@ export default function StudentTeachers() {
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             {/* Header Style */}
             <div className="flex items-center justify-between">
                 <div>
@@ -46,12 +46,12 @@ export default function StudentTeachers() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {teachers && teachers.length > 0 ? (
                     teachers.map((teacher) => (
                         <div key={teacher.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group flex flex-col">
                             {/* Card Header */}
-                            <div className="p-6 bg-gray-50/50 border-b border-gray-50 flex items-center gap-4">
+                            <div className="p-4 md:p-6 bg-gray-50/50 border-b border-gray-50 flex items-center gap-4">
                                 <div className="w-14 h-14 rounded-xl bg-[#0D2D5A] border-4 border-white shadow-sm flex items-center justify-center text-white font-bold text-xl">
                                     {teacher.avatarUrl ? (
                                         <img src={teacher.avatarUrl} alt={teacher.name} className="w-full h-full object-cover rounded-lg" />
@@ -68,13 +68,13 @@ export default function StudentTeachers() {
                             </div>
 
                             {/* Card Stats */}
-                            <div className="p-6 space-y-6 flex-1">
-                                <div className="grid grid-cols-2 gap-3">
+                            <div className="p-4 md:p-6 space-y-6 flex-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div className="bg-white border border-gray-100 p-3 rounded-xl text-center">
                                         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Sessions</p>
                                         <div className="flex items-center justify-center gap-1.5 mt-1">
                                             <CalendarCheck className="w-3.5 h-3.5 text-emerald-500" />
-                                            <span className="text-sm font-bold text-[#0D2D5A]">24 cours</span>
+                                            <span className="text-sm font-bold text-[#0D2D5A]">{teacher.sessionsCount ?? 0} cours</span>
                                         </div>
                                     </div>
                                     <div className="bg-white border border-gray-100 p-3 rounded-xl text-center">

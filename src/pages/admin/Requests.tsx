@@ -99,7 +99,7 @@ export default function AdminRequests() {
     };
 
     return (
-        <div className="p-8 space-y-6" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+        <div className="p-4 md:p-8 space-y-6" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
             {/* Header */}
             <div className="flex items-start justify-between flex-wrap gap-4">
                 <div>
@@ -118,7 +118,7 @@ export default function AdminRequests() {
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {[
                     { label: "Total demandes", value: total, color: "text-[#0D2D5A]", bg: "bg-[#0D2D5A]/5", icon: ClipboardList },
                     { label: "Nouvelles", value: newCount, color: "text-amber-700", bg: "bg-amber-50", icon: ClipboardList },
@@ -188,7 +188,7 @@ export default function AdminRequests() {
             )}
 
             {/* Kanban */}
-            <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 ${updateStatusMutation.isPending ? "opacity-60 pointer-events-none" : ""}`}>
+            <div className={`grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 ${updateStatusMutation.isPending ? "opacity-60 pointer-events-none" : ""}`}>
                 {STATUSES.map((status) => {
                     const items = grouped[status] ?? [];
                     const meta = STATUS_META[status];

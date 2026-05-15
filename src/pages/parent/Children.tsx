@@ -38,7 +38,7 @@ export default function ParentChildren() {
     }
 
     return (
-        <div className="p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
+        <div className="p-4 md:p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
             {/* Professional Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                 <div>
@@ -57,7 +57,7 @@ export default function ParentChildren() {
             </div>
 
             {/* Children Grid - Slim & Pro */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {children.map((child: any) => (
                     <div key={child.id} className="bg-white border border-slate-200 rounded-none overflow-hidden flex flex-col transition-all hover:border-[#1A6CC8]/30">
                         {/* Kid Header - High Density */}
@@ -78,7 +78,7 @@ export default function ParentChildren() {
 
                         {/* Core Stats - Flat Design */}
                         <div className="p-4 space-y-4 flex-1">
-                            <div className="grid grid-cols-2 gap-px bg-slate-100 border border-slate-100 overflow-hidden rounded">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-slate-100 border border-slate-100 overflow-hidden rounded">
                                 <div className="bg-white p-3">
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Moyenne</p>
                                     <div className="flex items-baseline gap-1">

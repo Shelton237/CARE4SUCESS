@@ -111,14 +111,14 @@ export default function StudentSchedule() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+            <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
             </div>
         );
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-bold text-[#0D2D5A]">Mon Planning</h1>
@@ -160,14 +160,14 @@ export default function StudentSchedule() {
 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                    <div className="bg-[#0D2D5A] rounded-2xl p-6 text-white shadow-lg">
+                    <div className="bg-[#0D2D5A] rounded-2xl p-4 md:p-6 text-white shadow-lg">
                         <h3 className="font-bold text-base mb-3">Conseil d'étude</h3>
                         <p className="text-xs text-blue-200 leading-relaxed italic">
                             "Relire tes notes 15 minutes avant le cours augmente ta mémorisation de 40%."
                         </p>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                    <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Volume horaire</h3>
                         <div className="space-y-4">
                             <div className="flex justify-between items-end">
@@ -187,7 +187,7 @@ export default function StudentSchedule() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setViewingSummary(null)} />
                     <div className="bg-white rounded-2xl shadow-xl relative z-10 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
-                        <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-blue-50/30">
+                        <div className="p-4 md:p-6 border-b border-gray-50 flex items-center justify-between bg-blue-50/30">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-[#1A6CC8]">
                                     <FileText className="w-6 h-6" />
@@ -202,13 +202,13 @@ export default function StudentSchedule() {
                             </button>
                         </div>
                         
-                        <div className="p-8 space-y-6">
+                        <div className="p-4 md:p-8 space-y-6">
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                     <span>Informations</span>
                                     <span>{viewingSummary.date}</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="p-3 bg-gray-50 rounded-xl">
                                         <div className="text-[9px] text-gray-400 font-bold uppercase mb-1">Enseignant</div>
                                         <div className="text-xs font-bold text-[#0D2D5A]">{viewingSummary.teacher}</div>
@@ -225,7 +225,7 @@ export default function StudentSchedule() {
                                     <Star className="w-4 h-4 text-orange-400 fill-current" />
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Compte-rendu pédagogique</span>
                                 </div>
-                                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 text-sm text-[#0D2D5A] leading-relaxed font-medium whitespace-pre-line min-h-[120px]">
+                                <div className="bg-gray-50 rounded-2xl p-4 md:p-6 border border-gray-100 text-sm text-[#0D2D5A] leading-relaxed font-medium whitespace-pre-line min-h-[120px]">
                                     {viewingSummary.notes || "Le professeur n'a pas encore rédigé le compte-rendu pour cette session. Revenez d'ici peu pour consulter les points abordés et les conseils d'étude."}
                                 </div>
                             </div>
@@ -258,7 +258,7 @@ function SessionItem({ session, onViewSummary }: { session: any, onViewSummary: 
     
     return (
         <div className={cn(
-            "p-6 flex flex-col md:flex-row md:items-center gap-6 group transition-all",
+            "p-4 md:p-6 flex flex-col md:flex-row md:items-center gap-6 group transition-all",
             isPast ? "opacity-60 grayscale-[0.5]" : "hover:bg-gray-50/50"
         )}>
             {/* Hour & Date */}

@@ -52,7 +52,7 @@ export default function TeacherProfile() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
+            <div className="p-4 md:p-8 flex flex-col items-center justify-center min-h-[400px]">
                 <Loader2 className="animate-spin text-[#1A6CC8] w-10 h-10" />
             </div>
         );
@@ -161,7 +161,7 @@ export default function TeacherProfile() {
 
                         <div className="p-4">
                             {activeTab === 'personal' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nom complet</label>
                                         <input
@@ -215,7 +215,7 @@ export default function TeacherProfile() {
                                             Vos informations de paiement sont sécurisées. Les reversements sont effectués par virement ou Mobile Money.
                                         </p>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Établissement Bancaire / Service</label>
                                             <input

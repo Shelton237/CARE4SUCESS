@@ -62,14 +62,14 @@ export default function StudentHomework() {
 
     if (isLoading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[60vh]">
+            <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
             </div>
         );
     }
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes Devoirs</h1>
@@ -112,7 +112,7 @@ export default function StudentHomework() {
 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                    <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
                         <h3 className="text-sm font-bold text-[#0D2D5A] mb-6">Récapitulatif</h3>
                         <div className="space-y-2">
                             <SummaryRow label="À faire" count={filteredHomework.filter(h => h.status === 'à faire').length} color="text-orange-500" bg="bg-orange-50" />
@@ -121,7 +121,7 @@ export default function StudentHomework() {
                         </div>
                     </div>
 
-                    <div className="bg-[#0D2D5A] rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group">
+                    <div className="bg-[#0D2D5A] rounded-2xl p-4 md:p-6 text-white shadow-lg relative overflow-hidden group">
                         <div className="relative z-10">
                             <h3 className="font-bold text-base mb-2">Besoin d'aide ?</h3>
                             <p className="text-xs text-blue-200 leading-relaxed mb-4">
@@ -145,7 +145,7 @@ export default function StudentHomework() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setViewingCorrection(null)} />
                     <div className="bg-white rounded-2xl shadow-xl relative z-10 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
-                        <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-green-50/30">
+                        <div className="p-4 md:p-6 border-b border-gray-50 flex items-center justify-between bg-green-50/30">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center text-green-600">
                                     <CheckCircle2 className="w-6 h-6" />
@@ -160,7 +160,7 @@ export default function StudentHomework() {
                             </button>
                         </div>
                         
-                        <div className="p-8 space-y-8">
+                        <div className="p-4 md:p-8 space-y-8">
                             <div className="space-y-2">
                                 <h4 className="text-sm font-bold text-[#0D2D5A]">{viewingCorrection.title}</h4>
                                 <p className="text-xs text-gray-500 leading-relaxed italic border-l-2 border-gray-100 pl-4">
@@ -168,7 +168,7 @@ export default function StudentHomework() {
                                 </p>
                             </div>
 
-                            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 relative overflow-hidden group">
+                            <div className="bg-gray-50 rounded-2xl p-4 md:p-6 border border-gray-100 relative overflow-hidden group">
                                 <div className="relative z-10">
                                     <div className="flex items-center gap-2 mb-4">
                                         <Star className="w-4 h-4 text-orange-400 fill-current" />
@@ -206,7 +206,7 @@ export default function StudentHomework() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setDepositingHw(null)} />
                     <div className="bg-white rounded-2xl shadow-xl relative z-10 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-300">
-                        <div className="p-6 border-b border-gray-50 flex items-center justify-between">
+                        <div className="p-4 md:p-6 border-b border-gray-50 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-[#1A6CC8]">
                                     <Upload className="w-5 h-5" />
@@ -221,8 +221,8 @@ export default function StudentHomework() {
                             </button>
                         </div>
                         
-                        <div className="p-8 space-y-6">
-                            <div className="bg-gray-50 rounded-2xl p-8 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-center group hover:border-[#1A6CC8]/50 transition-all cursor-pointer relative">
+                        <div className="p-4 md:p-8 space-y-6">
+                            <div className="bg-gray-50 rounded-2xl p-4 md:p-8 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-center group hover:border-[#1A6CC8]/50 transition-all cursor-pointer relative">
                                 <input 
                                     type="file" 
                                     className="absolute inset-0 opacity-0 cursor-pointer" 
@@ -285,7 +285,7 @@ function HomeworkItem({ hw, onViewCorrection, onDeposit }: { hw: any, onViewCorr
     const config = statusConfig[hw.status as keyof typeof statusConfig] || statusConfig['à faire'];
 
     return (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-[#1A6CC8]/20 transition-all group">
+        <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-[#1A6CC8]/20 transition-all group">
             <div className="flex flex-col md:flex-row md:items-center gap-6">
                 <div className="flex-1 space-y-4">
                     <div className="flex items-center gap-3">

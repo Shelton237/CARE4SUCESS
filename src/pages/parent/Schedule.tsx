@@ -96,7 +96,7 @@ export default function ParentSchedule() {
         : (studentIdFilter ? "de l'élève" : "de la famille");
 
     return (
-        <div className="p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
+        <div className="p-4 md:p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
             {/* Slim Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-4">
@@ -262,7 +262,7 @@ export default function ParentSchedule() {
 
             {/* Feedback Modal */}
             <Dialog open={!!feedbackSession} onOpenChange={(open) => !open && setFeedbackSession(null)}>
-                <DialogContent className="sm:max-w-[400px] rounded-none border-t-4 border-t-[#1A6CC8] p-6 shadow-none">
+                <DialogContent className="sm:max-w-[400px] rounded-none border-t-4 border-t-[#1A6CC8] p-4 md:p-6 shadow-none">
                     <DialogHeader>
                         <DialogTitle className="text-sm font-black uppercase tracking-widest text-[#0D2D5A] flex items-center gap-2">
                             <Star className="w-4 h-4 text-[#1A6CC8]" /> Votre avis sur la séance
@@ -313,7 +313,7 @@ export default function ParentSchedule() {
 
             {/* Bilan Modal */}
             <Dialog open={!!viewedNote} onOpenChange={(open) => !open && setViewedNote(null)}>
-                <DialogContent className="sm:max-w-[450px] rounded-none border-t-4 border-t-[#1A6CC8] p-6 shadow-none">
+                <DialogContent className="sm:max-w-[450px] rounded-none border-t-4 border-t-[#1A6CC8] p-4 md:p-6 shadow-none">
                     <DialogHeader>
                         <DialogTitle className="text-sm font-black uppercase tracking-widest text-[#0D2D5A] flex items-center gap-2">
                             <FileText className="w-4 h-4 text-[#1A6CC8]" /> Bilan de séance

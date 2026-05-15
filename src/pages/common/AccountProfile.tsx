@@ -207,7 +207,7 @@ export default function AccountProfile() {
                     </span>
                 </div>
 
-                <div className="mt-6 bg-gradient-to-r from-[#0D2D5A] to-[#1A6CC8] rounded-3xl p-8 text-white shadow-xl">
+                <div className="mt-6 bg-gradient-to-r from-[#0D2D5A] to-[#1A6CC8] rounded-3xl p-4 md:p-8 text-white shadow-xl">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                         <div className="flex items-center gap-4">
                             <div className="relative group">
@@ -246,7 +246,7 @@ export default function AccountProfile() {
                                 <p className="text-white/80 text-sm">{user?.email}</p>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm font-semibold text-white/80">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm font-semibold text-white/80">
                             <div>
                                 <p className="text-white/60 text-xs uppercase tracking-[3px]">Dernière connexion</p>
                                 <p>{lastLoginLabel}</p>
@@ -261,7 +261,7 @@ export default function AccountProfile() {
 
                 <div className="grid lg:grid-cols-3 gap-6 mt-8">
                     <div className="lg:col-span-2 space-y-6">
-                        <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                        <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-10 h-10 rounded-2xl bg-[#1A6CC8]/10 text-[#1A6CC8] flex items-center justify-center">
                                     <UserCircle2 className="w-5 h-5" />
@@ -273,7 +273,7 @@ export default function AccountProfile() {
                             </div>
 
                             <form onSubmit={handleProfileSubmit} className="space-y-5">
-                                <div className="grid md:grid-cols-2 gap-4">
+                                <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
                                             Nom complet
@@ -293,7 +293,7 @@ export default function AccountProfile() {
                                     </div>
                                 </div>
 
-                                <div className="grid md:grid-cols-2 gap-4">
+                                <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
                                             Téléphone
@@ -338,7 +338,7 @@ export default function AccountProfile() {
                                     </div>
                                 </div>
 
-                                <div className="grid md:grid-cols-2 gap-4">
+                                <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
                                             Fuseau horaire
@@ -447,7 +447,7 @@ export default function AccountProfile() {
                             </form>
                         </section>
 
-                        <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                        <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-10 h-10 rounded-2xl bg-[#22c55e]/10 text-[#22c55e] flex items-center justify-center">
                                     <ShieldCheck className="w-5 h-5" />
@@ -523,7 +523,7 @@ export default function AccountProfile() {
                     </div>
 
                     <aside className="space-y-6">
-                        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 rounded-2xl bg-[#F5A623]/10 text-[#F5A623] flex items-center justify-center">
                                     <Bell className="w-5 h-5" />
@@ -549,7 +549,7 @@ export default function AccountProfile() {
                             </ul>
                         </div>
 
-                        <div className="bg-[#0D2D5A] text-white rounded-3xl p-6">
+                        <div className="bg-[#0D2D5A] text-white rounded-3xl p-4 md:p-6">
                             <div className="flex items-center gap-3 mb-4">
                                 <Phone className="w-5 h-5" />
                                 <div>

@@ -109,7 +109,7 @@ export default function ParentProgress() {
     }
 
     return (
-        <div className="p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
+        <div className="p-4 md:p-4 md:p-6 space-y-6 w-full bg-white min-h-screen font-sans text-[#0D2D5A]">
             {/* Slim Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-slate-100 pb-4 gap-4">
                 <div>
@@ -147,7 +147,7 @@ export default function ParentProgress() {
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                     { label: "Moyenne Actuelle", value: `${overview?.currentAvg}/20`, sub: `PREV: ${overview?.previousAvg}/20`, icon: Award, color: "text-[#1A6CC8]", bg: "bg-slate-50/50" },
                     { label: "Assiduité Live", value: "95%", sub: "98% SESSIONS OK", icon: Activity, color: "text-emerald-600", bg: "bg-slate-50/50" },
@@ -223,7 +223,7 @@ export default function ParentProgress() {
                 </div>
 
                 <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-                    <div className="p-4 sm:p-6">
+                    <div className="p-4 sm:p-4 md:p-6">
                         <h3 className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Matières Maîtrisées
                         </h3>
@@ -236,7 +236,7 @@ export default function ParentProgress() {
                             ))}
                         </div>
                     </div>
-                    <div className="p-4 sm:p-6">
+                    <div className="p-4 sm:p-4 md:p-6">
                         <h3 className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
                             <Target className="w-3.5 h-3.5 text-[#F5A623]" /> Objectifs de Progression
                         </h3>

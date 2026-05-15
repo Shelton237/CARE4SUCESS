@@ -271,7 +271,7 @@ export default function TeacherMessages() {
                         </form>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3">
+                    <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 text-center space-y-3">
                         <div className="w-14 h-14 bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-200">
                             <MessageCircle className="w-7 h-7" />
                         </div>

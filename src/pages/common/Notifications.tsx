@@ -92,7 +92,7 @@ export default function Notifications() {
                     )}
                 </div>
 
-                <div className="mt-10 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                <div className="mt-10 bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6">
                     <div className="flex flex-col md:flex-row gap-4 mb-8">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -152,7 +152,7 @@ export default function Notifications() {
                                     return (
                                         <div 
                                             key={notif.id}
-                                            className={`group p-6 flex flex-col sm:flex-row gap-5 transition-all hover:bg-gray-50/80 ${!notif.isRead ? "bg-blue-50/10" : "bg-white"}`}
+                                            className={`group p-4 md:p-6 flex flex-col sm:flex-row gap-5 transition-all hover:bg-gray-50/80 ${!notif.isRead ? "bg-blue-50/10" : "bg-white"}`}
                                         >
                                             <div className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center border ${colors} shadow-sm group-hover:scale-110 transition-transform`}>
                                                 <Icon className="w-7 h-7" />
