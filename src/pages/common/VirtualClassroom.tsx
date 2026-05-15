@@ -248,6 +248,8 @@ export default function VirtualClassroom() {
                     TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview', 'fullscreen', 'participants-pane']
                 },
                 configOverwrite: {
+                    serviceUrl: 'https://meet.care4success.usra-care.com/http-bind',
+                    websocket: 'wss://meet.care4success.usra-care.com/xmpp-websocket',
                     disableDeepLinking: true,
                     prejoinPageEnabled: false,
                     startWithAudioMuted: false,
