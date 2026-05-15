@@ -248,8 +248,13 @@ export default function VirtualClassroom() {
                     TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview', 'fullscreen', 'participants-pane']
                 },
                 configOverwrite: {
+                    hosts: {
+                        domain: 'meet.jitsi',
+                        muc: 'muc.meet.jitsi',
+                        focus: 'focus.meet.jitsi',
+                    },
                     serviceUrl: 'https://meet.care4success.usra-care.com/http-bind',
-                    websocket: 'wss://meet.care4success.usra-care.com/xmpp-websocket',
+                    websocket: null,
                     disableDeepLinking: true,
                     prejoinPageEnabled: false,
                     startWithAudioMuted: false,
