@@ -160,15 +160,15 @@ export default function StudentQuizzes() {
                             <Trophy className="w-7 h-7" />
                         </div>
                         <h3 className="text-sm font-bold text-[#0D2D5A]">Maître des Quiz</h3>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Niveau 4 • 2400 XP</p>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Niveau -- • -- XP</p>
                         
                         <div className="mt-8 space-y-3">
                             <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 uppercase">
                                 <span>Progression Niveau</span>
-                                <span className="text-[#1A6CC8]">75%</span>
+                                <span className="text-[#1A6CC8]">--%</span>
                             </div>
                             <div className="w-full h-1.5 bg-gray-50 rounded-full overflow-hidden">
-                                <div className="h-full bg-[#1A6CC8] w-3/4" />
+                                <div className="h-full bg-[#1A6CC8] w-0" />
                             </div>
                         </div>
                     </div>
@@ -180,7 +180,7 @@ export default function StudentQuizzes() {
                                 Hub XP Hebdo
                             </h4>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-4xl font-bold">+120</span>
+                                <span className="text-4xl font-bold">--</span>
                                 <span className="text-[10px] font-bold text-blue-200 uppercase tracking-tighter">XP cette semaine</span>
                             </div>
                         </div>

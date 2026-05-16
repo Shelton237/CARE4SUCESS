@@ -8,8 +8,10 @@ import { toast } from "sonner";
 
 const API = import.meta.env.VITE_API_URL || "/api";
 
-const LEVELS = ["CP","CE1","CE2","CM1","CM2","6ème","5ème","4ème","3ème","2nde","1ère","Terminale","Prépa/Supérieur"];
-const SUBJECTS = ["Mathématiques","Français","Anglais","Physique-Chimie","SVT","Histoire-Géo","Informatique","Autre"];
+import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
+
+const LEVELS = ALL_LEVELS;
+const SUBJECTS = ALL_SUBJECTS;
 
 export default function Landing() {
   const navigate = useNavigate();

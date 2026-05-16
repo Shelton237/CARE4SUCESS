@@ -82,7 +82,7 @@ export default function ParentChildren() {
                                 <div className="bg-white p-3">
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Moyenne</p>
                                     <div className="flex items-baseline gap-1">
-                                        <span className="text-lg font-black text-[#0D2D5A]">{child.average || "15.2"}</span>
+                                        <span className="text-lg font-black text-[#0D2D5A]">{child.average || "--"}</span>
                                         <span className="text-[10px] text-slate-300 font-bold">/20</span>
                                     </div>
                                 </div>
@@ -90,7 +90,7 @@ export default function ParentChildren() {
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Total Heures</p>
                                     <div className="flex items-center gap-1.5">
                                         <Timer className="w-3.5 h-3.5 text-[#1A6CC8]" />
-                                        <span className="text-lg font-black text-[#1A6CC8]">{child.sessionCount || "24"}h</span>
+                                        <span className="text-lg font-black text-[#1A6CC8]">{child.sessionCount || "0"}h</span>
                                     </div>
                                 </div>
                             </div>
@@ -99,7 +99,7 @@ export default function ParentChildren() {
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Assiduité Académique</p>
-                                    <span className="text-[10px] font-black text-[#0D2D5A]">{child.attendance || "98"}%</span>
+                                    <span className="text-[10px] font-black text-[#0D2D5A]">{child.attendance || "--"}%</span>
                                 </div>
                                 <Progress value={parseInt(child.attendance) || 98} className="h-1 bg-slate-50 border-none" />
                             </div>

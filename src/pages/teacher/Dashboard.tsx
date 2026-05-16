@@ -47,8 +47,8 @@ export default function TeacherDashboard() {
     const kpiCards = [
         { label: "Heures ce mois", value: `${stats.monthlyEarnings ? Math.round(stats.monthlyEarnings / 10000) : 0}h`, icon: Clock, color: "text-[#1A6CC8]", bg: "bg-blue-50/50" },
         { label: "Apprenants actifs", value: stats.activeStudents || 0, icon: Users, color: "text-[#0D2D5A]", bg: "bg-slate-50/50" },
-        { label: "Moyenne globale", value: stats.avgGrade || "14.5", icon: Target, color: "text-[#1A6CC8]", bg: "bg-blue-50/50" },
-        { label: "Satisfaction", value: `${stats.avgRating || "5.0"}/5`, icon: GraduationCap, color: "text-[#F5A623]", bg: "bg-orange-50/50" },
+        { label: "Moyenne globale", value: stats.avgGrade || "--", icon: Target, color: "text-[#1A6CC8]", bg: "bg-blue-50/50" },
+        { label: "Performance", value: stats.avgRating ? `${stats.avgRating}/10` : "--/10", icon: GraduationCap, color: "text-[#F5A623]", bg: "bg-orange-50/50" },
     ];
 
     return (
@@ -94,12 +94,12 @@ export default function TeacherDashboard() {
                                 <h2 className="text-2xl font-black tracking-tighter text-white uppercase">{stats.activeStudents || 0} Élèves Accompagnés</h2>
                             </div>
                             <div className="text-right">
-                                <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest">Satisfaction {stats.avgRating || "5.0"}/5</p>
+                                <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest">Indice Performance {stats.avgRating ? `${stats.avgRating}/10` : "--/10"}</p>
                             </div>
                         </div>
                         <div className="space-y-1.5">
                             <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                                <div className="h-full bg-[#1A6CC8]" style={{ width: `${(parseFloat(stats.avgRating || "5.0") / 5) * 100}%` }} />
+                                <div className="h-full bg-[#1A6CC8]" style={{ width: `${(parseFloat(stats.avgRating || "10.0") / 10) * 100}%` }} />
                             </div>
                             <p className="text-[9px] text-blue-200 font-black uppercase tracking-widest text-center md:text-right">
                                 Votre excellence pédagogique est <span className="text-white">reconnue par la communauté</span>
@@ -115,7 +115,7 @@ export default function TeacherDashboard() {
                 {[
                     { label: "Heures ce mois", value: `${stats.monthlyEarnings ? Math.round(stats.monthlyEarnings / 10000) : 0}h`, icon: Clock, color: "text-[#1A6CC8]" },
                     { label: "Apprenants Actifs", value: stats.activeStudents || 0, icon: Users, color: "text-[#0D2D5A]" },
-                    { label: "Moyenne Globale", value: stats.avgGrade || "14.5", icon: Target, color: "text-[#F5A623]" },
+                    { label: "Moyenne Globale", value: stats.avgGrade || "--", icon: Target, color: "text-[#F5A623]" },
                     { label: "Sessions Totales", value: stats.totalSessions || 0, icon: CheckCircle2, color: "text-[#10b981]" },
                 ].map((s, i) => (
                     <Card key={i} className="border border-slate-100 shadow-none bg-white hover:bg-slate-50/50 transition-all duration-300 rounded-xl">

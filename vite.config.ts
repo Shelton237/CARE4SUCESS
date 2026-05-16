@@ -246,13 +246,13 @@ export default defineConfig(({ mode }) => {
           short_name: 'Care4Success',
           description: 'Soutien scolaire personnalisé au Cameroun',
           theme_color: '#0D2D5A',
-          background_color: '#0D2D5A',
+          background_color: '#FFFFFF',
           display: 'standalone',
           start_url: '/',
           lang: 'fr',
           icons: [
             { src: '/favicon.png', sizes: '192x192', type: 'image/png' },
-            { src: '/logo/Care 4 Success-logo-Ok_large.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+            { src: '/logo/Care 4 Success-logo-Ok_compact.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           ],
         },
         workbox: {

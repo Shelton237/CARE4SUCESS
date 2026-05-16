@@ -89,7 +89,7 @@ export default function TeacherStudents() {
                                             <GraduationCap className="w-3 h-3" /> {s.level || "Non défini"}
                                         </span>
                                         <span className="flex items-center gap-1">
-                                            <Star className="w-3 h-3 text-[#F5A623]" /> {s.average || "14.5"}/20
+                                            <Star className="w-3 h-3 text-[#F5A623]" /> {s.average || "--"}/20
                                         </span>
                                     </div>
                                 </div>
@@ -129,11 +129,11 @@ export default function TeacherStudents() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     <div className="bg-slate-50/50 p-2.5 border border-slate-100 text-center">
                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Assiduité</p>
-                                        <p className="text-[11px] font-black text-[#0D2D5A]">{selectedStudent.attendance || "95%"}</p>
+                                        <p className="text-[11px] font-black text-[#0D2D5A]">{selectedStudent.attendance || "--%"}</p>
                                     </div>
                                     <div className="bg-slate-50/50 p-2.5 border border-slate-100 text-center">
                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Devoirs</p>
-                                        <p className="text-[11px] font-black text-[#0D2D5A]">{selectedStudent.homeworkCount || "8/10"}</p>
+                                        <p className="text-[11px] font-black text-[#0D2D5A]">{selectedStudent.homeworkCount || "--"}</p>
                                     </div>
                                 </div>
 

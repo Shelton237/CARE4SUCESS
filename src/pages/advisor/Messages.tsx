@@ -34,11 +34,7 @@ interface Message {
     createdAt: string;
 }
 
-const DEFAULT_CONTACTS = [
-    { id: "parent-1", name: "Aminata Diallo", role: "parent", avatar: "AD", color: "#F5A623" },
-    { id: "teacher-1", name: "Dr. Clémentine Abanda", role: "teacher", avatar: "CA", color: "#1A6CC8" },
-    { id: "student-1", name: "Koffi Diallo", role: "student", avatar: "KD", color: "#22c55e" },
-];
+const DEFAULT_CONTACTS: any[] = [];
 
 export default function AdvisorMessages() {
     const { user } = useAuth();

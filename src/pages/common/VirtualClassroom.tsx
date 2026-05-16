@@ -248,21 +248,12 @@ export default function VirtualClassroom() {
                     TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview', 'fullscreen', 'participants-pane']
                 },
                 configOverwrite: {
-                    hosts: {
-                        domain: 'meet.jitsi',
-                        muc: 'muc.meet.jitsi',
-                        focus: 'focus.meet.jitsi',
-                    },
-                    bosh: 'https://meet.care4success.usra-care.com/http-bind',
-                    serviceUrl: 'https://meet.care4success.usra-care.com/http-bind',
-                    websocket: '',
                     disableDeepLinking: true,
                     prejoinPageEnabled: false,
                     startWithAudioMuted: false,
                     startWithVideoMuted: false,
                     enableWelcomePage: false,
-                    p2p: { enabled: false },
-                    disableH264: true,
+                    p2p: { enabled: true },
                     enableTcc: true,
                     enableRemb: true,
                     iceTransportPolicy: 'all',

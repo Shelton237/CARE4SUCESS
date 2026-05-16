@@ -38,23 +38,7 @@ console.log("DEBUG: JWT_SECRET start with:", JWT_SECRET[0]);
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
 
 // FALLBACK DATA (IN-MEMORY)
-let fallbackSessions = [
-  {
-    id: "s-1",
-    session_day: "Lundi",
-    session_date: new Date().toISOString().split("T")[0],
-    session_time: "16h00-17h30",
-    subject: "Mathématiques",
-    location: "Domicile",
-    status: "planifié",
-    teacher_id: "t1",
-    teacher_name: "Dr. Clémentine Abanda",
-    student_id: "s1",
-    student_name: "Koffi Diallo",
-    parent_id: "p1",
-    parent_name: "Aminata Diallo",
-  }
-];
+let fallbackSessions = [];
 let fallbackHomework = [];
 let fallbackCourses = [];
 const allowedUserRoles = new Set(["admin", "teacher", "parent", "advisor", "student", "tutor"]);
@@ -570,23 +554,33 @@ const ensureTeacherFeedbackTable = async () => {
       id CHAR(36) NOT NULL PRIMARY KEY,
       teacher_id VARCHAR(36) NOT NULL,
       teacher_name VARCHAR(191) DEFAULT NULL,
-      student_id VARCHAR(36) NOT NULL,
-      student_name VARCHAR(191) NOT NULL,
+      reviewer_name VARCHAR(191) NOT NULL,
+      reviewer_type ENUM('parent', 'student', 'advisor') NOT NULL,
       rating INT NOT NULL DEFAULT 5,
       comment TEXT,
+      session_id VARCHAR(36) DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
   // Migration
   try {
-    const [cols] = await pool.query("SHOW COLUMNS FROM teacher_feedback LIKE 'teacher_name'");
-    if (cols.length === 0) {
-      await pool.query("ALTER TABLE teacher_feedback ADD COLUMN teacher_name VARCHAR(191) DEFAULT NULL AFTER teacher_id");
-      console.log("Migration: Added teacher_name to teacher_feedback");
+    const [colsName] = await pool.query("SHOW COLUMNS FROM teacher_feedback LIKE 'reviewer_name'");
+    if (colsName.length === 0) {
+      // If we are migrating from student_id/student_name schema
+      const [oldCols] = await pool.query("SHOW COLUMNS FROM teacher_feedback LIKE 'student_name'");
+      if (oldCols.length > 0) {
+        await pool.query("ALTER TABLE teacher_feedback CHANGE COLUMN student_name reviewer_name VARCHAR(191) NOT NULL");
+        await pool.query("ALTER TABLE teacher_feedback ADD COLUMN reviewer_type ENUM('parent', 'student', 'advisor') NOT NULL DEFAULT 'student' AFTER reviewer_name");
+        await pool.query("ALTER TABLE teacher_feedback DROP COLUMN student_id");
+      } else {
+        await pool.query("ALTER TABLE teacher_feedback ADD COLUMN reviewer_name VARCHAR(191) NOT NULL AFTER teacher_name");
+        await pool.query("ALTER TABLE teacher_feedback ADD COLUMN reviewer_type ENUM('parent', 'student', 'advisor') NOT NULL DEFAULT 'parent' AFTER reviewer_name");
+      }
+      console.log("Migration: Added reviewer_name/type to teacher_feedback");
     }
     const [colsSid] = await pool.query("SHOW COLUMNS FROM teacher_feedback LIKE 'session_id'");
     if (colsSid.length === 0) {
-      await pool.query("ALTER TABLE teacher_feedback ADD COLUMN session_id VARCHAR(36) DEFAULT NULL AFTER student_name");
+      await pool.query("ALTER TABLE teacher_feedback ADD COLUMN session_id VARCHAR(36) DEFAULT NULL AFTER reviewer_name");
       console.log("Migration: Added session_id to teacher_feedback");
     }
   } catch (err) {
@@ -1775,7 +1769,48 @@ app.get("/api/assignments", async (_req, res) => {
     const [rows] = await pool.query(
       "SELECT id, child_name, level, subject, needs, schedule, candidates, selected_teacher, status FROM assignments ORDER BY created_at ASC"
     );
-    res.json(rows.map(mapAssignmentRow));
+
+    // Récupérer les profils enseignants actifs pour un matching dynamique
+    const [teachers] = await pool.query(
+      "SELECT name, rating, subjects, level FROM teachers WHERE status = 'actif'"
+    );
+
+    const enrichedRows = rows.map(r => {
+      // Si le matching est en cours, on recalcule les candidats compatibles en temps réel
+      // Cela permet de voir les nouveaux profs inscrits après la création de la demande
+      const rSubject = (r.subject || "").toLowerCase();
+      const rLevel = (r.level || "").toLowerCase();
+
+      const dynamicCandidates = teachers.filter(t => {
+        const tSubjects = parseJson(t.subjects, []);
+        const tLevel = (t.level || "").toLowerCase();
+        
+        // Match si la matière correspond (gestion des listes à virgules ou tableaux)
+        const subjectMatch = tSubjects.some(s => {
+          const sLower = s.toLowerCase();
+          return rSubject.includes(sLower) || sLower.includes(rSubject);
+        });
+        const levelMatch = tLevel.includes(rLevel) || rLevel.includes(tLevel) || !rLevel;
+        
+        return subjectMatch && levelMatch;
+      }).map(t => ({
+        name: t.name,
+        rating: t.rating || 5,
+        available: true
+      })).slice(0, 8);
+
+      // On utilise les candidats dynamiques s'il y en a, sinon on garde l'historique
+      const finalCandidates = dynamicCandidates.length > 0 
+        ? JSON.stringify(dynamicCandidates) 
+        : r.candidates;
+
+      return mapAssignmentRow({
+        ...r,
+        candidates: finalCandidates
+      });
+    });
+
+    res.json(enrichedRows);
   } catch (error) {
     console.error("Failed to fetch assignments", error);
     res.status(500).json({ message: "Impossible de récupérer les matching." });
@@ -1831,46 +1866,7 @@ app.patch("/api/assignments/:id", async (req, res) => {
       if (student && parent && teacher) {
         // Enregistrement de la relation officielle
         await linkStudentTeacherRelation(student.id, teacher.id);
-        
-        const sessionId = crypto.randomUUID();
-        // Planifier par défaut dans 7 jours
-        const nextWeek = new Date();
-        nextWeek.setDate(nextWeek.getDate() + 7);
-        const dateStr = nextWeek.toISOString().split('T')[0];
-
-        await pool.query(
-          `INSERT INTO sessions (id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name)
-             VALUES (?, 'À confirmer', ?, '16:00', ?, 'À domicile', 'planifié', ?, ?, ?, ?, ?, ?)`,
-          [
-            sessionId,
-            dateStr,
-            assignment.subject,
-            teacher.id,
-            selectedTeacher,
-            student.id,
-            assignment.child_name,
-            parent.id,
-            parentName
-          ]
-        );
-        console.log(`Automation: Session créée pour ${assignment.child_name} avec ${selectedTeacher}`);
-
-        // Envoi de l'alerte email au parent
-        const [[parentUser]] = await pool.query("SELECT email FROM users WHERE id = ?", [parent.id]);
-        if (parentUser?.email) {
-          await sendMail({
-            to: parentUser.email,
-            subject: `Nouveau cours planifié pour ${assignment.child_name} — Care4Success`,
-            html: tplCourseReminder({
-              parentName: parentName,
-              childName: assignment.child_name,
-              subject: assignment.subject,
-              teacherName: selectedTeacher,
-              dateStr: new Date(dateStr).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" }),
-              timeStr: "16:00"
-            })
-          }).catch(e => console.warn("Mail automation failed:", e.message));
-        }
+        console.log(`Automation: Relation créée pour ${assignment.child_name} avec ${selectedTeacher}`);
       }
     } catch (autoErr) {
       console.warn("Automation partial failure:", autoErr.message);
@@ -2256,6 +2252,12 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
   if (!subjectsList.length) {
     return res.status(400).json({ message: "Veuillez preciser au moins une matiere." });
   }
+  const levelsList =
+    Array.isArray(req.body.levels) && req.body.levels.length > 0
+      ? req.body.levels
+      : typeof req.body.levels === "string" && req.body.levels.length > 0
+        ? req.body.levels.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
   const parsedExperience = Number(experienceYears ?? 0);
   if (Number.isNaN(parsedExperience) || parsedExperience < 0) {
     return res.status(400).json({ message: "Le nombre d'annees d'experience est invalide." });
@@ -2266,6 +2268,7 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
     email,
     phone,
     subjects: subjectsList,
+    levels: levelsList,
     experienceYears: parsedExperience,
     availability,
     motivation,
@@ -2277,17 +2280,18 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
   try {
     await pool.query(
       `INSERT INTO teacher_applications
-        (id, full_name, email, phone, subjects, experience_years, availability, motivation, cv_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, full_name, email, phone, subjects, levels, experience_years, availability, motivation, cv_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         applicationId,
-        fullName,
-        email,
-        phone,
-        JSON.stringify(subjectsList),
-        parsedExperience,
-        availability,
-        motivation,
+        normalizedApplication.fullName,
+        normalizedApplication.email,
+        normalizedApplication.phone,
+        JSON.stringify(normalizedApplication.subjects),
+        JSON.stringify(normalizedApplication.levels),
+        normalizedApplication.experienceYears,
+        normalizedApplication.availability,
+        normalizedApplication.motivation,
         normalizedApplication.cvUrl,
       ]
     );
@@ -2365,7 +2369,7 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
       return res.status(404).json({ message: "Candidature introuvable." });
     }
     const [rows] = await pool.query(
-      `SELECT id, full_name, email, phone, subjects, experience_years, availability, motivation, cv_url,
+      `SELECT id, full_name, email, phone, subjects, levels, experience_years, availability, motivation, cv_url,
               status, reviewed_by, reviewer_role, review_notes, reviewed_at, created_at
        FROM teacher_applications
        WHERE id = ?`,
@@ -2389,6 +2393,8 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
         const hourlyRateValue  = resolvedRateType === "hourly"  ? resolvedRate : 0;
         const monthlyRateValue = resolvedRateType === "monthly" ? resolvedRate : null;
 
+        const teacherLevels = parseJson(updatedApplication.levels, []).join(", ");
+
         await pool.query(
           `INSERT IGNORE INTO teachers (id, name, email, subjects, level, city, status, rate_type, hourly_rate, monthly_rate)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -2397,7 +2403,7 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
             updatedApplication.full_name,
             updatedApplication.email,
             JSON.stringify(updatedApplication.subjects),
-            "",
+            teacherLevels,
             "",
             "actif",
             resolvedRateType,
@@ -2449,8 +2455,38 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
             alreadyExists: true,
           };
         }
-
         console.log(`Compte enseignant créé : ${updatedApplication.email} / ${generatedPassword}`);
+        
+        // Envoi automatique de l'email
+        if (generatedCredentials) {
+          if (generatedCredentials.alreadyExists) {
+            await sendMail({
+              to: updatedApplication.email,
+              subject: "Bienvenue sur Care4Success — Votre candidature est validée !",
+              html: `
+                <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A;background:#f9fafb;padding:20px;border-radius:16px">
+                  <h2 style="color: #1A6CC8;">Félicitations ${updatedApplication.full_name} !</h2>
+                  <p>Votre candidature pour rejoindre l'équipe enseignante de Care4Success a été <strong>validée</strong>.</p>
+                  <p>Puisque vous possédez déjà un compte avec cette adresse email (<strong>${updatedApplication.email}</strong>), le rôle d'enseignant y a été ajouté. Vous pouvez continuer à vous connecter avec votre mot de passe habituel.</p>
+                  <br>
+                  <p>Bienvenue dans notre réseau d'excellence !</p>
+                  <p>L'équipe Care4Success</p>
+                </div>
+              `
+            }).catch(e => console.warn("Teacher welcome mail failed:", e.message));
+          } else {
+            await sendMail({
+              to: updatedApplication.email,
+              subject: "Bienvenue sur Care4Success — Vos accès Enseignant",
+              html: tplAccountCreated({ 
+                name: updatedApplication.full_name, 
+                email: updatedApplication.email, 
+                password: generatedPassword, 
+                role: 'teacher' 
+              })
+            }).catch(e => console.warn("Teacher welcome mail failed:", e.message));
+          }
+        }
       } catch (insertError) {
         console.error("Erreur technique lors de la création automatique du prof:", insertError);
       }
@@ -2528,6 +2564,29 @@ app.post("/api/teachers", async (req, res) => {
   }
 });
 
+app.patch("/api/admin/teachers/:id", async (req, res) => {
+  const { id } = req.params;
+  const { subjects, levels } = req.body ?? {};
+
+  try {
+    await ensureTeachersTable();
+    const subjectsArray = subjects ? subjects.split(", ").filter(Boolean) : [];
+    
+    const [result] = await pool.query(
+      `UPDATE teachers SET subjects = ?, level = ? WHERE id = ?`,
+      [JSON.stringify(subjectsArray), levels || "", id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Enseignant introuvable." });
+    }
+
+    res.json({ success: true, message: "Spécialités mises à jour avec succès." });
+  } catch (error) {
+    console.error("Failed to update teacher specialties", error);
+    res.status(500).json({ message: "Impossible de mettre à jour les spécialités." });
+  }
+});
 app.patch("/api/teachers/:id/status", async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
@@ -3481,6 +3540,35 @@ app.get("/api/advisor/families", async (_req, res) => {
   }
 });
 
+app.patch("/api/advisor/families/:id", async (req, res) => {
+  const { id } = req.params;
+  const { level, subject } = req.body;
+  try {
+    // On récupère d'abord le nom de l'enfant associé à cette demande
+    const [reqRows] = await pool.query("SELECT child_name FROM requests WHERE id = ?", [id]);
+    const childName = reqRows[0]?.child_name;
+
+    // Mise à jour de la demande (requests)
+    await pool.query(
+      "UPDATE requests SET level = ?, subject = ? WHERE id = ?",
+      [level, subject, id]
+    );
+
+    // Synchronisation : mise à jour automatique du matching en cours s'il existe
+    if (childName) {
+      await pool.query(
+        "UPDATE assignments SET level = ?, subject = ? WHERE child_name = ? AND status = 'pending'",
+        [level, subject, childName]
+      );
+    }
+
+    res.json({ success: true, message: "Famille mise à jour avec succès" });
+  } catch (error) {
+    console.error("Failed to update family", error);
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
 // ==========================================
 // ADMIN DASHBOARD
 // ==========================================
@@ -3808,121 +3896,8 @@ const ensureUsersTable = async () => {
     console.warn("Migration skip for users table", err.message);
   }
 
-  const [rows] = await pool.query("SELECT COUNT(*) as count FROM users");
-  if (rows[0].count === 0) {
-    const MOCK_USERS = [
-      {
-        id: "a1",
-        name: "Directeur Ngono",
-        email: "admin@care4success.cm",
-        password: "admin123",
-        role: "admin",
-        avatar: "DN",
-        phone: "+237 675 252 048",
-        parentId: null,
-        location: "Douala, Cameroun",
-        timezone: "Africa/Douala",
-        language: "fr",
-        bio: "Direction Care4Success et coordination des pôles pédagogiques.",
-        notifyEmail: 1,
-        notifySms: 1,
-        notifyWhatsapp: 0
-      },
-      {
-        id: "t1",
-        name: "Dr. Clémentine Abanda",
-        email: "prof@care4success.cm",
-        password: "prof123",
-        role: "teacher",
-        avatar: "CA",
-        phone: "+237 699 001 122",
-        parentId: null,
-        location: "Bonapriso, Douala",
-        timezone: "Africa/Douala",
-        language: "fr",
-        bio: "Spécialiste Mathématiques & Physique, 12 ans d'expérience.",
-        notifyEmail: 1,
-        notifySms: 0,
-        notifyWhatsapp: 0
-      },
-      {
-        id: "p1",
-        name: "Aminata Diallo",
-        email: "parent@care4success.cm",
-        password: "parent123",
-        role: "parent",
-        avatar: "AD",
-        phone: "+237 677 334 455",
-        parentId: null,
-        location: "Akwa Nord, Douala",
-        timezone: "Africa/Douala",
-        language: "fr",
-        bio: "Parent coordinatrice du suivi pédagogique de Koffi.",
-        notifyEmail: 1,
-        notifySms: 1,
-        notifyWhatsapp: 0
-      },
-      {
-        id: "c1",
-        name: "Brice Owona",
-        email: "conseiller@care4success.cm",
-        password: "conseil123",
-        role: "advisor",
-        avatar: "BO",
-        phone: "+237 691 556 677",
-        parentId: null,
-        location: "Bastos, Yaoundé",
-        timezone: "Africa/Douala",
-        language: "fr",
-        bio: "Conseiller pédagogique senior en charge des familles premium.",
-        notifyEmail: 1,
-        notifySms: 1,
-        notifyWhatsapp: 1
-      },
-      {
-        id: "s1",
-        name: "Koffi Diallo",
-        email: "eleve@care4success.cm",
-        password: "eleve123",
-        role: "student",
-        avatar: "KD",
-        phone: "+237 697 889 900",
-        parentId: "p1",
-        location: "Akwa Nord, Douala",
-        timezone: "Africa/Douala",
-        language: "fr",
-        bio: "Élève de 3e préparant le BEPC.",
-        notifyEmail: 1,
-        notifySms: 0,
-        notifyWhatsapp: 0
-      }
-    ];
-    for (const u of MOCK_USERS) {
-      const hashedPassword = bcrypt.hashSync(u.password, 10);
-      await pool.query(
-        `INSERT INTO users
-          (id, name, email, password, role, avatar, phone, location, timezone, language, bio, notify_email, notify_sms, notify_whatsapp, parent_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          u.id,
-          u.name,
-          u.email,
-          hashedPassword,
-          u.role,
-          u.avatar,
-          u.phone,
-          u.location,
-          u.timezone,
-          u.language,
-          u.bio,
-          u.notifyEmail,
-          u.notifySms,
-          u.notifyWhatsapp,
-          u.parentId
-        ]
-      );
-    }
-  }
+  // Mock users disabled for production environment.
+  // Seeding removed as per user request.
 };
 
 app.post("/api/auth/register", async (req, res) => {
@@ -4039,18 +4014,7 @@ app.post("/api/auth/login", async (req, res) => {
     return res.status(400).json({ message: "Email et mot de passe requis." });
   }
 
-  // FORCE DEMO FALLBACK (Precedence for demo stability)
-  const demoUsers = {
-    'admin@care4success.cm': { id: 'a1', name: 'Admin Demo', role: 'admin' },
-    'prof@care4success.cm': { id: 't1', name: 'Prof Demo', role: 'teacher' },
-    'test@care4success.com': { id: 'a1', name: 'Admin User', role: 'admin' }
-  };
-  
-  if (demoUsers[email] && (password === 'Pluton@2015' || password === 'admin123' || password === 'prof123')) {
-    console.warn("Using demo fallback (precedence) for:", email);
-    const user = demoUsers[email];
-    return res.json({ token: generateToken(user), user: mapUserRow(user) });
-  }
+  // Enforce secure DB logins
 
   try {
     await ensureUsersTable();
@@ -4073,18 +4037,7 @@ app.post("/api/auth/login", async (req, res) => {
     const token = generateToken(safeUser);
     res.json({ token, user: safeUser });
   } catch (error) {
-    if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
-      console.warn("DB offline, using demo fallback for login:", email);
-      const demoUsers = {
-        'admin@care4success.cm': { id: 'a1', name: 'Admin Demo', role: 'admin' },
-        'prof@care4success.cm': { id: 't1', name: 'Prof Demo', role: 'teacher' },
-        'test@care4success.com': { id: 'a1', name: 'Admin User', role: 'admin' }
-      };
-      if (demoUsers[email]) {
-        const user = demoUsers[email];
-        return res.json({ token: generateToken(user), user: mapUserRow(user) });
-      }
-    }
+      console.error("DB connection refused during login.");
     console.error("Login failed", error);
     res.status(500).json({ message: "Erreur serveur lors de la connexion." });
   }
@@ -4432,6 +4385,7 @@ app.get("/api/relationships/parent-child", authenticateRequest, async (req, res)
          WHERE pc.parent_id = ?`,
         [parentId]
       );
+      console.log(`DEBUG: /api/relationships/parent-child parentId=${parentId} returned ${rows.length} children`);
       return res.json(rows.map(mapUserRow));
     }
     const [rows] = await pool.query(
@@ -4607,23 +4561,34 @@ const studentGrades = [
 app.get("/api/parents/:parentId/overview", async (req, res) => {
   const { parentId } = req.params;
   const { studentId } = req.query;
+  console.log(`DEBUG: Parent overview requested for parentId=${parentId}, studentId=${studentId}`);
   try {
-    const [[parent]] = await pool.query("SELECT name FROM users WHERE id = ?", [parentId]);
-    if (!parent) return res.status(404).json({ message: "Parent introuvable." });
+    let parentName = "Parent";
+    if (parentId !== "admin") {
+      const [[parent]] = await pool.query("SELECT name FROM users WHERE id = ?", [parentId]);
+      if (!parent) return res.status(404).json({ message: "Parent introuvable." });
+      parentName = parent.name;
+    }
 
     let student;
     if (studentId) {
-      [[student]] = await pool.query("SELECT id, name FROM users WHERE id = ? AND parent_id = ? AND role = 'student'", [studentId, parentId]);
-    } else {
+      [[student]] = await pool.query("SELECT id, name FROM users WHERE id = ? AND role = 'student'", [studentId]);
+    } else if (parentId !== "admin") {
       [[student]] = await pool.query("SELECT id, name FROM users WHERE parent_id = ? AND role = 'student' LIMIT 1", [parentId]);
     }
 
     const childName = student?.name || "Enfant";
-    const [requests] = await pool.query("SELECT level, subject FROM requests WHERE child_name = ? AND parent_name = ? LIMIT 1", [childName, parent.name]);
-    const childLevel = requests[0]?.level || "N/A";
+    const [leadRequests] = await pool.query("SELECT level, subject FROM requests WHERE (child_name = ? OR ? = 'Enfant') AND (parent_name = ? OR ? = 'Parent') LIMIT 1", [childName, childName, parentName, parentName]);
+
+    // Si on a un studentId, on cherche ses infos de base via parent_overviews s'il existe
+    const [[overviewRecord]] = await pool.query("SELECT * FROM parent_overviews WHERE student_id = ? LIMIT 1", [student?.id || studentId]);
+
+    const childLevel = (overviewRecord && overviewRecord.level) || (leadRequests && leadRequests[0] && leadRequests[0].level) || "N/A";
+    const focusSubject = (overviewRecord && overviewRecord.focus_subject) || (leadRequests && leadRequests[0] && leadRequests[0].subject) || null;
 
     let latestEvaluations = [];
-    let currentAvg = 14.5;
+    let currentAvg = (overviewRecord && overviewRecord.currentAvg) || null;
+    let prevAvg = (overviewRecord && overviewRecord.prevAvg) || null;
 
     if (student) {
       const [attempts] = await pool.query(
@@ -4635,26 +4600,42 @@ app.get("/api/parents/:parentId/overview", async (req, res) => {
          ORDER BY a.created_at DESC LIMIT 3`, [student.id]
       );
       latestEvaluations = attempts;
-      if (attempts.length > 0) {
-        const sum = attempts.reduce((acc, curr) => acc + (Number(curr.score) / Number(curr.totalPoints || 20)) * 20, 0);
-        currentAvg = Number((sum / attempts.length).toFixed(1));
-      }
     }
 
+    // Prochaine séance
     const [[upcoming]] = await pool.query(
-      "SELECT DATE_FORMAT(session_date, '%d/%m') as date, session_time as time FROM sessions WHERE parent_id = ? AND (student_id = ? OR student_id IS NULL) AND session_date >= CURDATE() ORDER BY session_date ASC LIMIT 1", [parentId, student?.id]
+      "SELECT DATE_FORMAT(session_date, '%d/%m') as date, session_time as time FROM sessions WHERE (parent_id = ? OR ? = 'admin') AND (student_id = ? OR student_id IS NULL) AND session_date >= CURDATE() ORDER BY session_date ASC LIMIT 1", [parentId, parentId, student?.id]
     );
 
-    const [[{ sessionsThisMonth }]] = await pool.query(
-      "SELECT COUNT(*) as count FROM sessions WHERE parent_id = ? AND (student_id = ? OR student_id IS NULL) AND MONTH(session_date) = MONTH(CURDATE())", [parentId, student?.id]
+    // Séances ce mois
+    const [[{ count: sessionsThisMonth }]] = await pool.query(
+      "SELECT COUNT(*) as count FROM sessions WHERE (parent_id = ? OR ? = 'admin') AND (student_id = ? OR student_id IS NULL) AND MONTH(session_date) = MONTH(CURDATE())", [parentId, parentId, student?.id]
     );
+
+    console.log(`DEBUG: Overview results - childName=${childName}, childLevel=${childLevel}, currentAvg=${currentAvg}, focusSubject=${focusSubject}`);
+
+    // Extra stats for ParentProgress view
+    const [[{ attendance }]] = await pool.query(
+      "SELECT ROUND(IFNULL(AVG(CASE WHEN status = 'effectué' THEN 100 WHEN status = 'absent' THEN 0 ELSE NULL END), 100)) as attendance FROM sessions WHERE student_id = ?", [student?.id]
+    );
+
+    const [[{ studyTime }]] = await pool.query(
+      "SELECT IFNULL(SUM(TIMESTAMPDIFF(HOUR, actual_start_time, actual_end_time)), COUNT(*) * 2) as studyTime FROM sessions WHERE student_id = ? AND status = 'effectué'", [student?.id]
+    );
+
+    const progression = prevAvg && currentAvg ? (currentAvg >= prevAvg ? `+${(currentAvg - prevAvg).toFixed(1)}%` : `-${(prevAvg - currentAvg).toFixed(1)}%`) : "+0%";
+
+    console.log(`DEBUG: Overview results - childName=${childName}, childLevel=${childLevel}, currentAvg=${currentAvg}, attendance=${attendance}, studyTime=${studyTime}`);
 
     res.json({
       childName,
       childLevel,
       currentAvg,
-      previousAvg: 11.8,
-      focusSubject: requests[0]?.subject || "Mathématiques",
+      previousAvg: prevAvg,
+      attendance: attendance || 100,
+      studyTime: studyTime || 0,
+      progression,
+      focusSubject,
       sessionsThisMonth: sessionsThisMonth || 0,
       totalPaidThisMonth: (sessionsThisMonth || 0) * 15000,
       latestEvaluations,
@@ -4675,12 +4656,11 @@ app.get("/api/parents/:parentId/invoices", async (req, res) => {
     );
     const count = sessionsThisMonth || 0;
 
-    // Simulation d'une liste de factures basées sur les données
-    const invoices = [
-      { id: "INV-2026-001", date: "2026-03-01", description: "Frais de scolarité Mars", amount: count * 15000, status: count > 0 ? "pending" : "paid" },
-      { id: "INV-2026-000", date: "2026-02-01", description: "Frais de scolarité Février", amount: 45000, status: "paid" }
-    ];
-    res.json(invoices);
+    const [rows] = await pool.query(
+      "SELECT id, invoice_date as date, description, amount, status FROM parent_invoices WHERE parent_id = ? ORDER BY invoice_date DESC",
+      [parentId]
+    );
+    res.json(rows);
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur." });
   }
@@ -4704,12 +4684,7 @@ app.get("/api/parents/:parentId/progress", async (req, res) => {
     );
 
     if (rows.length === 0) {
-      // Return mock data for demo if empty
-      return res.json([
-        { month: "Jan", maths: 12, francais: 13, anglais: 14 },
-        { month: "Fév", maths: 13, francais: 13, anglais: 14 },
-        { month: "Mar", maths: 14.5, francais: 14, anglais: 15 }
-      ]);
+      return res.json([]);
     }
     res.json(rows);
   } catch (error) {
@@ -4745,11 +4720,7 @@ app.get("/api/parents/:parentId/progress-report", async (req, res) => {
       parentName: parent.name,
       childName: childName || "N/A",
       reportDate: new Date().toLocaleDateString('fr-FR'),
-      grades: grades.length > 0 ? grades : [
-        { subject: "Mathématiques", average: 14.5, count: 5 },
-        { subject: "Français", average: 12.0, count: 3 },
-        { subject: "Anglais", average: 15.5, count: 4 }
-      ],
+      grades: grades,
       attendance: 95,
       teacherComments: "Une progression constante et une excellente participation aux sessions live."
     });
@@ -5832,15 +5803,27 @@ app.get("/api/students/:studentId/overview", async (req, res) => {
     const myRank = leaderboard.findIndex(l => l.id === studentId) + 1;
     const top5 = leaderboard.slice(0, 5);
 
+    const [assignmentRows] = await pool.query(
+      `SELECT level, subject, selected_teacher 
+       FROM assignments 
+       WHERE child_name = ? 
+       ORDER BY id DESC LIMIT 1`,
+      [studentName]
+    ).catch((err) => {
+      console.error("Assignment fetch error:", err);
+      return [[]];
+    });
+    const assignment = assignmentRows[0] || {};
+
     const base = overviewRows[0] || {};
     res.json({
-      currentAvg: base.current_avg || 14.5,
-      previousAvg: base.previous_avg || 11.8,
+      currentAvg: base.current_avg || null,
+      previousAvg: base.previous_avg || null,
       sessionsThisMonth: base.sessions_this_month || 0,
       streak,
-      level: "3e",
-      subject: "Mathématiques",
-      teacher: base.teacher_name || "Dr. Clémentine Abanda",
+      level: assignment.level || "Non défini",
+      subject: assignment.subject || "Aucune matière",
+      teacher: assignment.selected_teacher || base.teacher_name || "Non assigné",
       xp: totalXP,
       xpBreakdown: { sessionXP, quizXP, lessonXP, bookmarkXP },
       ...gradeInfo,

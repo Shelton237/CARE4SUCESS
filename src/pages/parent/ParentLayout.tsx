@@ -14,6 +14,7 @@ import ParentChildren from "./Children";
 import ParentTeam from "./Team";
 import ParentMessages from "./Messages";
 import ChildCockpit from "./ChildCockpit";
+import AcademicFile from "../common/AcademicFile";
 
 export default function ParentLayout() {
     const { user } = useAuth();
@@ -34,6 +35,7 @@ export default function ParentLayout() {
         { to: "/parent/schedule", label: "Planning", icon: CalendarDays },
         { to: "/parent/homework", label: "Devoirs", icon: ClipboardList },
         { to: "/parent/progress", label: "Progression", icon: TrendingUp },
+        { to: "/parent/academic-file", label: "Dossier Académique", icon: TrendingUp },
         { to: "/parent/invoices", label: "Factures", icon: Receipt },
         { to: "/parent/feedback", label: "Avis profs", icon: Star },
         { to: "/parent/messages", label: "Messages", icon: MessageSquare, badgeCount: unreadCount },
@@ -51,6 +53,7 @@ export default function ParentLayout() {
                     <Route path="schedule" element={<ParentSchedule />} />
                     <Route path="homework" element={<ParentHomework />} />
                     <Route path="progress" element={<ParentProgress />} />
+                    <Route path="academic-file" element={<AcademicFile studentId="" />} />
                     <Route path="invoices" element={<ParentInvoices />} />
                     <Route path="feedback" element={<ParentFeedback />} />
                     <Route path="messages" element={<ParentMessages />} />

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ALL_SUBJECTS } from "@/lib/education";
 import { motion } from "framer-motion";
 import {
   ArrowRight, CheckCircle, Star, Users, Award,
@@ -57,7 +58,7 @@ const services: { id: string; icon: React.ComponentType<{ className?: string }>;
 const niveaux = [
   { label: "Primaire", sub: "SIL → CM2" },
   { label: "Collège", sub: "6ème → 3ème" },
-  { label: "Lycée", sub: "2nde → Terminale" },
+  { label: "Lycée", sub: "Seconde → Terminale" },
   { label: "Supérieur", sub: "Prépa / Univ." },
   { label: "Adultes", sub: "Formation continue" },
 ];
@@ -83,11 +84,7 @@ const africanPresence = [
   { code: "GNB", flag: "🇬🇼", name: "Guinée-Bissau" },
 ];
 
-const popularSubjects = [
-  "Mathématiques", "Français", "Anglais",
-  "Physique-Chimie", "SVT", "Histoire-Géo",
-  "Philosophie", "Informatique",
-];
+const popularSubjects = ALL_SUBJECTS.filter(s => s !== "Autre");
 
 const disciplines = [
   {

@@ -162,9 +162,17 @@ export default function ChildCockpit() {
                              </div>
                          </div>
 
-                         <Button className="w-full h-9 bg-[#0D2D5A] text-white font-black text-[10px] uppercase tracking-widest rounded-none shadow-none">
-                             Contacter Tuteur
-                         </Button>
+                         <div className="space-y-2 mt-2">
+                             <Button className="w-full h-9 bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white font-black text-[10px] uppercase tracking-widest rounded-none shadow-none">
+                                 Contacter Tuteur
+                             </Button>
+                             <Button 
+                                onClick={() => navigate(`/parent/academic-file?studentId=${id}`)}
+                                className="w-full h-9 bg-white border border-[#1A6CC8] text-[#1A6CC8] hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest rounded-none shadow-none"
+                             >
+                                 Dossier Académique Complet
+                             </Button>
+                         </div>
                     </div>
 
                     {/* Quick Info Box */}

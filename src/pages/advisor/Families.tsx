@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import AcademicFile from "../common/AcademicFile";
 
 const API = import.meta.env.VITE_API_URL || "/api";
 const NOTE_TYPES = [
@@ -287,11 +288,11 @@ export default function AdvisorFamilies() {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-50 text-center">
                                             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Moyenne</p>
-                                            <p className="text-sm font-bold text-[#0D2D5A]">{selectedFamily.average || "14.2"}/20</p>
+                                            <p className="text-sm font-bold text-[#0D2D5A]">{selectedFamily.average || "--"}/20</p>
                                         </div>
                                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-50 text-center">
                                             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Assiduité</p>
-                                            <p className="text-sm font-bold text-emerald-600">{selectedFamily.attendance || "100%"}</p>
+                                            <p className="text-sm font-bold text-emerald-600">{selectedFamily.attendance || "--%"}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -639,8 +640,13 @@ export default function AdvisorFamilies() {
                                         )}
                                     </div>
                                 )}
+                                {/* Dossier Académique Intégré */}
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                    <h3 className="text-[12px] font-black text-[#0D2D5A] uppercase tracking-widest mb-4">Dossier Académique</h3>
+                                    <AcademicFile studentId={studentId} />
+                                </div>
 
-                                <div className="pt-2 space-y-2">
+                                <div className="pt-2 space-y-2 mt-6">
                                     <Button className="w-full bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-11 rounded-xl shadow-sm gap-2">
                                         <MessageCircle className="w-4 h-4" /> Contacter la famille
                                     </Button>

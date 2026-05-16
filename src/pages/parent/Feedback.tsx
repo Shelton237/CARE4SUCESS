@@ -24,12 +24,12 @@ export default function ParentFeedback() {
     const teacherOptions = useMemo(() => {
         const sessions = scheduleQuery.data ?? [];
         const map = new Map<string, string>();
-        sessions.forEach((session) => {
-            if (!map.has(session.teacherId)) {
-                map.set(session.teacherId, session.teacher);
+        sessions.forEach((session: any) => {
+            if (!map.has(session.teacherId || session.teacher_id)) {
+                map.set(session.teacherId || session.teacher_id, session.teacherName || session.teacher || "Enseignant");
             }
         });
-        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name: name || "Enseignant" }));
     }, [scheduleQuery.data]);
 
     if (scheduleQuery.isLoading) {

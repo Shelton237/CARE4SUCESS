@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
 import { useNavigate } from "react-router-dom";
 import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ export default function Inscription() {
         parentPassword: "",
         parentPhone: "",
         children: [
-            { id: Date.now(), name: "", level: "6ème", subject: "Mathématiques", email: "", password: "" }
+            { id: Date.now(), name: "", level: ALL_LEVELS.includes("6ème") ? "6ème" : ALL_LEVELS[0], subject: ["Mathématiques"], email: "", password: "" }
         ]
     });
 
@@ -40,7 +41,7 @@ export default function Inscription() {
             ...formData,
             children: [
                 ...formData.children,
-                { id: Date.now(), name: "", level: "6ème", subject: "Mathématiques", email: "", password: "" }
+                { id: Date.now(), name: "", level: ALL_LEVELS.includes("6ème") ? "6ème" : ALL_LEVELS[0], subject: ["Mathématiques"], email: "", password: "" }
             ]
         });
     };
@@ -59,6 +60,11 @@ export default function Inscription() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (formData.children.some(c => !c.email)) {
+            alert("Veuillez renseigner l'adresse email de chaque enfant.");
+            return;
+        }
+
         setLoading(true);
         try {
             const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
@@ -75,7 +81,7 @@ export default function Inscription() {
                     email: c.email,
                     password: c.password,
                     level: c.level,
-                    subject: c.subject
+                    subject: Array.isArray(c.subject) ? c.subject.join(", ") : c.subject
                 }))
             };
 
@@ -211,35 +217,39 @@ export default function Inscription() {
 
                         {step === 2 && (
                             <div className="space-y-6">
-                                <h2 className="text-xl font-semibold flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-[#0D2D5A] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="flex items-center gap-2">
-                                        <GraduationCap className="text-[#1A6CC8]" /> 
-                                        {userType === "parent" ? "Informations de vos enfants" : "Mes informations scolaires"}
+                                        <div className="p-2 bg-[#1A6CC8]/10 rounded-lg text-[#1A6CC8]">
+                                            <GraduationCap className="w-5 h-5" />
+                                        </div>
+                                        {userType === "parent" ? "Informations des enfants" : "Informations scolaires"}
                                     </div>
                                     {userType === "parent" && (
                                         <Button 
                                             variant="outline" 
                                             size="sm" 
                                             onClick={addChild}
-                                            className="text-xs border-[#1A6CC8] text-[#1A6CC8] hover:bg-blue-50"
+                                            className="text-xs font-bold border-dashed border-2 border-[#1A6CC8]/50 text-[#1A6CC8] hover:bg-[#1A6CC8]/5"
                                         >
-                                            <Plus className="w-3 h-3 mr-1" /> Ajouter un enfant
+                                            <Plus className="w-4 h-4 mr-1" /> Ajouter un enfant
                                         </Button>
                                     )}
                                 </h2>
                                 
-                                <div className="space-y-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                                     {formData.children.map((child, index) => (
-                                        <div key={child.id} className="p-4 rounded-xl border-2 border-slate-100 space-y-4 relative bg-slate-50/30">
+                                        <div key={child.id} className="p-5 rounded-2xl border-2 border-slate-100 bg-white shadow-sm hover:border-[#1A6CC8]/30 transition-colors space-y-5 relative">
                                             {userType === "parent" && (
-                                                <div className="flex justify-between items-center bg-white -mx-4 -mt-4 p-2 px-4 rounded-t-xl border-b mb-2">
-                                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Enfant #{index + 1}</span>
+                                                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                                                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                        <User className="w-3.5 h-3.5" /> Enfant #{index + 1}
+                                                    </span>
                                                     {formData.children.length > 1 && (
                                                         <Button 
                                                             variant="ghost" 
                                                             size="sm" 
                                                             onClick={() => removeChild(child.id)}
-                                                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </Button>
@@ -247,45 +257,66 @@ export default function Inscription() {
                                                 </div>
                                             )}
                                             
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium">{userType === "parent" ? "Nom de l'enfant" : "Mon nom complet"}</label>
-                                                <Input 
-                                                    placeholder={userType === "parent" ? "Ex: Marie Dupont" : "Votre nom complet"} 
-                                                    value={child.name} 
-                                                    onChange={(e) => handleChildChange(child.id, "name", e.target.value)} 
-                                                />
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-bold text-slate-600">{userType === "parent" ? "Nom de l'enfant" : "Mon nom complet"}</label>
+                                                    <div className="relative">
+                                                        <Input 
+                                                            className="h-11 bg-slate-50/50"
+                                                            placeholder={userType === "parent" ? "Ex: Marie Dupont" : "Votre nom complet"} 
+                                                            value={child.name} 
+                                                            onChange={(e) => handleChildChange(child.id, "name", e.target.value)} 
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-bold text-slate-600">Email (Obligatoire)</label>
+                                                    <div className="relative">
+                                                        <Input 
+                                                            type="email"
+                                                            required
+                                                            className="h-11 bg-slate-50/50"
+                                                            placeholder={userType === "parent" ? "email.enfant@exemple.com" : "votre@email.com"} 
+                                                            value={child.email} 
+                                                            onChange={(e) => handleChildChange(child.id, "email", e.target.value)} 
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <label className="text-sm font-medium">Niveau scolaire</label>
-                                                    <select
-                                                        className="w-full p-2 border rounded-md bg-white"
-                                                        value={child.level}
-                                                        onChange={(e) => handleChildChange(child.id, "level", e.target.value)}
-                                                    >
-                                                        <option>6ème</option>
-                                                        <option>5ème</option>
-                                                        <option>4ème</option>
-                                                        <option>3ème</option>
-                                                        <option>Seconde</option>
-                                                        <option>Première</option>
-                                                        <option>Terminale</option>
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-sm font-medium">Matière prioritaire</label>
-                                                    <select
-                                                        className="w-full p-2 border rounded-md bg-white"
-                                                        value={child.subject}
-                                                        onChange={(e) => handleChildChange(child.id, "subject", e.target.value)}
-                                                    >
-                                                        <option>Mathématiques</option>
-                                                        <option>Physique-Chimie</option>
-                                                        <option>Français</option>
-                                                        <option>Anglais</option>
-                                                        <option>Informatique</option>
-                                                    </select>
+                                            <div className="space-y-1.5">
+                                                <label className="text-xs font-bold text-slate-600">Niveau scolaire</label>
+                                                <select
+                                                    className="flex h-11 w-full rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1A6CC8]/50 focus:border-[#1A6CC8] transition-all"
+                                                    value={child.level}
+                                                    onChange={(e) => handleChildChange(child.id, "level", e.target.value)}
+                                                >
+                                                    {ALL_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                                                </select>
+                                            </div>
+                                            
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-slate-600">Matières prioritaires (plusieurs choix possibles)</label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {ALL_SUBJECTS.map(sub => {
+                                                        const isSelected = Array.isArray(child.subject) && child.subject.includes(sub);
+                                                        return (
+                                                            <button
+                                                                key={sub}
+                                                                type="button"
+                                                                className={`px-3 py-2 text-[11px] font-bold rounded-lg border transition-all ${isSelected ? 'bg-[#1A6CC8] text-white border-[#1A6CC8] shadow-md shadow-[#1A6CC8]/20' : 'bg-white text-slate-600 border-slate-200 hover:border-[#1A6CC8]/50 hover:bg-blue-50'}`}
+                                                                onClick={() => {
+                                                                    const currentSubjects = Array.isArray(child.subject) ? child.subject : [];
+                                                                    const newSubjects = isSelected 
+                                                                        ? currentSubjects.filter(s => s !== sub) 
+                                                                        : [...currentSubjects, sub];
+                                                                    handleChildChange(child.id, "subject", newSubjects);
+                                                                }}
+                                                            >
+                                                                {sub}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </div>

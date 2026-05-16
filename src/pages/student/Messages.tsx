@@ -35,21 +35,18 @@ interface Message {
 
 // Contacts par défaut pour pouvoir démarrer une conversation même sans historique
 // IDs réels depuis la base de données (table users)
-const DEFAULT_CONTACTS = [
-    { id: "t1", name: "Dr. Clémentine Abanda", role: "teacher", avatar: "CA", color: "#1A6CC8" },
-    { id: "c1", name: "Brice Owona", role: "advisor", avatar: "BO", color: "#F5A623" },
-];
+const DEFAULT_CONTACTS: { id: string, name: string, role: string, avatar: string, color: string }[] = [];
 
 export default function StudentMessages() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const location = useLocation();
     const scrollRef = useRef<HTMLDivElement>(null);
-    const userId = user?.id || "s1"; // Fallback pour dev (s1 = Koffi Diallo en base)
-    const userName = user?.name || "Koffi Diallo";
+    const userId = user?.id || "";
+    const userName = user?.name || "";
 
     const [reply, setReply] = useState("");
-    const [selectedContactId, setSelectedContactId] = useState<string>("t1");
+    const [selectedContactId, setSelectedContactId] = useState<string>("");
     const [searchTerm, setSearchTerm] = useState("");
     const [contactFilter, setContactFilter] = useState<"all" | "teacher" | "advisor">("all");
     const [isUploading, setIsUploading] = useState(false);

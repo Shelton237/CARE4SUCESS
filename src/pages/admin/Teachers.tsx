@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Star, MapPin, Search, UserPlus, Filter, MoreHorizontal, Eye, Ban, Edit3 } from "lucide-react";
@@ -27,18 +28,8 @@ interface Teacher {
     students: number;
 }
 
-const LEVELS = [
-    "SIL", "CP", "CE1", "CE2", "CM1", "CM2",
-    "6ème", "5ème", "4ème", "3ème",
-    "2nde", "1ère", "Tle",
-    "Supérieur", "Tous"
-];
-
-const SUBJECTS = [
-    "Mathématiques", "Physique-Chimie", "SVT", "Informatique",
-    "Anglais", "Français", "Allemand", "Espagnol",
-    "Philosophie", "Histoire-Géo", "Comptabilité"
-];
+const LEVELS = ALL_LEVELS;
+const SUBJECTS = ALL_SUBJECTS;
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 

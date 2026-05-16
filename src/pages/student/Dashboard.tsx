@@ -42,19 +42,19 @@ export default function StudentDashboard() {
     });
 
     const stats = overviewQuery.data || {
-        currentAvg: 14.5,
-        previousAvg: 11.8,
+        currentAvg: null,
+        previousAvg: null,
         streak: 0,
         level: "N/A",
         subject: "Multi-matières",
-        teacher: "Mon Tuteur",
+        teacher: "Non assigné",
         xp: 0,
-        grade: "Novice",
+        grade: "Débutant",
         gradeColor: "#94a3b8",
         nextGrade: "Apprenti",
         progressToNext: 0,
         nextXP: 200,
-        myRank: 1,
+        myRank: 0,
         leaderboard: [],
         sessionsThisMonth: 0,
         xpBreakdown: { sessionXP: 0, quizXP: 0, lessonXP: 0, bookmarkXP: 0 },
@@ -67,12 +67,8 @@ export default function StudentDashboard() {
     }, [scheduleQuery.data]);
 
     const chartData = useMemo(() => {
-        return [
-            { name: "Jan", note: 12.5 },
-            { name: "Fév", note: 13.8 },
-            { name: "Mar", note: stats.currentAvg },
-        ];
-    }, [stats.currentAvg]);
+        return stats.history || [];
+    }, [stats]);
 
     const formatXP = (xp: number) => xp >= 1000 ? `${(xp / 1000).toFixed(1)}k` : `${xp}`;
 
@@ -139,8 +135,8 @@ export default function StudentDashboard() {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: "Moyenne Générale", value: `${stats.currentAvg}/20`, icon: TrendingUp, color: "text-[#1A6CC8]" },
-                    { label: "Objectif Visé", value: "16.0/20", icon: Target, color: "text-[#F5A623]" },
+                    { label: "Moyenne Générale", value: stats.currentAvg ? `${stats.currentAvg}/20` : "--/20", icon: TrendingUp, color: "text-[#1A6CC8]" },
+                    { label: "Objectif Visé", value: stats.targetAvg ? `${stats.targetAvg}/20` : "--/20", icon: Target, color: "text-[#F5A623]" },
                     { label: "Niveau Scolaire", value: stats.level, icon: BookOpen, color: "text-[#0D2D5A]" },
                     { label: "Sessions", value: `${stats.sessionsThisMonth ?? 0}`, icon: CheckCircle2, color: "text-[#10b981]" },
                 ].map((s, i) => (
@@ -252,11 +248,7 @@ export default function StudentDashboard() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="px-6 pb-6 pt-2 space-y-3">
-                        {(stats.leaderboard?.length > 0 ? stats.leaderboard : [
-                            { name: "Fatou K.", xp: 3120, rank: 1 },
-                            { name: "Salif B.", xp: 2850, rank: 2 },
-                            { name: "Toi", xp: stats.xp, rank: stats.myRank || 3, isMe: true },
-                        ]).map((player: any, i: number) => (
+                        {(stats.leaderboard?.length > 0 ? stats.leaderboard : []).map((player: any, i: number) => (
                             <div key={i} className={`flex items-center justify-between p-2 rounded-lg transition-all ${player.isMe ? 'bg-slate-50 border border-slate-100' : ''}`}>
                                 <div className="flex items-center gap-3">
                                     <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-amber-100 text-[#F5A623]' : 'bg-slate-100 text-slate-500'}`}>
@@ -305,7 +297,7 @@ export default function StudentDashboard() {
                     <Star className="w-8 h-8 text-white/20 fill-current mb-1" />
                     <h3 className="text-lg font-black leading-tight uppercase tracking-tight">Objectifs</h3>
                     <p className="text-[11px] font-black opacity-90 leading-normal uppercase">
-                        Tu as complété <span className="text-white underline underline-offset-4">85%</span> de tes objectifs ce mois-ci.
+                        Garde le rythme pour atteindre tes objectifs de ce mois-ci.
                     </p>
                     <div className="pt-2">
                         <Button variant="outline" className="w-full bg-white/10 hover:bg-white/20 border-white/20 text-white font-black h-8 rounded-lg text-[9px] uppercase tracking-widest shadow-none">

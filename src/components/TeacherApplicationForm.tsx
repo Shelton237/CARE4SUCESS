@@ -18,7 +18,8 @@ const formSchema = z.object({
     fullName: z.string().min(3, "Le nom doit contenir au moins 3 caractères"),
     email: z.string().email("Adresse email invalide"),
     phone: z.string().min(8, "Numéro de téléphone invalide"),
-    subjectsText: z.string().min(3, "Indiquez au moins une matière"),
+    subjectsText: z.string().min(2, "Indiquez au moins une matière"),
+    levelsText: z.string().min(2, "Indiquez au moins un niveau scolaire"),
     experienceYears: z.coerce.number().min(0, "Expérience invalide"),
     availability: z.string().min(3, "Précisez vos disponibilités"),
     motivation: z.string().min(20, "Parlez-nous davantage de votre motivation"),
@@ -29,6 +30,11 @@ type FormData = z.infer<typeof formSchema>;
 interface TeacherApplicationFormProps {
     className?: string;
 }
+
+import { ALL_SUBJECTS, ALL_LEVELS } from "@/lib/education";
+
+const AVAILABLE_SUBJECTS = ALL_SUBJECTS.filter(s => s !== "Autre");
+const AVAILABLE_LEVELS = ALL_LEVELS;
 
 export function TeacherApplicationForm({ className }: TeacherApplicationFormProps) {
     const { toast } = useToast();
@@ -42,6 +48,7 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
             email: "",
             phone: "",
             subjectsText: "",
+            levelsText: "",
             experienceYears: 3,
             availability: "",
             motivation: "",
@@ -68,12 +75,25 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
         },
     });
 
+    const subjectsWatch = form.watch("subjectsText");
+    const levelsWatch = form.watch("levelsText");
+
+    const toggleSelection = (currentString: string, item: string, fieldName: "subjectsText" | "levelsText") => {
+        const currentList = currentString ? currentString.split(",").map(s => s.trim()).filter(Boolean) : [];
+        if (currentList.includes(item)) {
+            form.setValue(fieldName, currentList.filter(s => s !== item).join(", "), { shouldValidate: true });
+        } else {
+            form.setValue(fieldName, [...currentList, item].join(", "), { shouldValidate: true });
+        }
+    };
+
     const onSubmit = (data: FormData) => {
         const formData = new window.FormData();
         formData.append("fullName", data.fullName);
         formData.append("email", data.email);
         formData.append("phone", data.phone);
         formData.append("subjects", data.subjectsText);
+        formData.append("levels", data.levelsText);
         formData.append("experienceYears", data.experienceYears.toString());
         formData.append("availability", data.availability);
         formData.append("motivation", data.motivation);
@@ -174,15 +194,57 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
                         <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
                     )}
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="subjects">Matières (séparées par des virgules) *</Label>
-                    <Input
-                        id="subjects"
-                        placeholder="Mathématiques, Physique, Chimie"
-                        {...form.register("subjectsText")}
-                    />
+                <div className="space-y-3">
+                    <Label>Matières enseignées *</Label>
+                    <div className="flex flex-wrap gap-2">
+                        {AVAILABLE_SUBJECTS.map((sub) => {
+                            const isSelected = subjectsWatch?.includes(sub);
+                            return (
+                                <button
+                                    key={sub}
+                                    type="button"
+                                    onClick={() => toggleSelection(subjectsWatch, sub, "subjectsText")}
+                                    className={cn(
+                                        "px-3 py-1.5 text-sm font-semibold rounded-full border transition-all",
+                                        isSelected
+                                            ? "bg-[#1A6CC8] text-white border-[#1A6CC8] shadow-md"
+                                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-[#1A6CC8]/50 hover:bg-blue-50"
+                                    )}
+                                >
+                                    {sub}
+                                </button>
+                            );
+                        })}
+                    </div>
                     {form.formState.errors.subjectsText && (
                         <p className="text-sm text-destructive">{form.formState.errors.subjectsText.message}</p>
+                    )}
+                </div>
+
+                <div className="space-y-3">
+                    <Label>Niveaux scolaires ciblés *</Label>
+                    <div className="flex flex-wrap gap-2">
+                        {AVAILABLE_LEVELS.map((lvl) => {
+                            const isSelected = levelsWatch?.includes(lvl);
+                            return (
+                                <button
+                                    key={lvl}
+                                    type="button"
+                                    onClick={() => toggleSelection(levelsWatch, lvl, "levelsText")}
+                                    className={cn(
+                                        "px-3 py-1.5 text-sm font-semibold rounded-full border transition-all",
+                                        isSelected
+                                            ? "bg-[#F5A623] text-white border-[#F5A623] shadow-md"
+                                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-[#F5A623]/50 hover:bg-orange-50"
+                                    )}
+                                >
+                                    {lvl}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {form.formState.errors.levelsText && (
+                        <p className="text-sm text-destructive">{form.formState.errors.levelsText.message}</p>
                     )}
                 </div>
                 <div className="space-y-2">

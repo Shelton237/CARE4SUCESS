@@ -56,13 +56,20 @@ export default function TeacherMessages() {
 
     useEffect(() => {
         if (selectedContact && messages.length > 0) {
-            messages.forEach((m: any) => {
-                if (m.receiverId === user?.id && !m.isRead) {
+            const unread = messages.filter((m: any) => m.receiverId === user?.id && !m.isRead);
+            if (unread.length > 0) {
+                // Optimistic update to prevent infinite loops
+                queryClient.setQueryData(["messages", selectedContact?.id], (old: any) => {
+                    if (!old) return old;
+                    return old.map((m: any) => unread.find((u: any) => u.id === m.id) ? { ...m, isRead: true } : m);
+                });
+                
+                unread.forEach((m: any) => {
                     markAsReadMutation.mutate(m.id);
-                }
-            });
+                });
+            }
         }
-    }, [messages, selectedContact, user?.id]);
+    }, [messages, selectedContact, user?.id, queryClient]);
 
     const filteredContacts = contacts.filter((c: any) =>
         c.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -116,9 +123,9 @@ export default function TeacherMessages() {
     }
 
     return (
-        <div className="h-[calc(100vh-160px)] flex gap-3 overflow-hidden p-3 bg-white">
+        <div className="h-[calc(100vh-160px)] flex md:gap-3 overflow-hidden p-3 bg-white">
             {/* Liste contacts */}
-            <div className="w-72 border border-slate-200 bg-white flex flex-col overflow-hidden shrink-0">
+            <div className={`w-full md:w-72 border border-slate-200 bg-white flex-col overflow-hidden shrink-0 ${selectedContact ? 'hidden md:flex' : 'flex'}`}>
                 <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/50 space-y-2">
                     <h2 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest">Messagerie</h2>
                     <div className="relative">
@@ -173,12 +180,20 @@ export default function TeacherMessages() {
             </div>
 
             {/* Zone de chat */}
-            <div className="flex-1 border border-slate-200 bg-white flex flex-col overflow-hidden">
+            <div className={`flex-1 border border-slate-200 bg-white flex-col overflow-hidden ${selectedContact ? 'flex' : 'hidden md:flex'}`}>
                 {selectedContact ? (
                     <>
                         <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-[#0D2D5A] text-white flex items-center justify-center font-black text-[11px]">
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="md:hidden w-7 h-7 text-slate-400 shrink-0"
+                                    onClick={() => setSelectedContact(null)}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                </Button>
+                                <div className="w-8 h-8 bg-[#0D2D5A] text-white flex items-center justify-center font-black text-[11px] shrink-0">
                                     {selectedContact.name?.charAt(0)}
                                 </div>
                                 <div>

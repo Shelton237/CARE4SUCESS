@@ -219,6 +219,9 @@ export interface ParentOverview {
     sessionsThisMonth: number;
     currentAvg: number;
     previousAvg: number;
+    attendance?: number;
+    studyTime?: number;
+    progression?: string;
     totalPaidThisMonth: number;
     upcomingSession: ScheduleSession | null;
     pendingInvoice: ParentInvoice | null;

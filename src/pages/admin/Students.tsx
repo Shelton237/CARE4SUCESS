@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchAdvisorFamilies, resetUserPassword, updateFamilyDetails } from "@/api/backoffice";
 import { CalendarDays, Loader2, RefreshCw, KeyRound, Edit3, Check } from "lucide-react";
@@ -9,18 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
-const LEVELS = [
-  "SIL", "CP", "CE1", "CE2", "CM1", "CM2",
-  "6ème", "5ème", "4ème", "3ème",
-  "2nde", "1ère", "Tle",
-  "Supérieur"
-];
-
-const SUBJECTS = [
-  "Mathématiques", "Physique-Chimie", "SVT", "Informatique",
-  "Anglais", "Français", "Allemand", "Espagnol",
-  "Philosophie", "Histoire-Géo", "Comptabilité"
-];
+const LEVELS = ALL_LEVELS;
+const SUBJECTS = ALL_SUBJECTS;
 
 export default function AdminStudents() {
   const queryClient = useQueryClient();

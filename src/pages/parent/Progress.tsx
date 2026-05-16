@@ -55,15 +55,8 @@ export default function ParentProgress() {
     const report = reportQuery.data;
 
     const progressData = useMemo(() => {
-        return [
-            { name: 'OCT', score: 11.5 },
-            { name: 'NOV', score: 12.2 },
-            { name: 'DÉC', score: 11.8 },
-            { name: 'JAN', score: 13.5 },
-            { name: 'FÉV', score: 14.2 },
-            { name: 'MAR', score: overview?.currentAvg || 14.5 },
-        ];
-    }, [overview?.currentAvg]);
+        return overview?.history || [];
+    }, [overview]);
 
     const radarData = useMemo(() => {
         if (!report?.grades) return [];
@@ -149,10 +142,10 @@ export default function ParentProgress() {
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { label: "Moyenne Actuelle", value: `${overview?.currentAvg}/20`, sub: `PREV: ${overview?.previousAvg}/20`, icon: Award, color: "text-[#1A6CC8]", bg: "bg-slate-50/50" },
-                    { label: "Assiduité Live", value: "95%", sub: "98% SESSIONS OK", icon: Activity, color: "text-emerald-600", bg: "bg-slate-50/50" },
-                    { label: "Temps d'étude", value: "14.5H", sub: "MARS 2026", icon: Calendar, color: "text-[#F5A623]", bg: "bg-slate-50/50" },
-                    { label: "Objectif Cible", value: "15/20", sub: "FOCUS MATHS", icon: Target, color: "text-purple-600", bg: "bg-slate-50/50" }
+                    { label: "Moyenne Globale", value: overview?.currentAvg ? `${overview.currentAvg}/20` : "--/20", sub: overview?.previousAvg ? `PREV: ${overview.previousAvg}/20` : "PREV: --/20", icon: Award, color: "text-[#1A6CC8]", bg: "bg-slate-50/50" },
+                    { label: "Assiduité", value: overview?.attendance ? `${overview.attendance}%` : "--%", sub: `${overview?.sessionsThisMonth || 0} SESSIONS OK`, icon: Activity, color: "text-emerald-600", bg: "bg-slate-50/50" },
+                    { label: "Heures de cours", value: overview?.studyTime ? `${overview.studyTime}H` : "--H", sub: "CE MOIS-CI", icon: Calendar, color: "text-[#F5A623]", bg: "bg-slate-50/50" },
+                    { label: "Progression", value: overview?.progression || "+0%", sub: report?.weakPoints ? "A RENFORCER" : "STABLE", icon: Target, color: "text-purple-600", bg: "bg-slate-50/50" }
                 ].map((stat, i) => (
                     <div key={i} className={`p-4 border border-slate-100 rounded-none shadow-none flex flex-col ${stat.bg}`}>
                         <div className="flex items-center gap-3 mb-3">
@@ -213,6 +206,31 @@ export default function ParentProgress() {
                     </div>
                 </div>
             </div>
+
+            {/* Rapport Mensuel Automatique (Commentaires & Recommandations) */}
+            {report && (
+                <div className="border border-slate-100 bg-[#0D2D5A] shadow-none p-4 md:p-6 text-white">
+                    <h2 className="text-[10px] font-black text-blue-200 uppercase tracking-widest flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
+                        <BarChart3 className="w-4 h-4 text-[#F5A623]" /> Bilan Mensuel Automatique
+                    </h2>
+                    <div className="space-y-4">
+                        <div>
+                            <h3 className="text-[11px] font-black uppercase text-white mb-1">Évaluation Globale</h3>
+                            <p className="text-sm font-medium text-slate-300 leading-relaxed">{report.teacherComments}</p>
+                        </div>
+                        {report.weakPoints && (
+                            <div className="bg-white/5 p-3 border border-white/10">
+                                <h3 className="text-[10px] font-black uppercase text-[#F5A623] mb-1">Points Faibles Identifiés</h3>
+                                <p className="text-xs font-medium text-slate-300">{report.weakPoints}</p>
+                            </div>
+                        )}
+                        <div>
+                            <h3 className="text-[11px] font-black uppercase text-white mb-1">Recommandations Pédagogiques</h3>
+                            <p className="text-sm font-medium text-emerald-400 leading-relaxed">{report.recommendations}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Strengths & Improvements */}
             <div className="border border-slate-100 bg-white shadow-none">

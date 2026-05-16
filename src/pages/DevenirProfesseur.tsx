@@ -222,7 +222,7 @@ export default function DevenirProfesseur() {
         </div>
       </section>
 
-      <section className="py-16 bg-[#F7F9FD]">
+      <section id="formulaire-recrutement" className="py-16 bg-[#F7F9FD]">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center mb-10">
             <motion.h2

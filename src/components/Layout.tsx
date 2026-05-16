@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Menu, X, Phone, Mail, MapPin, ArrowRight, Star, Lock, User, GraduationCap } from "lucide-react";
 import { SiFacebook, SiX, SiInstagram } from "react-icons/si";
 import { FaLinkedinIn } from "react-icons/fa";
@@ -15,6 +15,16 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const navigate = useNavigate();
+
+  const handleGoToRecrutementForm = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMobileOpen(false);
+    navigate(ROUTE_PATHS.RECRUTEMENT);
+    setTimeout(() => {
+      document.getElementById("formulaire-recrutement")?.scrollIntoView({ behavior: "smooth" });
+    }, 200);
+  };
 
 
   /* Scroll effect */
@@ -61,9 +71,9 @@ export function Layout({ children }: LayoutProps) {
 
             <div className="flex items-center gap-1.5 border-l border-white/20 pl-5 group">
               <span className="text-white/60 font-medium group-hover:text-white/80 transition-colors">Care4Success recrute</span>
-              <NavLink to={ROUTE_PATHS.RECRUTEMENT} className="font-bold hover:text-[#57c2dc] hover:underline transition-colors ml-1">
+              <a href={ROUTE_PATHS.RECRUTEMENT} onClick={handleGoToRecrutementForm} className="font-bold hover:text-[#57c2dc] hover:underline transition-colors ml-1 cursor-pointer">
                 Devenir enseignant
-              </NavLink>
+              </a>
             </div>
 
             <NavLink to="/login" className="flex items-center gap-1.5 border-l border-white/20 pl-5 font-bold hover:text-[#57c2dc] transition-colors group">
@@ -196,17 +206,35 @@ export function Layout({ children }: LayoutProps) {
 
                 <div className="flex flex-col gap-2 mt-3 pt-4 border-t border-[#0D2D5A]/10">
                   <NavLink
+                    to="/login"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black border-2 border-[#1A6CC8] text-[#1A6CC8] hover:bg-[#1A6CC8] hover:text-white transition-colors"
+                  >
+                    <Lock className="w-4 h-4" />
+                    Connexion
+                  </NavLink>
+                  <NavLink
                     to="/inscription"
                     onClick={() => setMobileOpen(false)}
                     className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black border-2 border-[#0D2D5A] text-[#0D2D5A] hover:bg-[#0D2D5A] hover:text-white transition-colors"
                   >
+                    <User className="w-4 h-4" />
                     S'inscrire
                   </NavLink>
+                  <a
+                    href={ROUTE_PATHS.RECRUTEMENT}
+                    onClick={handleGoToRecrutementForm}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg"
+                  >
+                    <GraduationCap className="w-4 h-4" />
+                    Devenir enseignant
+                  </a>
                   <NavLink
                     to={ROUTE_PATHS.CONTACT}
                     onClick={() => setMobileOpen(false)}
                     className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black bg-[#0D2D5A] text-white hover:bg-[#1A6CC8] transition-colors shadow-lg"
                   >
+                    <Star className="w-4 h-4 text-[#F5A623] fill-[#F5A623]" />
                     Faire un bilan
                   </NavLink>
                 </div>
