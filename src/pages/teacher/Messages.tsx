@@ -125,7 +125,7 @@ export default function TeacherMessages() {
     return (
         <div className="h-[calc(100vh-160px)] flex md:gap-3 overflow-hidden p-3 bg-white">
             {/* Liste contacts */}
-            <div className={`w-full md:w-72 border border-slate-200 bg-white flex-col overflow-hidden shrink-0 ${selectedContact ? 'hidden md:flex' : 'flex'}`}>
+            <div className={`w-full md:w-72 border border-slate-200 bg-white overflow-hidden shrink-0 ${selectedContact ? 'hidden md:flex md:flex-col' : 'flex flex-col'}`}>
                 <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/50 space-y-2">
                     <h2 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest">Messagerie</h2>
                     <div className="relative">
@@ -180,7 +180,7 @@ export default function TeacherMessages() {
             </div>
 
             {/* Zone de chat */}
-            <div className={`flex-1 border border-slate-200 bg-white flex-col overflow-hidden ${selectedContact ? 'flex' : 'hidden md:flex'}`}>
+            <div className={`border border-slate-200 bg-white overflow-hidden ${selectedContact ? 'flex flex-col flex-1' : 'hidden md:flex md:flex-col md:flex-1'}`}>
                 {selectedContact ? (
                     <>
                         <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">

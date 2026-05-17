@@ -177,16 +177,16 @@ export default function TeacherCourses() {
         return (
             <div className="w-full p-3 space-y-3 bg-white min-h-screen">
                 {/* Header */}
-                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                <div className="border-b border-slate-100 pb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 w-full md:w-auto">
                         <button
                             onClick={() => navigate("..", { relative: "path" })}
-                            className="w-8 h-8 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-[#1A6CC8] hover:border-[#1A6CC8] transition-colors"
+                            className="w-8 h-8 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-[#1A6CC8] hover:border-[#1A6CC8] transition-colors shrink-0"
                         >
                             <ArrowLeft className="w-4 h-4" />
                         </button>
-                        <div>
-                            <h1 className="text-xl font-black text-[#0D2D5A] uppercase tracking-tight">
+                        <div className="min-w-0 flex-1">
+                            <h1 className="text-lg md:text-xl font-black text-[#0D2D5A] uppercase tracking-tight truncate max-w-full">
                                 {isCreating ? "Créer un cours" : `Éditer : ${existingCourse?.title || "..."}`}
                             </h1>
                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
@@ -194,12 +194,12 @@ export default function TeacherCourses() {
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full md:w-auto justify-start md:justify-end overflow-x-auto py-1 scrollbar-none shrink-0">
                         {/* Status badge */}
                         <button
                             onClick={() => setForm(f => ({ ...f, status: f.status === "draft" ? "published" : "draft" }))}
                             className={cn(
-                                "h-8 px-3 text-[9px] font-black uppercase tracking-widest border transition-all",
+                                "h-8 px-3 text-[9px] font-black uppercase tracking-widest border transition-all shrink-0",
                                 form.status === "published"
                                     ? "bg-[#0D2D5A] text-white border-[#0D2D5A]"
                                     : "bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/30"
@@ -211,7 +211,7 @@ export default function TeacherCourses() {
                             onClick={() => handleSave(false)}
                             disabled={saving}
                             variant="outline"
-                            className="h-8 px-3 rounded-none border-slate-200 shadow-none font-black text-[9px] uppercase tracking-widest text-slate-500 gap-1.5"
+                            className="h-8 px-3 rounded-none border-slate-200 shadow-none font-black text-[9px] uppercase tracking-widest text-slate-500 gap-1.5 shrink-0"
                         >
                             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                             Enregistrer
@@ -219,7 +219,7 @@ export default function TeacherCourses() {
                         <Button
                             onClick={() => handleSave(true)}
                             disabled={saving}
-                            className="h-8 px-4 rounded-none shadow-none bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black text-[9px] uppercase tracking-widest gap-1.5"
+                            className="h-8 px-4 rounded-none shadow-none bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black text-[9px] uppercase tracking-widest gap-1.5 shrink-0"
                         >
                             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
                             Publier
