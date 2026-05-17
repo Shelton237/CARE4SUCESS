@@ -1846,10 +1846,11 @@ app.patch("/api/assignments/:id", async (req, res) => {
       [assignment.child_name, assignment.level, assignment.subject]
     );
 
-    // 4. Automatisation : Création d'une première session
+    // 4. Automatisation : Liaison student-teacher officielle
     try {
       await ensureSessionsTable();
       await ensureUsersTable();
+      await ensureStudentTeacherTable();
 
       // Récupérer le nom du parent depuis la requête
       const [reqRows] = await pool.query(
@@ -1863,10 +1864,12 @@ app.patch("/api/assignments/:id", async (req, res) => {
       const [[parent]] = await pool.query("SELECT id FROM users WHERE name = ? AND role = 'parent' LIMIT 1", [parentName]);
       const [[teacher]] = await pool.query("SELECT id FROM users WHERE name = ? AND (role = 'teacher' OR secondary_role = 'teacher') LIMIT 1", [selectedTeacher]);
 
-      if (student && parent && teacher) {
-        // Enregistrement de la relation officielle
+      // CRITICAL FIX: Le parent est optionnel — seuls student et teacher sont requis
+      // Avant ce fix, si le parent n'était pas trouvé, la relation n'était JAMAIS créée (bug silencieux)
+      if (student && teacher) {
+        // Enregistrement de la relation officielle student-teacher
         await linkStudentTeacherRelation(student.id, teacher.id);
-        console.log(`Automation: Relation créée pour ${assignment.child_name} avec ${selectedTeacher}`);
+        console.log(`[Matching] Relation student_teacher créée: ${assignment.child_name} (${student.id}) <-> ${selectedTeacher} (${teacher.id})`);
       }
     } catch (autoErr) {
       console.warn("Automation partial failure:", autoErr.message);
@@ -4957,16 +4960,20 @@ app.get("/api/teachers/:teacherId/students", async (req, res) => {
   const { teacherId } = req.params;
   try {
     await ensureStudentEvaluationsTable();
+    await ensureStudentTeacherTable();
     const [students] = await pool.query(
       `SELECT DISTINCT 
-          s.student_id as id, 
-          s.student_name as name, 
+          u.id, 
+          u.name, 
           u.email,
           u.bio as level
-       FROM sessions s
-       LEFT JOIN users u ON u.id = s.student_id
-       WHERE s.teacher_id = ?`,
-      [teacherId]
+       FROM (
+          SELECT student_id FROM sessions WHERE teacher_id = ?
+          UNION
+          SELECT student_id FROM student_teacher WHERE teacher_id = ?
+       ) s
+       JOIN users u ON u.id = s.student_id`,
+      [teacherId, teacherId]
     );
 
     const fullStudents = await Promise.all(students.map(async (st) => {
@@ -4981,11 +4988,12 @@ app.get("/api/teachers/:teacherId/students", async (req, res) => {
         [st.id, teacherId]
       );
 
-      const totalSessions = sessionStats?.total || 1;
-      const assiduite = Math.round(((sessionStats?.done || 0) / totalSessions) * 100);
+      const totalSessions = sessionStats?.total || 0;
+      const doneSessions = sessionStats?.done || 0;
+      const assiduite = totalSessions > 0 ? Math.round((doneSessions / totalSessions) * 100) : 100;
       const lastSessionStr = sessionStats?.lastSessionDate ? formatDate(sessionStats.lastSessionDate) : "À venir";
 
-      // 2. Moyenne réelle depuis quiz_attempts ou student_progress_points
+      // 2. Moyenne réelle depuis quiz_attempts
       const [quizAttempts] = await pool.query(
         `SELECT a.score, q.total_points, c.subject, a.created_at
          FROM quiz_attempts a
@@ -5007,8 +5015,6 @@ app.get("/api/teachers/:teacherId/students", async (req, res) => {
           const diff = scores20[0] - scores20[1];
           trendText = (diff >= 0 ? "+" : "") + diff.toFixed(1);
         }
-      } else {
-        avgGrade = "0.0";
       }
 
       let lastScoreText = "À venir";
@@ -5054,12 +5060,23 @@ app.get("/api/teachers/:teacherId/students", async (req, res) => {
         [st.id]
       );
 
+      // Devoirs de l'élève créés par ce tuteur
+      const [[homeworkStats]] = await pool.query(
+        `SELECT COUNT(*) as count FROM homework WHERE student_id = ? AND teacher_id = ?`,
+        [st.id, teacherId]
+      );
+      const homeworkCount = homeworkStats?.count || 0;
+
       return {
         ...st,
         avgGrade,
+        average: avgGrade,
         trend: trendText,
         sessions: totalSessions,
         lastSession: lastSessionStr,
+        lastSessionDate: lastSessionStr,
+        attendance: `${assiduite}%`,
+        homeworkCount: homeworkCount,
         profile: {
           highlights: [
             { label: 'Assiduité', value: `${assiduite}%`, sublabel: `Sur ${totalSessions} séances` },
