@@ -6,6 +6,7 @@ import {
   Clock, TrendingUp, BookOpen, GraduationCap,
   Phone, Globe, Home as HomeIcon, Monitor, Calendar,
   MessageSquare, Search, ChevronRight, Sparkles,
+  Smartphone, Download,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { TeacherCard } from "@/components/TeacherCard";
@@ -1005,6 +1006,113 @@ export default function Home() {
               </motion.div>
             ))}
           </motion.div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+          §9.5 — APPLICATION MOBILE (NOUVEAU)
+          Section premium pour le téléchargement de l'APK
+          ══════════════════════════════════════════════════════ */}
+      <section className="py-20 bg-background relative overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="relative rounded-3xl bg-gradient-to-br from-[#0D2D5A] via-[#0b2447] to-[#1A6CC8] overflow-hidden p-8 md:p-12 lg:p-16 shadow-2xl">
+            {/* Grille de points en arrière-plan */}
+            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
+            {/* Formes lumineuses colorées */}
+            <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-[#F5A623]/10 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-[#1A6CC8]/20 blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 grid md:grid-cols-12 gap-8 items-center">
+              {/* Texte */}
+              <div className="md:col-span-7 space-y-6">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F5A623]/20 border border-[#F5A623]/30 text-[#F5A623] text-xs font-black uppercase tracking-widest">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  Nouveau : Application Android
+                </span>
+                
+                <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">
+                  Toute l'expérience<br />
+                  <span className="text-[#F5A623]">Care4Success</span> dans votre poche !
+                </h2>
+
+                <p className="text-blue-100 text-base leading-relaxed max-w-lg">
+                  Suivez vos cours en ligne, communiquez avec votre enseignant dédié et gérez vos devoirs directement depuis votre smartphone. Téléchargez notre application Android sécurisée dès maintenant.
+                </p>
+
+                <ul className="space-y-3 text-blue-100">
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-4 h-4 text-[#F5A623] shrink-0" />
+                    <span>Accès instantané aux cours en ligne et tableau blanc</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-4 h-4 text-[#F5A623] shrink-0" />
+                    <span>Notifications push en temps réel pour vos devoirs et sessions</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-4 h-4 text-[#F5A623] shrink-0" />
+                    <span>Optimisation de la bande passante pour une connexion fluide</span>
+                  </li>
+                </ul>
+
+                <div className="flex flex-wrap gap-4 pt-4">
+                  <a
+                    href="/app-release-signed.apk"
+                    download="Care4Success.apk"
+                    id="download-apk-btn"
+                    className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-full bg-[#F5A623] text-[#0D2D5A] font-black text-base overflow-hidden shadow-xl shadow-[#F5A623]/20 hover:shadow-[#F5A623]/40 transition-all duration-300 hover:scale-105"
+                  >
+                    <Download className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
+                    <span>Télécharger l'APK Direct</span>
+                  </a>
+                  <a
+                    href="/app-release-bundle.aab"
+                    download="Care4Success.aab"
+                    className="inline-flex items-center gap-3 px-6 py-4 rounded-full border border-white/20 text-white font-semibold text-sm hover:bg-white/10 transition-colors duration-200"
+                  >
+                    <span>Format Google Play (.AAB)</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Visuel premium CSS (Smartphone mockup) */}
+              <div className="md:col-span-5 flex justify-center">
+                <div className="relative w-64 h-[450px] bg-slate-900 rounded-[40px] border-[6px] border-slate-700 shadow-2xl overflow-hidden flex flex-col justify-between p-4 group">
+                  {/* Encoche (notch) */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-700 rounded-b-2xl z-20 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-slate-900 border border-slate-800" />
+                  </div>
+
+                  {/* Écran intérieur */}
+                  <div className="relative w-full h-full bg-[#0D2D5A] rounded-[30px] overflow-hidden flex flex-col justify-between p-4">
+                    {/* Header */}
+                    <div className="pt-4 flex items-center justify-between">
+                      <span className="text-[10px] text-white/50 font-bold">Care4Success</span>
+                      <span className="text-[10px] text-[#F5A623] font-black">PWA</span>
+                    </div>
+
+                    {/* Logo & Slogan */}
+                    <div className="text-center my-auto space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                        <GraduationCap className="w-9 h-9 text-[#F5A623]" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-black text-white tracking-wide uppercase leading-tight">Care4Success</h4>
+                        <p className="text-[9px] text-[#F5A623]/80 uppercase tracking-widest font-bold">Le soutien d'excellence</p>
+                      </div>
+                    </div>
+
+                    {/* Footer bouton de l'app mockup */}
+                    <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 text-center">
+                      <p className="text-[9px] text-white font-bold">Installez maintenant</p>
+                      <div className="w-full h-1 bg-white/20 rounded-full mt-2 overflow-hidden">
+                        <div className="w-2/3 h-full bg-[#F5A623] rounded-full" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
