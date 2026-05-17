@@ -21,9 +21,43 @@ const STATUS_COLORS: Record<string, string> = {
     "rendu": "bg-emerald-50 text-emerald-600 border-emerald-100",
     "à faire": "bg-blue-50 text-blue-600 border-blue-200",
     "en retard": "bg-red-50 text-red-600 border-red-100",
+    "corrigé": "bg-green-50 text-green-600 border-green-100",
 };
 
 const SUBJECTS = ["Mathématiques", "Français", "Anglais", "Histoire-Géo", "Sciences", "Physique", "Informatique", "Autre"];
+
+const parseHomeworkDate = (dateStr: string) => {
+    if (!dateStr) return { day: "—", month: "—", full: "—" };
+    if (dateStr.includes("/")) {
+        const [day, m] = dateStr.split("/");
+        const months: Record<string, string> = {
+            "01": "Jan", "02": "Fév", "03": "Mar", "04": "Avr", "05": "Mai", "06": "Juin",
+            "07": "Juil", "08": "Août", "09": "Sept", "10": "Oct", "11": "Nov", "12": "Déc"
+        };
+        return {
+            day,
+            month: months[m] || m,
+            full: dateStr
+        };
+    }
+    try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, "0");
+            const m = String(d.getMonth() + 1).padStart(2, "0");
+            const months: Record<string, string> = {
+                "01": "Jan", "02": "Fév", "03": "Mar", "04": "Avr", "05": "Mai", "06": "Juin",
+                "07": "Juil", "08": "Août", "09": "Sept", "10": "Oct", "11": "Nov", "12": "Déc"
+            };
+            return {
+                day,
+                month: months[m] || m,
+                full: `${day}/${m}`
+            };
+        }
+    } catch {}
+    return { day: "—", month: "—", full: dateStr };
+};
 
 export default function TeacherHomework() {
     const { user } = useAuth();
@@ -33,6 +67,8 @@ export default function TeacherHomework() {
     const [showForm, setShowForm] = useState(false);
     const [selectedHomework, setSelectedHomework] = useState<any | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [feedbackText, setFeedbackText] = useState("");
+    const [isCorrecting, setIsCorrecting] = useState(false);
 
     // Formulaire
     const [formStudentId, setFormStudentId] = useState("");
@@ -131,8 +167,40 @@ export default function TeacherHomework() {
         }
     };
 
+    const handleSelectHomework = (hw: any) => {
+        setSelectedHomework(hw);
+        setFeedbackText(hw?.feedback || "");
+    };
+
+    const handleCorrectHomework = async (id: string) => {
+        if (!feedbackText.trim()) {
+            toast.error("Veuillez saisir un commentaire de correction.");
+            return;
+        }
+        setIsCorrecting(true);
+        try {
+            const token = localStorage.getItem("c4s_token");
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+            const res = await fetch(`${API_BASE}/homework/${id}`, {
+                method: "PATCH",
+                headers,
+                body: JSON.stringify({ status: "corrigé", feedback: feedbackText }),
+            });
+            if (!res.ok) throw new Error("Échec");
+            toast.success("Devoir corrigé et envoyé à l'élève ! 🎓");
+            queryClient.invalidateQueries({ queryKey: ["teacherHomework"] });
+            setSelectedHomework(null);
+            setFeedbackText("");
+        } catch {
+            toast.error("Erreur lors de la correction.");
+        } finally {
+            setIsCorrecting(false);
+        }
+    };
+
     const renderStatusBadge = (status: string) => {
-        const label = status === "à faire" ? "À faire" : status === "rendu" ? "Rendu" : "En retard";
+        const label = status === "à faire" ? "À faire" : status === "rendu" ? "Rendu" : status === "corrigé" ? "Corrigé" : "En retard";
         const colorStyle = STATUS_COLORS[status?.toLowerCase()] || "bg-gray-50 text-gray-400 border-gray-100";
         return (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${colorStyle}`}>
@@ -215,11 +283,11 @@ export default function TeacherHomework() {
 
                 <div className="divide-y divide-slate-100">
                     {filteredHomework.map((h: any) => (
-                        <div key={h.id} onClick={() => setSelectedHomework(h)} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50/50 transition-colors cursor-pointer group">
+                        <div key={h.id} onClick={() => handleSelectHomework(h)} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50/50 transition-colors cursor-pointer group">
                             <div className="w-10 text-center flex-shrink-0">
                                 <div className="text-[9px] font-black text-[#1A6CC8] uppercase">Échéance</div>
-                                <div className="text-base font-black text-[#0D2D5A]">{new Date(h.dueDate).getDate()}</div>
-                                <div className="text-[9px] text-slate-400 font-black uppercase">{new Date(h.dueDate).toLocaleDateString('fr-FR', { month: 'short' })}</div>
+                                <div className="text-base font-black text-[#0D2D5A]">{parseHomeworkDate(h.dueDate).day}</div>
+                                <div className="text-[9px] text-slate-400 font-black uppercase">{parseHomeworkDate(h.dueDate).month}</div>
                             </div>
                             <div className="hidden sm:block w-px h-8 bg-slate-100" />
                             <div className="flex-1 min-w-0">
@@ -350,7 +418,7 @@ export default function TeacherHomework() {
             </Dialog>
 
             {/* Modal Détail Devoir - Style Schedule.tsx */}
-            <Dialog open={!!selectedHomework} onOpenChange={(open) => !open && setSelectedHomework(null)}>
+            <Dialog open={!!selectedHomework} onOpenChange={(open) => !open && handleSelectHomework(null)}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-[#0D2D5A]">
@@ -383,9 +451,74 @@ export default function TeacherHomework() {
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date limite</p>
-                                    <p className="text-xs font-bold text-red-500">{new Date(selectedHomework.dueDate).toLocaleDateString("fr-FR")}</p>
+                                    <p className="text-xs font-bold text-red-500">{parseHomeworkDate(selectedHomework.dueDate).full}</p>
                                 </div>
                             </div>
+
+                            {/* Fichier Rendu par l'Élève */}
+                            {selectedHomework.submissionUrl ? (
+                                <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                                <FileText className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Travail Rendu</p>
+                                                <p className="text-xs font-semibold text-[#0D2D5A]">Fichier de l'élève</p>
+                                            </div>
+                                        </div>
+                                        <a 
+                                            href={selectedHomework.submissionUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-[10px] font-black bg-[#1A6CC8] hover:bg-blue-700 text-white px-3 py-1.5 rounded uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all"
+                                        >
+                                            Ouvrir <ArrowUpRight className="w-3.5 h-3.5" />
+                                        </a>
+                                    </div>
+                                </div>
+                            ) : selectedHomework.status === "rendu" && (
+                                <div className="p-3 bg-amber-50 rounded-lg border border-amber-100 flex items-center gap-2 text-amber-600">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    <span className="text-[10px] font-bold uppercase">Aucun fichier joint par l'élève.</span>
+                                </div>
+                            )}
+
+                            {/* Espace Correction pour l'enseignant */}
+                            {selectedHomework.status === "rendu" && (
+                                <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-3">
+                                    <label className="text-xs font-bold text-[#0D2D5A] flex items-center gap-1">
+                                        <GraduationCap className="w-4 h-4 text-[#1A6CC8]" /> Commentaire de correction
+                                    </label>
+                                    <textarea
+                                        value={feedbackText}
+                                        onChange={(e) => setFeedbackText(e.target.value)}
+                                        placeholder="Saisissez vos remarques, corrections ou conseils pour l'élève..."
+                                        rows={3}
+                                        className="w-full text-xs border border-gray-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-[#1A6CC8]/30 resize-none bg-gray-50/50 animate-in fade-in duration-300"
+                                    />
+                                    <Button
+                                        onClick={() => handleCorrectHomework(selectedHomework.id)}
+                                        disabled={isCorrecting || !feedbackText.trim()}
+                                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase h-9 rounded-xl transition-all"
+                                    >
+                                        {isCorrecting ? "Envoi..." : "Valider la correction"}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Correction déjà envoyée */}
+                            {selectedHomework.status === "corrigé" && (
+                                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> Correction Envoyée
+                                    </p>
+                                    <p className="text-xs font-medium text-gray-600 italic">
+                                        "{selectedHomework.feedback || "Félicitations pour ton travail !"}"
+                                    </p>
+                                </div>
+                            )}
 
                             {selectedHomework.sessionId && (
                                 <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100 flex items-center gap-3">
@@ -395,7 +528,7 @@ export default function TeacherHomework() {
                             )}
 
                             <div className="mt-6 flex gap-3">
-                                <Button onClick={() => setSelectedHomework(null)} className="flex-1 bg-gray-100 text-[#0D2D5A] hover:bg-gray-200">Fermer</Button>
+                                <Button onClick={() => handleSelectHomework(null)} className="flex-1 bg-gray-100 text-[#0D2D5A] hover:bg-gray-200">Fermer</Button>
                                 {selectedHomework.status === "à faire" && (
                                     <Button 
                                         onClick={(e) => handleMarkDone(selectedHomework.id, e)} 

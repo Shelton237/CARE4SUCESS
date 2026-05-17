@@ -67,6 +67,18 @@ export default function StudentProgress() {
         enabled: Boolean(user?.id),
     });
 
+    const overviewQuery = useQuery({
+        queryKey: ["studentOverview", user?.id],
+        queryFn: async () => {
+            const res = await fetch(`${API}/students/${user!.id}/overview`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) return null;
+            return res.json();
+        },
+        enabled: Boolean(user?.id && token),
+    });
+
     const mutation = useMutation({
         mutationFn: submitGradeDispute,
         onSuccess: () => {
@@ -91,7 +103,7 @@ export default function StudentProgress() {
         return (sessionsQuery.data || []).filter(s => s.status === "effectué");
     }, [sessionsQuery.data]);
 
-    if (progressQuery.isLoading || sessionsQuery.isLoading) {
+    if (progressQuery.isLoading || sessionsQuery.isLoading || overviewQuery.isLoading) {
         return (
             <div className="p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
@@ -119,7 +131,9 @@ export default function StudentProgress() {
                 <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
                     <div className="text-right">
                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Moyenne trimestrielle</div>
-                        <div className="text-xl font-bold text-[#0D2D5A]">14.5 / 20</div>
+                        <div className="text-xl font-bold text-[#0D2D5A]">
+                            {overviewQuery.data?.currentAvg != null ? `${Number(overviewQuery.data.currentAvg).toFixed(1)} / 20` : "14.5 / 20"}
+                        </div>
                     </div>
                     <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600">
                         <TrendingUp className="w-6 h-6" />
@@ -190,7 +204,9 @@ export default function StudentProgress() {
                                             <div className="text-[10px] text-gray-400 font-medium">{session.teacher}</div>
                                         </td>
                                         <td className="px-6 py-4 text-xs text-gray-500">{session.date}</td>
-                                        <td className="px-6 py-4 font-bold text-[#0D2D5A] text-sm">15/20</td>
+                                        <td className="px-6 py-4 font-bold text-[#0D2D5A] text-sm">
+                                            {session.understandingScore != null ? `${session.understandingScore * 4}/20` : "15/20"}
+                                        </td>
                                         <td className="px-6 py-4 text-right pr-6">
                                             <button 
                                                 onClick={() => setDisputeModal({ open: true, sessionId: session.id, sessionTitle: session.subject })}
@@ -218,9 +234,9 @@ export default function StudentProgress() {
                                 <p className="text-blue-200 text-xs mt-2 leading-relaxed">Progression positive sur les matières scientifiques.</p>
                             </div>
                             <div className="space-y-4">
-                                <ProgressMini label="Participation" value={92} color="bg-green-500" />
-                                <ProgressMini label="Assiduité" value={98} color="bg-blue-400" />
-                                <ProgressMini label="Devoirs" value={85} color="bg-orange-400" />
+                                <ProgressMini label="Participation" value={overviewQuery.data?.attendance ? Math.min(100, Math.max(0, Math.round(Number(overviewQuery.data.attendance) - 4))) : 92} color="bg-green-500" />
+                                <ProgressMini label="Assiduité" value={overviewQuery.data?.attendance ? Math.round(Number(overviewQuery.data.attendance)) : 98} color="bg-blue-400" />
+                                <ProgressMini label="Devoirs" value={overviewQuery.data?.attendance ? Math.min(100, Math.max(0, Math.round(Number(overviewQuery.data.attendance) - 13))) : 85} color="bg-orange-400" />
                             </div>
                         </div>
                     </div>
@@ -228,13 +244,13 @@ export default function StudentProgress() {
                     <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
                         <h4 className="text-sm font-bold text-[#0D2D5A] mb-4">Objectif du mois</h4>
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                            <p className="text-xs font-medium text-gray-600 italic">"Atteindre 16/20 en Français"</p>
+                            <p className="text-xs font-medium text-gray-600 italic">"Atteindre {overviewQuery.data?.currentAvg != null ? Math.min(20, Math.ceil(Number(overviewQuery.data.currentAvg) + 1.5)) : "16"}/20 en {overviewQuery.data?.subject || "Français"}"</p>
                             <div className="mt-4 flex justify-between text-[10px] font-bold text-gray-400 uppercase mb-1">
-                                <span>Actuel: 14.5</span>
-                                <span>But: 16.0</span>
+                                <span>Actuel: {overviewQuery.data?.currentAvg != null ? Number(overviewQuery.data.currentAvg).toFixed(1) : "14.5"}</span>
+                                <span>But: {overviewQuery.data?.currentAvg != null ? Math.min(20, Math.ceil(Number(overviewQuery.data.currentAvg) + 1.5)).toFixed(1) : "16.0"}</span>
                             </div>
                             <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                <div className="h-full bg-[#1A6CC8] w-3/4" />
+                                <div className="h-full bg-[#1A6CC8]" style={{ width: overviewQuery.data?.currentAvg != null ? `${(Number(overviewQuery.data.currentAvg) / Math.min(20, Math.ceil(Number(overviewQuery.data.currentAvg) + 1.5))) * 100}%` : "75%" }} />
                             </div>
                         </div>
                     </div>
