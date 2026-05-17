@@ -8,11 +8,13 @@ import { fetchTeacherStudents } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import AcademicFile from "../common/AcademicFile";
 
 export default function TeacherStudents() {
     const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
+    const [showAcademicFile, setShowAcademicFile] = useState(false);
 
     const { data: students = [], isLoading } = useQuery({
         queryKey: ["teacherStudents", user?.id],
@@ -153,7 +155,11 @@ export default function TeacherStudents() {
                                     <Button className="w-full bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-black h-8 rounded-none shadow-none text-[10px] uppercase tracking-widest gap-2">
                                         <MessageCircle className="w-3.5 h-3.5" /> Envoyer un message
                                     </Button>
-                                    <Button variant="outline" className="w-full border-slate-200 text-slate-500 font-black h-8 rounded-none shadow-none text-[10px] uppercase tracking-widest gap-2 hover:bg-slate-50">
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => setShowAcademicFile(true)}
+                                        className="w-full border-slate-200 text-slate-500 font-black h-8 rounded-none shadow-none text-[10px] uppercase tracking-widest gap-2 hover:bg-slate-50"
+                                    >
                                         <FileText className="w-3.5 h-3.5" /> Voir le dossier
                                     </Button>
                                 </div>
@@ -169,6 +175,26 @@ export default function TeacherStudents() {
                     )}
                 </div>
             </div>
+
+            {/* Premium Modal Academic File */}
+            {showAcademicFile && selectedStudent && (
+                <div className="fixed inset-0 bg-[#0D2D5A]/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl relative border border-slate-100 animate-in zoom-in-95 duration-200 flex flex-col">
+                        <div className="sticky top-0 bg-[#0D2D5A] z-50 flex justify-between items-center px-4 py-3 border-b border-white/10">
+                            <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Dossier Académique · {selectedStudent.name}</span>
+                            <button
+                                onClick={() => setShowAcademicFile(false)}
+                                className="text-white hover:text-blue-200 font-black text-[10px] uppercase tracking-widest bg-[#1A6CC8] px-3 py-1.5 transition-colors"
+                            >
+                                Fermer ✕
+                            </button>
+                        </div>
+                        <div className="p-0">
+                            <AcademicFile studentId={selectedStudent.id} />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
