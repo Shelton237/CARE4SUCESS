@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
@@ -9,6 +9,7 @@ import {
     Clock, 
     Loader2,
     ArrowRight,
+    ArrowLeft,
     TrendingUp,
     Bookmark,
     Video,
@@ -287,6 +288,7 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+    const [mobileView, setMobileView] = useState<'list' | 'content'>('list');
 
     const { data: course, isLoading } = useQuery({
         queryKey: ["courseDetails", courseId],
@@ -305,11 +307,18 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
     const lessons = course?.lessons || [];
     const activeLesson = lessons.find(l => l.id === (activeLessonId || course?.lastLessonId)) || lessons[0];
 
+    useEffect(() => {
+        if (courseId) {
+            setMobileView('list');
+        }
+    }, [courseId]);
+
     if (!courseId) return null;
 
     const handleLessonClick = (lessonId: string) => {
         setActiveLessonId(lessonId);
         progressMutation.mutate({ lessonId });
+        setMobileView('content');
     };
 
     const handleComplete = (lessonId: string) => {
@@ -322,7 +331,10 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
             <DrawerContent className="h-[95vh] rounded-t-[2.5rem] bg-gray-50 border-none shadow-2xl">
                 <div className="flex h-full overflow-hidden">
                     {/* Sidebar Lessons */}
-                    <div className="w-80 bg-white border-r border-gray-100 flex flex-col p-4 md:p-6 overflow-hidden">
+                    <div className={cn(
+                        "w-full md:w-80 bg-white border-r border-gray-100 flex flex-col p-4 md:p-6 overflow-hidden shrink-0",
+                        mobileView === 'list' ? "flex" : "hidden md:flex"
+                    )}>
                         <div className="mb-8">
                             <h2 className="text-xl font-black text-[#0D2D5A] leading-tight mb-2">{course?.title}</h2>
                             <div className="flex items-center gap-2">
@@ -366,30 +378,50 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
                             })}
                         </div>
 
-                        <Button variant="ghost" className="mt-6 rounded-xl text-gray-400 hover:text-red-500 font-bold" onClick={onClose}>
+                        <Button variant="ghost" className="mt-6 rounded-xl text-gray-400 hover:text-red-500 font-bold shrink-0" onClick={onClose}>
                             Quitter le cours
                         </Button>
                     </div>
 
                     {/* Content Area */}
-                    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+                    <div className={cn(
+                        "flex-1 flex flex-col overflow-hidden bg-gray-50",
+                        mobileView === 'content' ? "flex" : "hidden md:flex"
+                    )}>
                         {isLoading ? (
                             <div className="flex-1 flex items-center justify-center">
                                 <Loader2 className="w-10 h-10 animate-spin text-[#1A6CC8]" />
                             </div>
                         ) : activeLesson ? (
                             <>
-                                <div className="flex-1 overflow-y-auto p-12 space-y-12">
+                                {/* Mobile Header */}
+                                <div className="md:hidden flex items-center gap-3 px-4 py-3.5 bg-white border-b border-gray-100 shrink-0">
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-9 px-3 rounded-xl text-[#0D2D5A] font-bold text-xs flex items-center gap-1.5 hover:bg-gray-50 border border-gray-100 bg-white shadow-sm"
+                                        onClick={() => setMobileView('list')}
+                                    >
+                                        <ArrowLeft className="w-4 h-4" />
+                                        Retour
+                                    </Button>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-xs font-black text-[#0D2D5A] truncate">{course?.title}</h3>
+                                        <p className="text-[10px] text-[#1A6CC8] font-bold uppercase tracking-wider">{course?.progress || 0}% Complété</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-12 space-y-6 md:space-y-12">
                                     <div className="max-w-3xl mx-auto space-y-8">
                                         <div className="space-y-4">
-                                            <Badge className="bg-blue-100 text-[#1A6CC8] border-none font-black text-[10px] px-3 py-1 rounded-full">
+                                            <Badge className="bg-blue-100 text-[#1A6CC8] border-none font-black text-[10px] px-3 py-1 rounded-full w-fit block">
                                                 Leçon {lessons.findIndex(l => l.id === activeLesson.id) + 1} sur {lessons.length}
                                             </Badge>
-                                            <h1 className="text-4xl font-black text-[#0D2D5A] tracking-tight">{activeLesson.title}</h1>
+                                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-[#0D2D5A] tracking-tight">{activeLesson.title}</h1>
                                         </div>
 
                                         {activeLesson.videoUrl && (
-                                            <div className="aspect-video bg-black rounded-[2.5rem] overflow-hidden shadow-2xl relative group">
+                                            <div className="aspect-video bg-black rounded-2xl md:rounded-[2.5rem] overflow-hidden shadow-2xl relative group">
                                                 <iframe 
                                                     src={activeLesson.videoUrl.replace("watch?v=", "embed/")} 
                                                     className="w-full h-full"
@@ -407,11 +439,11 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
                                 </div>
 
                                 {/* Bottom bar */}
-                                <div className="p-4 md:p-6 bg-white border-t border-gray-100 flex items-center justify-center gap-4">
+                                <div className="p-4 md:p-6 bg-white border-t border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-center gap-3 w-full shrink-0">
                                     <Button 
                                         onClick={() => handleComplete(activeLesson.id)}
                                         className={cn(
-                                            "h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95",
+                                            "h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 w-full sm:w-auto",
                                             course?.completedLessons?.includes(activeLesson.id)
                                                 ? "bg-green-500 hover:bg-green-600 text-white shadow-green-500/20"
                                                 : "bg-[#1A6CC8] hover:bg-blue-700 text-white shadow-blue-500/20"
@@ -427,7 +459,7 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
                                     {activeLesson.quiz && (
                                         <Button 
                                             variant="outline"
-                                            className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest border-2 border-orange-100 text-[#F5A623] hover:bg-orange-50 transition-all"
+                                            className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest border-2 border-orange-100 text-[#F5A623] hover:bg-orange-50 transition-all w-full sm:w-auto"
                                         >
                                             <HelpCircle className="mr-2 w-4 h-4" /> Passer le Test
                                         </Button>
@@ -436,7 +468,7 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
                                     {course?.mode === 'online' && (
                                         <Button 
                                             onClick={() => navigate(`/virtual-class/${course.id}`)}
-                                            className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 active:scale-95 transition-all"
+                                            className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 active:scale-95 transition-all w-full sm:w-auto"
                                         >
                                             <Video className="mr-2 w-4 h-4" /> Rejoindre la Classe
                                         </Button>
