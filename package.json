@@ -18,6 +18,8 @@
     "test:browser": "vitest --ui --port 51204"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@hookform/resolvers": "^3.9.0",
     "@iconify/react": "^6.0.2",
     "@radix-ui/react-accordion": "^1.2.0",
@@ -90,6 +92,7 @@
     "@babel/parser": "^7.28.0",
     "@babel/traverse": "^7.28.0",
     "@babel/types": "^7.28.0",
+    "@capacitor/cli": "^8.3.4",
     "@eslint/js": "^9.9.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@tailwindcss/vite": "^4.0.0",
