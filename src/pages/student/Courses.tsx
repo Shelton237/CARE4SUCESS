@@ -98,27 +98,27 @@ export default function StudentCourses() {
     }
 
     return (
-        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
+            <div className="flex flex-col gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-[#0D2D5A]">Mes Cours</h1>
                     <p className="text-gray-500 text-sm mt-1">Accède à tes ressources pédagogiques et suis ton avancement.</p>
                 </div>
 
-                <div className="relative">
+                <div className="relative w-full">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 
                         type="text" 
                         placeholder="Rechercher..." 
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="pl-10 pr-4 py-2.5 bg-white border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6CC8]/5 focus:border-[#1A6CC8] transition-all w-64 shadow-sm"
+                        className="pl-10 pr-4 py-2.5 bg-white border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6CC8]/5 focus:border-[#1A6CC8] transition-all w-full md:w-64 shadow-sm"
                     />
                 </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center gap-2 bg-gray-100/50 p-1.5 rounded-xl w-fit">
+            <div className="flex items-center bg-gray-100/50 p-1.5 rounded-xl w-full md:w-fit">
                 <TabButton active={activeTab === 'all'} onClick={() => setActiveTab('all')} label="Tous" />
                 <TabButton active={activeTab === 'in_progress'} onClick={() => setActiveTab('in_progress')} label="En cours" />
                 <TabButton active={activeTab === 'completed'} onClick={() => setActiveTab('completed')} label="Terminés" />
@@ -188,7 +188,7 @@ function TabButton({ active, onClick, label }: any) {
         <button 
             onClick={onClick}
             className={cn(
-                "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                "flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap text-center",
                 active 
                     ? "bg-white text-[#0D2D5A] shadow-sm" 
                     : "text-gray-400 hover:text-gray-600"
@@ -204,7 +204,7 @@ function CourseCard({ course, isBookmarked, onToggleBookmark, onView }: { course
     
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:border-[#1A6CC8]/20 transition-all flex flex-col h-full">
-            <div className="h-44 bg-gray-50 relative overflow-hidden cursor-pointer" onClick={onView}>
+            <div className="h-32 md:h-44 bg-gray-50 relative overflow-hidden cursor-pointer" onClick={onView}>
                 {course.coverUrl ? (
                     <img src={course.coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 ) : (
