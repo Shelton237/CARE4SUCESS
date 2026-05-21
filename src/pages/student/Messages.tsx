@@ -2,9 +2,9 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Send, MessageCircle, Paperclip, Search, Loader2, Image as ImageIcon } from "lucide-react";
+import { Send, MessageCircle, Paperclip, Search, Loader2, Image as ImageIcon, Download } from "lucide-react";
 import { toast } from "sonner";
-import { fetchTeachersByStudent } from "@/api/backoffice";
+import { fetchTeachersByStudent, uploadMessageAttachment } from "@/api/backoffice";
 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
@@ -34,6 +34,13 @@ interface Message {
     isRead: boolean;
     createdAt: string;
 }
+
+const getFullAttachmentUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const rootUrl = (import.meta.env.VITE_API_URL || "").replace(/\/api\/?$/, "");
+    return `${rootUrl}${url}`;
+};
 
 // Contacts par défaut pour pouvoir démarrer une conversation même sans historique
 // IDs réels depuis la base de données (table users)
@@ -248,14 +255,31 @@ export default function StudentMessages() {
         });
     };
 
-    const triggerUpload = () => {
-        // Simulation d'upload
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !activeContact) return;
         setIsUploading(true);
-        setTimeout(() => {
-            handleSend("https://placehold.co/400x300.png?text=Fichier+Exercice");
-            setIsUploading(false);
+        const formData = new FormData();
+        formData.append("attachment", file);
+        try {
+            const { fileUrl } = await uploadMessageAttachment(formData);
+            handleSend(fileUrl);
             toast.success("Fichier envoyé avec succès !");
-        }, 1500);
+        } catch (error) {
+            console.error("Upload error", error);
+            toast.error("Erreur de téléchargement");
+        } finally {
+            setIsUploading(false);
+            if (e.target) {
+                e.target.value = "";
+            }
+        }
+    };
+
+    const triggerUpload = () => {
+        fileInputRef.current?.click();
     };
 
     return (
@@ -399,8 +423,23 @@ export default function StudentMessages() {
                                                             }`}
                                                     >
                                                         {msg.attachmentUrl && (
-                                                            <div className="mb-2 relative rounded-lg overflow-hidden border border-white/20">
-                                                                <img src={msg.attachmentUrl} alt="Pièce jointe" className="max-w-full h-auto max-h-[200px] object-cover" />
+                                                            <div className="mb-2 rounded-lg overflow-hidden border border-white/10 bg-black/5 p-2 flex flex-col gap-2">
+                                                                {/\.(jpg|jpeg|png|gif|webp)$/i.test(msg.attachmentUrl) ? (
+                                                                    <img 
+                                                                        src={getFullAttachmentUrl(msg.attachmentUrl)} 
+                                                                        alt="Pièce jointe" 
+                                                                        className="max-w-full h-auto max-h-[200px] rounded object-cover" 
+                                                                    />
+                                                                ) : null}
+                                                                <a 
+                                                                    href={getFullAttachmentUrl(msg.attachmentUrl)} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-2 text-xs font-semibold hover:underline bg-white/20 hover:bg-white/30 text-current p-1.5 rounded transition-all w-fit"
+                                                                >
+                                                                    <Download className="w-3.5 h-3.5" />
+                                                                    Télécharger la pièce jointe
+                                                                </a>
                                                             </div>
                                                         )}
                                                         {msg.content}
@@ -431,6 +470,12 @@ export default function StudentMessages() {
                                     >
                                         {isUploading ? <Loader2 className="w-5 h-5 animate-spin text-[#1A6CC8]" /> : <Paperclip className="w-5 h-5" />}
                                     </button>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={handleFileUpload} 
+                                        className="hidden" 
+                                    />
 
                                     <textarea
                                         value={reply}

@@ -18,6 +18,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 
+const getFullAttachmentUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const rootUrl = (import.meta.env.VITE_API_URL || "").replace(/\/api\/?$/, "");
+    return `${rootUrl}${url}`;
+};
+
 export default function TeacherMessages() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -94,7 +101,7 @@ export default function TeacherMessages() {
         if (!file || !selectedContact) return;
         setIsUploading(true);
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("attachment", file);
         try {
             const { fileUrl } = await uploadMessageAttachment(formData);
             sendMutation.mutate({
@@ -111,6 +118,9 @@ export default function TeacherMessages() {
             toast.error("Erreur de téléchargement");
         } finally {
             setIsUploading(false);
+            if (e.target) {
+                e.target.value = "";
+            }
         }
     };
 
@@ -240,8 +250,22 @@ export default function TeacherMessages() {
                                                     }`}>
                                                         {m.content}
                                                         {m.attachmentUrl && (
-                                                            <div className="mt-1.5 flex items-center gap-1.5 text-[9px] font-black uppercase opacity-70">
-                                                                <FolderOpen className="w-3 h-3" /> Fichier joint
+                                                            <div className="mt-2 rounded-lg overflow-hidden border border-black/10 bg-black/5 p-2 flex flex-col gap-2">
+                                                                {/\.(jpg|jpeg|png|gif|webp)$/i.test(m.attachmentUrl) ? (
+                                                                    <img 
+                                                                        src={getFullAttachmentUrl(m.attachmentUrl)} 
+                                                                        alt="Pièce jointe" 
+                                                                        className="max-w-full h-auto max-h-[150px] rounded object-cover" 
+                                                                    />
+                                                                ) : null}
+                                                                <a 
+                                                                    href={getFullAttachmentUrl(m.attachmentUrl)} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-1.5 text-[9px] font-black uppercase hover:underline bg-white/20 hover:bg-white/30 text-current p-1.5 rounded transition-all w-fit"
+                                                                >
+                                                                    <FolderOpen className="w-3 h-3" /> Ouvrir le fichier
+                                                                </a>
                                                             </div>
                                                         )}
                                                     </div>
