@@ -22,6 +22,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 
+const getFullAttachmentUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const rootUrl = (import.meta.env.VITE_API_URL || "").replace(/\/api\/?$/, "");
+    return `${rootUrl}${url}`;
+};
+
 export default function ParentMessages() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -95,7 +102,7 @@ export default function ParentMessages() {
 
         setIsUploading(true);
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("attachment", file);
         
         try {
             const { fileUrl } = await uploadMessageAttachment(formData);
@@ -113,6 +120,9 @@ export default function ParentMessages() {
             toast.error("Erreur de téléchargement");
         } finally {
             setIsUploading(false);
+            if (e.target) {
+                e.target.value = "";
+            }
         }
     };
 
@@ -234,9 +244,23 @@ export default function ParentMessages() {
                                                     <div className={`max-w-[85%] p-4 border ${isMe ? "bg-[#0D2D5A] text-white border-[#0D2D5A]" : "bg-white text-[#0D2D5A] border-slate-100"}`}>
                                                         <p className="text-sm font-medium leading-relaxed">{m.content}</p>
                                                         {m.attachmentUrl && (
-                                                            <div className="mt-3 p-3 bg-black/5 flex items-center gap-3 border border-dashed border-white/20">
-                                                                <FolderOpen className="w-4 h-4" />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">Document joint</span>
+                                                            <div className="mt-3 p-3 bg-black/5 flex flex-col gap-3 border border-dashed border-white/20">
+                                                                {/\.(jpg|jpeg|png|gif|webp)$/i.test(m.attachmentUrl) ? (
+                                                                    <img 
+                                                                        src={getFullAttachmentUrl(m.attachmentUrl)} 
+                                                                        alt="Pièce jointe" 
+                                                                        className="max-w-full h-auto max-h-[150px] object-cover" 
+                                                                    />
+                                                                ) : null}
+                                                                <a 
+                                                                    href={getFullAttachmentUrl(m.attachmentUrl)} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:underline w-fit"
+                                                                >
+                                                                    <FolderOpen className="w-4 h-4" />
+                                                                    Ouvrir le document
+                                                                </a>
                                                             </div>
                                                         )}
                                                     </div>
