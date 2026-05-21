@@ -21,6 +21,10 @@ npm install
 echo "🏗️  Building Frontend..."
 npm run build
 
+# Create symlink for uploads to be served statically by Apache
+echo "🔗 Creating uploads symlink..."
+ln -sf ../uploads dist/uploads
+
 # Restart Backend with PM2
 echo "🔄 Restarting Backend API..."
 pm2 startOrRestart ecosystem.config.cjs --env production
