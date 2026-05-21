@@ -1859,17 +1859,29 @@ app.patch("/api/assignments/:id", async (req, res) => {
       );
       const parentName = reqRows.length > 0 ? reqRows[0].parent_name : "Parent";
 
-      // Rechercher les IDs utilisateurs correspondants (logic de recherche par nom pour le MVP)
-      const [[student]] = await pool.query("SELECT id FROM users WHERE name = ? AND role = 'student' LIMIT 1", [assignment.child_name]);
-      const [[parent]] = await pool.query("SELECT id FROM users WHERE name = ? AND role = 'parent' LIMIT 1", [parentName]);
-      const [[teacher]] = await pool.query("SELECT id FROM users WHERE name = ? AND (role = 'teacher' OR secondary_role = 'teacher') LIMIT 1", [selectedTeacher]);
+      // Rechercher les IDs utilisateurs correspondants — TRIM() utilisé pour robustesse (espaces parasites)
+      const [[student]] = await pool.query(
+        "SELECT id FROM users WHERE TRIM(name) = TRIM(?) AND role = 'student' LIMIT 1",
+        [assignment.child_name]
+      );
+      const [[parent]] = await pool.query(
+        "SELECT id FROM users WHERE TRIM(name) = TRIM(?) AND role = 'parent' LIMIT 1",
+        [parentName]
+      );
+      const [[teacher]] = await pool.query(
+        "SELECT id FROM users WHERE TRIM(name) = TRIM(?) AND (role = 'teacher' OR secondary_role = 'teacher') LIMIT 1",
+        [selectedTeacher]
+      );
 
-      // CRITICAL FIX: Le parent est optionnel — seuls student et teacher sont requis
-      // Avant ce fix, si le parent n'était pas trouvé, la relation n'était JAMAIS créée (bug silencieux)
+      console.log(`[Matching] Lookup — student: ${student ? student.id : 'NOT FOUND'}, teacher: ${teacher ? teacher.id : 'NOT FOUND'}`);
+
+      // Le parent est optionnel — seuls student et teacher sont requis pour créer la relation
       if (student && teacher) {
         // Enregistrement de la relation officielle student-teacher
         await linkStudentTeacherRelation(student.id, teacher.id);
-        console.log(`[Matching] Relation student_teacher créée: ${assignment.child_name} (${student.id}) <-> ${selectedTeacher} (${teacher.id})`);
+        console.log(`[Matching] ✅ Relation student_teacher créée: ${assignment.child_name} (${student.id}) <-> ${selectedTeacher} (${teacher.id})`);
+      } else {
+        console.warn(`[Matching] ⚠️ Relation NON créée — student trouvé: ${!!student}, teacher trouvé: ${!!teacher}. Les comptes doivent être créés avant de confirmer le matching.`);
       }
     } catch (autoErr) {
       console.warn("Automation partial failure:", autoErr.message);
