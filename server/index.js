@@ -451,6 +451,8 @@ const ensureTeacherApplicationsTable = async () => {
       availability TEXT NOT NULL,
       motivation TEXT NOT NULL,
       cv_url TEXT,
+      city VARCHAR(120) DEFAULT NULL,
+      zones JSON DEFAULT NULL,
       status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
       reviewed_by VARCHAR(255),
       reviewer_role ENUM('admin', 'advisor'),
@@ -460,6 +462,15 @@ const ensureTeacherApplicationsTable = async () => {
       PRIMARY KEY (id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  // Migration : ajouter city et zones si absents
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM teacher_applications LIKE 'city'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE teacher_applications ADD COLUMN city VARCHAR(120) DEFAULT NULL AFTER cv_url");
+      await pool.query("ALTER TABLE teacher_applications ADD COLUMN zones JSON DEFAULT NULL AFTER city");
+      console.log("Migration: Added city/zones to teacher_applications ✅");
+    }
+  } catch (e) { console.warn("Migration teacher_applications city:", e.message); }
 };
 
 const ensureCoursesTable = async () => {
@@ -2326,6 +2337,8 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
     availability,
     motivation,
     cvUrl,
+    city,
+    zones,
   } = req.body ?? {};
 
   if (!fullName || !email || !phone || !motivation || !availability) {
@@ -2361,6 +2374,11 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
     return res.status(400).json({ message: "Le nombre d'annees d'experience est invalide." });
   }
 
+  const zonesList = Array.isArray(zones) ? zones
+    : typeof zones === "string" && zones.trim()
+      ? zones.split(",").map(z => z.trim()).filter(Boolean)
+      : [];
+
   const normalizedApplication = {
     fullName,
     email,
@@ -2371,6 +2389,8 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
     availability,
     motivation,
     cvUrl: finalCvUrl,
+    city: city ? city.trim() : null,
+    zones: zonesList,
   };
 
   const applicationId = crypto.randomUUID();
@@ -2378,8 +2398,8 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
   try {
     await pool.query(
       `INSERT INTO teacher_applications
-        (id, full_name, email, phone, subjects, levels, experience_years, availability, motivation, cv_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, full_name, email, phone, subjects, levels, experience_years, availability, motivation, cv_url, city, zones)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         applicationId,
         normalizedApplication.fullName,
@@ -2391,6 +2411,8 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
         normalizedApplication.availability,
         normalizedApplication.motivation,
         normalizedApplication.cvUrl,
+        normalizedApplication.city,
+        JSON.stringify(normalizedApplication.zones),
       ]
     );
     const [rows] = await pool.query(
@@ -2468,7 +2490,7 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
     }
     const [rows] = await pool.query(
       `SELECT id, full_name, email, phone, subjects, levels, experience_years, availability, motivation, cv_url,
-              status, reviewed_by, reviewer_role, review_notes, reviewed_at, created_at
+              city, zones, status, reviewed_by, reviewer_role, review_notes, reviewed_at, created_at
        FROM teacher_applications
        WHERE id = ?`,
       [id]
@@ -2493,16 +2515,20 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
 
         const teacherLevels = parseJson(updatedApplication.levels, []).join(", ");
 
+        const appCity = updatedApplication.city || "";
+        const appZones = parseJson(updatedApplication.zones, []);
+
         await pool.query(
-          `INSERT IGNORE INTO teachers (id, name, email, subjects, level, city, status, rate_type, hourly_rate, monthly_rate)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT IGNORE INTO teachers (id, name, email, subjects, level, city, zones, status, rate_type, hourly_rate, monthly_rate)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             teacherId,
             updatedApplication.full_name,
             updatedApplication.email,
             JSON.stringify(updatedApplication.subjects),
             teacherLevels,
-            "",
+            appCity,
+            JSON.stringify(appZones),
             "actif",
             resolvedRateType,
             hourlyRateValue,

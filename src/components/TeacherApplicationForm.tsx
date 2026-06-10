@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { submitTeacherApplication } from "@/api/backoffice";
 import { useMutation } from "@tanstack/react-query";
-import { CheckCircle2, Mail, Phone, GraduationCap } from "lucide-react";
+import { CheckCircle2, Mail, Phone, GraduationCap, MapPin } from "lucide-react";
 import { springPresets } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,8 @@ const formSchema = z.object({
     fullName: z.string().min(3, "Le nom doit contenir au moins 3 caractères"),
     email: z.string().email("Adresse email invalide"),
     phone: z.string().min(8, "Numéro de téléphone invalide"),
+    city: z.string().min(2, "Indiquez votre ville principale"),
+    zonesText: z.string().optional(),
     subjectsText: z.string().min(2, "Indiquez au moins une matière"),
     levelsText: z.string().min(2, "Indiquez au moins un niveau scolaire"),
     experienceYears: z.coerce.number().min(0, "Expérience invalide"),
@@ -47,6 +49,8 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
             fullName: "",
             email: "",
             phone: "",
+            city: "",
+            zonesText: "",
             subjectsText: "",
             levelsText: "",
             experienceYears: 3,
@@ -92,6 +96,8 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
         formData.append("fullName", data.fullName);
         formData.append("email", data.email);
         formData.append("phone", data.phone);
+        formData.append("city", data.city);
+        if (data.zonesText) formData.append("zones", data.zonesText);
         formData.append("subjects", data.subjectsText);
         formData.append("levels", data.levelsText);
         formData.append("experienceYears", data.experienceYears.toString());
@@ -193,6 +199,30 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
                     {form.formState.errors.phone && (
                         <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
                     )}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="city">Ville principale *</Label>
+                    <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                            id="city"
+                            placeholder="Ex: Douala, Yaoundé…"
+                            className="pl-9"
+                            {...form.register("city")}
+                        />
+                    </div>
+                    {form.formState.errors.city && (
+                        <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>
+                    )}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="zonesText">Zones d'intervention <span className="text-gray-400 font-normal">(optionnel)</span></Label>
+                    <Input
+                        id="zonesText"
+                        placeholder="Ex: Douala Akwa, Douala Bonamoussadi, Makepe…"
+                        {...form.register("zonesText")}
+                    />
+                    <p className="text-xs text-gray-400">Séparez les zones par des virgules</p>
                 </div>
                 <div className="space-y-3">
                     <Label>Matières enseignées *</Label>
