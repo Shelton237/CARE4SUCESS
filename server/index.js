@@ -34,7 +34,7 @@ const pool = mysql.createPool({
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || "care4success_dev_secret";
-console.log("DEBUG: JWT_SECRET start with:", JWT_SECRET[0]);
+if (!process.env.JWT_SECRET) console.warn("⚠️  JWT_SECRET non défini — utilisation du secret de développement. Définir JWT_SECRET en production!");
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
 
 // FALLBACK DATA (IN-MEMORY)
@@ -316,7 +316,7 @@ const ensureSessionsTable = async () => {
       session_time VARCHAR(40) NOT NULL,
       subject VARCHAR(120) NOT NULL,
       location VARCHAR(120) NOT NULL,
-      status ENUM('effectué�', 'à venir', 'planifié') NOT NULL DEFAULT 'planifié',
+      status ENUM('effectué', 'à venir', 'planifié') NOT NULL DEFAULT 'planifié',
       teacher_id VARCHAR(36) NOT NULL,
       teacher_name VARCHAR(191) NOT NULL,
       student_id VARCHAR(36) NOT NULL,
@@ -834,6 +834,7 @@ const initDB = async () => {
     const [uCols] = await pool.query("SHOW COLUMNS FROM users");
     const uColNames = new Set(uCols.map(c => c.Field));
     if (!uColNames.has("secondary_role")) await pool.query("ALTER TABLE users ADD COLUMN secondary_role ENUM('admin','teacher','parent','advisor','student','tutor') NULL DEFAULT NULL").catch(() => {});
+    await ensureStudentEvaluationsTable();
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
@@ -1515,7 +1516,7 @@ const storage = multer.diskStorage({
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ storage: storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10 MB max
 
 app.use("/uploads", express.static(uploadDir));
 
@@ -1672,7 +1673,7 @@ app.get("/api/search", authenticateRequest, async (req, res) => {
   }
 });
 
-app.get("/api/requests", async (_req, res) => {
+app.get("/api/requests", authenticateRequest, async (_req, res) => {
   try {
     await ensureRequestsTable();
     const [rows] = await pool.query(
@@ -1842,7 +1843,7 @@ app.patch("/api/assignments/:id", async (req, res) => {
 
     // 3. Mettre à jour la demande correspondante dans 'requests' (statut métier)
     await pool.query(
-      "UPDATE requests SET status = 'assign�' WHERE child_name = ? AND level = ? AND subject = ?",
+      "UPDATE requests SET status = 'assigné' WHERE child_name = ? AND level = ? AND subject = ?",
       [assignment.child_name, assignment.level, assignment.subject]
     );
 
@@ -2002,7 +2003,7 @@ app.patch("/api/sessions/:id/sync", async (req, res) => {
   }
 });
 
-app.patch("/api/sessions/:id/status", async (req, res) => {
+app.patch("/api/sessions/:id/status", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
   if (!status) return res.status(400).json({ message: "Statut requis." });
@@ -2080,6 +2081,16 @@ app.post("/api/sessions/:id/report", authenticateRequest, async (req, res) => {
     const [sessionRows] = await connection.query("SELECT * FROM sessions WHERE id = ?", [id]);
     const s = sessionRows[0];
 
+    if (rating && s?.teacher_id && (req.user?.role === 'parent' || req.user?.role === 'student')) {
+      const feedbackId = crypto.randomUUID();
+      const reviewerType = req.user.role === 'parent' ? 'parent' : 'student';
+      const reviewerName = req.user.role === 'parent' ? (s.parent_name || 'Parent') : (s.student_name || 'Élève');
+      await connection.query(
+        'INSERT INTO teacher_feedback (id, teacher_id, teacher_name, reviewer_name, reviewer_type, rating, comment, session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [feedbackId, s.teacher_id, s.teacher_name, reviewerName, reviewerType, rating, comment || null, id]
+      ).catch(e => console.warn('teacher_feedback insert skipped:', e.message));
+    }
+
     await connection.commit();
     res.json({ success: true });
   } catch (error) {
@@ -2101,7 +2112,7 @@ app.post("/api/sessions/:id/report", authenticateRequest, async (req, res) => {
 });
 
 
-app.patch("/api/sessions/:id/notes", async (req, res) => {
+app.patch("/api/sessions/:id/notes", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   const { notes } = req.body ?? {};
   try {
@@ -2579,7 +2590,8 @@ app.post("/api/teachers", async (req, res) => {
   }
 });
 
-app.patch("/api/admin/teachers/:id", async (req, res) => {
+app.patch("/api/admin/teachers/:id", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin" && req.user?.role !== "advisor") return res.status(403).json({ message: "Accès refusé." });
   const { id } = req.params;
   const { subjects, levels } = req.body ?? {};
 
@@ -2819,7 +2831,7 @@ app.get("/api/courses/:courseId", async (req, res) => {
   }
 });
 
-app.post("/api/courses", async (req, res) => {
+app.post("/api/courses", authenticateRequest, async (req, res) => {
   const { title, description, subject, level, mode = "presentiel", price = 0, duration = "", status = "draft", coverUrl, createdBy } = req.body ?? {};
   if (!title || !subject || !level) {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
@@ -2873,7 +2885,7 @@ app.post("/api/courses", async (req, res) => {
   }
 });
 
-app.put("/api/courses/:courseId", async (req, res) => {
+app.put("/api/courses/:courseId", authenticateRequest, async (req, res) => {
   const { courseId } = req.params;
   const { title, description, subject, level, mode, price, duration, status, coverUrl } = req.body ?? {};
   if (!title || !subject || !level) {
@@ -2900,7 +2912,8 @@ app.put("/api/courses/:courseId", async (req, res) => {
   }
 });
 
-app.delete("/api/courses/:courseId", async (req, res) => {
+app.delete("/api/courses/:courseId", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin" && req.user?.role !== "teacher") return res.status(403).json({ message: "Acces refuse." });
   const { courseId } = req.params;
   try {
     await pool.query(`DELETE FROM courses WHERE id = ?`, [courseId]);
@@ -3222,12 +3235,12 @@ app.post("/api/quizzes/:quizId/attempts", async (req, res) => {
     );
     // Notification Professeur
     const [courseRows] = await pool.query(
-      `SELECT c.created_by_id, c.title, q.title as quiz_title 
+      `SELECT c.created_by, c.title, q.title as quiz_title 
        FROM quizzes q 
        JOIN courses c ON c.id = q.course_id 
        WHERE q.id = ?`, [quizId]
     );
-    if (courseRows.length && courseRows[0].created_by_id) {
+    if (courseRows.length && courseRows[0].created_by) {
       await createNotification(
         courseRows[0].created_by_id,
         "Nouvelle réponse au Quiz",
@@ -3300,7 +3313,8 @@ app.get("/api/platform-settings", async (_req, res) => {
   }
 });
 
-app.put("/api/platform-settings", async (req, res) => {
+app.put("/api/platform-settings", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Accès réservé aux administrateurs." });
   try {
     const saved = await savePlatformSettings(req.body ?? {});
     res.json(saved);
@@ -3319,7 +3333,7 @@ app.put("/api/platform-settings", async (req, res) => {
 // MESSAGERIE
 // ==========================================
 
-app.get("/api/messages/:userId", async (req, res) => {
+app.get("/api/messages/:userId", authenticateRequest, async (req, res) => {
   const { userId } = req.params;
   try {
     await ensureMessagesTable();
@@ -3336,7 +3350,7 @@ app.get("/api/messages/:userId", async (req, res) => {
   }
 });
 
-app.get("/api/messages/unread-count/:userId", async (req, res) => {
+app.get("/api/messages/unread-count/:userId", authenticateRequest, async (req, res) => {
   const { userId } = req.params;
   try {
     await ensureMessagesTable();
@@ -3351,7 +3365,7 @@ app.get("/api/messages/unread-count/:userId", async (req, res) => {
   }
 });
 
-app.post("/api/messages", async (req, res) => {
+app.post("/api/messages", authenticateRequest, async (req, res) => {
   const { senderId, senderName, senderRole, receiverId, receiverName, receiverRole, content, attachmentUrl } = req.body ?? {};
 
   if (!senderId || !receiverId || !content) {
@@ -3374,7 +3388,7 @@ app.post("/api/messages", async (req, res) => {
   }
 });
 
-app.patch("/api/messages/:messageId/read", async (req, res) => {
+app.patch("/api/messages/:messageId/read", authenticateRequest, async (req, res) => {
   const { messageId } = req.params;
   try {
     await ensureMessagesTable();
@@ -4058,7 +4072,8 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-app.post("/api/admin/reset-user-password", async (req, res) => {
+app.post("/api/admin/reset-user-password", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Accès réservé aux administrateurs." });
   const { email, newPassword = "eleve123" } = req.body;
   if (!email) return res.status(400).json({ message: "Email requis." });
 
@@ -4209,8 +4224,9 @@ app.get("/api/users", authenticateRequest, async (req, res) => {
 });
 
 // Avatar photo upload
-app.post("/api/users/:userId/avatar", upload.single("avatar"), async (req, res) => {
+app.post("/api/users/:userId/avatar", authenticateRequest, upload.single("avatar"), async (req, res) => {
   const { userId } = req.params;
+  if (req.user?.sub !== userId && req.user?.role !== "admin") return res.status(403).json({ message: "Accès refusé." });
   if (!req.file) {
     return res.status(400).json({ message: "Aucune image reçue." });
   }
@@ -4667,7 +4683,7 @@ app.get("/api/parents/:parentId/invoices", async (req, res) => {
   const { parentId } = req.params;
   try {
     const [[{ sessionsThisMonth }]] = await pool.query(
-      "SELECT COUNT(*) as count FROM sessions WHERE parent_id = ? AND status = 'effectué�'", [parentId]
+      "SELECT COUNT(*) as count FROM sessions WHERE parent_id = ? AND status = 'effectué'", [parentId]
     );
     const count = sessionsThisMonth || 0;
 
@@ -5260,7 +5276,7 @@ app.get("/api/advisors/:advisorId/dashboard", async (req, res) => {
       "SELECT COUNT(*) as matchingInProgress FROM assignments WHERE status = 'pending'"
     );
     const [[{ sessionsDone }]] = await pool.query(
-      "SELECT COUNT(*) as count FROM sessions WHERE status = 'effectué�' AND MONTH(session_date) = MONTH(CURDATE())"
+      "SELECT COUNT(*) as count FROM sessions WHERE status = 'effectué' AND MONTH(session_date) = MONTH(CURDATE())"
     );
 
     const [recentFamilies] = await pool.query(
@@ -5393,7 +5409,7 @@ app.post("/api/homework", authenticateRequest, async (req, res) => {
       [id, teacherId, studentId, sessionId || null, title, description || "", dueDate, subject, fileUrl || null]
     );
 
-    const [rows] = await pool.query("SELECT h.*, t.name as teacher_name FROM homework h JOIN teachers t ON h.teacher_id = t.id WHERE h.id = ?", [id]);
+    const [rows] = await pool.query("SELECT h.*, t.name as teacher_name, u.name as student_name FROM homework h JOIN teachers t ON h.teacher_id = t.id LEFT JOIN users u ON h.student_id = u.id WHERE h.id = ?", [id]);
     const hw = mapHomeworkRow(rows[0]);
 
     // Notification élève
@@ -5819,7 +5835,7 @@ app.get("/api/students/:studentId/overview", async (req, res) => {
     const leaderboard = await Promise.all(
       allStudents.map(async (s) => {
         const [[sr]] = await pool.query(
-          "SELECT COUNT(*) as cnt FROM sessions WHERE student_id = ? AND status = 'effectué�'", [s.id]
+          "SELECT COUNT(*) as cnt FROM sessions WHERE student_id = ? AND status = 'effectué'", [s.id]
         ).catch(() => [[{ cnt: 0 }]]);
         const [qr] = await pool.query(
           "SELECT COALESCE(SUM(score),0) as total FROM quiz_attempts WHERE student_id = ?", [s.id]
@@ -6612,7 +6628,7 @@ cron.schedule("0 * * * *", async () => {
     tomorrow.setHours(tomorrow.getHours() + 24);
     const dayStr = tomorrow.toISOString().slice(0, 10);
     const [sessions] = await pool.query(
-      `SELECT s.id, s.session_date AS date, s.start_time,
+      `SELECT s.id, s.session_date AS date, s.session_time AS start_time,
               u_parent.email AS parentEmail, u_parent.name AS parentName,
               u_student.name AS childName,
               t.name AS teacherName, s.subject
@@ -6620,7 +6636,7 @@ cron.schedule("0 * * * *", async () => {
        JOIN users u_student ON u_student.id = s.student_id
        JOIN users u_parent ON u_parent.id = u_student.parent_id
        JOIN teachers t ON t.id = s.teacher_id
-       WHERE DATE(s.session_date) = ? AND s.status = 'programmé' AND s.reminder_sent = 0`,
+       WHERE DATE(s.session_date) = ? AND s.status = 'planifié' AND s.reminder_sent = 0`,
       [dayStr]
     );
     for (const sess of sessions) {
@@ -6671,7 +6687,7 @@ cron.schedule("30 0 1 * *", async () => {
        JOIN users u_student ON u_student.id = s.student_id
        JOIN users u_parent ON u_parent.id = u_student.parent_id
        LEFT JOIN teachers t ON t.id = s.teacher_id
-       WHERE DATE_FORMAT(s.date, '%Y-%m') = ? AND s.status = 'effectué'
+       WHERE DATE_FORMAT(s.session_date, '%Y-%m') = ? AND s.status = 'effectué'
        GROUP BY s.student_id, u_student.parent_id`,
       [monthKey]
     );
@@ -6737,7 +6753,7 @@ cron.schedule("0 8 1 * *", async () => {
        JOIN users u_student ON u_student.id = s.student_id
        JOIN users u_parent ON u_parent.id = u_student.parent_id
        LEFT JOIN teachers t ON t.id = s.teacher_id
-       WHERE DATE_FORMAT(s.date, '%Y-%m') = ?`,
+       WHERE DATE_FORMAT(s.session_date, '%Y-%m') = ?`,
       [`${y}-${m}`]
     );
     for (const row of students) {
@@ -6746,7 +6762,7 @@ cron.schedule("0 8 1 * *", async () => {
                 ROUND(AVG(f.understanding_score), 1) AS avgScore
          FROM sessions s
          LEFT JOIN session_feedback f ON f.session_id = s.id
-         WHERE s.student_id = ? AND DATE_FORMAT(s.date, '%Y-%m') = ?`,
+         WHERE s.student_id = ? AND DATE_FORMAT(s.session_date, '%Y-%m') = ?`,
         [row.student_id, `${y}-${m}`]
       );
       await sendMail({
