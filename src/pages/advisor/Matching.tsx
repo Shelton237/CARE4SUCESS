@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import { fetchAdvisorAssignments, confirmAssignment } from "@/api/backoffice";
 import type { AdvisorAssignment } from "@/integrations/supabase/types";
 import { GitMerge, Star, Check, AlertCircle, Loader2, RefreshCw, ArrowLeft } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdvisorMatching() {
     const location = useLocation();
@@ -12,6 +13,7 @@ export default function AdvisorMatching() {
 
     const [selected, setSelected] = useState<Record<string, string | null>>({});
     const queryClient = useQueryClient();
+    const { toast } = useToast();
     const targetRef = useRef<HTMLDivElement | null>(null);
 
     const { data, isLoading, isError, error, refetch } = useQuery({
@@ -41,8 +43,12 @@ export default function AdvisorMatching() {
 
     const mutation = useMutation<AdvisorAssignment, Error, { matchId: string; teacherName: string }>({
         mutationFn: ({ matchId, teacherName }) => confirmAssignment(matchId, teacherName),
-        onSuccess: () => {
+        onSuccess: (_data, { teacherName }) => {
             queryClient.invalidateQueries({ queryKey: ["backoffice", "assignments"] });
+            toast({ title: "Matching confirmé", description: `${teacherName} a été assigné avec succès.` });
+        },
+        onError: (err) => {
+            toast({ title: "Erreur", description: err.message || "Impossible de confirmer le matching.", variant: "destructive" });
         },
     });
 
