@@ -805,6 +805,223 @@ const ensureAcademicPlansTable = async () => {
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TABLE GEO_LOCATIONS — hiérarchie géographique pan-africaine
+// ─────────────────────────────────────────────────────────────────────────────
+const ensureGeoLocationsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS geo_locations (
+      id INT UNSIGNED NOT NULL,
+      name VARCHAR(191) NOT NULL,
+      type ENUM('country','region','department','arrondissement','quartier') NOT NULL,
+      parent_id INT UNSIGNED NULL,
+      country_id INT UNSIGNED NULL,
+      region_id INT UNSIGNED NULL,
+      department_id INT UNSIGNED NULL,
+      arrondissement_id INT UNSIGNED NULL,
+      status ENUM('active','pending') NOT NULL DEFAULT 'active',
+      suggested_by VARCHAR(191) NULL,
+      validated_by VARCHAR(191) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      INDEX idx_geo_parent (parent_id),
+      INDEX idx_geo_type_status (type, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  const [[{ cnt }]] = await pool.query("SELECT COUNT(*) as cnt FROM geo_locations WHERE type='country' AND status='active'");
+  if (Number(cnt) > 0) {
+    // Migration: set AUTO_INCREMENT si besoin
+    await pool.query("ALTER TABLE geo_locations AUTO_INCREMENT = 1001").catch(() => {});
+    return;
+  }
+
+  // Seed data: [id, name, type, parent_id, country_id, region_id, department_id, arrondissement_id]
+  const SEED = [
+    // ── Pays ──────────────────────────────────────────────────────────────────
+    [1,'Cameroun','country',null,null,null,null,null],
+    [2,'Nigeria','country',null,null,null,null,null],
+    [3,"Côte d'Ivoire",'country',null,null,null,null,null],
+    [4,'Sénégal','country',null,null,null,null,null],
+    [5,'Ghana','country',null,null,null,null,null],
+    [6,'Kenya','country',null,null,null,null,null],
+    [7,'Gabon','country',null,null,null,null,null],
+    [8,'Congo (Brazza)','country',null,null,null,null,null],
+    [9,'RDC','country',null,null,null,null,null],
+    [10,'Bénin','country',null,null,null,null,null],
+    [11,'Togo','country',null,null,null,null,null],
+    [12,'Mali','country',null,null,null,null,null],
+    [13,'Burkina Faso','country',null,null,null,null,null],
+    [14,'Guinée','country',null,null,null,null,null],
+    [15,'Madagascar','country',null,null,null,null,null],
+    [16,'Rwanda','country',null,null,null,null,null],
+    [17,'Ouganda','country',null,null,null,null,null],
+    [18,'Tanzanie','country',null,null,null,null,null],
+    [19,'Éthiopie','country',null,null,null,null,null],
+    [20,'Maroc','country',null,null,null,null,null],
+    [21,'Tunisie','country',null,null,null,null,null],
+    [22,'Algérie','country',null,null,null,null,null],
+    [23,'Égypte','country',null,null,null,null,null],
+    [24,'Angola','country',null,null,null,null,null],
+    [25,'Mozambique','country',null,null,null,null,null],
+    [26,'Zambie','country',null,null,null,null,null],
+    [27,'Zimbabwe','country',null,null,null,null,null],
+    [28,'Niger','country',null,null,null,null,null],
+    [29,'Tchad','country',null,null,null,null,null],
+    [30,'Guinée équatoriale','country',null,null,null,null,null],
+    // ── Régions du Cameroun (country_id=1) ───────────────────────────────────
+    [51,'Adamaoua','region',1,1,null,null,null],
+    [52,'Centre','region',1,1,null,null,null],
+    [53,'Est','region',1,1,null,null,null],
+    [54,'Extrême-Nord','region',1,1,null,null,null],
+    [55,'Littoral','region',1,1,null,null,null],
+    [56,'Nord','region',1,1,null,null,null],
+    [57,'Nord-Ouest','region',1,1,null,null,null],
+    [58,'Ouest','region',1,1,null,null,null],
+    [59,'Sud','region',1,1,null,null,null],
+    [60,'Sud-Ouest','region',1,1,null,null,null],
+    // ── Départements ─────────────────────────────────────────────────────────
+    // Littoral (55)
+    [71,'Wouri','department',55,1,55,null,null],
+    [72,'Moungo','department',55,1,55,null,null],
+    [73,'Nkam','department',55,1,55,null,null],
+    [74,'Sanaga-Maritime','department',55,1,55,null,null],
+    // Centre (52)
+    [75,'Mfoundi','department',52,1,52,null,null],
+    [76,'Lekié','department',52,1,52,null,null],
+    [77,'Mbam-et-Inoubou','department',52,1,52,null,null],
+    // Nord-Ouest (57)
+    [78,'Mezam','department',57,1,57,null,null],
+    // Ouest (58)
+    [79,'Hauts-Plateaux','department',58,1,58,null,null],
+    [80,'Haut-Nkam','department',58,1,58,null,null],
+    // Sud-Ouest (60)
+    [81,'Fako','department',60,1,60,null,null],
+    // Adamaoua (51)
+    [82,'Vina','department',51,1,51,null,null],
+    // Nord (56)
+    [83,'Bénoué','department',56,1,56,null,null],
+    // Extrême-Nord (54)
+    [84,'Diamaré','department',54,1,54,null,null],
+    // ── Arrondissements Wouri / Douala ────────────────────────────────────────
+    [121,'Douala 1er','arrondissement',71,1,55,71,null],
+    [122,'Douala 2ème','arrondissement',71,1,55,71,null],
+    [123,'Douala 3ème','arrondissement',71,1,55,71,null],
+    [124,'Douala 4ème','arrondissement',71,1,55,71,null],
+    [125,'Douala 5ème','arrondissement',71,1,55,71,null],
+    // Arrondissements Mfoundi / Yaoundé
+    [131,'Yaoundé 1er','arrondissement',75,1,52,75,null],
+    [132,'Yaoundé 2ème','arrondissement',75,1,52,75,null],
+    [133,'Yaoundé 3ème','arrondissement',75,1,52,75,null],
+    [134,'Yaoundé 4ème','arrondissement',75,1,52,75,null],
+    [135,'Yaoundé 5ème','arrondissement',75,1,52,75,null],
+    [136,'Yaoundé 6ème','arrondissement',75,1,52,75,null],
+    [137,'Yaoundé 7ème','arrondissement',75,1,52,75,null],
+    // Mezam / Bamenda
+    [141,'Bamenda 1er','arrondissement',78,1,57,78,null],
+    [142,'Bamenda 2ème','arrondissement',78,1,57,78,null],
+    [143,'Bamenda 3ème','arrondissement',78,1,57,78,null],
+    // Hauts-Plateaux / Bafoussam
+    [144,'Bafoussam 1er','arrondissement',79,1,58,79,null],
+    [145,'Bafoussam 2ème','arrondissement',79,1,58,79,null],
+    [146,'Bafoussam 3ème','arrondissement',79,1,58,79,null],
+    // Fako
+    [147,'Buea','arrondissement',81,1,60,81,null],
+    [148,'Limbe 1er','arrondissement',81,1,60,81,null],
+    // Moungo
+    [149,'Nkongsamba 1er','arrondissement',72,1,55,72,null],
+    [150,'Mbanga','arrondissement',72,1,55,72,null],
+    // Bénoué / Garoua
+    [151,'Garoua 1er','arrondissement',83,1,56,83,null],
+    [152,'Garoua 2ème','arrondissement',83,1,56,83,null],
+    // Diamaré / Maroua
+    [153,'Maroua 1er','arrondissement',84,1,54,84,null],
+    [154,'Maroua 2ème','arrondissement',84,1,54,84,null],
+    // ── Quartiers Douala 1er (arr=121) ───────────────────────────────────────
+    [201,'Akwa','quartier',121,1,55,71,121],
+    [202,'Bonanjo','quartier',121,1,55,71,121],
+    [203,'Plateau','quartier',121,1,55,71,121],
+    [204,'Bali','quartier',121,1,55,71,121],
+    [205,'Centre ville Douala','quartier',121,1,55,71,121],
+    [206,'Mboppi','quartier',121,1,55,71,121],
+    // Quartiers Douala 2ème (arr=122)
+    [211,'New Bell','quartier',122,1,55,71,122],
+    [212,'Nkongmondo','quartier',122,1,55,71,122],
+    [213,'Village (Douala 2)','quartier',122,1,55,71,122],
+    [214,'Logbaba','quartier',122,1,55,71,122],
+    [215,'Ndokotti','quartier',122,1,55,71,122],
+    // Quartiers Douala 3ème (arr=123)
+    [221,'Makepe','quartier',123,1,55,71,123],
+    [222,'Logbessou','quartier',123,1,55,71,123],
+    [223,'Ndogpassi','quartier',123,1,55,71,123],
+    [224,'Kotto','quartier',123,1,55,71,123],
+    [225,'PK 10','quartier',123,1,55,71,123],
+    [226,'PK 12','quartier',123,1,55,71,123],
+    [227,'Cité des Palmiers','quartier',123,1,55,71,123],
+    [228,'Youpwe','quartier',123,1,55,71,123],
+    // Quartiers Douala 4ème (arr=124)
+    [231,'Bonaberi','quartier',124,1,55,71,124],
+    [232,'Bekoko','quartier',124,1,55,71,124],
+    [233,'Sodiko','quartier',124,1,55,71,124],
+    // Quartiers Douala 5ème (arr=125)
+    [241,'Bonamoussadi','quartier',125,1,55,71,125],
+    [242,'Deido','quartier',125,1,55,71,125],
+    [243,'Bepanda','quartier',125,1,55,71,125],
+    [244,'Ndogbong','quartier',125,1,55,71,125],
+    [245,'Ange Raphaël','quartier',125,1,55,71,125],
+    [246,'Makepe Missoke','quartier',125,1,55,71,125],
+    [247,'Bonapriso','quartier',125,1,55,71,125],
+    // Quartiers Yaoundé 1er (arr=131)
+    [251,'Nlongkak','quartier',131,1,52,75,131],
+    [252,'Bastos','quartier',131,1,52,75,131],
+    [253,'Briqueterie','quartier',131,1,52,75,131],
+    [254,'Centre ville Yaoundé','quartier',131,1,52,75,131],
+    [255,'Manguiers','quartier',131,1,52,75,131],
+    // Quartiers Yaoundé 2ème (arr=132)
+    [261,'Ekounou','quartier',132,1,52,75,132],
+    [262,'Mballa 2','quartier',132,1,52,75,132],
+    [263,'Nkolmesseng','quartier',132,1,52,75,132],
+    [264,'Essos','quartier',132,1,52,75,132],
+    // Quartiers Yaoundé 3ème (arr=133)
+    [271,'Efoulan','quartier',133,1,52,75,133],
+    [272,'Mvan','quartier',133,1,52,75,133],
+    [273,'Nsimeyong','quartier',133,1,52,75,133],
+    [274,'Oyom-Abang','quartier',133,1,52,75,133],
+    // Quartiers Yaoundé 4ème (arr=134)
+    [281,'Ngousso','quartier',134,1,52,75,134],
+    [282,'Nkol Eton','quartier',134,1,52,75,134],
+    [283,'Mvog-Betsi','quartier',134,1,52,75,134],
+    [284,'Nkolbisson','quartier',134,1,52,75,134],
+    // Quartiers Yaoundé 5ème (arr=135)
+    [291,'Mvog-Mbi','quartier',135,1,52,75,135],
+    [292,'Tsinga','quartier',135,1,52,75,135],
+    [293,'Mokolo','quartier',135,1,52,75,135],
+    [294,'Mendong','quartier',135,1,52,75,135],
+    [295,'Simbock','quartier',135,1,52,75,135],
+    [296,'Mfandena','quartier',135,1,52,75,135],
+    // Quartiers Yaoundé 6ème (arr=136)
+    [301,'Biyem-Assi','quartier',136,1,52,75,136],
+    [302,'Obili','quartier',136,1,52,75,136],
+    [303,'Santa Barbara','quartier',136,1,52,75,136],
+    [304,'Cité Verte','quartier',136,1,52,75,136],
+    [305,'Damas','quartier',136,1,52,75,136],
+    // Quartiers Yaoundé 7ème (arr=137)
+    [311,'Nkol Afeme','quartier',137,1,52,75,137],
+    [312,'Etoa Meki','quartier',137,1,52,75,137],
+    [313,'Mimboman','quartier',137,1,52,75,137],
+  ];
+
+  for (const [id, name, type, parent_id, country_id, region_id, department_id, arrondissement_id] of SEED) {
+    await pool.query(
+      `INSERT IGNORE INTO geo_locations (id, name, type, parent_id, country_id, region_id, department_id, arrondissement_id, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+      [id, name, type, parent_id, country_id, region_id, department_id, arrondissement_id]
+    );
+  }
+  await pool.query("ALTER TABLE geo_locations AUTO_INCREMENT = 1001").catch(() => {});
+  console.log("GeoLocations seeded ✅");
+};
+
 const initDB = async () => {
   console.log("Initializing database...");
   try {
@@ -867,6 +1084,23 @@ const initDB = async () => {
     const uColNames = new Set(uCols.map(c => c.Field));
     if (!uColNames.has("secondary_role")) await pool.query("ALTER TABLE users ADD COLUMN secondary_role ENUM('admin','teacher','parent','advisor','student','tutor') NULL DEFAULT NULL").catch(() => {});
     await ensureStudentEvaluationsTable();
+    await ensureGeoLocationsTable();
+    // Migration: geo_location_id sur teachers
+    const [tColsGeo] = await pool.query("SHOW COLUMNS FROM teachers LIKE 'geo_location_id'");
+    if (tColsGeo.length === 0) await pool.query("ALTER TABLE teachers ADD COLUMN geo_location_id INT UNSIGNED NULL AFTER zones").catch(() => {});
+    const [tColsZoneIds] = await pool.query("SHOW COLUMNS FROM teachers LIKE 'geo_zone_ids'");
+    if (tColsZoneIds.length === 0) await pool.query("ALTER TABLE teachers ADD COLUMN geo_zone_ids JSON NULL AFTER geo_location_id").catch(() => {});
+    // Migration: geo_location_id sur assignments
+    const [aColsGeo] = await pool.query("SHOW COLUMNS FROM assignments LIKE 'geo_location_id'");
+    if (aColsGeo.length === 0) await pool.query("ALTER TABLE assignments ADD COLUMN geo_location_id INT UNSIGNED NULL AFTER location").catch(() => {});
+    // Migration: geo_location_id sur requests
+    const [rColsGeo] = await pool.query("SHOW COLUMNS FROM requests LIKE 'geo_location_id'");
+    if (rColsGeo.length === 0) await pool.query("ALTER TABLE requests ADD COLUMN geo_location_id INT UNSIGNED NULL AFTER location").catch(() => {});
+    // Migration: geo_location_id + geo_zone_ids sur teacher_applications
+    const [taColsGeo] = await pool.query("SHOW COLUMNS FROM teacher_applications LIKE 'geo_location_id'");
+    if (taColsGeo.length === 0) await pool.query("ALTER TABLE teacher_applications ADD COLUMN geo_location_id INT UNSIGNED NULL").catch(() => {});
+    const [taColsZoneIds] = await pool.query("SHOW COLUMNS FROM teacher_applications LIKE 'geo_zone_ids'");
+    if (taColsZoneIds.length === 0) await pool.query("ALTER TABLE teacher_applications ADD COLUMN geo_zone_ids JSON NULL").catch(() => {});
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
@@ -1579,7 +1813,7 @@ app.use("/uploads", express.static(uploadDir));
 app.post("/api/parents/enroll", async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { parentName, parentEmail, parentPassword, parentPhone, parentLocation, children, childName, childEmail, childPassword, childLevel, subject } = req.body;
+    const { parentName, parentEmail, parentPassword, parentPhone, parentLocation, parentGeoLocationId, children, childName, childEmail, childPassword, childLevel, subject } = req.body;
     console.log("DEBUG: Enrollment start for", parentEmail);
 
     const finalChildren = Array.isArray(children) ? children : [
@@ -1658,9 +1892,9 @@ app.post("/api/parents/enroll", async (req, res) => {
       await ensureRequestsTable();
       const requestId = crypto.randomUUID();
       await connection.query(
-        `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, location, status, request_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
-        [requestId, parentName, child.name, child.level || "", child.subject || "", parentPhone || "", parentLocation || null]
+        `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, location, geo_location_id, status, request_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
+        [requestId, parentName, child.name, child.level || "", child.subject || "", parentPhone || "", parentLocation || null, parentGeoLocationId ? Number(parentGeoLocationId) : null]
       );
 
       results.students.push({ id: studentId, name: child.name, email: finalStudentEmail });
@@ -1794,21 +2028,67 @@ app.patch("/api/requests/:id", async (req, res) => {
 
           // Récupérer la localisation du parent depuis son profil utilisateur
           const [parentRows] = await pool.query(
-            "SELECT location FROM users WHERE TRIM(name) = TRIM(?) AND (role = 'parent' OR secondary_role = 'parent') LIMIT 1",
+            "SELECT location, geo_location_id FROM users WHERE TRIM(name) = TRIM(?) AND (role = 'parent' OR secondary_role = 'parent') LIMIT 1",
             [r.parent_name]
           );
           const parentLocation = parentRows[0]?.location || r.location || null;
+          const parentGeoId = parentRows[0]?.geo_location_id || r.geo_location_id || null;
 
-          // Chercher les enseignants candidats compatibles (matière + localisation si disponible)
+          // Chercher les enseignants candidats compatibles
           const [teachers] = await pool.query(
-            "SELECT name, rating, city, zones FROM teachers WHERE JSON_CONTAINS(subjects, JSON_QUOTE(?)) AND status = 'actif' LIMIT 8",
+            `SELECT t.name, t.rating, t.city, t.zones, t.geo_location_id, t.geo_zone_ids,
+             tg.country_id as t_country, tg.region_id as t_region, tg.department_id as t_dept,
+             tg.arrondissement_id as t_arr, tg.id as tg_id
+             FROM teachers t
+             LEFT JOIN geo_locations tg ON tg.id = t.geo_location_id
+             WHERE JSON_CONTAINS(t.subjects, JSON_QUOTE(?)) AND t.status = 'actif' LIMIT 8`,
             [r.subject]
           );
           console.log(`Automation: Found ${teachers.length} candidate teachers for subject: ${r.subject}`);
 
+          // Récupérer les données geo pour les zones enseignants
+          const zoneIds = new Set();
+          if (parentGeoId) zoneIds.add(parentGeoId);
+          for (const t of teachers) {
+            for (const zId of parseJson(t.geo_zone_ids, [])) zoneIds.add(zId);
+          }
+          let autoGeoMap = new Map();
+          if (zoneIds.size > 0) {
+            const [geoRows] = await pool.query(
+              "SELECT id, type, country_id, region_id, department_id, arrondissement_id FROM geo_locations WHERE id IN (?)",
+              [[...zoneIds]]
+            );
+            for (const g of geoRows) autoGeoMap.set(g.id, g);
+          }
+
+          const autoGeoScore = (tRow, reqGeoId) => {
+            if (!reqGeoId || !autoGeoMap.has(reqGeoId)) return 0;
+            const reqGeo = autoGeoMap.get(reqGeoId);
+            const scoreOne = (geoId) => {
+              if (!geoId || !autoGeoMap.has(geoId)) return 0;
+              const g = autoGeoMap.get(geoId);
+              if (g.id === reqGeo.id) return 5;
+              const tArr = g.arrondissement_id || (g.type === 'arrondissement' ? g.id : null);
+              const rArr = reqGeo.arrondissement_id || (reqGeo.type === 'arrondissement' ? reqGeo.id : null);
+              if (tArr && rArr && tArr === rArr) return 4;
+              const tDept = g.department_id || (g.type === 'department' ? g.id : null);
+              const rDept = reqGeo.department_id || (reqGeo.type === 'department' ? reqGeo.id : null);
+              if (tDept && rDept && tDept === rDept) return 3;
+              const tReg = g.region_id || (g.type === 'region' ? g.id : null);
+              const rReg = reqGeo.region_id || (reqGeo.type === 'region' ? reqGeo.id : null);
+              if (tReg && rReg && tReg === rReg) return 2;
+              const tCtry = g.country_id || (g.type === 'country' ? g.id : null);
+              const rCtry = reqGeo.country_id || (reqGeo.type === 'country' ? reqGeo.id : null);
+              if (tCtry && rCtry && tCtry === rCtry) return 1;
+              return 0;
+            };
+            return Math.max(0, ...[tRow.tg_id, ...parseJson(tRow.geo_zone_ids, [])].map(scoreOne));
+          };
+
           const candidates = teachers.map(t => {
-            const tZones = parseJson(t.zones, []);
-            const locScore = computeLocationScore(t.city, tZones, parentLocation);
+            const locScore = (parentGeoId && t.tg_id)
+              ? autoGeoScore(t, parentGeoId)
+              : computeLocationScore(t.city, parseJson(t.zones, []), parentLocation);
             return {
               name: (t.name || "").trim(),
               rating: Number(t.rating) || 5,
@@ -1821,11 +2101,11 @@ app.patch("/api/requests/:id", async (req, res) => {
 
           const assignmentId = crypto.randomUUID();
           await pool.query(
-            `INSERT IGNORE INTO assignments (id, child_name, level, subject, location, status, candidates)
-             VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
-            [assignmentId, r.child_name, r.level, r.subject, parentLocation, JSON.stringify(candidates)]
+            `INSERT IGNORE INTO assignments (id, child_name, level, subject, location, geo_location_id, status, candidates)
+             VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+            [assignmentId, r.child_name, r.level, r.subject, parentLocation, parentGeoId, JSON.stringify(candidates)]
           );
-          console.log(`Automation: Assignment created with ID ${assignmentId} | location: ${parentLocation || 'N/A'}`);
+          console.log(`Automation: Assignment created with ID ${assignmentId} | location: ${parentLocation || 'N/A'} | geoId: ${parentGeoId || 'N/A'}`);
         }
       } catch (autoError) {
         console.error("Automation Error during assignment creation:", autoError);
@@ -1843,36 +2123,83 @@ app.patch("/api/requests/:id", async (req, res) => {
 app.get("/api/assignments", async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT id, child_name, level, subject, needs, schedule, location, candidates, selected_teacher, status FROM assignments ORDER BY created_at ASC"
+      "SELECT id, child_name, level, subject, needs, schedule, location, geo_location_id, candidates, selected_teacher, status FROM assignments ORDER BY created_at ASC"
     );
 
-    // Récupérer les profils enseignants actifs avec leurs données de localisation
     const [teachers] = await pool.query(
-      "SELECT name, rating, subjects, level, city, zones FROM teachers WHERE status = 'actif'"
+      `SELECT t.name, t.rating, t.subjects, t.level, t.city, t.zones, t.geo_location_id, t.geo_zone_ids,
+       tg.country_id as t_country, tg.region_id as t_region, tg.department_id as t_dept,
+       tg.arrondissement_id as t_arr, tg.id as tg_id
+       FROM teachers t
+       LEFT JOIN geo_locations tg ON tg.id = t.geo_location_id
+       WHERE t.status = 'actif'`
     );
+
+    // Construire une map geo pour tous les IDs utiles (requests + zones enseignants)
+    const allGeoIds = new Set();
+    for (const r of rows) { if (r.geo_location_id) allGeoIds.add(r.geo_location_id); }
+    for (const t of teachers) {
+      if (t.geo_location_id) allGeoIds.add(t.geo_location_id);
+      for (const zId of parseJson(t.geo_zone_ids, [])) allGeoIds.add(zId);
+    }
+    let geoMap = new Map();
+    if (allGeoIds.size > 0) {
+      const [geoRows] = await pool.query(
+        "SELECT id, type, country_id, region_id, department_id, arrondissement_id FROM geo_locations WHERE id IN (?)",
+        [[...allGeoIds]]
+      );
+      for (const g of geoRows) geoMap.set(g.id, g);
+    }
+
+    const computeGeoScore = (tRow, reqGeoId) => {
+      if (!reqGeoId || !geoMap.has(reqGeoId)) return 0;
+      const reqGeo = geoMap.get(reqGeoId);
+
+      const scoreOne = (geoId) => {
+        if (!geoId || !geoMap.has(geoId)) return 0;
+        const tGeo = geoMap.get(geoId);
+        if (tGeo.id === reqGeo.id) return 5;
+        const tArr = tGeo.arrondissement_id || (tGeo.type === 'arrondissement' ? tGeo.id : null);
+        const rArr = reqGeo.arrondissement_id || (reqGeo.type === 'arrondissement' ? reqGeo.id : null);
+        if (tArr && rArr && tArr === rArr) return 4;
+        const tDept = tGeo.department_id || (tGeo.type === 'department' ? tGeo.id : null);
+        const rDept = reqGeo.department_id || (reqGeo.type === 'department' ? reqGeo.id : null);
+        if (tDept && rDept && tDept === rDept) return 3;
+        const tReg = tGeo.region_id || (tGeo.type === 'region' ? tGeo.id : null);
+        const rReg = reqGeo.region_id || (reqGeo.type === 'region' ? reqGeo.id : null);
+        if (tReg && rReg && tReg === rReg) return 2;
+        const tCtry = tGeo.country_id || (tGeo.type === 'country' ? tGeo.id : null);
+        const rCtry = reqGeo.country_id || (reqGeo.type === 'country' ? reqGeo.id : null);
+        if (tCtry && rCtry && tCtry === rCtry) return 1;
+        return 0;
+      };
+
+      const geoZoneIds = parseJson(tRow.geo_zone_ids, []);
+      return Math.max(0, ...[tRow.tg_id, ...geoZoneIds].map(scoreOne));
+    };
 
     const enrichedRows = rows.map(r => {
       const rSubject = (r.subject || "").toLowerCase();
       const rLevel = (r.level || "").toLowerCase();
       const rLocation = (r.location || "").toLowerCase().trim();
+      const reqGeoId = r.geo_location_id || null;
 
       const dynamicCandidates = teachers
         .filter(t => {
           const tSubjects = parseJson(t.subjects, []);
           const tLevel = (t.level || "").toLowerCase();
-
           const subjectMatch = tSubjects.some(s => {
             const sLower = s.toLowerCase();
             return rSubject.includes(sLower) || sLower.includes(rSubject);
           });
           const levelMatch = tLevel.includes(rLevel) || rLevel.includes(tLevel) || !rLevel;
-
           return subjectMatch && levelMatch;
         })
         .map(t => {
-          const tZones = parseJson(t.zones, []);
-          const locScore = computeLocationScore(t.city, tZones, rLocation);
-          // Score composite : priorité zone > note
+          // Priorité : geo ID si disponible, sinon fallback texte
+          const locScore = (reqGeoId && t.tg_id)
+            ? computeGeoScore(t, reqGeoId)
+            : computeLocationScore(t.city, parseJson(t.zones, []), rLocation);
           const compositeScore = locScore * 3 + (Number(t.rating) || 5);
           return {
             name: (t.name || "").trim(),
@@ -1883,7 +2210,6 @@ app.get("/api/assignments", async (_req, res) => {
             score: compositeScore,
           };
         })
-        // Trier : zone compatible en premier, puis par note
         .sort((a, b) => b.score - a.score)
         .slice(0, 8);
 
@@ -1975,6 +2301,112 @@ app.patch("/api/assignments/:id", async (req, res) => {
   } catch (error) {
     console.error("Failed to update assignment", error);
     res.status(500).json({ message: "Impossible de confirmer le matching." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTES GÉOGRAPHIE
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/api/geo", async (req, res) => {
+  const { type, parent_id, status } = req.query;
+  try {
+    let query = "SELECT id, name, type, parent_id, status FROM geo_locations WHERE 1=1";
+    const params = [];
+    if (type) { query += " AND type = ?"; params.push(type); }
+    if (parent_id) { query += " AND parent_id = ?"; params.push(Number(parent_id)); }
+    query += " AND status = ?";
+    params.push(status === 'pending' ? 'pending' : 'active');
+    query += " ORDER BY name ASC";
+    const [rows] = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    console.error("[GET /api/geo]", err);
+    res.status(500).json({ message: "Erreur chargement géographie" });
+  }
+});
+
+app.post("/api/geo/suggest", async (req, res) => {
+  const { name, type, parent_id, suggested_by } = req.body ?? {};
+  if (!name || !type) return res.status(400).json({ message: "name et type sont requis" });
+  const validTypes = ['country', 'region', 'department', 'arrondissement', 'quartier'];
+  if (!validTypes.includes(type)) return res.status(400).json({ message: "type invalide" });
+  try {
+    const trimmed = name.trim();
+    const [existing] = await pool.query(
+      "SELECT id, status FROM geo_locations WHERE LOWER(name) = LOWER(?) AND type = ? AND (parent_id <=> ?)",
+      [trimmed, type, parent_id ? Number(parent_id) : null]
+    );
+    if (existing.length > 0) {
+      return res.json({ id: existing[0].id, name: trimmed, type, status: existing[0].status, alreadyExists: true });
+    }
+    let country_id = null, region_id = null, department_id = null, arrondissement_id = null;
+    if (parent_id) {
+      const [pRow] = await pool.query(
+        "SELECT id, type, country_id, region_id, department_id FROM geo_locations WHERE id = ?",
+        [Number(parent_id)]
+      );
+      if (pRow[0]) {
+        const p = pRow[0];
+        if (p.type === 'country') country_id = p.id;
+        else { country_id = p.country_id;
+          if (p.type === 'region') region_id = p.id;
+          else { region_id = p.region_id;
+            if (p.type === 'department') department_id = p.id;
+            else { department_id = p.department_id;
+              if (p.type === 'arrondissement') arrondissement_id = p.id;
+            }
+          }
+        }
+      }
+    }
+    const [result] = await pool.query(
+      `INSERT INTO geo_locations (name, type, parent_id, country_id, region_id, department_id, arrondissement_id, status, suggested_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [trimmed, type, parent_id ? Number(parent_id) : null, country_id, region_id, department_id, arrondissement_id, suggested_by || null]
+    );
+    res.status(201).json({ id: result.insertId, name: trimmed, type, status: 'pending' });
+  } catch (err) {
+    console.error("[POST /api/geo/suggest]", err);
+    res.status(500).json({ message: "Erreur lors de la suggestion" });
+  }
+});
+
+app.get("/api/geo/pending", authenticateRequest, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: "Accès refusé" });
+  try {
+    const [rows] = await pool.query(`
+      SELECT g.id, g.name, g.type, g.parent_id, g.suggested_by, g.created_at,
+             p.name as parent_name, p.type as parent_type
+      FROM geo_locations g
+      LEFT JOIN geo_locations p ON p.id = g.parent_id
+      WHERE g.status = 'pending'
+      ORDER BY g.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error("[GET /api/geo/pending]", err);
+    res.status(500).json({ message: "Erreur récupération suggestions" });
+  }
+});
+
+app.patch("/api/geo/:id", authenticateRequest, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: "Accès refusé" });
+  const geoId = Number(req.params.id);
+  const { action, validated_by } = req.body ?? {};
+  if (!action || !['validate', 'reject'].includes(action))
+    return res.status(400).json({ message: "action doit être 'validate' ou 'reject'" });
+  try {
+    if (action === 'validate') {
+      await pool.query("UPDATE geo_locations SET status = 'active', validated_by = ? WHERE id = ?", [validated_by || null, geoId]);
+      const [rows] = await pool.query("SELECT * FROM geo_locations WHERE id = ?", [geoId]);
+      res.json({ success: true, location: rows[0] });
+    } else {
+      await pool.query("DELETE FROM geo_locations WHERE id = ? AND status = 'pending'", [geoId]);
+      res.json({ success: true });
+    }
+  } catch (err) {
+    console.error("[PATCH /api/geo/:id]", err);
+    res.status(500).json({ message: "Erreur mise à jour" });
   }
 });
 
@@ -2339,6 +2771,8 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
     cvUrl,
     city,
     zones,
+    geoLocationId,
+    geoZoneIds,
   } = req.body ?? {};
 
   if (!fullName || !email || !phone || !motivation || !availability) {
@@ -2379,6 +2813,8 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
       ? zones.split(",").map(z => z.trim()).filter(Boolean)
       : [];
 
+  const parsedGeoZoneIds = geoZoneIds ? parseJson(geoZoneIds, []) : [];
+
   const normalizedApplication = {
     fullName,
     email,
@@ -2391,6 +2827,8 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
     cvUrl: finalCvUrl,
     city: city ? city.trim() : null,
     zones: zonesList,
+    geoLocationId: geoLocationId ? Number(geoLocationId) : null,
+    geoZoneIds: parsedGeoZoneIds,
   };
 
   const applicationId = crypto.randomUUID();
@@ -2398,8 +2836,8 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
   try {
     await pool.query(
       `INSERT INTO teacher_applications
-        (id, full_name, email, phone, subjects, levels, experience_years, availability, motivation, cv_url, city, zones)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, full_name, email, phone, subjects, levels, experience_years, availability, motivation, cv_url, city, zones, geo_location_id, geo_zone_ids)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         applicationId,
         normalizedApplication.fullName,
@@ -2413,6 +2851,8 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
         normalizedApplication.cvUrl,
         normalizedApplication.city,
         JSON.stringify(normalizedApplication.zones),
+        normalizedApplication.geoLocationId,
+        normalizedApplication.geoZoneIds.length > 0 ? JSON.stringify(normalizedApplication.geoZoneIds) : null,
       ]
     );
     const [rows] = await pool.query(
@@ -2517,10 +2957,12 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
 
         const appCity = updatedApplication.city || "";
         const appZones = parseJson(updatedApplication.zones, []);
+        const appGeoLocationId = updatedApplication.geo_location_id ? Number(updatedApplication.geo_location_id) : null;
+        const appGeoZoneIds = parseJson(updatedApplication.geo_zone_ids, []);
 
         await pool.query(
-          `INSERT IGNORE INTO teachers (id, name, email, subjects, level, city, zones, status, rate_type, hourly_rate, monthly_rate)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT IGNORE INTO teachers (id, name, email, subjects, level, city, zones, geo_location_id, geo_zone_ids, status, rate_type, hourly_rate, monthly_rate)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             teacherId,
             updatedApplication.full_name,
@@ -2529,6 +2971,8 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
             teacherLevels,
             appCity,
             JSON.stringify(appZones),
+            appGeoLocationId,
+            appGeoZoneIds.length > 0 ? JSON.stringify(appGeoZoneIds) : null,
             "actif",
             resolvedRateType,
             hourlyRateValue,

@@ -10,16 +10,15 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { submitTeacherApplication } from "@/api/backoffice";
 import { useMutation } from "@tanstack/react-query";
-import { CheckCircle2, Mail, Phone, GraduationCap, MapPin } from "lucide-react";
+import { CheckCircle2, Mail, Phone, GraduationCap } from "lucide-react";
 import { springPresets } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { GeoSelector } from "@/components/GeoSelector";
 
 const formSchema = z.object({
     fullName: z.string().min(3, "Le nom doit contenir au moins 3 caractères"),
     email: z.string().email("Adresse email invalide"),
     phone: z.string().min(8, "Numéro de téléphone invalide"),
-    city: z.string().min(2, "Indiquez votre ville principale"),
-    zonesText: z.string().optional(),
     subjectsText: z.string().min(2, "Indiquez au moins une matière"),
     levelsText: z.string().min(2, "Indiquez au moins un niveau scolaire"),
     experienceYears: z.coerce.number().min(0, "Expérience invalide"),
@@ -42,6 +41,9 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
     const { toast } = useToast();
     const [completed, setCompleted] = useState(false);
     const [cvFile, setCvFile] = useState<File | null>(null);
+    const [primaryGeoId, setPrimaryGeoId] = useState<number | null>(null);
+    const [primaryGeoPath, setPrimaryGeoPath] = useState("");
+    const [geoError, setGeoError] = useState("");
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -49,8 +51,6 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
             fullName: "",
             email: "",
             phone: "",
-            city: "",
-            zonesText: "",
             subjectsText: "",
             levelsText: "",
             experienceYears: 3,
@@ -92,21 +92,22 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
     };
 
     const onSubmit = (data: FormData) => {
+        if (!primaryGeoId) {
+            setGeoError("Veuillez sélectionner votre zone d'intervention principale.");
+            return;
+        }
+        setGeoError("");
         const formData = new window.FormData();
         formData.append("fullName", data.fullName);
         formData.append("email", data.email);
         formData.append("phone", data.phone);
-        formData.append("city", data.city);
-        if (data.zonesText) formData.append("zones", data.zonesText);
+        formData.append("geoLocationId", String(primaryGeoId));
         formData.append("subjects", data.subjectsText);
         formData.append("levels", data.levelsText);
         formData.append("experienceYears", data.experienceYears.toString());
         formData.append("availability", data.availability);
         formData.append("motivation", data.motivation);
-        if (cvFile) {
-            formData.append("cv", cvFile);
-        }
-
+        if (cvFile) formData.append("cv", cvFile);
         mutation.mutate(formData as any);
     };
 
@@ -200,29 +201,19 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
                         <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
                     )}
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="city">Ville principale *</Label>
-                    <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                            id="city"
-                            placeholder="Ex: Douala, Yaoundé…"
-                            className="pl-9"
-                            {...form.register("city")}
-                        />
-                    </div>
-                    {form.formState.errors.city && (
-                        <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="zonesText">Zones d'intervention <span className="text-gray-400 font-normal">(optionnel)</span></Label>
-                    <Input
-                        id="zonesText"
-                        placeholder="Ex: Douala Akwa, Douala Bonamoussadi, Makepe…"
-                        {...form.register("zonesText")}
+                <div className="md:col-span-2">
+                    <GeoSelector
+                        label="Zone d'intervention"
+                        required
+                        suggestedByEmail={form.watch("email")}
+                        onChange={(geoId, path) => {
+                            setPrimaryGeoId(geoId);
+                            setPrimaryGeoPath(path);
+                            if (geoId) setGeoError("");
+                        }}
+                        hint="Sélectionnez jusqu'au niveau le plus précis disponible."
                     />
-                    <p className="text-xs text-gray-400">Séparez les zones par des virgules</p>
+                    {geoError && <p className="text-sm text-destructive mt-1">{geoError}</p>}
                 </div>
                 <div className="space-y-3">
                     <Label>Matières enseignées *</Label>

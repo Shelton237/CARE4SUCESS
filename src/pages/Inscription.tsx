@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Phone, MapPin, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { GeoSelector } from "@/components/GeoSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +20,7 @@ export default function Inscription() {
         parentPassword: "",
         parentPhone: "",
         parentLocation: "",
+        parentGeoLocationId: null as number | null,
         children: [
             { id: Date.now(), name: "", level: ALL_LEVELS.includes("6ème") ? "6ème" : ALL_LEVELS[0], subject: ["Mathématiques"], email: "", password: "" }
         ]
@@ -77,6 +79,7 @@ export default function Inscription() {
                 parentPassword: formData.parentPassword,
                 parentPhone: formData.parentPhone,
                 parentLocation: formData.parentLocation || undefined,
+                parentGeoLocationId: formData.parentGeoLocationId ?? undefined,
                 userType,
                 children: formData.children.map(c => ({
                     name: c.name,
@@ -207,14 +210,17 @@ export default function Inscription() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Ville / Quartier</label>
-                                        <div className="relative">
-                                            <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                            <Input className="pl-10" name="parentLocation" placeholder="Ex: Douala Bonamoussadi" value={formData.parentLocation} onChange={handleChange} />
-                                        </div>
-                                        <p className="text-xs text-slate-400">Permet de vous suggérer les enseignants les plus proches de chez vous.</p>
-                                    </div>
+                                    <GeoSelector
+                                        label="Ville / Quartier"
+                                        onChange={(geoId, path) => {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                parentGeoLocationId: geoId,
+                                                parentLocation: path,
+                                            }));
+                                        }}
+                                        hint="Permet de vous suggérer les enseignants les plus proches de chez vous."
+                                    />
                                 </div>
                                 <div className="flex gap-4">
                                     <Button variant="ghost" onClick={() => setStep(0)}>Changer de profil</Button>
