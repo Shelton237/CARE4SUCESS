@@ -27,6 +27,9 @@ export interface AssignmentCandidate {
     name: string;
     rating: number;
     available: boolean;
+    city?: string | null;
+    locationMatch?: boolean;
+    score?: number;
 }
 
 export type AssignmentStatus = "pending" | "selected" | "confirmed";
@@ -52,6 +55,7 @@ export interface AdvisorAssignment {
     subject: string;
     needs: string[];
     schedule: string;
+    location?: string | null;
     candidates: AssignmentCandidate[];
     selectedTeacher: string | null;
     status: AssignmentStatus;

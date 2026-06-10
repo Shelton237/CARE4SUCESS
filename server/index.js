@@ -301,6 +301,9 @@ const ensureTeachersTable = async () => {
     ["availability_json",    "ALTER TABLE teachers ADD COLUMN availability_json JSON NULL"],
     ["rate_type",            "ALTER TABLE teachers ADD COLUMN rate_type ENUM('hourly','monthly') NOT NULL DEFAULT 'hourly'"],
     ["monthly_rate",         "ALTER TABLE teachers ADD COLUMN monthly_rate DECIMAL(10,2) NULL"],
+    ["performance_index",    "ALTER TABLE teachers ADD COLUMN performance_index DECIMAL(5,2) NULL"],
+    ["levels",               "ALTER TABLE teachers ADD COLUMN levels JSON NULL"],
+    ["zones",                "ALTER TABLE teachers ADD COLUMN zones JSON NULL COMMENT 'Zones dintervention acceptees'"],
   ];
   for (const [col, sql] of migrations) {
     if (!cols.has(col)) await pool.query(sql).catch(() => {});
@@ -638,6 +641,7 @@ const ensureRequestsTable = async () => {
       level VARCHAR(120) NOT NULL,
       subject VARCHAR(120) NOT NULL,
       phone VARCHAR(50),
+      location VARCHAR(191) DEFAULT NULL,
       status ENUM('reçu', 'en traitement', 'assigné', 'clôturé') NOT NULL DEFAULT 'reçu',
       request_date DATE NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -652,6 +656,14 @@ const ensureRequestsTable = async () => {
   } catch (e) {
     console.warn("Migration: requests.status ENUM already correct or failed:", e.message);
   }
+  // Migration: add location column if missing
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM requests LIKE 'location'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE requests ADD COLUMN location VARCHAR(191) DEFAULT NULL AFTER phone");
+      console.log("Migration: Added location to requests ✅");
+    }
+  } catch (e) { console.warn("Migration requests.location:", e.message); }
 };
 
 const ensureAssignmentsTable = async () => {
@@ -663,6 +675,7 @@ const ensureAssignmentsTable = async () => {
       subject VARCHAR(120) NOT NULL,
       needs JSON DEFAULT NULL,
       schedule VARCHAR(255) DEFAULT NULL,
+      location VARCHAR(191) DEFAULT NULL,
       candidates JSON DEFAULT NULL,
       selected_teacher VARCHAR(191) DEFAULT NULL,
       status ENUM('pending', 'confirmed', 'cancelled') NOT NULL DEFAULT 'pending',
@@ -670,6 +683,14 @@ const ensureAssignmentsTable = async () => {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  // Migration: add location column if missing
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM assignments LIKE 'location'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE assignments ADD COLUMN location VARCHAR(191) DEFAULT NULL AFTER schedule");
+      console.log("Migration: Added location to assignments ✅");
+    }
+  } catch (e) { console.warn("Migration assignments.location:", e.message); }
 };
 
 const ensureSessionFeedbackTable = async () => {
@@ -983,6 +1004,29 @@ const fixJsonEncoding = (value) => {
   return value;
 };
 
+// Calcule un score de proximité entre la ville/zones du prof et la localisation de la demande
+const computeLocationScore = (teacherCity, teacherZones, requestLocation) => {
+  if (!requestLocation) return 0;
+  const req = requestLocation.toLowerCase().trim();
+  const city = (teacherCity || "").toLowerCase().trim();
+  const zones = Array.isArray(teacherZones) ? teacherZones.map(z => z.toLowerCase().trim()) : [];
+
+  // Correspondance exacte ou inclusion (ville du prof dans la demande ou vice versa)
+  if (city && (city === req || req.includes(city) || city.includes(req))) return 3;
+
+  // Correspondance dans les zones d'intervention déclarées
+  if (zones.some(z => z && (z === req || req.includes(z) || z.includes(req)))) return 3;
+
+  // Correspondance partielle : même base de ville (avant virgule ou espace)
+  const reqBase = req.split(/[,/]/)[0].trim();
+  const cityBase = city.split(/[,/]/)[0].trim();
+  if (reqBase && cityBase && reqBase.length > 2 && cityBase.length > 2) {
+    if (reqBase === cityBase || reqBase.includes(cityBase) || cityBase.includes(reqBase)) return 2;
+  }
+
+  return 0;
+};
+
 const mapAssignmentRow = (row) => ({
   id: row.id,
   child: fixEncoding(row.child_name),
@@ -990,6 +1034,7 @@ const mapAssignmentRow = (row) => ({
   subject: fixEncoding(row.subject),
   needs: fixJsonEncoding(parseJson(row.needs, [])),
   schedule: fixEncoding(row.schedule),
+  location: fixEncoding(row.location) || null,
   candidates: fixJsonEncoding(parseJson(row.candidates, [])),
   selectedTeacher: fixEncoding(row.selected_teacher),
   status: row.status,
@@ -1523,7 +1568,7 @@ app.use("/uploads", express.static(uploadDir));
 app.post("/api/parents/enroll", async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { parentName, parentEmail, parentPassword, parentPhone, children, childName, childEmail, childPassword, childLevel, subject } = req.body;
+    const { parentName, parentEmail, parentPassword, parentPhone, parentLocation, children, childName, childEmail, childPassword, childLevel, subject } = req.body;
     console.log("DEBUG: Enrollment start for", parentEmail);
 
     const finalChildren = Array.isArray(children) ? children : [
@@ -1598,13 +1643,13 @@ app.post("/api/parents/enroll", async (req, res) => {
         [parentId, studentId]
       );
 
-      // Create Request (Lead)
+      // Create Request (Lead) — inclut la localisation du parent pour le matching géographique
       await ensureRequestsTable();
       const requestId = crypto.randomUUID();
       await connection.query(
-        `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, status, request_date)
-         VALUES (?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
-        [requestId, parentName, child.name, child.level || "", child.subject || "", parentPhone || ""]
+        `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, location, status, request_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
+        [requestId, parentName, child.name, child.level || "", child.subject || "", parentPhone || "", parentLocation || null]
       );
 
       results.students.push({ id: studentId, name: child.name, email: finalStudentEmail });
@@ -1687,16 +1732,16 @@ app.get("/api/requests", authenticateRequest, async (_req, res) => {
 });
 
 app.post("/api/requests", async (req, res) => {
-  const { parentName, childName, level, subject, phone } = req.body ?? {};
+  const { parentName, childName, level, subject, phone, location } = req.body ?? {};
   if (!parentName || !childName || !phone) {
     return res.status(400).json({ message: "Champs obligatoires manquants (parent, enfant, téléphone)." });
   }
   try {
     const id = crypto.randomUUID();
     await pool.query(
-      `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, status, request_date)
-       VALUES (?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
-      [id, parentName, childName, level || "", subject || "", phone]
+      `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, location, status, request_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
+      [id, parentName, childName, level || "", subject || "", phone, location || null]
     );
     const [rows] = await pool.query("SELECT * FROM requests WHERE id = ?", [id]);
     res.status(201).json(mapRequestRow(rows[0]));
@@ -1735,22 +1780,41 @@ app.patch("/api/requests/:id", async (req, res) => {
         if (r) {
           console.log(`Automation: Processing assignment for ${r.child_name} (${r.subject})`);
           await ensureAssignmentsTable();
-          // Look for candidate teachers matching the subject
-          // Since subjects is a JSON column, use JSON_CONTAINS
+
+          // Récupérer la localisation du parent depuis son profil utilisateur
+          const [parentRows] = await pool.query(
+            "SELECT location FROM users WHERE TRIM(name) = TRIM(?) AND (role = 'parent' OR secondary_role = 'parent') LIMIT 1",
+            [r.parent_name]
+          );
+          const parentLocation = parentRows[0]?.location || r.location || null;
+
+          // Chercher les enseignants candidats compatibles (matière + localisation si disponible)
           const [teachers] = await pool.query(
-            "SELECT name, rating FROM teachers WHERE JSON_CONTAINS(subjects, JSON_QUOTE(?)) AND status = 'actif' LIMIT 5",
+            "SELECT name, rating, city, zones FROM teachers WHERE JSON_CONTAINS(subjects, JSON_QUOTE(?)) AND status = 'actif' LIMIT 8",
             [r.subject]
           );
           console.log(`Automation: Found ${teachers.length} candidate teachers for subject: ${r.subject}`);
-          const candidates = teachers.map(t => ({ name: t.name, rating: t.rating || 5, available: true }));
+
+          const candidates = teachers.map(t => {
+            const tZones = parseJson(t.zones, []);
+            const locScore = computeLocationScore(t.city, tZones, parentLocation);
+            return {
+              name: (t.name || "").trim(),
+              rating: Number(t.rating) || 5,
+              available: true,
+              city: t.city ? t.city.trim() : null,
+              locationMatch: locScore > 0,
+              score: locScore * 3 + (Number(t.rating) || 5),
+            };
+          }).sort((a, b) => b.score - a.score);
 
           const assignmentId = crypto.randomUUID();
           await pool.query(
-            `INSERT IGNORE INTO assignments (id, child_name, level, subject, status, candidates)
-             VALUES (?, ?, ?, ?, 'pending', ?)`,
-            [assignmentId, r.child_name, r.level, r.subject, JSON.stringify(candidates)]
+            `INSERT IGNORE INTO assignments (id, child_name, level, subject, location, status, candidates)
+             VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+            [assignmentId, r.child_name, r.level, r.subject, parentLocation, JSON.stringify(candidates)]
           );
-          console.log(`Automation: Assignment created with ID ${assignmentId}`);
+          console.log(`Automation: Assignment created with ID ${assignmentId} | location: ${parentLocation || 'N/A'}`);
         }
       } catch (autoError) {
         console.error("Automation Error during assignment creation:", autoError);
@@ -1768,47 +1832,55 @@ app.patch("/api/requests/:id", async (req, res) => {
 app.get("/api/assignments", async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT id, child_name, level, subject, needs, schedule, candidates, selected_teacher, status FROM assignments ORDER BY created_at ASC"
+      "SELECT id, child_name, level, subject, needs, schedule, location, candidates, selected_teacher, status FROM assignments ORDER BY created_at ASC"
     );
 
-    // Récupérer les profils enseignants actifs pour un matching dynamique
+    // Récupérer les profils enseignants actifs avec leurs données de localisation
     const [teachers] = await pool.query(
-      "SELECT name, rating, subjects, level FROM teachers WHERE status = 'actif'"
+      "SELECT name, rating, subjects, level, city, zones FROM teachers WHERE status = 'actif'"
     );
 
     const enrichedRows = rows.map(r => {
-      // Si le matching est en cours, on recalcule les candidats compatibles en temps réel
-      // Cela permet de voir les nouveaux profs inscrits après la création de la demande
       const rSubject = (r.subject || "").toLowerCase();
       const rLevel = (r.level || "").toLowerCase();
+      const rLocation = (r.location || "").toLowerCase().trim();
 
-      const dynamicCandidates = teachers.filter(t => {
-        const tSubjects = parseJson(t.subjects, []);
-        const tLevel = (t.level || "").toLowerCase();
-        
-        // Match si la matière correspond (gestion des listes à virgules ou tableaux)
-        const subjectMatch = tSubjects.some(s => {
-          const sLower = s.toLowerCase();
-          return rSubject.includes(sLower) || sLower.includes(rSubject);
-        });
-        const levelMatch = tLevel.includes(rLevel) || rLevel.includes(tLevel) || !rLevel;
-        
-        return subjectMatch && levelMatch;
-      }).map(t => ({
-        name: t.name,
-        rating: t.rating || 5,
-        available: true
-      })).slice(0, 8);
+      const dynamicCandidates = teachers
+        .filter(t => {
+          const tSubjects = parseJson(t.subjects, []);
+          const tLevel = (t.level || "").toLowerCase();
 
-      // On utilise les candidats dynamiques s'il y en a, sinon on garde l'historique
-      const finalCandidates = dynamicCandidates.length > 0 
-        ? JSON.stringify(dynamicCandidates) 
+          const subjectMatch = tSubjects.some(s => {
+            const sLower = s.toLowerCase();
+            return rSubject.includes(sLower) || sLower.includes(rSubject);
+          });
+          const levelMatch = tLevel.includes(rLevel) || rLevel.includes(tLevel) || !rLevel;
+
+          return subjectMatch && levelMatch;
+        })
+        .map(t => {
+          const tZones = parseJson(t.zones, []);
+          const locScore = computeLocationScore(t.city, tZones, rLocation);
+          // Score composite : priorité zone > note
+          const compositeScore = locScore * 3 + (Number(t.rating) || 5);
+          return {
+            name: (t.name || "").trim(),
+            rating: Number(t.rating) || 5,
+            available: true,
+            city: t.city ? t.city.trim() : null,
+            locationMatch: locScore > 0,
+            score: compositeScore,
+          };
+        })
+        // Trier : zone compatible en premier, puis par note
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 8);
+
+      const finalCandidates = dynamicCandidates.length > 0
+        ? JSON.stringify(dynamicCandidates)
         : r.candidates;
 
-      return mapAssignmentRow({
-        ...r,
-        candidates: finalCandidates
-      });
+      return mapAssignmentRow({ ...r, candidates: finalCandidates });
     });
 
     res.json(enrichedRows);

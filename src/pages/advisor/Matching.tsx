@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { fetchAdvisorAssignments, confirmAssignment } from "@/api/backoffice";
 import type { AdvisorAssignment } from "@/integrations/supabase/types";
-import { GitMerge, Star, Check, AlertCircle, Loader2, RefreshCw, ArrowLeft } from "lucide-react";
+import { GitMerge, Star, Check, AlertCircle, Loader2, RefreshCw, ArrowLeft, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdvisorMatching() {
@@ -161,9 +161,17 @@ export default function AdvisorMatching() {
                                                 {n}
                                             </span>
                                         ))}
-                                        <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full">
-                                            {match.schedule}
-                                        </span>
+                                        {match.schedule && (
+                                            <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-0.5 rounded-full">
+                                                {match.schedule}
+                                            </span>
+                                        )}
+                                        {match.location && (
+                                            <span className="flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2.5 py-0.5 rounded-full font-medium">
+                                                <MapPin className="w-3 h-3" />
+                                                {match.location}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -182,8 +190,13 @@ export default function AdvisorMatching() {
                             </div>
 
                             <div className="p-4 md:p-6">
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                                     Enseignants compatibles ({match.candidates.length})
+                                    {match.location && match.candidates.some(c => c.locationMatch) && (
+                                        <span className="normal-case font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                            Triés par zone
+                                        </span>
+                                    )}
                                 </h3>
                                 <div className="grid sm:grid-cols-1 sm:grid-cols-2 gap-3">
                                     {match.candidates.map((candidate) => {
@@ -217,15 +230,27 @@ export default function AdvisorMatching() {
                                                     </div>
                                                     <div>
                                                         <div className="font-semibold text-[#0D2D5A] text-sm">{candidate.name}</div>
-                                                        <div className="flex items-center gap-1 mt-0.5">
+                                                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                                             <Star className="w-3 h-3 fill-[#F5A623] text-[#F5A623]" />
                                                             <span className="text-xs font-bold text-gray-600">{candidate.rating}</span>
                                                             <span
-                                                                className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${candidate.available ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-400"
-                                                                    }`}
+                                                                className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${candidate.available ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-400"}`}
                                                             >
                                                                 {candidate.available ? "Disponible" : "Indisponible"}
                                                             </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                                            {candidate.city && (
+                                                                <span className="flex items-center gap-0.5 text-xs text-gray-400">
+                                                                    <MapPin className="w-3 h-3" />
+                                                                    {candidate.city}
+                                                                </span>
+                                                            )}
+                                                            {candidate.locationMatch && (
+                                                                <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full">
+                                                                    Zone ✓
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
