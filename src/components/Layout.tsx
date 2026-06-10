@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { Menu, X, Phone, Mail, MapPin, ArrowRight, Star, Lock, User, GraduationCap } from "lucide-react";
-import { SiFacebook, SiX, SiInstagram } from "react-icons/si";
-import { FaLinkedinIn } from "react-icons/fa";
+import { NavLink } from "react-router-dom";
+import {
+  Menu, X, Phone, Mail, MapPin, ArrowRight,
+  Star, LogIn, UserPlus, GraduationCap
+} from "lucide-react";
+import { SiFacebook, SiInstagram, SiLinkedin } from "react-icons/si";
 import { ROUTE_PATHS } from "@/lib/index";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -10,132 +12,88 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-
+const NAV_MAIN = [
+  { to: ROUTE_PATHS.SERVICES,    label: "Services" },
+  { to: ROUTE_PATHS.NIVEAUX,     label: "Niveaux" },
+  { to: ROUTE_PATHS.PROFESSEURS, label: "Professeurs" },
+  { to: ROUTE_PATHS.TARIFS,      label: "Tarifs" },
+  { to: ROUTE_PATHS.A_PROPOS,    label: "À propos" },
+  { to: ROUTE_PATHS.CONTACT,     label: "Contact" },
+];
 
 export function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const navigate = useNavigate();
+  const [scrolled,   setScrolled]   = useState(false);
 
-  const handleGoToRecrutementForm = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setMobileOpen(false);
-    navigate(ROUTE_PATHS.RECRUTEMENT);
-    setTimeout(() => {
-      document.getElementById("formulaire-recrutement")?.scrollIntoView({ behavior: "smooth" });
-    }, 200);
-  };
-
-
-  /* Scroll effect */
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
-
-
-  const navLinks = [
-    { to: ROUTE_PATHS.HOME, label: "Accueil" },
-    { to: ROUTE_PATHS.SERVICES, label: "Services" },
-    { to: ROUTE_PATHS.PROFESSEURS, label: "Professeurs" },
-    { to: ROUTE_PATHS.RECRUTEMENT, label: "Recrutement" },
-    { to: ROUTE_PATHS.CONTACT, label: "Contact" },
-  ];
+  const close = () => setMobileOpen(false);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
-      {/* ══ TOP BAR — info utilitaires ══ (masqué au scroll) */}
-      <div
-        className={`bg-[#0D2D5A] text-white text-xs font-medium hidden lg:block transition-all duration-300 overflow-hidden ${scrolled ? "h-0 opacity-0" : "h-11 opacity-100"}`}
-      >
-        <div className="container mx-auto px-4 flex items-center justify-between h-full">
-          {/* Gauche - Localisation experte */}
-          <div className="flex items-center gap-2 text-white/90 text-[11px] md:text-xs">
-            <MapPin className="w-3.5 h-3.5 text-[#57c2dc]" />
-            <span className="font-bold">15 centres Care4Success au Cameroun</span>
-            <span className="mx-2 opacity-30">|</span>
-            <NavLink to={ROUTE_PATHS.CONTACT} className="font-medium hover:underline text-white/70 hover:text-white transition-colors">
-              Trouvez le plus proche de chez vous
-            </NavLink>
-          </div>
-
-          {/* Droite - Actions & Compte */}
-          <div className="hidden xl:flex items-center gap-5 text-[11px] md:text-xs text-white">
-            <a href="tel:+237675252048" className="flex items-center gap-1.5 hover:text-[#57c2dc] transition-colors font-bold tracking-wide">
-              <Phone className="w-3.5 h-3.5" />
-              09 72 72 83 83
+      {/* ── TOP BAR ── */}
+      <div className={`bg-[#0D2D5A] text-white hidden lg:block transition-all duration-300 overflow-hidden ${scrolled ? "h-0 opacity-0" : "h-10 opacity-100"}`}>
+        <div className="container mx-auto px-6 flex items-center justify-between h-full">
+          <div className="flex items-center gap-2 text-[11px] text-white/80">
+            <MapPin className="w-3 h-3 text-[#F5A623] shrink-0" />
+            <span>15 centres au Cameroun</span>
+            <span className="opacity-30 mx-2">·</span>
+            <a href="tel:+237675252048" className="flex items-center gap-1 hover:text-[#F5A623] transition-colors font-semibold">
+              <Phone className="w-3 h-3" />+237 675 252 048
             </a>
-
-            <div className="flex items-center gap-1.5 border-l border-white/20 pl-5 group">
-              <span className="text-white/60 font-medium group-hover:text-white/80 transition-colors">Care4Success recrute</span>
-              <a href={ROUTE_PATHS.RECRUTEMENT} onClick={handleGoToRecrutementForm} className="font-bold hover:text-[#57c2dc] hover:underline transition-colors ml-1 cursor-pointer">
-                Devenir enseignant
-              </a>
-            </div>
-
-            <NavLink to="/login" className="flex items-center gap-1.5 border-l border-white/20 pl-5 font-bold hover:text-[#57c2dc] transition-colors group">
-              <div className="w-5 h-5 rounded-full border border-current flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
-                <Lock className="w-3 h-3" />
-              </div>
-              Connexion
+            <span className="opacity-30 mx-2">·</span>
+            <a href="mailto:contact@care4success.cm" className="hover:text-[#F5A623] transition-colors">
+              contact@care4success.cm
+            </a>
+          </div>
+          <div className="flex items-center gap-4 text-[11px]">
+            <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} className="text-[#F5A623] font-bold hover:text-white transition-colors flex items-center gap-1">
+              <GraduationCap className="w-3 h-3" /> Devenir enseignant
             </NavLink>
-
-            <NavLink to="/inscription" className="flex items-center gap-1.5 border-l border-white/20 pl-5 font-bold text-[#F5A623] hover:text-white transition-colors group">
-              <div className="w-5 h-5 rounded-full border border-current flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
-                <User className="w-3 h-3" />
-              </div>
-              S'inscrire
+            <NavLink to="/login" className="text-white/70 font-medium hover:text-white transition-colors flex items-center gap-1">
+              <LogIn className="w-3 h-3" /> Connexion
             </NavLink>
           </div>
         </div>
       </div>
 
-      {/* ══ NAVBAR PRINCIPALE ══ */}
-      <header className={`sticky top-0 w-full z-50 transition-all duration-300 ${scrolled
-        ? "bg-white shadow-xl shadow-[#0D2D5A]/5 border-b border-[#0D2D5A]/10 py-1"
-        : "bg-white border-b border-[#0D2D5A]/10 py-2 md:py-3"
-        }`}>
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between">
+      {/* ── NAVBAR PRINCIPALE ── */}
+      <header className={`sticky top-0 w-full z-50 transition-all duration-300 ${
+        scrolled
+          ? "bg-white shadow-lg shadow-[#0D2D5A]/8 border-b border-gray-100"
+          : "bg-white border-b border-gray-100"
+      }`}>
+        <div className="container mx-auto px-6">
+          <div className="flex items-center justify-between h-16 md:h-18">
 
-            {/* ── Logo ── */}
-            <NavLink to={ROUTE_PATHS.HOME} className="flex items-center shrink-0 group">
+            {/* Logo */}
+            <NavLink to={ROUTE_PATHS.HOME} className="flex items-center shrink-0">
               <picture>
                 <source media="(min-width: 640px)" srcSet="/logo/Care 4 Success-logo-Ok_large.png" />
                 <img
                   src="/logo/Care 4 Success-logo-Ok_compact.png"
-                  alt="Care 4 Success"
-                  className="h-14 md:h-[80px] w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+                  alt="Care4Success"
+                  className="h-12 md:h-14 w-auto object-contain"
                 />
               </picture>
             </NavLink>
 
-            {/* ── Navigation desktop ── */}
-            <nav className="hidden lg:flex items-center gap-2 ml-auto mr-8">
-
-              {/* Accueil */}
-              <NavLink
-                to={ROUTE_PATHS.HOME}
-                className={({ isActive }) =>
-                  `px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${isActive ? "text-[#1A6CC8] bg-[#1A6CC8]/10" : "text-[#0D2D5A] hover:text-[#1A6CC8] hover:bg-[#0D2D5A]/5"
-                  }`
-                }
-              >
-                Accueil
-              </NavLink>
-
-
-
-              {/* Autres liens */}
-              {navLinks.filter(l => l.to !== ROUTE_PATHS.HOME).map((link) => (
+            {/* Nav desktop */}
+            <nav className="hidden lg:flex items-center gap-1 ml-8">
+              {NAV_MAIN.map(link => (
                 <NavLink
                   key={link.to}
                   to={link.to}
                   className={({ isActive }) =>
-                    `px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${isActive ? "text-[#1A6CC8] bg-[#1A6CC8]/10" : "text-[#0D2D5A] hover:text-[#1A6CC8] hover:bg-[#0D2D5A]/5"
+                    `px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${
+                      isActive
+                        ? "text-[#1A6CC8] bg-[#1A6CC8]/8"
+                        : "text-[#0D2D5A]/80 hover:text-[#1A6CC8] hover:bg-[#0D2D5A]/5"
                     }`
                   }
                 >
@@ -144,40 +102,40 @@ export function Layout({ children }: LayoutProps) {
               ))}
             </nav>
 
-            {/* ── CTA desktop ── */}
-            <div className="hidden lg:flex items-center gap-4">
+            {/* CTAs desktop */}
+            <div className="hidden lg:flex items-center gap-3 ml-auto pl-6">
+              <NavLink
+                to="/login"
+                className="h-9 px-4 rounded-lg border border-[#0D2D5A]/20 text-[#0D2D5A] text-sm font-semibold hover:border-[#1A6CC8] hover:text-[#1A6CC8] transition-all duration-150 flex items-center gap-1.5"
+              >
+                <LogIn className="w-3.5 h-3.5" /> Connexion
+              </NavLink>
               <NavLink
                 to="/inscription"
-                className="h-[46px] px-6 rounded-full border-2 border-[#0D2D5A] text-[#0D2D5A] text-xs font-black uppercase tracking-widest hover:bg-[#0D2D5A] hover:text-white transition-all duration-300"
+                className="h-9 px-4 rounded-lg bg-[#1A6CC8] text-white text-sm font-bold hover:bg-[#0D2D5A] transition-all duration-150 flex items-center gap-1.5 shadow-sm"
               >
-                <span className="flex items-center h-full gap-2">S'inscrire</span>
+                <UserPlus className="w-3.5 h-3.5" /> S'inscrire
               </NavLink>
-
               <NavLink
                 to={ROUTE_PATHS.CONTACT}
-                id="nav-cta"
-                className="group relative inline-flex items-center justify-center h-[46px] px-8 rounded-full bg-[#0D2D5A] text-white text-xs font-black uppercase tracking-widest overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                className="h-9 px-4 rounded-lg bg-[#F5A623] text-[#0D2D5A] text-sm font-bold hover:bg-[#e09520] transition-all duration-150 flex items-center gap-1.5 shadow-sm"
               >
-                <span className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-                <span className="relative flex items-center gap-2">
-                  Faire un bilan
-                  <Star className="w-4 h-4 text-[#F5A623] fill-[#F5A623]" />
-                </span>
+                Bilan gratuit <ArrowRight className="w-3.5 h-3.5" />
               </NavLink>
             </div>
 
-            {/* ── Burger mobile ── */}
+            {/* Burger mobile */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="lg:hidden p-2.5 rounded-2xl hover:bg-blue-50 transition-colors text-[#0D2D5A] ml-auto shrink-0"
+              className="lg:hidden p-2 rounded-lg text-[#0D2D5A] hover:bg-gray-100 transition-colors ml-auto cursor-pointer"
               aria-label="Menu"
             >
-              {mobileOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
+              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
 
-        {/* ── Menu mobile ── */}
+        {/* Menu mobile */}
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
@@ -185,57 +143,35 @@ export function Layout({ children }: LayoutProps) {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden border-t border-[#0D2D5A]/10 bg-white"
+              className="lg:hidden border-t border-gray-100 bg-white"
             >
-              <nav className="container mx-auto px-4 py-4 flex flex-col gap-1">
-                {navLinks.map((link) => (
+              <nav className="container mx-auto px-4 py-4 space-y-1">
+                {NAV_MAIN.map(link => (
                   <NavLink
                     key={link.to}
                     to={link.to}
-                    onClick={() => setMobileOpen(false)}
+                    onClick={close}
                     className={({ isActive }) =>
-                      `px-4 py-3 rounded-xl text-sm font-bold transition-all duration-150 ${isActive
-                        ? "bg-[#0D2D5A] text-white"
-                        : "text-[#0D2D5A] hover:bg-[#0D2D5A]/8 hover:text-[#1A6CC8]"
+                      `block px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                        isActive ? "bg-[#0D2D5A] text-white" : "text-[#0D2D5A] hover:bg-gray-50"
                       }`
                     }
                   >
                     {link.label}
                   </NavLink>
                 ))}
-
-                <div className="flex flex-col gap-2 mt-3 pt-4 border-t border-[#0D2D5A]/10">
-                  <NavLink
-                    to="/login"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black border-2 border-[#1A6CC8] text-[#1A6CC8] hover:bg-[#1A6CC8] hover:text-white transition-colors"
-                  >
-                    <Lock className="w-4 h-4" />
-                    Connexion
+                <div className="pt-3 border-t border-gray-100 space-y-2">
+                  <NavLink to="/login" onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold border-2 border-[#1A6CC8] text-[#1A6CC8] hover:bg-[#1A6CC8] hover:text-white transition-colors cursor-pointer">
+                    <LogIn className="w-4 h-4" /> Connexion
                   </NavLink>
-                  <NavLink
-                    to="/inscription"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black border-2 border-[#0D2D5A] text-[#0D2D5A] hover:bg-[#0D2D5A] hover:text-white transition-colors"
-                  >
-                    <User className="w-4 h-4" />
-                    S'inscrire
+                  <NavLink to="/inscription" onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-[#1A6CC8] text-white hover:bg-[#0D2D5A] transition-colors cursor-pointer">
+                    <UserPlus className="w-4 h-4" /> S'inscrire
                   </NavLink>
-                  <a
-                    href={ROUTE_PATHS.RECRUTEMENT}
-                    onClick={handleGoToRecrutementForm}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg"
-                  >
-                    <GraduationCap className="w-4 h-4" />
-                    Devenir enseignant
-                  </a>
-                  <NavLink
-                    to={ROUTE_PATHS.CONTACT}
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black bg-[#0D2D5A] text-white hover:bg-[#1A6CC8] transition-colors shadow-lg"
-                  >
-                    <Star className="w-4 h-4 text-[#F5A623] fill-[#F5A623]" />
-                    Faire un bilan
+                  <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold border-2 border-[#F5A623] text-[#F5A623] hover:bg-[#F5A623] hover:text-[#0D2D5A] transition-colors cursor-pointer">
+                    <GraduationCap className="w-4 h-4" /> Devenir enseignant
+                  </NavLink>
+                  <NavLink to={ROUTE_PATHS.CONTACT} onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-[#F5A623] text-[#0D2D5A] hover:bg-[#e09520] transition-colors cursor-pointer">
+                    Bilan gratuit <ArrowRight className="w-4 h-4" />
                   </NavLink>
                 </div>
               </nav>
@@ -244,55 +180,35 @@ export function Layout({ children }: LayoutProps) {
         </AnimatePresence>
       </header>
 
-      {/* ── MAIN ── */}
+      {/* MAIN */}
       <main className="flex-1">{children}</main>
 
-      {/* ══ FOOTER ══ */}
+      {/* ── FOOTER ── */}
       <footer className="bg-[#0D2D5A] text-white">
-
-        {/* Bande or tout en haut du footer */}
         <div className="h-1 bg-[#F5A623]" />
+        <div className="container mx-auto px-6 pt-14 pb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
 
-        <div className="container mx-auto px-4 pt-14 pb-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
-
-            {/* Colonne marque */}
-            <div className="lg:col-span-1">
-              <img
-                src="/logo/Care 4 Success-logo-Ok_compact.png"
-                alt="Care 4 Success"
-                className="h-14 w-auto object-contain brightness-0 invert mb-4"
-              />
-              <p className="text-sm text-blue-200 leading-relaxed mb-5">
-                Votre partenaire de confiance pour la réussite scolaire en Afrique francophone.
-                10 ans d'expérience, 500+ enseignants.
+            {/* Marque */}
+            <div className="lg:col-span-2">
+              <img src="/logo/Care 4 Success-logo-Ok_compact.png" alt="Care4Success" className="h-12 w-auto object-contain brightness-0 invert mb-4" />
+              <p className="text-sm text-blue-200/80 leading-relaxed mb-5 max-w-xs">
+                Votre partenaire de réussite scolaire en Afrique francophone. 10 ans d'expérience, 500+ enseignants qualifiés.
               </p>
-              {/* Note */}
-              <div className="flex items-center gap-2 mb-5 px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 w-fit">
-                <div className="flex gap-0.5">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <Star key={i} className={`w-3.5 h-3.5 ${i <= 4 ? "fill-[#F5A623] text-[#F5A623]" : "fill-white/15 text-white/15"}`} />
-                  ))}
-                </div>
-                <span className="text-white font-black text-sm">4,4/5</span>
-                <span className="text-blue-300 text-xs">— note vérifiée</span>
+              <div className="flex items-center gap-1.5 mb-5">
+                {[1,2,3,4].map(i => <Star key={i} className="w-4 h-4 fill-[#F5A623] text-[#F5A623]" />)}
+                <Star className="w-4 h-4 fill-white/10 text-white/20" />
+                <span className="text-white font-bold text-sm ml-1">4,4/5</span>
+                <span className="text-blue-300/60 text-xs ml-1">— note vérifiée</span>
               </div>
-              {/* Réseaux */}
-              <div className="flex gap-2.5">
+              <div className="flex gap-2">
                 {[
                   { href: "https://facebook.com", Icon: SiFacebook, label: "Facebook" },
-                  { href: "https://x.com", Icon: SiX, label: "X" },
-                  { href: "https://linkedin.com", Icon: FaLinkedinIn, label: "LinkedIn" },
+                  { href: "https://linkedin.com", Icon: SiLinkedin, label: "LinkedIn" },
                   { href: "https://instagram.com", Icon: SiInstagram, label: "Instagram" },
                 ].map(({ href, Icon, label }) => (
-                  <a
-                    key={label}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={label}
-                    className="w-9 h-9 rounded-lg bg-white/10 hover:bg-[#F5A623] hover:text-[#0D2D5A] flex items-center justify-center transition-all duration-200 hover:scale-110"
-                  >
+                  <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}
+                    className="w-8 h-8 rounded-lg bg-white/8 hover:bg-[#F5A623] hover:text-[#0D2D5A] flex items-center justify-center transition-all duration-200 cursor-pointer">
                     <Icon className="w-3.5 h-3.5" />
                   </a>
                 ))}
@@ -301,21 +217,12 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Services */}
             <div>
-              <h3 className="text-[10px] font-black text-[#F5A623] mb-5 uppercase tracking-[0.25em]">Services</h3>
+              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Services</h3>
               <ul className="space-y-2.5">
-                {[
-                  "Cours particuliers à domicile",
-                  "Cours en ligne",
-                  "Stages vacances",
-                  "Préparation BEPC & BAC",
-                  "Accompagnement adultes",
-                ].map((item) => (
+                {["Cours à domicile", "Cours en ligne", "Stages vacances", "Prépa BEPC & BAC", "Formation adultes"].map(item => (
                   <li key={item}>
-                    <NavLink
-                      to={ROUTE_PATHS.SERVICES}
-                      className="text-sm text-blue-200 hover:text-[#F5A623] transition-colors flex items-center gap-2 group"
-                    >
-                      <span className="w-1 h-1 rounded-full bg-[#F5A623]/40 group-hover:bg-[#F5A623] transition-colors shrink-0" />
+                    <NavLink to={ROUTE_PATHS.SERVICES} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors flex items-center gap-2 group">
+                      <span className="w-1 h-1 rounded-full bg-[#F5A623]/30 group-hover:bg-[#F5A623] transition-colors shrink-0" />
                       {item}
                     </NavLink>
                   </li>
@@ -323,18 +230,21 @@ export function Layout({ children }: LayoutProps) {
               </ul>
             </div>
 
-            {/* Niveaux */}
+            {/* Liens utiles */}
             <div>
-              <h3 className="text-[10px] font-black text-[#F5A623] mb-5 uppercase tracking-[0.25em]">Niveaux</h3>
+              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Liens utiles</h3>
               <ul className="space-y-2.5">
-                {["Primaire", "Collège", "Lycée", "Supérieur", "Adultes & Pros"].map((item) => (
-                  <li key={item}>
-                    <NavLink
-                      to={ROUTE_PATHS.NIVEAUX}
-                      className="text-sm text-blue-200 hover:text-[#F5A623] transition-colors flex items-center gap-2 group"
-                    >
-                      <span className="w-1 h-1 rounded-full bg-[#F5A623]/40 group-hover:bg-[#F5A623] transition-colors shrink-0" />
-                      {item}
+                {[
+                  { label: "Niveaux scolaires", to: ROUTE_PATHS.NIVEAUX },
+                  { label: "Nos professeurs", to: ROUTE_PATHS.PROFESSEURS },
+                  { label: "Tarifs", to: ROUTE_PATHS.TARIFS },
+                  { label: "À propos", to: ROUTE_PATHS.A_PROPOS },
+                  { label: "Devenir enseignant", to: ROUTE_PATHS.DEVENIR_PROFESSEUR },
+                ].map(item => (
+                  <li key={item.label}>
+                    <NavLink to={item.to} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors flex items-center gap-2 group">
+                      <span className="w-1 h-1 rounded-full bg-[#F5A623]/30 group-hover:bg-[#F5A623] transition-colors shrink-0" />
+                      {item.label}
                     </NavLink>
                   </li>
                 ))}
@@ -343,46 +253,39 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Contact */}
             <div>
-              <h3 className="text-[10px] font-black text-[#F5A623] mb-5 uppercase tracking-[0.25em]">Contact</h3>
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3">
-                  <Phone className="w-4 h-4 mt-0.5 text-[#F5A623] shrink-0" />
+              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Contact</h3>
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2.5">
+                  <Phone className="w-3.5 h-3.5 mt-0.5 text-[#F5A623] shrink-0" />
                   <div>
                     <p className="text-sm font-bold text-white">+237 675 252 048</p>
-                    <p className="text-xs text-blue-300">Lun–Sam 8h–18h</p>
+                    <p className="text-xs text-blue-300/60">Lun–Sam 8h–18h</p>
                   </div>
                 </li>
-                <li className="flex items-start gap-3">
-                  <Mail className="w-4 h-4 mt-0.5 text-[#F5A623] shrink-0" />
-                  <a href="mailto:contact@care4success.cm" className="text-sm text-blue-200 hover:text-[#F5A623] transition-colors">
+                <li className="flex items-start gap-2.5">
+                  <Mail className="w-3.5 h-3.5 mt-0.5 text-[#F5A623] shrink-0" />
+                  <a href="mailto:contact@care4success.cm" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
                     contact@care4success.cm
                   </a>
                 </li>
-                <li className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 mt-0.5 text-[#F5A623] shrink-0" />
-                  <div className="text-sm text-blue-200">
-                    <p className="font-bold text-white">Bureau Régional</p>
-                    <p>Arrondissement Douala 5ᵉ</p>
-                    <p>Makepe Bloc L, Cameroun</p>
+                <li className="flex items-start gap-2.5">
+                  <MapPin className="w-3.5 h-3.5 mt-0.5 text-[#F5A623] shrink-0" />
+                  <div className="text-sm text-blue-200/70">
+                    <p className="font-semibold text-white">Douala 5ᵉ, Makepe Bloc L</p>
+                    <p>Cameroun</p>
                   </div>
                 </li>
               </ul>
-              {/* Badge garantie */}
-              <div className="mt-5 p-3.5 rounded-xl bg-[#F5A623]/10 border border-[#F5A623]/20">
-                <GraduationCap className="w-4 h-4 text-[#F5A623] mb-1.5" />
-                <p className="text-xs text-blue-200 leading-snug">
-                  Prépa BEPC & BAC —{" "}
-                  <span className="text-[#F5A623] font-black">+4 pts garantis</span>
-                </p>
-              </div>
+              <NavLink to={ROUTE_PATHS.CONTACT} className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#F5A623] hover:text-white transition-colors group cursor-pointer">
+                Nous contacter <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </NavLink>
             </div>
           </div>
 
-          {/* Bottom bar */}
-          <div className="border-t border-white/10 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
-            <p className="text-xs text-blue-300">© 2026 Care 4 Success. Tous droits réservés.</p>
-            <div className="flex gap-6 text-xs text-blue-300">
-              {["Mentions légales", "Politique de confidentialité", "CGV"].map((item) => (
+          <div className="border-t border-white/8 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
+            <p className="text-xs text-blue-300/50">© 2026 Care4Success. Tous droits réservés.</p>
+            <div className="flex gap-6 text-xs text-blue-300/50">
+              {["Mentions légales", "Confidentialité", "CGV"].map(item => (
                 <a key={item} href="#" className="hover:text-[#F5A623] transition-colors">{item}</a>
               ))}
             </div>

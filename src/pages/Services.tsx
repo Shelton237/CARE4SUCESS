@@ -1,247 +1,230 @@
 import { motion } from "framer-motion";
-import { Check, ArrowRight, Star, Phone } from "lucide-react";
-import { services, stats } from "@/data/index";
-import { ServiceCard } from "@/components/ServiceCard";
-import { ContactForm } from "@/components/ContactForm";
-import { IMAGES } from "@/assets/images";
-import { Card, CardContent } from "@/components/ui/card";
-import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { NavLink } from "react-router-dom";
+import {
+  Home as HomeIcon, Monitor, Calendar, GraduationCap,
+  Check, ArrowRight, Users, Shield, TrendingUp, Clock,
+} from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
+import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
+import { IMAGES } from "@/assets/images";
+
+const SERVICES = [
+  {
+    id: "domicile",
+    icon: HomeIcon,
+    label: "Cours à domicile",
+    tag: "Le plus choisi",
+    price: "Dès 9 000 FCFA/h",
+    desc: "Un enseignant qualifié se déplace chez vous. Cours personnalisés 1-à-1, à l'heure et l'endroit qui vous conviennent.",
+    image: IMAGES.TEACHER_STUDENT_1,
+    features: [
+      "Enseignant sélectionné parmi 500+ profils vérifiés",
+      "Programme sur mesure dès le premier cours",
+      "Rapport écrit après chaque séance",
+      "Enseignant remplacé sous 48h si insatisfaction",
+      "Annulation libre, sans pénalité",
+    ],
+    color: "bg-[#1A6CC8]",
+  },
+  {
+    id: "enligne",
+    icon: Monitor,
+    label: "Cours en ligne",
+    tag: null,
+    price: "Dès 7 500 FCFA/h",
+    desc: "Tableau blanc interactif, enregistrements de sessions, outils pédagogiques numériques. Toute l'Afrique francophone.",
+    image: IMAGES.ONLINE_LEARNING_1,
+    features: [
+      "Classe virtuelle dédiée avec tableau blanc partagé",
+      "Enregistrement de chaque cours disponible en replay",
+      "Partage de fichiers et de ressources en temps réel",
+      "Connexion optimisée pour les réseaux africains",
+      "Accessible depuis smartphone ou ordinateur",
+    ],
+    color: "bg-purple-600",
+  },
+  {
+    id: "stage",
+    icon: Calendar,
+    label: "Stages vacances",
+    tag: "Vacances scolaires",
+    price: "Dès 150 000 FCFA",
+    desc: "8 élèves maximum par groupe. Programme intensif pour rattraper, consolider ou prendre de l'avance sur la rentrée.",
+    image: IMAGES.STUDENTS_STUDYING_4,
+    features: [
+      "Groupes de 8 élèves maximum pour une attention maximale",
+      "Programme 5 jours intensifs par matière",
+      "Bilan de progression remis à la fin du stage",
+      "Enseignants spécialisés par niveau et par matière",
+      "Horaires adaptés aux vacances scolaires camerounaises",
+    ],
+    color: "bg-emerald-600",
+  },
+  {
+    id: "bac",
+    icon: GraduationCap,
+    label: "Prépa BEPC & BAC",
+    tag: "Examens nationaux",
+    price: "Dès 10 000 FCFA/h",
+    desc: "Méthodologie d'examen, sujets des 5 dernières années, simulations chronométrées. Pour ne rien laisser au hasard.",
+    image: IMAGES.STUDENTS_STUDYING_2,
+    features: [
+      "Enseignant spécialisé prépa examens nationaux",
+      "Sujets corrigés BEPC/BAC des 5 dernières années",
+      "Simulations d'épreuves en conditions réelles",
+      "Suivi hebdomadaire avec conseiller pédagogique",
+      "Garantie +4 points ou remboursement",
+    ],
+    color: "bg-[#F5A623]",
+  },
+];
+
+const PROCESS = [
+  { n: "01", title: "Bilan pédagogique", desc: "20 min avec un conseiller pour cerner les vrais blocages de votre enfant." },
+  { n: "02", title: "Enseignant sélectionné", desc: "Parmi 500+ profils, le plus adapté au niveau et à la personnalité de votre enfant." },
+  { n: "03", title: "Programme sur mesure", desc: "Un plan heure par heure conçu pour atteindre l'objectif fixé ensemble." },
+  { n: "04", title: "Suivi & progression", desc: "Rapports réguliers, ajustements en continu, conseiller joignable à tout moment." },
+];
+
+const TRUST = [
+  { icon: Shield,     text: "Garantie +4 points en 6 mois" },
+  { icon: Clock,      text: "Enseignant trouvé en 4 jours" },
+  { icon: Users,      text: "1 candidat sur 10 retenu" },
+  { icon: TrendingUp, text: "10 ans de résultats mesurés" },
+];
 
 export default function Services() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative py-28 overflow-hidden">
-        <div className="absolute inset-0 bg-brand-hero-gradient" />
-        <div className="absolute inset-0 z-0">
-          <img
-            src={IMAGES.TEACHER_STUDENT_2}
-            alt="Services Care 4 Success"
-            className="w-full h-full object-cover opacity-15 mix-blend-overlay"
-          />
-        </div>
-        <div className="absolute top-10 right-10 w-80 h-80 bg-[#F5A623]/10 rounded-full blur-3xl" />
+      <section className="relative bg-[#0D2D5A] py-24 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#1A6CC8]/20 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
 
-        <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={springPresets.gentle}
-            className="max-w-3xl mx-auto text-center"
-          >
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] text-sm font-bold mb-6">
-              Nos Services
-            </span>
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight text-white leading-tight">
-              Des solutions adaptées à{" "}
-              <span className="text-[#F5A623]">chaque besoin</span>
+        <div className="container mx-auto px-6 max-w-5xl relative z-10">
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={springPresets.gentle} className="max-w-3xl">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-4">Nos formules</p>
+            <h1 className="text-4xl md:text-5xl font-black text-white leading-tight mb-5">
+              Des solutions taillées<br />
+              <span className="text-[#F5A623]">pour chaque profil</span>
             </h1>
-            <p className="text-xl text-blue-100 mb-8 leading-relaxed">
-              Cours particuliers, stages intensifs, accompagnement en ligne :
-              trouvez la formule qui correspond à vos objectifs.
+            <p className="text-blue-200 text-lg leading-relaxed max-w-xl mb-8">
+              Cours à domicile, en ligne, stages intensifs ou prépa examens — choisissez la formule adaptée à l'objectif de votre enfant.
             </p>
-            <div className="flex flex-wrap gap-4 justify-center">
-              <NavLink
-                to={ROUTE_PATHS.CONTACT}
-                className="cta-gold flex items-center gap-2 text-base px-8 py-3.5 rounded-xl font-bold shadow-xl hover:scale-105 transition-transform duration-200"
-              >
-                Bilan gratuit
-                <ArrowRight className="w-4 h-4" />
+            <div className="flex flex-wrap gap-3">
+              <NavLink to="/inscription" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-bold text-sm hover:bg-white transition-all duration-200 shadow-lg cursor-pointer">
+                S'inscrire gratuitement <ArrowRight className="w-4 h-4" />
               </NavLink>
-              <a
-                href="tel:0800123456"
-                className="flex items-center gap-2 text-base px-8 py-3.5 rounded-xl border-2 border-white/40 text-white hover:bg-white/10 transition-all duration-200"
-              >
-                <Phone className="w-4 h-4" />
-                Nous contacter
-              </a>
+              <NavLink to={ROUTE_PATHS.TARIFS} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/20 text-white font-semibold text-sm hover:bg-white/10 transition-all duration-200 cursor-pointer">
+                Voir les tarifs
+              </NavLink>
             </div>
           </motion.div>
         </div>
+      </section>
 
-        {/* Vague */}
-        <div className="absolute bottom-0 left-0 right-0 z-10">
-          <svg viewBox="0 0 1440 60" className="w-full" preserveAspectRatio="none">
-            <path d="M0,30 C360,60 1080,0 1440,30 L1440,60 L0,60 Z" fill="oklch(0.99 0.003 230)" />
-          </svg>
+      {/* ── TRUST BAR ── */}
+      <section className="bg-white border-b border-gray-100">
+        <div className="container mx-auto px-6 max-w-5xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+            {TRUST.map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-3 py-5 px-6">
+                <div className="w-8 h-8 rounded-lg bg-[#1A6CC8]/8 flex items-center justify-center shrink-0">
+                  <Icon className="w-4 h-4 text-[#1A6CC8]" />
+                </div>
+                <p className="text-sm font-semibold text-[#0D2D5A]">{text}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ── STATS ── */}
-      <section className="py-16 bg-background">
-        <div className="container mx-auto px-4">
+      {/* ── SERVICES ── */}
+      <section className="py-20 bg-gray-50">
+        <div className="container mx-auto px-6 max-w-5xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={springPresets.gentle}
+            className="text-center mb-14"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-3">Formules disponibles</p>
+            <h2 className="text-3xl md:text-4xl font-black text-[#0D2D5A]">Choisissez votre formule</h2>
+          </motion.div>
+
           <motion.div
             variants={staggerContainer}
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8"
+            className="space-y-6"
           >
-            {stats.map((stat, index) => (
+            {SERVICES.map((s, i) => (
               <motion.div
-                key={index}
+                key={s.id}
                 variants={staggerItem}
-                className="text-center group"
+                className={`bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col md:flex-row ${i % 2 === 1 ? "md:flex-row-reverse" : ""}`}
               >
-                <div className="text-3xl md:text-4xl font-bold text-[#1A6CC8] group-hover:text-[#F5A623] transition-colors duration-300 mb-1">
-                  {stat.value}
-                </div>
-                <div className="font-semibold text-[#0D2D5A] mb-1">{stat.label}</div>
-                <div className="text-xs text-muted-foreground">{stat.description}</div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── CATALOGUE SERVICES ── */}
-      <section className="py-24 bg-secondary/30">
-        <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={springPresets.gentle}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-[#0D2D5A]">
-              Nos formules de{" "}
-              <span className="text-[#1A6CC8]">soutien scolaire</span>
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Choisissez la solution qui correspond le mieux à vos besoins et à votre emploi du temps.
-            </p>
-          </motion.div>
-
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="grid md:grid-cols-2 gap-8 mb-16"
-          >
-            {services.map((service) => (
-              <motion.div key={service.id} variants={staggerItem}>
-                <ServiceCard service={service} />
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── POURQUOI CARE4SUCCESS ── */}
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -24 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={springPresets.gentle}
-            >
-              <span className="badge-gold mb-6 inline-flex">Pourquoi Care 4 Success ?</span>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-[#0D2D5A]">
-                20 ans d'expertise au service de{" "}
-                <span className="text-[#1A6CC8]">votre réussite</span>
-              </h2>
-              <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                Leader du soutien scolaire, Care 4 Success accompagne plus de
-                100 000 élèves chaque année avec des enseignants qualifiés et
-                une méthodologie éprouvée.
-              </p>
-
-              <div className="space-y-3 mb-8">
-                {[
-                  "Enseignants sélectionnés rigoureusement (1 sur 10 retenu)",
-                  "Suivi personnalisé avec conseiller pédagogique dédié",
-                  "Garantie de progression (+4 points de moyenne)",
-                  "Crédit d'impôt immédiat de 50% sur tous les cours",
-                  "Sans engagement, arrêt et reprise libres",
-                  "110 centres en France pour un accompagnement de proximité",
-                ].map((point, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Check className="w-3.5 h-3.5 text-[#F5A623]" />
-                    </div>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{point}</p>
+                {/* Image */}
+                <div className="md:w-72 lg:w-80 shrink-0 relative overflow-hidden">
+                  <img src={s.image} alt={s.label} className="w-full h-52 md:h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0D2D5A]/50 to-transparent" />
+                  <div className={`absolute top-4 left-4 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full text-white ${s.color}`}>
+                    {s.tag ?? "Disponible"}
                   </div>
-                ))}
-              </div>
-
-              <NavLink
-                to={ROUTE_PATHS.CONTACT}
-                className="cta-gold inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform duration-200"
-              >
-                Demander un bilan gratuit
-                <ArrowRight className="w-4 h-4" />
-              </NavLink>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 24 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={springPresets.gentle}
-              className="relative"
-            >
-              <div className="relative rounded-2xl overflow-hidden">
-                <img
-                  src={IMAGES.ONLINE_LEARNING_2}
-                  alt="Cours en ligne Care 4 Success"
-                  className="w-full h-[500px] object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0D2D5A]/80 to-transparent" />
-                <div className="absolute bottom-8 left-8 right-8">
-                  <Card className="bg-white/95 backdrop-blur border-[#F5A623]/30">
-                    <CardContent className="p-5">
-                      <div className="flex items-center gap-1.5 mb-3">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="w-4 h-4 fill-[#F5A623] text-[#F5A623]" />
-                        ))}
-                        <span className="ml-2 font-bold text-[#0D2D5A]">4.4/5</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground italic leading-relaxed">
-                        "Grâce à Care 4 Success, ma fille a gagné 4 points de moyenne
-                        en mathématiques. L'enseignante est patiente et pédagogue. Je recommande vivement !"
-                      </p>
-                      <p className="text-sm font-bold text-[#0D2D5A] mt-3">
-                        Sophie M. — Parent d'élève en 3e
-                      </p>
-                    </CardContent>
-                  </Card>
                 </div>
-              </div>
-              {/* Badge flottant */}
-              <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-[#F5A623] flex flex-col items-center justify-center shadow-xl">
-                <span className="text-xl font-black text-[#0D2D5A]">50%</span>
-                <span className="text-xs font-bold text-[#0D2D5A] leading-none">crédit</span>
-                <span className="text-xs font-bold text-[#0D2D5A] leading-none">impôt</span>
-              </div>
-            </motion.div>
-          </div>
+
+                {/* Contenu */}
+                <div className="flex-1 p-7 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#0D2D5A]/8 flex items-center justify-center">
+                        <s.icon className="w-5 h-5 text-[#0D2D5A]" />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-[#0D2D5A] text-lg leading-tight">{s.label}</h3>
+                        <p className="text-[#F5A623] text-sm font-bold font-mono">{s.price}</p>
+                      </div>
+                    </div>
+                    <p className="text-gray-500 text-sm leading-relaxed mb-5">{s.desc}</p>
+                    <ul className="space-y-2">
+                      {s.features.map(f => (
+                        <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
+                          <Check className="w-3.5 h-3.5 text-[#1A6CC8] shrink-0" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="mt-6 pt-5 border-t border-gray-100 flex flex-wrap gap-3">
+                    <NavLink to="/inscription" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#0D2D5A] text-white text-sm font-bold hover:bg-[#1A6CC8] transition-all duration-150 cursor-pointer">
+                      S'inscrire <ArrowRight className="w-3.5 h-3.5" />
+                    </NavLink>
+                    <NavLink to={ROUTE_PATHS.TARIFS} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:border-[#1A6CC8] hover:text-[#1A6CC8] transition-all duration-150 cursor-pointer">
+                      Voir les tarifs
+                    </NavLink>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
-      {/* ── COMMENT ÇA MARCHE ── */}
-      <section className="py-24 bg-secondary/30">
-        <div className="container mx-auto px-4">
+      {/* ── PROCESSUS ── */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-6 max-w-5xl">
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={springPresets.gentle}
-            className="text-center mb-16"
+            className="text-center mb-14"
           >
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-[#0D2D5A]">
-              Comment ça{" "}
-              <span className="text-[#1A6CC8]">marche ?</span>
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Un processus simple et rapide pour trouver votre enseignant idéal.
-            </p>
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-3">Notre méthode</p>
+            <h2 className="text-3xl md:text-4xl font-black text-[#0D2D5A]">Comment ça fonctionne</h2>
           </motion.div>
 
           <motion.div
@@ -249,62 +232,36 @@ export default function Services() {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="grid md:grid-cols-4 gap-6 mb-16"
+            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
           >
-            {[
-              { step: "1", title: "Bilan gratuit", desc: "Nous analysons les besoins de votre enfant et définissons ensemble les objectifs." },
-              { step: "2", title: "Sélection enseignant", desc: "Nous trouvons l'enseignant idéal en 4 jours maximum, adapté au profil de votre enfant." },
-              { step: "3", title: "Début des cours", desc: "Les cours démarrent rapidement, à domicile, en ligne ou en centre selon votre choix." },
-              { step: "4", title: "Suivi personnalisé", desc: "Votre conseiller pédagogique suit la progression et ajuste le programme si nécessaire." },
-            ].map((item, index) => (
-              <motion.div key={index} variants={staggerItem}>
-                <Card className="h-full border-border/50 hover:border-[#1A6CC8]/30 hover:shadow-lg transition-all duration-300">
-                  <div className="h-1 bg-[#F5A623] rounded-t-lg" />
-                  <CardContent className="p-6 pt-5">
-                    <div className="w-12 h-12 rounded-full bg-[#0D2D5A] text-white flex items-center justify-center text-2xl font-black mb-4 shadow-lg">
-                      {item.step}
-                    </div>
-                    <h3 className="text-lg font-bold mb-2 text-[#0D2D5A]">{item.title}</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
-                  </CardContent>
-                </Card>
+            {PROCESS.map(({ n, title, desc }) => (
+              <motion.div key={n} variants={staggerItem} className="relative">
+                <div className="text-5xl font-black font-mono text-[#0D2D5A]/5 leading-none mb-3">{n}</div>
+                <div className="w-8 h-1 bg-[#F5A623] rounded-full mb-3" />
+                <h3 className="font-black text-[#0D2D5A] mb-2">{title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
               </motion.div>
             ))}
           </motion.div>
         </div>
       </section>
 
-      {/* ── CTA CONTACT ── */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-brand-blue-gradient" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#F5A623]/10 rounded-full blur-3xl" />
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={springPresets.gentle}
-              className="text-center mb-12"
-            >
-              <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
-                Prêt à{" "}
-                <span className="text-[#F5A623]">commencer ?</span>
-              </h2>
-              <p className="text-xl text-blue-100">
-                Demandez votre bilan personnalisé gratuit et trouvez votre enseignant en 4 jours.
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ ...springPresets.gentle, delay: 0.2 }}
-            >
-              <ContactForm className="bg-white rounded-2xl p-8 shadow-2xl" />
-            </motion.div>
-          </div>
+      {/* ── CTA ── */}
+      <section className="py-20 bg-[#0D2D5A] relative overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+        <div className="container mx-auto px-6 max-w-3xl relative z-10 text-center">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={springPresets.gentle}>
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-4">Bilan gratuit</p>
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+              Pas sûr de la formule ?<br />Demandez conseil.
+            </h2>
+            <p className="text-blue-200/70 mb-8">
+              Un conseiller vous rappelle sous 24h pour vous orienter vers la formule la plus adaptée à votre enfant.
+            </p>
+            <NavLink to={ROUTE_PATHS.CONTACT} className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-bold hover:bg-white transition-all duration-200 shadow-lg cursor-pointer">
+              Demander un bilan gratuit <ArrowRight className="w-4 h-4" />
+            </NavLink>
+          </motion.div>
         </div>
       </section>
     </div>

@@ -9,14 +9,14 @@ import { ROUTE_PATHS } from "@/lib/index";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "@/pages/Home";
-import Landing from "@/pages/public/Landing";
 import Services from "@/pages/Services";
 import Niveaux from "@/pages/Niveaux";
 import Professeurs from "@/pages/Professeurs";
 import DevenirProfesseur from "@/pages/DevenirProfesseur";
 import Contact from "@/pages/Contact";
-import Recrutement from "@/pages/Recrutement";
 import Inscription from "@/pages/Inscription";
+import About from "@/pages/About";
+import Pricing from "@/pages/Pricing";
 import NotFound from "./pages/not-found/Index";
 import Login from "@/pages/auth/Login";
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -46,11 +46,11 @@ const App = () => (
               <Route path={ROUTE_PATHS.NIVEAUX} element={<Layout><Niveaux /></Layout>} />
               <Route path={ROUTE_PATHS.PROFESSEURS} element={<Layout><Professeurs /></Layout>} />
               <Route path={ROUTE_PATHS.DEVENIR_PROFESSEUR} element={<Layout><DevenirProfesseur /></Layout>} />
+              <Route path="/recrutement" element={<Layout><DevenirProfesseur /></Layout>} />
               <Route path={ROUTE_PATHS.CONTACT} element={<Layout><Contact /></Layout>} />
-              <Route path={ROUTE_PATHS.RECRUTEMENT} element={<Layout><Recrutement /></Layout>} />
               <Route path="/inscription" element={<Layout><Inscription /></Layout>} />
-
-              <Route path="/bilan" element={<Landing />} />
+              <Route path={ROUTE_PATHS.A_PROPOS} element={<Layout><About /></Layout>} />
+              <Route path={ROUTE_PATHS.TARIFS} element={<Layout><Pricing /></Layout>} />
 
               {/* Auth */}
               <Route path="/login" element={<Login />} />
