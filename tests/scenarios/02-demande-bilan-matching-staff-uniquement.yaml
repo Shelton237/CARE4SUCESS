@@ -1,0 +1,65 @@
+id: "02-demande-bilan-matching-staff-uniquement"
+titre: "Demande de bilan → matching (staff, jamais élève) → visibilité croisée"
+reference_cartographie:
+  - "Admin > Demandes de bilan"
+  - "Parent > Mes Enfants"
+  - "Admin > Matching / Conseiller > Matching"
+  - "Parent > Équipe Pédagogique"
+  - "Élève > Mes Professeurs"
+  - "Enseignant > Mes Apprenants"
+description: >
+  Vérifie qu'une demande de bilan peut être créée par un parent ou un admin,
+  que seul le staff (admin ou conseiller) peut matcher un enseignant à
+  l'élève — jamais l'élève lui-même, cette capacité étant absente de son
+  périmètre selon la cartographie — et que le résultat du matching se
+  propage correctement dans les trois espaces concernés.
+
+seed:
+  - entite: parent_avec_enfant
+  - entite: enseignant_disponible
+    matieres_niveaux: "compatibles avec la demande à créer"
+
+etapes:
+  - numero: 1
+    acteur: actor-parent
+    variante_alternative_acteur: actor-admin
+    action: "Créer une demande de bilan via createRequest (parent, élève, niveau, matière, téléphone)."
+    resultat_attendu: "Demande visible avec statut 'Reçu', apparaît dans le Kanban admin."
+    verifier_ensuite: []
+
+  - numero: 2
+    acteur: actor-admin
+    variante_alternative_acteur: actor-advisor
+    action: "Matcher un enseignant à l'élève via confirmAssignment(matchId, teacherName)."
+    resultat_attendu: "Assignation confirmée, toast de succès."
+    verifier_ensuite:
+      - role: actor-parent
+        endroit: "Équipe Pédagogique (Team.tsx)"
+        attendu: "L'enseignant assigné apparaît dans la liste des enseignants de l'enfant."
+      - role: actor-student
+        endroit: "Mes Professeurs (Teachers.tsx)"
+        attendu: "L'enseignant assigné apparaît avec ses coordonnées."
+      - role: actor-teacher
+        endroit: "Mes Apprenants (Students.tsx)"
+        attendu: "L'élève assigné apparaît dans la liste des apprenants de cet enseignant."
+
+  - numero: 3
+    acteur: actor-student
+    action: >
+      Tenter d'accéder à une action de matching équivalente à confirmAssignment
+      (ex: essayer d'appeler l'endpoint ou de trouver un contrôle UI
+      correspondant dans son propre périmètre).
+    resultat_attendu: >
+      REFUS explicite de actor-student : cette capacité n'existe dans aucune
+      page de la section Élève de la cartographie. Aucune tentative
+      d'improvisation d'un handler.
+    verifier_ensuite: []
+
+echec_type:
+  - "actor-student parvient à exécuter une action de matching (violation de périmètre, à signaler aussi à security-boundary-tester)."
+  - "Enseignant assigné absent chez le parent, l'élève ou l'enseignant après confirmation."
+  - "Décalage de statut entre le Kanban admin et la vue conseiller."
+
+ticket_hotfix_si_echec:
+  titre: "Matching confirmé mais non propagé à {role_manquant}"
+  inclure: [id_demande, id_assignation, role_manquant, requete_api_exacte]

@@ -1,0 +1,61 @@
+id: "03-seance-devoir-correction-suivi-parent"
+titre: "Séance → devoir → correction → suivi parent"
+reference_cartographie:
+  - "Enseignant > Mon Emploi du Temps"
+  - "Enseignant > Gestion des Devoirs"
+  - "Élève > Mes Devoirs"
+  - "Parent > Devoirs"
+  - "Parent > Progression"
+description: >
+  Vérifie la chaîne complète d'un cycle pédagogique : création de séance,
+  clôture avec rapport, création d'un devoir lié, dépôt par l'élève,
+  correction par l'enseignant, et visibilité correcte du résultat côté
+  parent (devoir corrigé + progression mise à jour).
+
+seed:
+  - entite: enseignant_avec_eleve_assigne
+  - entite: cours_avec_lecons
+    rattache_a: enseignant
+
+etapes:
+  - numero: 1
+    acteur: actor-teacher
+    action: "Créer une séance via createSession (élève, matière, cours rattaché, date/heure)."
+    resultat_attendu: "Séance visible dans le planning, statut 'planifiée'."
+    verifier_ensuite: []
+
+  - numero: 2
+    acteur: actor-teacher
+    action: >
+      Effectuer sessionCheckIn puis sessionCheckOut, remplir le rapport de
+      clôture (POST /sessions/:id/report : rapport, leçon abordée, note de
+      compréhension) avec devoir lié optionnel renseigné (POST /homework).
+    resultat_attendu: "Séance clôturée, rapport enregistré, devoir créé et lié à la séance."
+    verifier_ensuite: []
+
+  - numero: 3
+    acteur: actor-student
+    action: "Déposer le devoir via uploadHomeworkFile (fichier PDF valide)."
+    resultat_attendu: "Devoir passe au statut 'rendu', fichier visible côté enseignant."
+    verifier_ensuite: []
+
+  - numero: 4
+    acteur: actor-teacher
+    action: "Corriger le devoir via PATCH /homework/:id (feedback obligatoire renseigné)."
+    resultat_attendu: "Devoir passe au statut 'corrigé' avec le commentaire de feedback."
+    verifier_ensuite:
+      - role: actor-parent
+        endroit: "Devoirs (Homework.tsx)"
+        attendu: "Devoir visible avec statut 'corrigé', appréciation du professeur affichée, fichier rendu par l'élève consultable."
+      - role: actor-parent
+        endroit: "Progression (Progress.tsx)"
+        attendu: "La progression/le bilan mensuel automatique reflète ce nouveau devoir corrigé (pas de données figées/obsolètes)."
+
+echec_type:
+  - "Devoir non lié correctement à la séance d'origine (indicateur manquant)."
+  - "Feedback de correction absent ou tronqué côté parent."
+  - "Progression parent non mise à jour après correction."
+
+ticket_hotfix_si_echec:
+  titre: "Cycle devoir non propagé correctement : {etape_en_echec}"
+  inclure: [id_seance, id_devoir, etape_en_echec, requete_api_exacte]

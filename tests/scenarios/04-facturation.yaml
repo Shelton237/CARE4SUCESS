@@ -1,0 +1,37 @@
+id: "04-facturation"
+titre: "Facturation"
+reference_cartographie:
+  - "Admin > Finance & Paie"
+  - "Parent > Factures"
+description: >
+  Vérifie que la génération manuelle des factures du mois par l'admin
+  produit des factures correctement visibles et avec le bon statut côté
+  parent.
+
+seed:
+  - entite: familles_avec_sessions_facturables
+    nombre: ">= 2"
+
+etapes:
+  - numero: 1
+    acteur: actor-admin
+    action: "Générer les factures du mois via generateManualInvoices."
+    resultat_attendu: "Toast indiquant le nombre de factures générées, cohérent avec le nombre de familles éligibles."
+    verifier_ensuite:
+      - role: actor-parent
+        endroit: "Factures (Invoices.tsx)"
+        attendu: >
+          Nouvelle facture visible dans le tableau, avec référence, date
+          d'émission, description et montant corrects, statut 'En attente'.
+      - role: actor-parent
+        endroit: "Factures (Invoices.tsx) — indicateurs"
+        attendu: "Le solde en attente et le volume de factures sont mis à jour en cohérence."
+
+echec_type:
+  - "Facture générée côté admin mais absente côté parent."
+  - "Montant ou description incohérents entre la génération et l'affichage parent."
+  - "Statut par défaut incorrect (ex: 'Payée' au lieu de 'En attente')."
+
+ticket_hotfix_si_echec:
+  titre: "Facture générée non visible ou incohérente côté parent"
+  inclure: [id_famille, id_facture_attendue, champ_incoherent, requete_api_exacte]
