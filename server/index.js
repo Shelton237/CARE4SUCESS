@@ -2118,7 +2118,10 @@ app.patch("/api/requests/:id", authenticateRequest, async (req, res) => {
   }
 });
 
-app.get("/api/assignments", async (_req, res) => {
+app.get("/api/assignments", authenticateRequest, async (_req, res) => {
+  if (!["admin", "advisor"].includes(_req.user?.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   try {
     const [rows] = await pool.query(
       "SELECT id, child_name, level, subject, needs, schedule, location, geo_location_id, candidates, selected_teacher, status FROM assignments ORDER BY created_at ASC"
@@ -2225,7 +2228,10 @@ app.get("/api/assignments", async (_req, res) => {
   }
 });
 
-app.patch("/api/assignments/:id", async (req, res) => {
+app.patch("/api/assignments/:id", authenticateRequest, async (req, res) => {
+  if (!["admin", "advisor"].includes(req.user?.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   const { id } = req.params;
   const { selectedTeacher } = req.body ?? {};
   if (!selectedTeacher) {
@@ -2533,6 +2539,11 @@ app.patch("/api/sessions/:id/status", authenticateRequest, async (req, res) => {
 app.patch("/api/sessions/:id/check-in", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   try {
+    const [[sessionRow]] = await pool.query("SELECT teacher_id FROM sessions WHERE id = ?", [id]);
+    if (!sessionRow) return res.status(404).json({ message: "Session introuvable." });
+    if (sessionRow.teacher_id !== req.user?.sub) {
+      return res.status(403).json({ message: "Seul l'enseignant assigné à cette session peut faire le check-in." });
+    }
     await pool.query("UPDATE sessions SET actual_start_time = NOW(), status = 'en cours' WHERE id = ?", [id]);
     res.json({ success: true });
   } catch (error) {
@@ -2558,6 +2569,11 @@ app.patch("/api/sessions/:id/check-in", authenticateRequest, async (req, res) =>
 app.patch("/api/sessions/:id/check-out", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   try {
+    const [[sessionRow]] = await pool.query("SELECT teacher_id FROM sessions WHERE id = ?", [id]);
+    if (!sessionRow) return res.status(404).json({ message: "Session introuvable." });
+    if (sessionRow.teacher_id !== req.user?.sub) {
+      return res.status(403).json({ message: "Seul l'enseignant assigné à cette session peut faire le check-out." });
+    }
     await pool.query("UPDATE sessions SET actual_end_time = NOW(), status = 'effectué' WHERE id = ?", [id]);
     res.json({ success: true });
   } catch (error) {
@@ -4018,7 +4034,10 @@ app.get("/api/parents/:parentId/contacts", async (req, res) => {
 // CONSEILLER — FAMILLES
 // ==========================================
 
-app.get("/api/advisor/families", async (_req, res) => {
+app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
+  if (!["admin", "advisor"].includes(_req.user?.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   const FALLBACK = [
     { id: "af1", parent: "Aminata Diallo", child: "Koffi Diallo", level: "3e", subject: "Mathématiques", teacher: "Dr. Abanda", nextRdv: "12/03", status: "suivi actif" },
     { id: "af2", parent: "Kouassi Ébène", child: "Awa Ébène", level: "Tle C", subject: "Physique-Chimie", teacher: "Th. Nkoulou", nextRdv: "14/03", status: "suivi actif" },
@@ -5300,8 +5319,11 @@ app.get("/api/parents/:parentId/progress-report", async (req, res) => {
   }
 });
 
-app.get("/api/teachers/:teacherId/earnings-history", async (req, res) => {
+app.get("/api/teachers/:teacherId/earnings-history", authenticateRequest, async (req, res) => {
   const { teacherId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== teacherId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   try {
     const [rows] = await pool.query(
       `SELECT 
@@ -5491,8 +5513,11 @@ app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
   }
 });
 
-app.get("/api/teachers/:teacherId/earnings", async (req, res) => {
+app.get("/api/teachers/:teacherId/earnings", authenticateRequest, async (req, res) => {
   const { teacherId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== teacherId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   try {
     const [[teacher]] = await pool.query("SELECT rate_type, hourly_rate, monthly_rate FROM teachers WHERE id = ?", [teacherId]);
     const isMonthly = teacher?.rate_type === 'monthly';
@@ -5524,8 +5549,11 @@ app.get("/api/teachers/:teacherId/earnings", async (req, res) => {
   }
 });
 
-app.get("/api/teachers/:teacherId/students", async (req, res) => {
+app.get("/api/teachers/:teacherId/students", authenticateRequest, async (req, res) => {
   const { teacherId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== teacherId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   try {
     await ensureStudentEvaluationsTable();
     await ensureStudentTeacherTable();
@@ -6729,6 +6757,20 @@ app.get("/api/students/:studentId/academic-plan", authenticateRequest, async (re
 // HISTORIQUE COURS ÉLÈVE (avec rapport + compréhension)
 // ─────────────────────────────────────────────
 app.get("/api/students/:studentId/course-history", authenticateRequest, async (req, res) => {
+  const { studentId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== studentId) {
+    try {
+      await ensureStudentTeacherTable();
+      const [[link]] = await pool.query(
+        "SELECT 1 FROM student_teacher WHERE student_id = ? AND teacher_id = ? LIMIT 1",
+        [studentId, req.user?.sub]
+      );
+      if (!link) return res.status(403).json({ message: "Forbidden" });
+    } catch (error) {
+      console.error("Course history ownership check failed", error);
+      return res.status(403).json({ message: "Forbidden" });
+    }
+  }
   try {
     const [sessions] = await pool.query(
       `SELECT s.*, h.title as homework_title, h.due_date as homework_due
