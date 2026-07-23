@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import cron from "node-cron";
+import { resolveJwtSecret } from "./jwtSecret.js";
 
 const rootDir = process.cwd();
 const envFiles = [".env.local", ".env"];
@@ -33,8 +34,7 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || "care4success_dev_secret";
-if (!process.env.JWT_SECRET) console.warn("⚠️  JWT_SECRET non défini — utilisation du secret de développement. Définir JWT_SECRET en production!");
+const JWT_SECRET = resolveJwtSecret();
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
 
 // FALLBACK DATA (IN-MEMORY)
@@ -1996,7 +1996,7 @@ app.post("/api/requests", async (req, res) => {
   }
 });
 
-app.patch("/api/requests/:id", async (req, res) => {
+app.patch("/api/requests/:id", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
   const validStatuses = new Set(["reçu", "en traitement", "assigné", "clôturé"]);
@@ -2004,14 +2004,12 @@ app.patch("/api/requests/:id", async (req, res) => {
   // Normalize the incoming status to handle encoding variants
   const normalizedStatus = normalizeRequestStatus(status);
   console.log(`PATCH /api/requests/${id} - New Status: '${status}' -> normalized: '${normalizedStatus}'`);
-  try { fs.appendFileSync('/tmp/debug_api.log', `PATCH /api/requests/${id} - status: ${status} -> ${normalizedStatus}\n`); } catch {}
   if (!normalizedStatus || !validStatuses.has(normalizedStatus)) {
     console.log(`Invalid status: '${status}' (normalized: '${normalizedStatus}')`);
     return res.status(400).json({ message: "Statut invalide.", received: status, normalized: normalizedStatus });
   }
 
   try {
-    try { fs.appendFileSync('/tmp/debug_api.log', `Updating database for request ${id} to ${normalizedStatus}...\n`); } catch {}
     await pool.query(
       "UPDATE requests SET status = ? WHERE id = ?",
       [normalizedStatus, id]
