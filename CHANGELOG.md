@@ -31,6 +31,15 @@ par l'agent `github-doc-agent` à chaque PR mergée.
   scratch (ticket `T-04`, connexe) a été appliqué localement sur disque, non
   versionné (fichiers untracked, désormais couverts par ce `.gitignore` durci).
 
+### Corrigé
+- Réparation de la suite de tests frontend : ajout du helper
+  `src/test/test-utils.tsx` (`renderWithQueryClient`) fournissant un
+  `QueryClientProvider` manquant dans `Inscription.test.tsx`, qui faisait échouer
+  2 tests sur 3 liés à `GeoSelector`. (PR
+  [#9](https://github.com/Shelton237/CARE4SUCESS/pull/9), issue
+  [#5](https://github.com/Shelton237/CARE4SUCESS/issues/5), ticket `T-06` de
+  `docs/backlog.md`, constat `[M2]` de `docs/audits/AUDIT_2026-07-22.md`)
+
 ### Ajouté
 - Mise en place de l'équipe d'agents Claude Code (diagnostician, tech-lead,
   unit-test-engineer, integration-test-engineer, hotfix-bugfix-dev, github-doc-agent)
