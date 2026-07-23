@@ -105,3 +105,50 @@ Thumbs.db
 # --- Uploaded Files ---
 uploaded_files/
 
+# --- Build/deploy archives & mobile binaries (T-03 hardening) ---
+# NB: pas de "*.tar.gz" global (deploy.tar.gz est un artefact légitime tracké) ;
+# on cible uniquement les archives de scratch "dist_*"/"dist.*" et l'archive Android scratch.
+/dist*.tar.gz
+/dist*.zip
+_agent/android_project.tar.gz
+*.apk
+
+# --- Identifiants/scratch divers à la racine ---
+/*.id
+
+# --- Scripts scratch / outillage admin local à la racine (jamais commités) ---
+/check_db.cjs
+/create_admin.js
+/db_check.cjs
+/db_cleanup.cjs
+/db_desc.cjs
+/deep_clean.js
+/del_session.cjs
+/check_ethan.mjs
+/diag_matching.js
+/diag_matching.sql
+/fix_db.mjs
+/fix_json_columns.mjs
+/fix_relation.cjs
+/parse_logs.mjs
+/resend_teacher_emails.mjs
+/reset_db_remote.js
+/scratch_responsive_utility.mjs
+/scratch_update.mjs
+/seed_geo.sql
+/kill-sw.html
+/setup_teacher_db.mjs
+
+# --- Scratch/diagnostics côté serveur ---
+server/diag_relations.mjs
+server/fix_requests.mjs
+server/sync_requests.mjs
+server/out.txt
+server/output.log
+server/output2.txt
+server/routes_list.txt
+
+# --- Espaces de scratch des agents ---
+_agent/scratch/
+brain/**/scratch/
+
