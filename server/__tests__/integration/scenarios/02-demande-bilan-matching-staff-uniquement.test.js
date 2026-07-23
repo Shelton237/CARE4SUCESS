@@ -99,14 +99,25 @@ describe("Scénario 02 — Demande de bilan → matching staff → visibilité c
     expect(data.find((s) => s.id === student.id), "élève assigné absent de Mes Apprenants").toBeTruthy();
   });
 
-  it("étape 2 — vérif Parent / Équipe Pédagogique (Team.tsx basé séances)", async () => {
-    // Team.tsx reconstruit la liste depuis les séances (fetchScheduleByRole('parent')).
-    // Après un matching pur (sans séance), l'enseignant n'apparaît pas encore
-    // dans Team — écart de propagation consigné (Team ne lit pas student_teacher).
-    const { status, data } = await get(`/sessions?role=parent&userId=${parent.id}`, { token: parentToken });
-    expect(status).toBe(200);
-    const hasTeacherSession = data.some((s) => (s.teacherId || s.teacher_id) === teacher.id);
-    expect(hasTeacherSession, "Team.tsx n'affiche l'enseignant qu'après création d'une séance").toBe(false);
+  it("étape 2 — vérif Parent / Équipe Pédagogique (Team.tsx basé séances + matching confirmé)", async () => {
+    // Bugfix E2 : Team.tsx fusionne désormais deux sources — les séances
+    // (fetchScheduleByRole('parent')) ET le matching confirmé exposé par
+    // GET /relationships/student-teacher (alimenté par confirmAssignment).
+    // Un enseignant assigné doit donc apparaître dans l'Équipe Pédagogique
+    // dès la confirmation du matching, même en l'absence de toute séance.
+    const sessionsRes = await get(`/sessions?role=parent&userId=${parent.id}`, { token: parentToken });
+    expect(sessionsRes.status).toBe(200);
+    const hasTeacherSession = sessionsRes.data.some((s) => (s.teacherId || s.teacher_id) === teacher.id);
+    expect(hasTeacherSession, "aucune séance créée à ce stade : normal, le matching est pur").toBe(false);
+
+    // C'est la seconde source (matching confirmé) que Team.tsx interroge par
+    // enfant (fetchTeachersByStudent) pour compenser l'absence de séance.
+    const matchingRes = await get(`/relationships/student-teacher?studentId=${student.id}`, { token: parentToken });
+    expect(matchingRes.status).toBe(200);
+    expect(
+      matchingRes.data.find((u) => u.id === teacher.id),
+      "l'enseignant confirmé doit apparaître dans Team.tsx dès le matching, avant toute séance"
+    ).toBeTruthy();
   });
 
   it("étape 3 (actor-student, REFUS) : aucune capacité de matching côté élève", async () => {
