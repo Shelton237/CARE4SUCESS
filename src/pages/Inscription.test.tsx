@@ -1,11 +1,12 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import Inscription from "@/pages/Inscription";
 import { MemoryRouter } from "react-router-dom-original";
+import { renderWithQueryClient } from "@/test/test-utils";
 
 describe("Inscription Component", () => {
     it("affiche le choix du profil au démarrage", () => {
-        render(
+        renderWithQueryClient(
             <MemoryRouter>
                 <Inscription />
             </MemoryRouter>
@@ -16,7 +17,7 @@ describe("Inscription Component", () => {
     });
 
     it("bascule vers le formulaire parent lors du clic", () => {
-        render(
+        renderWithQueryClient(
             <MemoryRouter>
                 <Inscription />
             </MemoryRouter>
@@ -26,7 +27,7 @@ describe("Inscription Component", () => {
     });
 
     it("bascule vers le formulaire élève lors du clic", () => {
-        render(
+        renderWithQueryClient(
             <MemoryRouter>
                 <Inscription />
             </MemoryRouter>
