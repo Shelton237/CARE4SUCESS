@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import cron from "node-cron";
+import { resolveJwtSecret } from "./jwtSecret.js";
 
 const rootDir = process.cwd();
 const envFiles = [".env.local", ".env"];
@@ -33,8 +34,7 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || "care4success_dev_secret";
-if (!process.env.JWT_SECRET) console.warn("⚠️  JWT_SECRET non défini — utilisation du secret de développement. Définir JWT_SECRET en production!");
+const JWT_SECRET = resolveJwtSecret();
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
 
 // FALLBACK DATA (IN-MEMORY)

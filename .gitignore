@@ -37,6 +37,12 @@ pids/
 !.env.*.example
 !.env.local.example
 
+# --- Leaked-secret file pattern (T-01a hotfix) & lookalikes ---
+store.prod.env.fix
+store.prod.env*
+*.env.fix
+_agent/rotation_*.env
+
 # --- Coverage ---
 coverage/
 .nyc_output/
