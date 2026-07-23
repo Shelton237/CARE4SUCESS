@@ -8,9 +8,9 @@
 // student_teacher officielle → propagation dans les 3 espaces.
 // Étape 3 : l'élève n'a AUCUNE capacité de matching (absente de la cartographie).
 //
-// NB : l'automation "en traitement" est actuellement bloquée (voir test dédié).
-// Pour valider INDÉPENDAMMENT la propagation de confirmAssignment, une
-// assignation est ensuite seedée directement.
+// NB : l'automation "en traitement" dépendait de la colonne users.geo_location_id
+// (bug B2, corrigé). Pour valider INDÉPENDAMMENT la propagation de
+// confirmAssignment, une assignation est ensuite seedée directement.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import crypto from "crypto";
 import {
@@ -54,15 +54,14 @@ describe("Scénario 02 — Demande de bilan → matching staff → visibilité c
     expect(list.data.find((r) => r.id === requestId)).toBeTruthy();
   });
 
-  it("automation 'en traitement' : doit créer une assignation avec candidats [DOCUMENTE UN BLOCAGE]", async () => {
-    const { status } = await patch(`/requests/${requestId}`, { status: "en traitement" });
+  it("automation 'en traitement' (actor-admin) : doit créer une assignation avec candidats", async () => {
+    const { status } = await patch(`/requests/${requestId}`, { status: "en traitement" }, { token: adminToken });
     expect(status).toBe(200);
     const { data } = await get("/assignments", { token: adminToken });
-    const assign = data.find((a) => (a.childName || a.child_name) === student.name);
-    // Résultat ATTENDU : une assignation est créée. Actuellement l'automation
-    // échoue (SELECT users.geo_location_id — colonne inexistante) → aucune
-    // assignation. Ce test documente le blocage de bout en bout.
-    expect(assign, "automation 'en traitement' n'a pas créé d'assignation (voir rapport : users.geo_location_id manquant)").toBeTruthy();
+    const assign = data.find((a) => (a.child || a.childName || a.child_name) === student.name);
+    // Bug B2 corrigé : users.geo_location_id existe désormais, l'automation
+    // peut relire la localisation du parent et créer l'assignation.
+    expect(assign, "automation 'en traitement' n'a pas créé d'assignation").toBeTruthy();
   });
 
   it("étape 2 (actor-advisor) : confirmAssignment lie l'enseignant à l'élève et clôt la demande", async () => {

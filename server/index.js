@@ -1065,6 +1065,7 @@ const initDB = async () => {
     if (!taColNames.has("interview_notes")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN interview_notes TEXT NULL").catch(() => {});
     if (!taColNames.has("interview_status")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN interview_status VARCHAR(20) NULL").catch(() => {});
     if (!taColNames.has("level_classification")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN level_classification JSON NULL").catch(() => {});
+    if (!taColNames.has("levels")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN levels JSON NULL").catch(() => {});
 
     // Migration: performance_index sur teachers
     const [tCols] = await pool.query("SHOW COLUMNS FROM teachers");
@@ -1083,6 +1084,7 @@ const initDB = async () => {
     const [uCols] = await pool.query("SHOW COLUMNS FROM users");
     const uColNames = new Set(uCols.map(c => c.Field));
     if (!uColNames.has("secondary_role")) await pool.query("ALTER TABLE users ADD COLUMN secondary_role ENUM('admin','teacher','parent','advisor','student','tutor') NULL DEFAULT NULL").catch(() => {});
+    if (!uColNames.has("geo_location_id")) await pool.query("ALTER TABLE users ADD COLUMN geo_location_id INT UNSIGNED NULL AFTER location").catch(() => {});
     await ensureStudentEvaluationsTable();
     await ensureGeoLocationsTable();
     // Migration: geo_location_id sur teachers
