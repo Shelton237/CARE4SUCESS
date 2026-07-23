@@ -303,7 +303,7 @@ export default function TeacherSchedule() {
                         <div key={s.id} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50/50 transition-colors">
                             <div className="w-10 text-center flex-shrink-0">
                                 <div className="text-[9px] font-black text-[#1A6CC8] uppercase">{s.day?.slice(0, 3).toUpperCase() || '---'}</div>
-                                <div className="text-base font-black text-[#0D2D5A]">{s.date?.split(/[-\/]/)[0] || '??'}</div>
+                                <div className="text-base font-black text-[#0D2D5A]">{s.date?.split(/[-/]/)[0] || '??'}</div>
                             </div>
                             <div className="hidden sm:block w-px h-8 bg-slate-100" />
                             <div className="flex-1 min-w-0">

@@ -40,6 +40,15 @@ par l'agent `github-doc-agent` à chaque PR mergée.
   [#5](https://github.com/Shelton237/CARE4SUCESS/issues/5), ticket `T-06` de
   `docs/backlog.md`, constat `[M2]` de `docs/audits/AUDIT_2026-07-22.md`)
 
+- Correction des 6 erreurs ESLint bloquantes (`no-empty` dans
+  `VirtualClassroom.tsx`/`teacher/Homework.tsx`,
+  `no-non-null-asserted-optional-chain` dans `VirtualClassroom.tsx`,
+  `no-useless-escape` dans `teacher/Schedule.tsx`), permettant à `npm run lint` de
+  servir de gate CI (`T-09`). Comportement fonctionnel inchangé. (PR
+  [#10](https://github.com/Shelton237/CARE4SUCESS/pull/10), issue
+  [#6](https://github.com/Shelton237/CARE4SUCESS/issues/6), ticket `T-07` de
+  `docs/backlog.md`, constat `[M6]` de `docs/audits/AUDIT_2026-07-22.md`)
+
 ### Ajouté
 - Mise en place de l'équipe d'agents Claude Code (diagnostician, tech-lead,
   unit-test-engineer, integration-test-engineer, hotfix-bugfix-dev, github-doc-agent)
