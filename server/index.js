@@ -6848,6 +6848,9 @@ app.get("/api/teachers/:teacherId/performance-index", authenticateRequest, async
 
 // ─── Matching automatique prof/élève ─────────────────────────────────────────
 app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) => {
+  if (!['admin', 'advisor'].includes(req.user.role)) {
+    return res.status(403).json({ message: "Accès refusé" });
+  }
   try {
     const { studentId } = req.params;
     const [[student]] = await pool.query(
