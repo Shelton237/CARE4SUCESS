@@ -55,7 +55,7 @@ const parseHomeworkDate = (dateStr: string) => {
                 full: `${day}/${m}`
             };
         }
-    } catch {}
+    } catch { /* invalid date, fall through to the default placeholder below */ }
     return { day: "—", month: "—", full: dateStr };
 };
 

@@ -289,7 +289,7 @@ export default function VirtualClassroom() {
             initJitsi();
             return () => {
                 if (jitsiApiRef.current) {
-                    try { jitsiApiRef.current.dispose(); } catch {}
+                    try { jitsiApiRef.current.dispose(); } catch { /* dispose failure on unmount is non-critical, ignore */ }
                     jitsiApiRef.current = null;
                 }
             };
@@ -322,7 +322,7 @@ export default function VirtualClassroom() {
         return () => {
             clearInterval(timer);
             if (jitsiApiRef.current) {
-                try { jitsiApiRef.current.dispose(); } catch {}
+                try { jitsiApiRef.current.dispose(); } catch { /* dispose failure on unmount is non-critical, ignore */ }
                 jitsiApiRef.current = null;
             }
         };
@@ -570,7 +570,7 @@ export default function VirtualClassroom() {
                 onClose={() => setShowHomeworkForm(false)}
                 sessionId={sessionId!}
                 sessionDetails={currentSession}
-                teacherId={user?.id!}
+                teacherId={user?.id ?? ''}
             />
         </div>
     );
@@ -587,7 +587,7 @@ const reportSchema = z.object({
 function SessionReportModal({ isOpen, onClose, sessionId, sessionDetails }: { isOpen: boolean, onClose: () => void, sessionId: string, sessionDetails: any }) {
     const { data: courseDetails } = useQuery({
         queryKey: ["course-details", sessionDetails?.courseId],
-        queryFn: () => fetchCourseDetails(sessionDetails?.courseId!),
+        queryFn: () => fetchCourseDetails(sessionDetails?.courseId ?? ''),
         enabled: Boolean(isOpen && sessionDetails?.courseId),
     });
 
