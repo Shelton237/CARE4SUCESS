@@ -7,8 +7,10 @@ import ParentTeam from "@/pages/parent/Team";
 import * as backoffice from "@/api/backoffice";
 
 // Capacité "Équipe Pédagogique" — cartographie Parent :
-// liste reconstruite depuis les séances planifiées, "Discuter" -> toast de
-// confirmation (pas d'envoi réel), icône mail -> mailto:
+// liste reconstruite depuis les séances planifiées ET depuis le matching
+// confirmé (student_teacher, via fetchTeachersByStudent) — bugfix E2 :
+// un enseignant assigné doit apparaître même sans séance encore créée.
+// "Discuter" -> toast de confirmation (pas d'envoi réel), icône mail -> mailto:
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
@@ -59,6 +61,8 @@ describe("Parent > Équipe Pédagogique", () => {
     toastSpy.mockReset();
     vi.spyOn(backoffice, "fetchChildrenByParent").mockResolvedValue(children as any);
     vi.spyOn(backoffice, "fetchScheduleByRole").mockResolvedValue(sessions as any);
+    // Par défaut, aucun matching confirmé sans séance (cas couvert par un test dédié ci-dessous).
+    vi.spyOn(backoffice, "fetchTeachersByStudent").mockResolvedValue([] as any);
   });
 
   it("succès : reconstruit la liste des enseignants depuis le planning", async () => {
@@ -109,5 +113,56 @@ describe("Parent > Équipe Pédagogique", () => {
     renderTeam();
 
     await waitFor(() => expect(screen.getByText(/Dossier en cours d'affectation/i)).toBeInTheDocument());
+  });
+
+  it("matching confirmé sans séance : l'enseignant apparaît avec un état 'Première séance à planifier'", async () => {
+    // Régression bug E2 : un matching confirmé (table student_teacher, alimentée
+    // par confirmAssignment) doit faire apparaître l'enseignant dans l'Équipe
+    // Pédagogique même si aucune séance n'a encore été créée pour lui.
+    vi.spyOn(backoffice, "fetchScheduleByRole").mockResolvedValue([] as any);
+    vi.spyOn(backoffice, "fetchTeachersByStudent").mockImplementation((studentId: string) => {
+      if (studentId === "child-1") {
+        return Promise.resolve([
+          { id: "t2", name: "Mme Ateba", email: "ateba@test.com", role: "teacher" } as any,
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    renderTeam();
+
+    await waitFor(() => expect(screen.getByText("Mme Ateba")).toBeInTheDocument());
+    expect(screen.getByText("1 INTERVENANTS ACTIFS")).toBeInTheDocument();
+    expect(screen.getByText(/Première séance à planifier/i)).toBeInTheDocument();
+    expect(screen.getByText("Alice Dupont")).toBeInTheDocument();
+    // Pas de "0" affiché comme statistique trompeuse (sessions terminées/à venir).
+    expect(screen.queryByText("Sessions Terminées")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sessions À Venir")).not.toBeInTheDocument();
+  });
+
+  it("mixte : un enseignant avec séances et un autre en attente de première séance coexistent", async () => {
+    vi.spyOn(backoffice, "fetchTeachersByStudent").mockImplementation((studentId: string) => {
+      if (studentId === "child-1") {
+        // Enseignant déjà présent via les séances : ne doit pas dupliquer l'entrée.
+        return Promise.resolve([
+          { id: "t1", name: "M. Kouassi", email: "kouassi@test.com", role: "teacher" } as any,
+        ]);
+      }
+      if (studentId === "child-2") {
+        return Promise.resolve([
+          { id: "t3", name: "Mr Nkoulou", email: "nkoulou@test.com", role: "teacher" } as any,
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    renderTeam();
+
+    await waitFor(() => expect(screen.getByText("Mr Nkoulou")).toBeInTheDocument());
+    expect(screen.getByText("M. Kouassi")).toBeInTheDocument();
+    expect(screen.getByText("2 INTERVENANTS ACTIFS")).toBeInTheDocument();
+    expect(screen.getByText(/Première séance à planifier/i)).toBeInTheDocument();
+    // M. Kouassi a des séances (voir `sessions`) : les stats existantes restent affichées.
+    expect(screen.getByText("Sessions Terminées")).toBeInTheDocument();
   });
 });

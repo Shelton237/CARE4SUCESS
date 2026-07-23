@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import {
     GraduationCap,
     Users,
@@ -9,9 +9,10 @@ import {
     ShieldCheck,
     Loader2,
     Award,
-    MailCheck
+    MailCheck,
+    CalendarClock
 } from "lucide-react";
-import { fetchChildrenByParent, fetchScheduleByRole } from "@/api/backoffice";
+import { fetchChildrenByParent, fetchScheduleByRole, fetchTeachersByStudent } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,10 @@ interface TeacherInfo {
     email?: string;
     color: string;
     children: { childName: string; childId: string }[];
+    // true si l'enseignant est confirmé (student_teacher) mais n'a encore
+    // aucune séance planifiée : évite d'afficher "0/0" comme s'il s'agissait
+    // d'une anomalie.
+    awaitingFirstSession?: boolean;
 }
 
 export default function ParentTeam() {
@@ -46,25 +51,55 @@ export default function ParentTeam() {
     const children = useMemo(() => childrenQuery.data ?? [], [childrenQuery.data]);
     const sessions = useMemo(() => scheduleQuery.data ?? [], [scheduleQuery.data]);
 
+    // Enseignants confirmés (table student_teacher) pour chaque enfant, alimentée
+    // dès `confirmAssignment` — indépendamment de l'existence d'une séance.
+    const matchedTeachersQueries = useQueries({
+        queries: children.map((child) => ({
+            queryKey: ["studentTeachers", child.id],
+            queryFn: () => fetchTeachersByStudent(child.id),
+            enabled: Boolean(child.id),
+        })),
+    });
+
     const teachers = useMemo<TeacherInfo[]>(() => {
         const teacherMap = new Map<string, TeacherInfo>();
         let colorIndex = 0;
 
-        sessions.forEach((session) => {
-            if (!session.teacherId || !session.teacher) return;
-
-            if (!teacherMap.has(session.teacherId)) {
-                teacherMap.set(session.teacherId, {
-                    id: session.teacherId,
-                    name: session.teacher,
-                    email: `${session.teacher.toLowerCase().replace(" ", ".")}@eureka-academy.com`,
+        const getOrCreate = (id: string, name: string) => {
+            if (!teacherMap.has(id)) {
+                teacherMap.set(id, {
+                    id,
+                    name,
+                    email: `${name.toLowerCase().replace(" ", ".")}@care4success.usra-care.com`,
                     color: TEACHER_COLORS[colorIndex % TEACHER_COLORS.length],
                     children: [],
+                    awaitingFirstSession: true,
                 });
                 colorIndex++;
             }
+            return teacherMap.get(id)!;
+        };
 
-            const teacherEntry = teacherMap.get(session.teacherId)!;
+        // 1. Matching confirmé (student_teacher), sans attendre de séance.
+        children.forEach((child, index) => {
+            const matchedTeachers = matchedTeachersQueries[index]?.data ?? [];
+            matchedTeachers.forEach((teacher) => {
+                const teacherEntry = getOrCreate(teacher.id, teacher.name);
+                const alreadyLinked = teacherEntry.children.some((c) => c.childId === child.id);
+                if (!alreadyLinked) {
+                    teacherEntry.children.push({ childName: child.name, childId: child.id });
+                }
+            });
+        });
+
+        // 2. Séances planifiées : source historique, met aussi à jour le statut
+        // "en attente de première séance" dès qu'une séance existe.
+        sessions.forEach((session) => {
+            if (!session.teacherId || !session.teacher) return;
+
+            const teacherEntry = getOrCreate(session.teacherId, session.teacher);
+            teacherEntry.awaitingFirstSession = false;
+
             const alreadyLinked = teacherEntry.children.some((c) => c.childId === session.studentId);
             if (!alreadyLinked && session.studentId && session.student) {
                 teacherEntry.children.push({
@@ -75,7 +110,7 @@ export default function ParentTeam() {
         });
 
         return Array.from(teacherMap.values());
-    }, [sessions]);
+    }, [sessions, children, matchedTeachersQueries]);
 
     const teacherSubjects = useMemo(() => {
         const map = new Map<string, Set<string>>();
@@ -193,16 +228,25 @@ export default function ParentTeam() {
                                     </div>
 
                                     {/* Stats Grid */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-x divide-slate-100 border-y border-slate-50 py-3 bg-slate-50/30">
-                                        <div className="px-3 flex flex-col items-center">
-                                            <span className="text-xs font-black text-emerald-600 tracking-tight">{counts?.completed || 0}</span>
-                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter text-center">Sessions Terminées</span>
+                                    {teacher.awaitingFirstSession ? (
+                                        <div className="flex items-center justify-center gap-2 border-y border-slate-50 py-3 bg-slate-50/30">
+                                            <CalendarClock className="w-3.5 h-3.5 text-[#F5A623]" />
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                Première séance à planifier
+                                            </span>
                                         </div>
-                                        <div className="px-3 flex flex-col items-center">
-                                            <span className="text-xs font-black text-[#1A6CC8] tracking-tight">{counts?.upcoming || 0}</span>
-                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter text-center">Sessions À Venir</span>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 divide-x divide-slate-100 border-y border-slate-50 py-3 bg-slate-50/30">
+                                            <div className="px-3 flex flex-col items-center">
+                                                <span className="text-xs font-black text-emerald-600 tracking-tight">{counts?.completed || 0}</span>
+                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter text-center">Sessions Terminées</span>
+                                            </div>
+                                            <div className="px-3 flex flex-col items-center">
+                                                <span className="text-xs font-black text-[#1A6CC8] tracking-tight">{counts?.upcoming || 0}</span>
+                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter text-center">Sessions À Venir</span>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* Students Followed */}
                                     <div className="space-y-2">
