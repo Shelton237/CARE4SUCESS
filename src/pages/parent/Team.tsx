@@ -70,7 +70,7 @@ export default function ParentTeam() {
                 teacherMap.set(id, {
                     id,
                     name,
-                    email: `${name.toLowerCase().replace(" ", ".")}@eureka-academy.com`,
+                    email: `${name.toLowerCase().replace(" ", ".")}@care4success.usra-care.com`,
                     color: TEACHER_COLORS[colorIndex % TEACHER_COLORS.length],
                     children: [],
                     awaitingFirstSession: true,
