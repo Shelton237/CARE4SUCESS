@@ -481,9 +481,14 @@ const ensureCoursesTable = async () => {
       description TEXT,
       subject VARCHAR(120) NOT NULL,
       level VARCHAR(120) NOT NULL,
+      mode ENUM('presentiel','online','hybride') NOT NULL DEFAULT 'presentiel',
+      price DECIMAL(10,2) NOT NULL DEFAULT 0,
+      duration VARCHAR(50) NULL,
       status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
       cover_url VARCHAR(255) NULL,
       created_by VARCHAR(36) NULL,
+      teacher_id CHAR(36) NULL,
+      teacher_name VARCHAR(191) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
@@ -1103,6 +1108,16 @@ const initDB = async () => {
     if (taColsGeo.length === 0) await pool.query("ALTER TABLE teacher_applications ADD COLUMN geo_location_id INT UNSIGNED NULL").catch(() => {});
     const [taColsZoneIds] = await pool.query("SHOW COLUMNS FROM teacher_applications LIKE 'geo_zone_ids'");
     if (taColsZoneIds.length === 0) await pool.query("ALTER TABLE teacher_applications ADD COLUMN geo_zone_ids JSON NULL").catch(() => {});
+
+    // Migration: mode/price/duration/teacher_id/teacher_name sur courses
+    // (colonnes exigées par les requêtes de server/index.js — cf. ticket E1)
+    const [crsCols] = await pool.query("SHOW COLUMNS FROM courses");
+    const crsColNames = new Set(crsCols.map(c => c.Field));
+    if (!crsColNames.has("mode")) await pool.query("ALTER TABLE courses ADD COLUMN mode ENUM('presentiel','online','hybride') NOT NULL DEFAULT 'presentiel' AFTER level").catch(() => {});
+    if (!crsColNames.has("price")) await pool.query("ALTER TABLE courses ADD COLUMN price DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER mode").catch(() => {});
+    if (!crsColNames.has("duration")) await pool.query("ALTER TABLE courses ADD COLUMN duration VARCHAR(50) NULL AFTER price").catch(() => {});
+    if (!crsColNames.has("teacher_id")) await pool.query("ALTER TABLE courses ADD COLUMN teacher_id CHAR(36) NULL AFTER created_by").catch(() => {});
+    if (!crsColNames.has("teacher_name")) await pool.query("ALTER TABLE courses ADD COLUMN teacher_name VARCHAR(191) NULL AFTER teacher_id").catch(() => {});
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
