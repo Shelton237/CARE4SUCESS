@@ -1996,7 +1996,7 @@ app.post("/api/requests", async (req, res) => {
   }
 });
 
-app.patch("/api/requests/:id", async (req, res) => {
+app.patch("/api/requests/:id", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
   const validStatuses = new Set(["reçu", "en traitement", "assigné", "clôturé"]);
@@ -2004,14 +2004,12 @@ app.patch("/api/requests/:id", async (req, res) => {
   // Normalize the incoming status to handle encoding variants
   const normalizedStatus = normalizeRequestStatus(status);
   console.log(`PATCH /api/requests/${id} - New Status: '${status}' -> normalized: '${normalizedStatus}'`);
-  try { fs.appendFileSync('/tmp/debug_api.log', `PATCH /api/requests/${id} - status: ${status} -> ${normalizedStatus}\n`); } catch {}
   if (!normalizedStatus || !validStatuses.has(normalizedStatus)) {
     console.log(`Invalid status: '${status}' (normalized: '${normalizedStatus}')`);
     return res.status(400).json({ message: "Statut invalide.", received: status, normalized: normalizedStatus });
   }
 
   try {
-    try { fs.appendFileSync('/tmp/debug_api.log', `Updating database for request ${id} to ${normalizedStatus}...\n`); } catch {}
     await pool.query(
       "UPDATE requests SET status = ? WHERE id = ?",
       [normalizedStatus, id]
