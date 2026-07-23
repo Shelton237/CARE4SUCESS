@@ -4055,14 +4055,6 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
   if (!["admin", "advisor"].includes(_req.user?.role)) {
     return res.status(403).json({ message: "Forbidden" });
   }
-  const FALLBACK = [
-    { id: "af1", parent: "Aminata Diallo", child: "Koffi Diallo", level: "3e", subject: "Mathématiques", teacher: "Dr. Abanda", nextRdv: "12/03", status: "suivi actif" },
-    { id: "af2", parent: "Kouassi Ébène", child: "Awa Ébène", level: "Tle C", subject: "Physique-Chimie", teacher: "Th. Nkoulou", nextRdv: "14/03", status: "suivi actif" },
-    { id: "af3", parent: "Narcisse Essomba", child: "Léa Essomba", level: "CM2", subject: "Français", teacher: "S. Fouda", nextRdv: "10/03", status: "suivi actif" },
-    { id: "af4", parent: "Fatou Konaté", child: "Ibrahima Konaté", level: "5e", subject: "Anglais", teacher: "Rebecca Ateba", nextRdv: "—", status: "matching" },
-    { id: "af5", parent: "Mariama Bah", child: "Salif Bah", level: "6e", subject: "Mathématiques", teacher: "—", nextRdv: "—", status: "bilan planifié" },
-    { id: "af6", parent: "Hélène Noa", child: "Christelle Noa", level: "3e", subject: "Français", teacher: "—", nextRdv: "—", status: "nouveau" },
-  ];
 
   try {
     // Récupère les demandes avec leur assignment et la prochaine session à venir
@@ -4136,12 +4128,11 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
     res.json(families);
   } catch (error) {
     if (isDbConnectionError(error)) {
-      console.warn("DB indisponible, retour des familles mock.", error.message);
-      return res.json(FALLBACK);
+      console.error("DB indisponible pour /api/advisor/families", error.message);
+      return res.status(503).json({ message: "Service temporairement indisponible, réessayez." });
     }
     console.error("Failed to fetch advisor families", error);
-    // En cas d'erreur SQL (ex: table inexistante), on retourne le fallback 
-    return res.json(FALLBACK);
+    return res.status(500).json({ message: "Erreur lors de la récupération des familles." });
   }
 });
 
@@ -5311,6 +5302,8 @@ app.get("/api/parents/:parentId/progress-report", async (req, res) => {
     const childName = student?.name;
 
     let grades = [];
+    let attendance = null;
+    let teacherComments = null;
     if (student) {
       const [attempts] = await pool.query(
         `SELECT c.subject, AVG(a.score) as average, COUNT(*) as count
@@ -5321,6 +5314,30 @@ app.get("/api/parents/:parentId/progress-report", async (req, res) => {
          GROUP BY c.subject`, [student.id]
       );
       grades = attempts;
+
+      // Assiduité réelle : même principe que /api/teachers/:teacherId/students
+      // (ratio des séances effectuées sur le total des séances de l'élève).
+      const [[sessionStats]] = await pool.query(
+        `SELECT COUNT(id) as total, SUM(CASE WHEN status = 'effectué' THEN 1 ELSE 0 END) as done
+         FROM sessions WHERE student_id = ?`,
+        [student.id]
+      );
+      const totalSessions = sessionStats?.total || 0;
+      const doneSessions = sessionStats?.done || 0;
+      attendance = totalSessions > 0 ? Math.round((doneSessions / totalSessions) * 100) : null;
+
+      // Commentaire enseignant réel : dernier rapport de séance (report_text) rempli par
+      // l'enseignant via POST /sessions/:id/report. Aucune autre source de "commentaire
+      // mensuel" dédié n'existe à ce jour dans le schéma ; on ne réintroduit donc jamais
+      // de phrase générique inventée si aucun rapport n'a encore été rempli.
+      const [[latestReport]] = await pool.query(
+        `SELECT report_text FROM sessions
+         WHERE student_id = ? AND report_text IS NOT NULL AND report_text <> ''
+         ORDER BY session_date DESC, actual_end_time DESC
+         LIMIT 1`,
+        [student.id]
+      );
+      teacherComments = latestReport?.report_text || null;
     }
 
     res.json({
@@ -5328,8 +5345,8 @@ app.get("/api/parents/:parentId/progress-report", async (req, res) => {
       childName: childName || "N/A",
       reportDate: new Date().toLocaleDateString('fr-FR'),
       grades: grades,
-      attendance: 95,
-      teacherComments: "Une progression constante et une excellente participation aux sessions live."
+      attendance,
+      teacherComments
     });
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur." });
