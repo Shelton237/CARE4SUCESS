@@ -6,7 +6,7 @@ import {
     SearchCheck, Briefcase, PlusCircle, AlertTriangle,
     ThumbsUp, Lightbulb, Eye, UserCircle2,
     ClipboardCheck, CalendarRange, ChevronDown, ChevronUp, Trash2,
-    Zap, Star
+    Zap, Star, RefreshCw
 } from "lucide-react";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,7 +44,7 @@ export default function AdvisorFamilies() {
     const [planStart, setPlanStart] = useState("");
     const [planWeeks, setPlanWeeks] = useState([{ objective: "", subjects: [] as string[], done: false }]);
 
-    const { data: families = [], isLoading } = useQuery({
+    const { data: families = [], isLoading, isError, refetch } = useQuery({
         queryKey: ["advisorFamilies"],
         queryFn: fetchAdvisorFamilies,
     });
@@ -189,6 +189,23 @@ export default function AdvisorFamilies() {
             <div className="p-4 md:p-8 flex flex-col items-center justify-center min-h-[400px]">
                 <Loader2 className="animate-spin text-[#1A6CC8] w-10 h-10" />
                 <p className="text-gray-400 text-sm mt-4">Chargement des familles...</p>
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="p-4 md:p-8">
+                <div className="bg-red-50 border border-red-100 rounded-2xl p-5 flex items-center justify-between text-sm text-red-700">
+                    <span>Impossible de charger les familles. Service temporairement indisponible.</span>
+                    <button
+                        onClick={() => refetch()}
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold hover:bg-red-100 transition-colors"
+                    >
+                        <RefreshCw className="w-3 h-3" />
+                        Réessayer
+                    </button>
+                </div>
             </div>
         );
     }

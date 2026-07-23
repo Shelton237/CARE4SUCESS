@@ -152,4 +152,22 @@ describe("Parent > Progression", () => {
 
     await waitFor(() => expect(screen.getByText("--/20")).toBeInTheDocument());
   });
+
+  it("assiduité/commentaire non disponibles : n'affiche plus de valeurs fictives figées (95% / phrase générique), affiche un état 'pas encore de commentaire' sans planter le PDF", async () => {
+    vi.spyOn(backoffice, "fetchProgressReport").mockResolvedValue({
+      ...report,
+      attendance: null,
+      teacherComments: null,
+    } as any);
+    const user = userEvent.setup();
+    renderProgress();
+
+    await waitFor(() => expect(screen.getByText("Pas encore de commentaire.")).toBeInTheDocument());
+    expect(screen.queryByText("Une progression constante et une excellente participation aux sessions live.")).not.toBeInTheDocument();
+
+    // Génération du PDF (report.attendance/teacherComments à null) : ne doit pas planter.
+    await user.click(screen.getByText("Bilan PDF"));
+    expect(savePdfSpy).toHaveBeenCalled();
+    expect(toastSuccessSpy).toHaveBeenCalledWith("Rapport téléchargé avec succès !");
+  });
 });

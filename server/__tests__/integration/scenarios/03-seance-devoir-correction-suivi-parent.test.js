@@ -106,14 +106,18 @@ describe("Scénario 03 — Séance → devoir → correction → suivi parent", 
     expect(hw.sessionId, "indicateur 'lié à une séance' manquant côté parent").toBe(sessionId);
   });
 
-  it("étape 4 — vérif Parent / Progression (actor-parent, lecture seule) : ÉCART documenté", async () => {
-    // Le bilan/progression parent (progress-report) N'intègre PAS les devoirs :
-    // assiduité codée en dur (95), commentaires statiques, notes issues des seuls
-    // quiz_attempts. La correction d'un devoir ne se reflète pas dans la
-    // progression. Consigné comme écart dans le rapport.
+  it("étape 4 — vérif Parent / Progression (actor-parent, lecture seule) : assiduité et commentaire réels (bug hardcoded-data corrigé)", async () => {
+    // Le bilan/progression parent (progress-report) N'intègre toujours PAS les devoirs
+    // (notes issues des seuls quiz_attempts) : ceci reste un écart fonctionnel distinct,
+    // hors périmètre du présent correctif. En revanche, l'assiduité et le commentaire
+    // enseignant sont désormais calculés à partir des séances réelles de l'élève
+    // (plus de valeur figée à 95 / phrase générique invariable).
     const { status, data } = await get(`/parents/${parent.id}/progress-report`, { token: parentToken });
     expect(status).toBe(200);
     expect(data.childName).toBe(student.name);
-    expect(data.attendance).toBe(95); // preuve : valeur figée, non recalculée
+    // 1 séance créée en étape 1, check-in/out effectué en étape 2 => statut 'effectué' => 100%.
+    expect(data.attendance).toBe(100);
+    // Dernier rapport de séance (report_text) rempli en étape 2.
+    expect(data.teacherComments).toBe("Séance sur les équations du 2nd degré");
   });
 });

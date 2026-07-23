@@ -80,8 +80,8 @@ export default function ParentProgress() {
             doc.text("MATIÈRE", 25, 87); doc.text("MOYENNE", 90, 87, { align: "center" }); doc.text("ÉXERCICES", 130, 87, { align: "center" }); doc.text("APPRÉCIATION", 170, 87, { align: "center" });
             let y = 97; doc.setFont("helvetica", "normal");
             report.grades.forEach((g: any) => { doc.text(g.subject, 25, y); doc.text(`${g.average}/20`, 90, y, { align: "center" }); doc.text(`${g.count}`, 130, y, { align: "center" }); doc.text(g.average >= 14 ? "Excellent" : "Satisfaisant", 170, y, { align: "center" }); y += 10; });
-            y += 10; doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("RÉSUMÉ ANALYTIQUE", 20, y); doc.setFont("helvetica", "normal"); doc.text(`Assiduité aux cours : ${report.attendance}%`, 20, y + 10);
-            y += 40; doc.setFont("helvetica", "bold"); doc.text("COMMENTAIRE DE L'ÉQUIPE PÉDAGOGIQUE :", 20, y); doc.setFont("helvetica", "italic"); doc.setFontSize(10); doc.text(report.teacherComments, 20, y + 10, { maxWidth: 170 });
+            y += 10; doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("RÉSUMÉ ANALYTIQUE", 20, y); doc.setFont("helvetica", "normal"); doc.text(`Assiduité aux cours : ${report.attendance != null ? `${report.attendance}%` : "--"}`, 20, y + 10);
+            y += 40; doc.setFont("helvetica", "bold"); doc.text("COMMENTAIRE DE L'ÉQUIPE PÉDAGOGIQUE :", 20, y); doc.setFont("helvetica", "italic"); doc.setFontSize(10); doc.text(report.teacherComments || "Pas encore de commentaire.", 20, y + 10, { maxWidth: 170 });
             doc.save(`Rapport_${report.childName}_Mars_2026.pdf`);
             toast.success("Rapport téléchargé avec succès !");
         } catch (error) { toast.error("Erreur lors de la génération du PDF."); }
@@ -216,7 +216,7 @@ export default function ParentProgress() {
                     <div className="space-y-4">
                         <div>
                             <h3 className="text-[11px] font-black uppercase text-white mb-1">Évaluation Globale</h3>
-                            <p className="text-sm font-medium text-slate-300 leading-relaxed">{report.teacherComments}</p>
+                            <p className="text-sm font-medium text-slate-300 leading-relaxed">{report.teacherComments || "Pas encore de commentaire."}</p>
                         </div>
                         {report.weakPoints && (
                             <div className="bg-white/5 p-3 border border-white/10">
