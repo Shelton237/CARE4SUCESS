@@ -218,6 +218,10 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: './src/test/setup.ts',
       css: true,
+      // server/__tests__/** (intégration et sécurité) ont leurs propres
+      // configs dédiées (vitest.integration.config.ts, vitest.security.config.ts) :
+      // backend Express réel + MySQL de test, incompatibles avec l'environnement jsdom.
+      exclude: ['**/node_modules/**', '**/dist/**', 'server/__tests__/**'],
     },
     server: {
       host: "::",
