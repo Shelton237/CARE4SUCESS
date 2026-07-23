@@ -1,0 +1,49 @@
+id: "06-geographie-matching"
+titre: "Géographie → matching"
+reference_cartographie:
+  - "Admin > Géographie & Zones"
+  - "Admin > Matching / Conseiller > Matching"
+description: >
+  Vérifie qu'une suggestion de zone géographique validée par l'admin impacte
+  effectivement le score de proximité et l'indicateur « Zone ✓ » observé
+  ensuite dans un matching.
+
+seed:
+  - entite: suggestion_zone_geo
+    statut: en_attente
+    type: "quartier"
+    zone_parente: "existante"
+  - entite: eleve_et_enseignant
+    proximite: "dépend de la nouvelle zone une fois validée"
+
+etapes:
+  - numero: 1
+    acteur: actor-admin
+    action: "Consulter la liste des suggestions de zones en attente."
+    resultat_attendu: "Suggestion visible avec nom, type, zone parente, auteur, date."
+    verifier_ensuite: []
+
+  - numero: 2
+    acteur: actor-admin
+    action: "Valider la suggestion via validateGeoLocation (action: validate)."
+    resultat_attendu: "Zone rendue disponible dans les listes déroulantes de la plateforme."
+    verifier_ensuite: []
+
+  - numero: 3
+    acteur: actor-admin
+    variante_alternative_acteur: actor-advisor
+    action: "Lancer un matching pour l'élève concerné."
+    resultat_attendu: >
+      L'enseignant dont la zone d'intervention correspond à la nouvelle zone
+      validée apparaît avec l'indicateur « Zone ✓ » et un score de proximité
+      cohérent, trié en tête de liste par proximité.
+    verifier_ensuite: []
+
+echec_type:
+  - "Zone validée mais absente des listes déroulantes après validation."
+  - "Indicateur « Zone ✓ » absent malgré une correspondance géographique réelle."
+  - "Tri par proximité non appliqué après validation de la nouvelle zone."
+
+ticket_hotfix_si_echec:
+  titre: "Zone géo validée sans effet sur le matching"
+  inclure: [id_suggestion, id_eleve, id_enseignant, requete_api_exacte]

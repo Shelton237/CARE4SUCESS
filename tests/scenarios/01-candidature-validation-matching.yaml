@@ -1,0 +1,52 @@
+id: "01-candidature-validation-matching"
+titre: "Candidature → validation → disponibilité matching"
+reference_cartographie:
+  - "Admin > Candidatures profs"
+  - "Conseiller > Candidatures profs"
+  - "Admin > Matching"
+  - "Conseiller > Matching"
+description: >
+  Vérifie que la validation d'une candidature enseignant, qu'elle soit faite
+  par un admin ou un conseiller, rend bien l'enseignant disponible dans les
+  deux surfaces de matching (/admin/matching et /advisor/matching), qui
+  pointent vers le même composant partagé src/pages/advisor/Matching.tsx.
+
+seed:
+  - entite: teacher_application
+    statut: pending
+    champs: [nom, email, matieres, disponibilite, annees_experience]
+
+etapes:
+  - numero: 1
+    acteur: actor-teacher
+    action: >
+      Confirmer l'état pré-seedé de la candidature (statut "pending"),
+      vérifier qu'elle apparaît dans la liste consultée par le staff.
+    resultat_attendu: "Candidature visible avec statut 'En attente'."
+    verifier_ensuite: []
+
+  - numero: 2
+    acteur: actor-admin
+    variante_alternative_acteur: actor-advisor
+    action: >
+      Valider la candidature via reviewTeacherApplication (status: approved,
+      reviewerRole selon l'acteur, rateType + negotiatedRate renseignés).
+    resultat_attendu: >
+      Candidature passe au statut "approved" ; identifiants générés affichés
+      si nouveau compte, ou message "compte existant lié" sinon.
+    verifier_ensuite:
+      - role: actor-admin
+        endroit: "/admin/matching"
+        attendu: "L'enseignant apparaît comme candidat compatible pour les élèves en attente correspondant à ses matières/niveaux."
+      - role: actor-advisor
+        endroit: "/advisor/matching"
+        attendu: "Même enseignant visible et sélectionnable depuis le composant partagé, avec les mêmes informations (note, disponibilité, ville, indicateur Zone)."
+
+echec_type:
+  - "Enseignant absent de /admin/matching malgré validation."
+  - "Enseignant absent de /advisor/matching malgré validation (composant partagé mais données non synchronisées)."
+  - "Candidature encore listée comme 'pending' après validation."
+
+ticket_hotfix_si_echec:
+  titre: "Matching : enseignant validé non disponible dans {surface}"
+  inclure: [acteur_ayant_valide, id_candidature, surface_manquante, requete_api_exacte]
