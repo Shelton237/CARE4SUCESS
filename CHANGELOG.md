@@ -15,6 +15,12 @@ par l'agent `github-doc-agent` à chaque PR mergée.
   issue [#1](https://github.com/Shelton237/CARE4SUCESS/issues/1), ticket
   `T-01` de `docs/backlog.md`, constat `[B1]` de
   `docs/audits/AUDIT_2026-07-22.md`, `docs/adr/ADR-001-rotation-secret-jwt-compromis.md`)
+- Protection de `PATCH /api/requests/:id` par le middleware `authenticateRequest`
+  (la route répondait auparavant sans aucune authentification) et retrait de deux
+  écritures de debug oubliées vers `/tmp/debug_api.log` dans `server/index.js`.
+  (PR [#7](https://github.com/Shelton237/CARE4SUCESS/pull/7), issue
+  [#3](https://github.com/Shelton237/CARE4SUCESS/issues/3), ticket `T-02` de
+  `docs/backlog.md`, constat `[B2]` de `docs/audits/AUDIT_2026-07-22.md`)
 
 ### Ajouté
 - Mise en place de l'équipe d'agents Claude Code (diagnostician, tech-lead,
