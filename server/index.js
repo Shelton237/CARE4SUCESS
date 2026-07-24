@@ -4505,6 +4505,7 @@ app.post("/api/auth/register", async (req, res) => {
     phone,
     avatar,
     location,
+    geoLocationId,
     timezone = "Africa/Douala",
     language = "fr",
     bio,
@@ -4542,8 +4543,8 @@ app.post("/api/auth/register", async (req, res) => {
 
     await pool.query(
       `INSERT INTO users
-        (id, name, email, password, role, avatar, phone, location, timezone, language, bio, notify_email, notify_sms, notify_whatsapp, parent_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        (id, name, email, password, role, avatar, phone, location, geo_location_id, timezone, language, bio, notify_email, notify_sms, notify_whatsapp, parent_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [
         userId,
         name.trim(),
@@ -4553,6 +4554,7 @@ app.post("/api/auth/register", async (req, res) => {
         inferredAvatar,
         phone || null,
         location || null,
+        geoLocationId !== undefined && geoLocationId !== null ? Number(geoLocationId) : null,
         timezone || "Africa/Douala",
         language || "fr",
         bio || null,

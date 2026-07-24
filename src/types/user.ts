@@ -9,6 +9,7 @@ export interface User {
   avatar?: string | null;
   phone?: string | null;
   location?: string | null;
+  geoLocationId?: number | null;
   timezone?: string | null;
   language?: string | null;
   bio?: string | null;

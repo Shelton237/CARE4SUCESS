@@ -32,6 +32,7 @@ export type UpdateUserProfilePayload = {
     phone?: string;
     avatar?: string;
     location?: string;
+    geoLocationId?: number | null;
     timezone?: string;
     language?: string;
     bio?: string;
