@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { updateTeacherSpecialties, createTeacher, updateTeacherStatus } from "@/api/backoffice";
+import { formatMoney } from "@/lib/money";
 
 interface Teacher {
     id: string;
@@ -26,6 +27,11 @@ interface Teacher {
     status: string;
     rating: number;
     students: number;
+    rate_type?: "hourly" | "monthly";
+    hourly_rate?: number;
+    monthly_rate?: number | null;
+    currency?: string;
+    rate_unit_minutes?: number;
 }
 
 const LEVELS = ALL_LEVELS;
@@ -354,6 +360,7 @@ export default function AdminTeachers() {
                                 <th className="text-left px-6 py-4 font-semibold text-gray-600">Niveaux</th>
                                 <th className="text-center px-6 py-4 font-semibold text-gray-600">Note</th>
                                 <th className="text-center px-6 py-4 font-semibold text-gray-600">Élèves</th>
+                                <th className="text-left px-6 py-4 font-semibold text-gray-600">Tarif</th>
                                 <th className="text-left px-6 py-4 font-semibold text-gray-600">Ville</th>
                                 <th className="text-center px-6 py-4 font-semibold text-gray-600">Statut</th>
                                 <th className="text-right px-6 py-4 font-semibold text-gray-600">Actions</th>
@@ -416,6 +423,11 @@ export default function AdminTeachers() {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <span className="font-semibold text-[#1A6CC8] bg-[#1A6CC8]/10 px-2.5 py-1 rounded-full">{t.students}</span>
+                                    </td>
+                                    <td className="px-6 py-4 text-gray-600 text-xs">
+                                        {t.rate_type === "monthly"
+                                            ? `${formatMoney(t.monthly_rate, t.currency)} / mois`
+                                            : `${formatMoney(t.hourly_rate, t.currency)} / ${t.rate_unit_minutes || 60} min`}
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-1.5 text-gray-500 text-xs">

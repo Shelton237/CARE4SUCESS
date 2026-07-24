@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatFCFA } from "@/lib/money";
+import { formatFCFA, formatMoney } from "@/lib/money";
 import { toast } from "sonner";
 import { 
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -56,6 +56,14 @@ export default function AdminFinance() {
 
     const summary = summaryQuery.data || { totalBilled: 0, totalPaid: 0, totalTeacherExpenses: 0, margin: 0 };
     const payroll = payrollQuery.data || [];
+
+    // Devise par enseignant, sans conversion : les totaux de paie sont donc
+    // des sous-totaux groupés par devise plutôt qu'une somme unique mélangée.
+    const payrollTotalsByCurrency = payroll.reduce((acc: Record<string, number>, t: any) => {
+        const currency = t.currency || "XOF";
+        acc[currency] = (acc[currency] || 0) + (Number(t.totalEarnings) || 0);
+        return acc;
+    }, {} as Record<string, number>);
 
     const pieData = [
         { name: "Dépenses Profs", value: summary.totalTeacherExpenses, color: "#ef4444" },
@@ -166,15 +174,25 @@ export default function AdminFinance() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="font-black text-[13px] text-[#0D2D5A] tracking-tight">{formatFCFA(t.monthlyEarnings)}</span>
+                                            <span className="font-black text-[13px] text-[#0D2D5A] tracking-tight">{formatMoney(t.monthlyEarnings, t.currency)}</span>
                                         </TableCell>
                                         <TableCell className="text-right pr-6">
-                                            <span className="font-black text-[13px] text-[#1A6CC8] tracking-tight">{formatFCFA(t.totalEarnings)}</span>
+                                            <span className="font-black text-[13px] text-[#1A6CC8] tracking-tight">{formatMoney(t.totalEarnings, t.currency)}</span>
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
+                        {Object.keys(payrollTotalsByCurrency).length > 0 && (
+                            <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-3 flex flex-wrap items-center gap-x-6 gap-y-1">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total par devise</span>
+                                {Object.entries(payrollTotalsByCurrency).map(([currency, total]) => (
+                                    <span key={currency} className="text-[12px] font-black text-[#0D2D5A]">
+                                        {formatMoney(total as number, currency)}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
