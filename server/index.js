@@ -4113,6 +4113,12 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
        FROM requests r
        LEFT JOIN assignments a
               ON a.child_name = r.child_name AND a.level = r.level
+              AND a.id = (
+                SELECT a2.id FROM assignments a2
+                WHERE a2.child_name = r.child_name AND a2.level = r.level
+                ORDER BY (a2.status = 'confirmed') DESC, a2.updated_at DESC, a2.created_at DESC
+                LIMIT 1
+              )
        LEFT JOIN sessions s
               ON s.student_name = r.child_name AND s.parent_name = r.parent_name
        GROUP BY r.id, r.parent_name, r.child_name, r.level, r.subject, r.status,
@@ -4120,7 +4126,50 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
        ORDER BY r.request_date DESC`
     );
 
-    const families = rows.map((row) => {
+    // Élèves créés directement (ex: via l'admin) sans aucune demande de bilan
+    // associée — sans ce complément, ils n'apparaissent jamais sur cet écran
+    // alors que le compte existe bien.
+    const [directRows] = await pool.query(
+      `SELECT
+         u.id,
+         u.name              AS child_name,
+         u.email             AS child_email,
+         u.created_at,
+         p.name              AS parent_name,
+         p.email             AS parent_email,
+         st.teacher_id
+       FROM users u
+       LEFT JOIN users p ON p.id = u.parent_id
+       LEFT JOIN student_teacher st ON st.student_id = u.id
+       WHERE u.role = 'student'
+         AND NOT EXISTS (SELECT 1 FROM requests r2 WHERE r2.child_name = u.name)
+       ORDER BY u.created_at DESC`
+    ).catch(() => [[]]);
+
+    const directTeacherIds = [...new Set(directRows.map((r) => r.teacher_id).filter(Boolean))];
+    let directTeacherNames = {};
+    if (directTeacherIds.length) {
+      const [teacherRows] = await pool.query(
+        `SELECT id, name FROM users WHERE id IN (${directTeacherIds.map(() => "?").join(",")})`,
+        directTeacherIds
+      );
+      directTeacherNames = Object.fromEntries(teacherRows.map((t) => [t.id, t.name]));
+    }
+
+    const directFamilies = directRows.map((row) => ({
+      id: `no-request-${row.id}`,
+      parent: row.parent_name || "—",
+      parentEmail: row.parent_email,
+      child: row.child_name,
+      childEmail: row.child_email,
+      level: null,
+      subject: undefined,
+      teacher: (row.teacher_id && directTeacherNames[row.teacher_id]) || "—",
+      nextRdv: "—",
+      status: "nouveau",
+    }));
+
+    const families = [...rows.map((row) => {
       // Calcule le statut métier
       let status = "nouveau";
       if (row.assignment_status === "confirmed" && row.selected_teacher) {
@@ -4161,7 +4210,7 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
         nextRdv,
         status,
       };
-    });
+    }), ...directFamilies];
 
     res.json(families);
   } catch (error) {
@@ -4177,6 +4226,14 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
 app.patch("/api/advisor/families/:id", async (req, res) => {
   const { id } = req.params;
   const { level, subject } = req.body;
+
+  if (id.startsWith("no-request-")) {
+    return res.status(404).json({
+      success: false,
+      message: "Cet élève n'a pas encore de demande de bilan — créez-en une pour pouvoir renseigner niveau/matière.",
+    });
+  }
+
   try {
     // On récupère d'abord le nom de l'enfant associé à cette demande
     const [reqRows] = await pool.query("SELECT child_name FROM requests WHERE id = ?", [id]);

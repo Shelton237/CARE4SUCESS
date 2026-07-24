@@ -128,4 +128,33 @@ describe("Scénario 02 — Demande de bilan → matching staff → visibilité c
     const check = await get("/assignments", { token: studentToken });
     expect(check.status).toBe(403); // endpoint désormais restreint au staff
   });
+
+  it("bugfix — un élève créé directement (sans demande de bilan) apparaît dans Élèves & Familles", async () => {
+    // Avant ce correctif, GET /api/advisor/families n'était alimenté que par
+    // la table requests : un élève créé via l'admin (ProfileManager), sans
+    // jamais passer par une demande de bilan, restait invisible sur cet écran
+    // alors que son compte existait bien.
+    const directParent = { id: "it-02-direct-parent", name: "[IT] Parent Direct02", email: "parentdirect02@it.test", role: "parent" };
+    const directStudent = { id: "it-02-direct-student", name: "[IT] Eleve Direct02", email: "elevedirect02@it.test", role: "student", parentId: "it-02-direct-parent" };
+    await seedUser(directParent);
+    await seedUser(directStudent);
+
+    const familiesRes = await get("/advisor/families", { token: adminToken });
+    expect(familiesRes.status).toBe(200);
+
+    const directFamily = familiesRes.data.find((f) => f.child === directStudent.name);
+    expect(directFamily, "l'élève créé directement doit apparaître dans la liste").toBeTruthy();
+    expect(directFamily.id).toBe(`no-request-${directStudent.id}`);
+    expect(directFamily.parent).toBe(directParent.name);
+    expect(directFamily.status).toBe("nouveau");
+
+    // L'élève avec demande de bilan (student, seedé en amont) doit rester
+    // présent une seule fois — pas de doublon entre les deux sources.
+    const requestDrivenOccurrences = familiesRes.data.filter((f) => f.child === student.name).length;
+    expect(requestDrivenOccurrences).toBe(1);
+
+    // PATCH sur un élève sans demande : refus clair, pas un no-op silencieux.
+    const patchRes = await patch(`/advisor/families/no-request-${directStudent.id}`, { level: "6e", subject: "Français" }, { token: adminToken });
+    expect(patchRes.status).toBe(404);
+  });
 });
