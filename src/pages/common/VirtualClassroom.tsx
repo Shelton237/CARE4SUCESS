@@ -21,7 +21,10 @@ import {
     Eraser,
     Share2,
     Video,
-    CheckCircle2
+    CheckCircle2,
+    Youtube,
+    Plus,
+    Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -72,6 +75,29 @@ declare global {
     }
 }
 
+type WhiteboardVideoItem = {
+    id: string;
+    videoId: string;
+};
+
+function extractYouTubeId(url: string): string | null {
+    try {
+        const parsed = new URL(url.trim());
+        const host = parsed.hostname.replace(/^www\./, "");
+        if (host === "youtu.be") {
+            return parsed.pathname.slice(1) || null;
+        }
+        if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com") {
+            if (parsed.pathname === "/watch") return parsed.searchParams.get("v");
+            if (parsed.pathname.startsWith("/embed/")) return parsed.pathname.split("/embed/")[1] || null;
+            if (parsed.pathname.startsWith("/shorts/")) return parsed.pathname.split("/shorts/")[1] || null;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
 export default function VirtualClassroom() {
     const { sessionId } = useParams();
     const { user } = useAuth();
@@ -96,6 +122,9 @@ export default function VirtualClassroom() {
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawColor, setDrawColor] = useState("#1A6CC8");
     const [tool, setTool] = useState<"pen" | "eraser">("pen");
+    const [whiteboardItems, setWhiteboardItems] = useState<WhiteboardVideoItem[]>([]);
+    const [showYoutubeInput, setShowYoutubeInput] = useState(false);
+    const [youtubeUrl, setYoutubeUrl] = useState("");
 
     // Session Management State
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -119,6 +148,7 @@ export default function VirtualClassroom() {
         if (!isEditingRef.current && currentSession) {
             if (currentSession.notes !== undefined) setNotes(currentSession.notes || "");
             if (currentSession.codeData !== undefined) setCode(currentSession.codeData || "// Saisissez votre code ici...");
+            if (Array.isArray(currentSession.whiteboardItems)) setWhiteboardItems(currentSession.whiteboardItems);
 
             if (currentSession.whiteboardData && canvasRef.current) {
                 const ctx = canvasRef.current.getContext('2d');
@@ -169,10 +199,11 @@ export default function VirtualClassroom() {
 
     // Debounced sync for text-based fields
     const timerRef = useRef<any>(null);
-    const handleWorkspaceUpdate = (type: 'notes' | 'code' | 'whiteboard', value: any) => {
+    const handleWorkspaceUpdate = (type: 'notes' | 'code' | 'whiteboard' | 'whiteboardItems', value: any) => {
         isEditingRef.current = true;
         if (type === 'notes') setNotes(value);
         if (type === 'code') setCode(value);
+        if (type === 'whiteboardItems') setWhiteboardItems(value);
 
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
@@ -180,11 +211,28 @@ export default function VirtualClassroom() {
             if (type === 'notes') payload.notes = value;
             if (type === 'code') payload.codeData = value;
             if (type === 'whiteboard') payload.whiteboardData = value;
+            if (type === 'whiteboardItems') payload.whiteboardItems = value;
 
             syncWorkspace(payload).then(() => {
                 setTimeout(() => { isEditingRef.current = false; }, 1000);
             });
         }, 1500);
+    };
+
+    const handleAddYoutubeVideo = () => {
+        const videoId = extractYouTubeId(youtubeUrl);
+        if (!videoId) {
+            toast.error("Lien YouTube invalide. Collez un lien du type https://youtube.com/watch?v=... ou https://youtu.be/...");
+            return;
+        }
+        const nextItems = [...whiteboardItems, { id: crypto.randomUUID(), videoId }];
+        handleWorkspaceUpdate('whiteboardItems', nextItems);
+        setYoutubeUrl("");
+        setShowYoutubeInput(false);
+    };
+
+    const handleRemoveYoutubeVideo = (id: string) => {
+        handleWorkspaceUpdate('whiteboardItems', whiteboardItems.filter(item => item.id !== id));
     };
 
     // Whiteboard Draw Logic
@@ -438,13 +486,54 @@ export default function VirtualClassroom() {
 
                         {/* Whiteboard View */}
                         <div className={cn("flex-1 flex flex-col p-4 md:p-6 gap-4", activeTab !== 'whiteboard' && "hidden")}>
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                                 <div className="flex gap-2">
                                     <button onClick={() => setTool('pen')} className={`p-2 rounded-xl transition-all ${tool === 'pen' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Palette className="w-4 h-4" /></button>
                                     <button onClick={() => setTool('eraser')} className={`p-2 rounded-xl transition-all ${tool === 'eraser' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Eraser className="w-4 h-4" /></button>
+                                    <button onClick={() => setShowYoutubeInput(v => !v)} className={`p-2 rounded-xl transition-all ${showYoutubeInput ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Importer une vidéo YouTube"><Youtube className="w-4 h-4" /></button>
                                 </div>
                                 <input type="color" value={drawColor} onChange={e => setDrawColor(e.target.value)} className="w-8 h-8 rounded-xl cursor-pointer shadow-sm border-2 border-slate-50" />
                             </div>
+
+                            {showYoutubeInput && (
+                                <div className="flex gap-2">
+                                    <Input
+                                        autoFocus
+                                        placeholder="Collez un lien YouTube (https://youtube.com/watch?v=...)"
+                                        value={youtubeUrl}
+                                        onChange={(e) => setYoutubeUrl(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddYoutubeVideo(); }}
+                                        className="rounded-xl border-slate-100 bg-slate-50 text-sm"
+                                    />
+                                    <Button onClick={handleAddYoutubeVideo} className="rounded-xl bg-red-500 hover:bg-red-600 shrink-0">
+                                        <Plus className="w-4 h-4 mr-1" /> Importer
+                                    </Button>
+                                </div>
+                            )}
+
+                            {whiteboardItems.length > 0 && (
+                                <div className="flex gap-3 overflow-x-auto pb-1">
+                                    {whiteboardItems.map((item) => (
+                                        <div key={item.id} className="relative shrink-0 w-56 aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-black group">
+                                            <iframe
+                                                src={`https://www.youtube.com/embed/${item.videoId}`}
+                                                title={`Vidéo YouTube ${item.videoId}`}
+                                                className="w-full h-full"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                allowFullScreen
+                                            />
+                                            <button
+                                                onClick={() => handleRemoveYoutubeVideo(item.id)}
+                                                className="absolute top-1 right-1 p-1 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                                                title="Retirer la vidéo"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                             <div className="flex-1 bg-slate-50 rounded-[2rem] shadow-inner overflow-hidden border border-slate-100 relative">
                                 <canvas
                                     ref={canvasRef}

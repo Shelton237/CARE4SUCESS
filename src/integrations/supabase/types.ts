@@ -99,6 +99,7 @@ export interface ScheduleSession {
     virtualLink?: string | null;
     notes?: string | null;
     whiteboardData?: string | null;
+    whiteboardItems?: { id: string; videoId: string }[];
     codeData?: string | null;
     actualStartTime?: string | null;
     actualEndTime?: string | null;
