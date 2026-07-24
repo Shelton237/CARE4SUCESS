@@ -4,7 +4,7 @@ import { Receipt, Download, CheckCircle, Clock, FileText, CreditCard, Filter, Lo
 import jsPDF from "jspdf";
 import { fetchParentInvoices, fetchChildrenByParent } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatFCFA } from "@/lib/money";
+import { formatFCFA, formatMoney } from "@/lib/money";
 import type { ParentInvoice } from "@/integrations/supabase/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,7 +107,7 @@ export default function ParentInvoices() {
         doc.text(inv.description, colX[0], y);
         doc.text(formatDate(inv.date), colX[1], y);
         doc.setFont("helvetica", "bold");
-        doc.text(`${inv.amount.toLocaleString("fr-FR")} FCFA`, W - 14, y, { align: "right" });
+        doc.text(formatMoney(inv.amount, "XOF"), W - 14, y, { align: "right" });
         // Total
         doc.setDrawColor(230, 230, 240);
         doc.line(14, y + 8, W - 14, y + 8);

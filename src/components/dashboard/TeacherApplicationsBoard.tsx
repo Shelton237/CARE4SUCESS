@@ -26,7 +26,9 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { RateType } from "@/integrations/supabase/types";
+import { SUPPORTED_CURRENCIES } from "@/lib/money";
 import {
     CheckCircle2,
     XCircle,
@@ -97,6 +99,8 @@ export default function TeacherApplicationsBoard({
     const [searchTerm, setSearchTerm] = useState("");
     const [rateType, setRateType] = useState<RateType>("hourly");
     const [negotiatedRate, setNegotiatedRate] = useState<string>("7500");
+    const [currency, setCurrency] = useState<string>("XOF");
+    const [rateUnitMinutes, setRateUnitMinutes] = useState<string>("60");
     const [newCredentials, setNewCredentials] = useState<{
         email: string;
         password?: string;
@@ -137,12 +141,16 @@ export default function TeacherApplicationsBoard({
             reviewNotes,
             rateType,
             negotiatedRate,
+            currency,
+            rateUnitMinutes,
         }: {
             id: string;
             status: Exclude<TeacherApplicationStatus, "pending">;
             reviewNotes?: string;
             rateType?: RateType;
             negotiatedRate?: number;
+            currency?: string;
+            rateUnitMinutes?: number;
         }) =>
             reviewTeacherApplication(id, {
                 status,
@@ -151,6 +159,8 @@ export default function TeacherApplicationsBoard({
                 reviewerRole,
                 rateType,
                 negotiatedRate,
+                currency,
+                rateUnitMinutes,
             }),
         onSuccess: (data: any) => {
             if (data?.credentials) {
@@ -441,28 +451,59 @@ export default function TeacherApplicationsBoard({
                                     </button>
                                 </div>
 
-                                {/* Montant */}
+                                {/* Devise */}
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">
-                                        {rateType === "hourly" ? "Tarif horaire (FCFA/h)" : "Forfait mensuel (FCFA/mois)"}
+                                        Devise
                                     </Label>
-                                    <div className="relative">
+                                    <Select value={currency} onValueChange={setCurrency}>
+                                        <SelectTrigger className="font-bold text-[#0D2D5A]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {SUPPORTED_CURRENCIES.map((c) => (
+                                                <SelectItem key={c} value={c}>{c}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Montant */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">
+                                            {rateType === "hourly" ? `Tarif (${currency})` : `Forfait mensuel (${currency})`}
+                                        </Label>
                                         <Input
                                             type="number"
                                             min={0}
                                             value={negotiatedRate}
                                             onChange={(e) => setNegotiatedRate(e.target.value)}
-                                            className="pr-16 font-bold text-[#0D2D5A]"
+                                            className="font-bold text-[#0D2D5A]"
                                             placeholder={rateType === "hourly" ? "Ex: 7500" : "Ex: 80000"}
                                         />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">
-                                            FCFA{rateType === "hourly" ? "/h" : "/mois"}
-                                        </span>
                                     </div>
-                                    <p className="text-[10px] text-gray-400">
-                                        Ce tarif sera appliqué par défaut pour les cours de cet enseignant.
-                                    </p>
+                                    {rateType === "hourly" && (
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">
+                                                Pour combien de minutes
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                value={rateUnitMinutes}
+                                                onChange={(e) => setRateUnitMinutes(e.target.value)}
+                                                className="font-bold text-[#0D2D5A]"
+                                                placeholder="Ex: 60"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
+                                <p className="text-[10px] text-gray-400">
+                                    {rateType === "hourly"
+                                        ? `Ce tarif sera appliqué par défaut : ${negotiatedRate || 0} ${currency} pour ${rateUnitMinutes || 60} minutes de cours.`
+                                        : "Ce forfait sera appliqué par défaut pour les cours de cet enseignant."}
+                                </p>
                             </div>
                         )}
                     </div>
@@ -477,6 +518,8 @@ export default function TeacherApplicationsBoard({
                                         reviewNotes: notes,
                                         rateType: decisionDialog.status === "approved" ? rateType : undefined,
                                         negotiatedRate: decisionDialog.status === "approved" ? parseFloat(negotiatedRate) || 7500 : undefined,
+                                        currency: decisionDialog.status === "approved" ? currency : undefined,
+                                        rateUnitMinutes: decisionDialog.status === "approved" ? parseInt(rateUnitMinutes, 10) || 60 : undefined,
                                     });
                                 }
                             }}

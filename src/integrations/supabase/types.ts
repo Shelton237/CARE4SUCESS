@@ -168,7 +168,9 @@ export type TeacherApplicationDecisionPayload = {
     reviewerName: string;
     reviewerRole: ReviewerRole;
     rateType?: RateType;       // "hourly" | "monthly"
-    negotiatedRate?: number;   // tarif négocié (FCFA)
+    negotiatedRate?: number;   // tarif négocié, dans la devise ci-dessous
+    currency?: string;         // code ISO 4217, ex. "XOF"
+    rateUnitMinutes?: number;  // durée de référence du tarif horaire (défaut 60)
 };
 
 export type TeacherFeedbackReviewer = "parent" | "student" | "advisor";

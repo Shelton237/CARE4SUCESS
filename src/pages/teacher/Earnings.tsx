@@ -3,6 +3,7 @@ import { Banknote, TrendingUp, Calendar, DollarSign, Loader2 } from "lucide-reac
 import { fetchEarningsHistory, fetchTeacherEarnings } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { formatMoney } from "@/lib/money";
 
 export default function TeacherEarnings() {
     const { user } = useAuth();
@@ -28,6 +29,7 @@ export default function TeacherEarnings() {
     }
 
     const totalEarnings = history.reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0) || 1450000;
+    const currency = transactions[0]?.currency || "XOF";
 
     return (
         <div className="w-full p-3 space-y-3 bg-white min-h-screen">
@@ -41,7 +43,7 @@ export default function TeacherEarnings() {
                 <div className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 bg-white">
                     <Banknote className="w-3.5 h-3.5 text-[#1A6CC8]" />
                     <span className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-wide">
-                        {totalEarnings.toLocaleString()} XOF
+                        {formatMoney(totalEarnings, currency)}
                     </span>
                 </div>
             </div>
@@ -68,7 +70,7 @@ export default function TeacherEarnings() {
                                     style={{ height: `${(item.amount / 700000) * 100}%` }}
                                 >
                                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#0D2D5A] text-white text-[9px] px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 font-black uppercase">
-                                        {item.amount.toLocaleString()} XOF
+                                        {formatMoney(item.amount, currency)}
                                     </div>
                                 </div>
                                 <span className="text-[9px] font-black text-slate-400 uppercase">
@@ -84,7 +86,14 @@ export default function TeacherEarnings() {
                     <h3 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest border-b border-slate-100 pb-2">Barème</h3>
                     <div className="space-y-2">
                         {[
-                            { label: "Standard Session", value: "15 000 FCFA", sub: "/ 2h", icon: DollarSign },
+                            {
+                                label: "Tarif",
+                                value: transactions[0]
+                                    ? formatMoney(transactions[0].rate, transactions[0].currency)
+                                    : "—",
+                                sub: transactions[0]?.rateUnitMinutes ? `/ ${transactions[0].rateUnitMinutes} min` : "/ séance",
+                                icon: DollarSign,
+                            },
                             { label: "Sessions validées", value: `${transactions.length}`, sub: "séances", icon: Calendar },
                             { label: "Calcul", value: "Automatique", sub: "Flux API", icon: TrendingUp },
                         ].map((item, i) => (
