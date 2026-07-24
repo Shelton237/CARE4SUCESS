@@ -356,6 +356,11 @@ const ensureSessionsTable = async () => {
       await pool.query("ALTER TABLE sessions ADD COLUMN code_data TEXT NULL AFTER whiteboard_data");
       console.log("Migration: Added code_data to sessions table");
     }
+    const [colsWI] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'whiteboard_items'");
+    if (colsWI.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN whiteboard_items LONGTEXT NULL AFTER whiteboard_data");
+      console.log("Migration: Added whiteboard_items to sessions table");
+    }
     const [colsAST] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'actual_start_time'");
     if (colsAST.length === 0) {
       await pool.query("ALTER TABLE sessions ADD COLUMN actual_start_time TIMESTAMP NULL AFTER virtual_link");
@@ -1320,6 +1325,7 @@ const mapSessionRow = (row) => ({
   virtualLink: row.virtual_link,
   notes: row.notes,
   whiteboardData: row.whiteboard_data,
+  whiteboardItems: parseJson(row.whiteboard_items, []),
   codeData: row.code_data,
   actualStartTime: row.actual_start_time,
   actualEndTime: row.actual_end_time,
@@ -2446,7 +2452,7 @@ app.get("/api/sessions", async (req, res) => {
     await ensureSessionsTable();
     const column = roleColumn[role];
     const [rows] = await pool.query(
-      `SELECT id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, virtual_link, notes, whiteboard_data, code_data, actual_start_time, actual_end_time, report_text, understanding_score, is_paid, lesson_id, course_id
+      `SELECT id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, virtual_link, notes, whiteboard_data, whiteboard_items, code_data, actual_start_time, actual_end_time, report_text, understanding_score, is_paid, lesson_id, course_id
        FROM sessions
        WHERE ${column} = ?
        ORDER BY session_date ASC, session_time ASC`,
@@ -2520,12 +2526,13 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
 
 app.patch("/api/sessions/:id/sync", async (req, res) => {
   const { id } = req.params;
-  const { notes, whiteboardData, codeData } = req.body ?? {};
+  const { notes, whiteboardData, whiteboardItems, codeData } = req.body ?? {};
   try {
     const updates = [];
     const params = [];
     if (notes !== undefined) { updates.push("notes = ?"); params.push(notes); }
     if (whiteboardData !== undefined) { updates.push("whiteboard_data = ?"); params.push(whiteboardData); }
+    if (whiteboardItems !== undefined) { updates.push("whiteboard_items = ?"); params.push(JSON.stringify(whiteboardItems)); }
     if (codeData !== undefined) { updates.push("code_data = ?"); params.push(codeData); }
 
     if (updates.length > 0) {
