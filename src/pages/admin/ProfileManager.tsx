@@ -694,6 +694,7 @@ export default function ProfileManager() {
 
                 <GeoSelector
                   label="Localisation"
+                  value={createForm.geoLocationId}
                   onChange={(geoId, path) => setCreateForm(prev => ({ ...prev, geoLocationId: geoId, location: path }))}
                 />
 
@@ -781,6 +782,7 @@ export default function ProfileManager() {
 
                 <GeoSelector
                   label="Localisation"
+                  value={editForm.geoLocationId}
                   onChange={(geoId, path) => setEditForm(p => ({ ...p, geoLocationId: geoId, location: path }))}
                 />
 

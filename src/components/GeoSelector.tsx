@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { MapPin, Clock, ChevronRight } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { fetchGeoLocations, suggestGeoLocation, type GeoType, type GeoLocation } from "@/api/geo";
+import { fetchGeoLocations, fetchGeoAncestors, suggestGeoLocation, type GeoType, type GeoLocation } from "@/api/geo";
 
 interface SelectedLevel { id: number; name: string; status: "active" | "pending"; }
 
@@ -29,10 +29,35 @@ const LEVELS: { type: GeoType; label: string; singular: string; placeholder: str
 
 const LEVEL_ORDER: GeoType[] = ["country", "region", "department", "arrondissement", "quartier"];
 
-export function GeoSelector({ label, required, onChange, suggestedByEmail, hint, className }: GeoSelectorProps) {
+export function GeoSelector({ label, required, value, onChange, suggestedByEmail, hint, className }: GeoSelectorProps) {
     const [selected, setSelected] = useState<Partial<Record<GeoType, SelectedLevel>>>({});
     const [suggestionLevel, setSuggestionLevel] = useState<GeoType | null>(null);
     const [suggestionText, setSuggestionText] = useState("");
+
+    // Pré-remplissage du sélecteur en cascade à partir d'un id existant
+    // (ex. édition d'un profil déjà localisé) : on remonte la chaîne
+    // pays → ... → lieu, puis on hydrate `selected` une seule fois par valeur.
+    const hydratedForValue = useRef<number | null>(null);
+    const ancestorsQ = useQuery({
+        queryKey: ["geo-ancestors", value],
+        queryFn: () => fetchGeoAncestors(value as number),
+        enabled: value != null,
+    });
+
+    useEffect(() => {
+        if (value == null) {
+            hydratedForValue.current = null;
+            return;
+        }
+        if (hydratedForValue.current === value) return;
+        if (!ancestorsQ.data) return;
+        const next: Partial<Record<GeoType, SelectedLevel>> = {};
+        for (const node of ancestorsQ.data) {
+            next[node.type] = { id: node.id, name: node.name, status: node.status };
+        }
+        setSelected(next);
+        hydratedForValue.current = value;
+    }, [value, ancestorsQ.data]);
 
     const getParentId = (type: GeoType): number | undefined => {
         const idx = LEVEL_ORDER.indexOf(type);
@@ -84,8 +109,10 @@ export function GeoSelector({ label, required, onChange, suggestedByEmail, hint,
         const deepest = [...LEVEL_ORDER].reverse().find(l => next[l]);
         if (deepest && next[deepest]) {
             const path = LEVEL_ORDER.filter(l => next[l]).map(l => next[l]!.name).join(" › ");
+            hydratedForValue.current = next[deepest]!.id;
             onChange(next[deepest]!.id, path);
         } else {
+            hydratedForValue.current = null;
             onChange(null, "");
         }
     };
