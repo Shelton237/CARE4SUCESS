@@ -44,6 +44,11 @@ export const fetchGeoLocations = (type: GeoType, parentId?: number): Promise<Geo
     return geoRequest<GeoLocation[]>(url);
 };
 
+// Chaîne complète (pays → ... → le lieu lui-même) pour un id donné, utilisée
+// pour pré-remplir le sélecteur en cascade à partir d'une valeur existante.
+export const fetchGeoAncestors = (id: number): Promise<GeoLocation[]> =>
+    geoRequest<GeoLocation[]>(`/geo/${id}/ancestors`);
+
 export const suggestGeoLocation = (payload: {
     name: string;
     type: GeoType;

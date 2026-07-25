@@ -1666,7 +1666,7 @@ const mapParentProgressRow = (row) => ({
   anglais: Number(row.anglais),
 });
 
-const USER_PUBLIC_COLUMNS = `id, name, email, role, secondary_role, avatar, avatar_url, phone, location, timezone, language, bio,
+const USER_PUBLIC_COLUMNS = `id, name, email, role, secondary_role, avatar, avatar_url, phone, location, geo_location_id, timezone, language, bio,
   notify_email, notify_sms, notify_whatsapp, parent_id, last_login_at, created_at, updated_at`;
 
 const mapUserRow = (row) => ({
@@ -1678,6 +1678,7 @@ const mapUserRow = (row) => ({
   avatar: row.avatar,
   phone: row.phone,
   location: row.location ? fixEncoding(row.location) : row.location,
+  geoLocationId: row.geo_location_id ?? null,
   timezone: row.timezone,
   language: row.language,
   bio: row.bio ? fixEncoding(row.bio) : row.bio,
@@ -2362,6 +2363,31 @@ app.get("/api/geo", async (req, res) => {
   } catch (err) {
     console.error("[GET /api/geo]", err);
     res.status(500).json({ message: "Erreur chargement géographie" });
+  }
+});
+
+// Remonte la chaîne parent_id d'un lieu jusqu'à la racine (pays), pour
+// pré-remplir le sélecteur en cascade côté frontend à partir d'un seul id.
+app.get("/api/geo/:id/ancestors", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const chain = [];
+    let currentId = Number(id);
+    let guard = 0;
+    while (currentId && guard < 10) {
+      const [[node]] = await pool.query(
+        "SELECT id, name, type, parent_id, status FROM geo_locations WHERE id = ?",
+        [currentId]
+      );
+      if (!node) break;
+      chain.unshift(node);
+      currentId = node.parent_id;
+      guard++;
+    }
+    res.json(chain);
+  } catch (err) {
+    console.error("[GET /api/geo/:id/ancestors]", err);
+    res.status(500).json({ message: "Erreur chargement de la hiérarchie géographique" });
   }
 });
 
@@ -4953,6 +4979,7 @@ app.put("/api/users/:userId", authenticateRequest, async (req, res) => {
     phone,
     avatar,
     location,
+    geoLocationId,
     timezone,
     language,
     bio,
@@ -4986,6 +5013,7 @@ app.put("/api/users/:userId", authenticateRequest, async (req, res) => {
   if (typeof phone === "string") pushUpdate("phone", phone.trim());
   if (typeof avatar === "string") pushUpdate("avatar", avatar.trim().slice(0, 2).toUpperCase());
   if (typeof location === "string") pushUpdate("location", location.trim());
+  if (geoLocationId !== undefined) pushUpdate("geo_location_id", geoLocationId === null ? null : Number(geoLocationId));
   if (typeof timezone === "string") pushUpdate("timezone", timezone.trim());
   if (typeof language === "string") pushUpdate("language", language);
   if (typeof bio === "string") pushUpdate("bio", bio.trim());
