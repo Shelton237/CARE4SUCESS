@@ -131,7 +131,7 @@ export default function ParentInvoices() {
         doc.text(inv.description, colX[0], y);
         doc.text(formatDate(inv.date), colX[1], y);
         doc.setFont("helvetica", "bold");
-        doc.text(formatMoney(inv.amount, "XOF"), W - 14, y, { align: "right" });
+        doc.text(formatMoney(inv.amount, "XAF"), W - 14, y, { align: "right" });
         // Total
         doc.setDrawColor(230, 230, 240);
         doc.line(14, y + 8, W - 14, y + 8);

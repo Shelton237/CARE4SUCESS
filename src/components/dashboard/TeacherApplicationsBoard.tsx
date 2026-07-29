@@ -99,7 +99,7 @@ export default function TeacherApplicationsBoard({
     const [searchTerm, setSearchTerm] = useState("");
     const [rateType, setRateType] = useState<RateType>("hourly");
     const [negotiatedRate, setNegotiatedRate] = useState<string>("7500");
-    const [currency, setCurrency] = useState<string>("XOF");
+    const [currency, setCurrency] = useState<string>("XAF");
     const [rateUnitMinutes, setRateUnitMinutes] = useState<string>("60");
     const [newCredentials, setNewCredentials] = useState<{
         email: string;
