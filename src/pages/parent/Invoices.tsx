@@ -1,13 +1,31 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Receipt, Download, CheckCircle, Clock, FileText, CreditCard, Filter, Loader2 } from "lucide-react";
 import jsPDF from "jspdf";
-import { fetchParentInvoices, fetchChildrenByParent } from "@/api/backoffice";
+import {
+    fetchParentInvoices,
+    fetchChildrenByParent,
+    initiateFlutterwavePayment,
+    authorizeFlutterwaveCharge,
+    checkFlutterwavePaymentStatus,
+    type MobileMoneyNetwork,
+} from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatFCFA, formatMoney } from "@/lib/money";
 import type { ParentInvoice } from "@/integrations/supabase/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const STATUS_UI: Record<ParentInvoice["status"], { label: string; color: string; bg: string }> = {
     paid: { label: "PAYÉE", color: "text-emerald-700", bg: "bg-emerald-50" },
@@ -21,6 +39,7 @@ const formatDate = (value: string) => {
 
 export default function ParentInvoices() {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
 
     const invoicesQuery = useQuery({
         queryKey: ["parentInvoices", user?.id],
@@ -35,7 +54,12 @@ export default function ParentInvoices() {
     });
 
     const invoices = useMemo(() => invoicesQuery.data ?? [], [invoicesQuery.data]);
-    
+
+    const [payingInvoice, setPayingInvoice] = useState<ParentInvoice | null>(null);
+    const onPaymentSuccess = () => {
+        queryClient.invalidateQueries({ queryKey: ["parentInvoices", user?.id] });
+    };
+
     const { totalPaid, totalPending } = useMemo(() => {
         return invoices.reduce(
             (acc, invoice) => {
@@ -127,6 +151,11 @@ export default function ParentInvoices() {
         doc.save(`facture-care4success-${inv.id.slice(0, 8)}.pdf`);
     };
 
+    const oldestPendingInvoice = useMemo(
+        () => invoices.find((inv) => inv.status !== "paid"),
+        [invoices]
+    );
+
     if (!user) return null;
 
     if (invoicesQuery.isLoading) {
@@ -188,7 +217,11 @@ export default function ParentInvoices() {
                             <div className="text-[10px] font-bold text-[#F5A623] uppercase">Montant total dû : {formatFCFA(totalPending)}</div>
                         </div>
                     </div>
-                    <Button className="h-8 bg-[#F5A623] hover:bg-[#e09612] text-white font-black text-[10px] uppercase tracking-widest rounded-none shadow-none">
+                    <Button
+                        onClick={() => oldestPendingInvoice && setPayingInvoice(oldestPendingInvoice)}
+                        disabled={!oldestPendingInvoice}
+                        className="h-8 bg-[#F5A623] hover:bg-[#e09612] text-white font-black text-[10px] uppercase tracking-widest rounded-none shadow-none"
+                    >
                         Régler Maintenant
                     </Button>
                 </div>
@@ -256,7 +289,10 @@ export default function ParentInvoices() {
                                                             <Download className="w-3.5 h-3.5" />
                                                         </Button>
                                                     ) : (
-                                                        <Button className="h-6 px-3 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-none shadow-none">
+                                                        <Button
+                                                            onClick={() => setPayingInvoice(inv)}
+                                                            className="h-6 px-3 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-none shadow-none"
+                                                        >
                                                             Payer
                                                         </Button>
                                                     )}
@@ -280,7 +316,190 @@ export default function ParentInvoices() {
                     </div>
                 </div>
             </div>
+
+            <PaymentDialog
+                invoice={payingInvoice}
+                onClose={() => setPayingInvoice(null)}
+                onSuccess={onPaymentSuccess}
+            />
         </div>
+    );
+}
+
+type PaymentStep = "form" | "otp" | "waiting";
+
+function PaymentDialog({
+    invoice,
+    onClose,
+    onSuccess,
+}: {
+    invoice: ParentInvoice | null;
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const [network, setNetwork] = useState<MobileMoneyNetwork>("MTN");
+    const [phone, setPhone] = useState("");
+    const [step, setStep] = useState<PaymentStep>("form");
+    const [charge, setCharge] = useState<{ chargeId: string; reference: string } | null>(null);
+    const [code, setCode] = useState("");
+    const [otpType, setOtpType] = useState<"otp" | "pin">("otp");
+    const [error, setError] = useState<string | null>(null);
+    const pollAttempts = useRef(0);
+    const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const reset = () => {
+        if (pollTimer.current) clearInterval(pollTimer.current);
+        setStep("form");
+        setCharge(null);
+        setCode("");
+        setError(null);
+        setPhone("");
+        setNetwork("MTN");
+    };
+
+    const handleClose = () => {
+        reset();
+        onClose();
+    };
+
+    const startPolling = (reference: string) => {
+        pollAttempts.current = 0;
+        pollTimer.current = setInterval(async () => {
+            pollAttempts.current += 1;
+            try {
+                const result = await checkFlutterwavePaymentStatus(reference);
+                if (result.success) {
+                    if (pollTimer.current) clearInterval(pollTimer.current);
+                    toast.success("Paiement confirmé — merci !");
+                    onSuccess();
+                    handleClose();
+                    return;
+                }
+            } catch {
+                // erreur transitoire — on continue de sonder jusqu'au nombre max de tentatives
+            }
+            if (pollAttempts.current >= 20) {
+                if (pollTimer.current) clearInterval(pollTimer.current);
+                setError("Paiement non confirmé après plusieurs minutes. Vérifiez votre téléphone ou réessayez.");
+                setStep("form");
+            }
+        }, 4000);
+    };
+
+    const initiateMutation = useMutation({
+        mutationFn: initiateFlutterwavePayment,
+        onSuccess: (data) => {
+            setCharge({ chargeId: data.chargeId, reference: data.reference });
+            const nextAction = data.nextAction;
+            if (nextAction?.type === "requires_otp") {
+                setOtpType("otp");
+                setStep("otp");
+            } else if (nextAction?.type === "requires_pin") {
+                setOtpType("pin");
+                setStep("otp");
+            } else {
+                setStep("waiting");
+                startPolling(data.reference);
+            }
+        },
+        onError: (err: Error) => setError(err.message || "Impossible d'initier le paiement."),
+    });
+
+    const authorizeMutation = useMutation({
+        mutationFn: () => authorizeFlutterwaveCharge(charge!.chargeId, otpType, code),
+        onSuccess: (data) => {
+            if (data.nextAction?.type === "requires_otp" || data.nextAction?.type === "requires_pin") {
+                setError("Code invalide, réessayez.");
+                setCode("");
+                return;
+            }
+            setStep("waiting");
+            startPolling(charge!.reference);
+        },
+        onError: (err: Error) => setError(err.message || "Autorisation refusée."),
+    });
+
+    if (!invoice) return null;
+
+    return (
+        <Dialog open={Boolean(invoice)} onOpenChange={(open) => { if (!open) handleClose(); }}>
+            <DialogContent className="sm:max-w-[420px]">
+                <DialogHeader>
+                    <DialogTitle>Payer par Mobile Money</DialogTitle>
+                    <DialogDescription>
+                        {invoice.description} — {formatMoney(invoice.amount, "XOF")}
+                    </DialogDescription>
+                </DialogHeader>
+
+                {step === "form" && (
+                    <div className="space-y-4">
+                        <div className="space-y-1.5">
+                            <Label>Opérateur</Label>
+                            <Select value={network} onValueChange={(v) => setNetwork(v as MobileMoneyNetwork)}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="MTN">MTN Mobile Money</SelectItem>
+                                    <SelectItem value="ORANGE">Orange Money</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label>Numéro de téléphone</Label>
+                            <Input
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                placeholder="6XX XXX XXX"
+                            />
+                        </div>
+                        {error && <p className="text-xs text-red-500">{error}</p>}
+                        <Button
+                            className="w-full"
+                            disabled={!phone.trim() || initiateMutation.isPending}
+                            onClick={() => {
+                                setError(null);
+                                initiateMutation.mutate({ invoiceId: invoice.id, phoneNumber: phone.trim(), network });
+                            }}
+                        >
+                            {initiateMutation.isPending ? "Initialisation..." : "Continuer"}
+                        </Button>
+                    </div>
+                )}
+
+                {step === "otp" && (
+                    <div className="space-y-4">
+                        <p className="text-xs text-slate-500">
+                            {otpType === "pin"
+                                ? "Entrez votre code PIN Mobile Money."
+                                : "Entrez le code reçu par SMS."}
+                        </p>
+                        <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code" />
+                        {error && <p className="text-xs text-red-500">{error}</p>}
+                        <Button
+                            className="w-full"
+                            disabled={!code.trim() || authorizeMutation.isPending}
+                            onClick={() => {
+                                setError(null);
+                                authorizeMutation.mutate();
+                            }}
+                        >
+                            {authorizeMutation.isPending ? "Vérification..." : "Valider"}
+                        </Button>
+                    </div>
+                )}
+
+                {step === "waiting" && (
+                    <div className="flex flex-col items-center gap-3 py-6 text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
+                        <p className="text-sm text-slate-600">
+                            Validez la transaction sur votre téléphone ({network === "MTN" ? "MTN Mobile Money" : "Orange Money"})...
+                        </p>
+                        {error && <p className="text-xs text-red-500">{error}</p>}
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
     );
 }
 
