@@ -205,7 +205,8 @@ export const fetchParentInvoices = (parentId: string) =>
 export type MobileMoneyNetwork = "MTN" | "ORANGE";
 
 export type FlutterwaveNextAction = {
-    type: "payment_instructions" | "requires_otp" | "requires_pin" | "redirect_url" | string;
+    type: "payment_instruction" | "requires_otp" | "requires_pin" | "redirect_url" | string;
+    redirect_url?: { url: string };
     [key: string]: unknown;
 } | null;
 

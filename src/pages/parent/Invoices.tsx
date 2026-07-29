@@ -344,6 +344,7 @@ function PaymentDialog({
     const [code, setCode] = useState("");
     const [otpType, setOtpType] = useState<"otp" | "pin">("otp");
     const [error, setError] = useState<string | null>(null);
+    const [testRedirectUrl, setTestRedirectUrl] = useState<string | null>(null);
     const pollAttempts = useRef(0);
     const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -355,6 +356,7 @@ function PaymentDialog({
         setError(null);
         setPhone("");
         setNetwork("MTN");
+        setTestRedirectUrl(null);
     };
 
     const handleClose = () => {
@@ -398,6 +400,10 @@ function PaymentDialog({
                 setOtpType("pin");
                 setStep("otp");
             } else {
+                if (nextAction?.type === "redirect_url" && nextAction.redirect_url?.url) {
+                    setTestRedirectUrl(nextAction.redirect_url.url);
+                    window.open(nextAction.redirect_url.url, "_blank", "noopener,noreferrer");
+                }
                 setStep("waiting");
                 startPolling(data.reference);
             }
@@ -427,7 +433,7 @@ function PaymentDialog({
                 <DialogHeader>
                     <DialogTitle>Payer par Mobile Money</DialogTitle>
                     <DialogDescription>
-                        {invoice.description} — {formatMoney(invoice.amount, "XOF")}
+                        {invoice.description} — {formatMoney(invoice.amount, "XAF")}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -493,8 +499,20 @@ function PaymentDialog({
                     <div className="flex flex-col items-center gap-3 py-6 text-center">
                         <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
                         <p className="text-sm text-slate-600">
-                            Validez la transaction sur votre téléphone ({network === "MTN" ? "MTN Mobile Money" : "Orange Money"})...
+                            {testRedirectUrl
+                                ? "Environnement de test : validez la transaction sur la page ouverte dans un nouvel onglet."
+                                : `Validez la transaction sur votre téléphone (${network === "MTN" ? "MTN Mobile Money" : "Orange Money"})...`}
                         </p>
+                        {testRedirectUrl && (
+                            <a
+                                href={testRedirectUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-bold text-[#1A6CC8] underline"
+                            >
+                                La page ne s'est pas ouverte ? Cliquez ici
+                            </a>
+                        )}
                         {error && <p className="text-xs text-red-500">{error}</p>}
                     </div>
                 )}
