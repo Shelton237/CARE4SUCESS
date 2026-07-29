@@ -1,19 +1,33 @@
 import React, { useState } from "react";
 import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { GeoSelector } from "@/components/GeoSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { ROUTE_PATHS } from "@/lib";
+
+// Décodage local du payload d'un ID token Google, uniquement pour pré-remplir
+// l'affichage — la vérification cryptographique se fait exclusivement côté
+// serveur avant toute création de compte.
+function decodeGoogleIdTokenPayload(idToken: string): { email?: string; name?: string } {
+    try {
+        const [, payload] = idToken.split(".");
+        return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    } catch {
+        return {};
+    }
+}
 
 export default function Inscription() {
     const navigate = useNavigate();
     const [step, setStep] = useState(0); // Step 0 for role selection
     const [userType, setUserType] = useState<"parent" | "student">("parent");
     const [loading, setLoading] = useState(false);
+    const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         parentName: "",
         parentEmail: "",
@@ -61,17 +75,32 @@ export default function Inscription() {
     const handleNext = () => setStep(step + 1);
     const handlePrev = () => setStep(step - 1);
 
+    const handleGoogleCredential = (idToken: string) => {
+        const payload = decodeGoogleIdTokenPayload(idToken);
+        setGoogleIdToken(idToken);
+        setFormData(prev => ({
+            ...prev,
+            parentName: payload.name || prev.parentName,
+            parentEmail: payload.email || prev.parentEmail,
+            parentPassword: "",
+        }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.children.some(c => !c.email)) {
             alert("Veuillez renseigner l'adresse email de chaque enfant.");
             return;
         }
+        if (!googleIdToken && !formData.parentPassword) {
+            alert("Veuillez saisir un mot de passe ou vous connecter avec Google.");
+            return;
+        }
 
         setLoading(true);
         try {
             const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
-            
+
             // Format data for backend
             const payload = {
                 parentName: formData.parentName,
@@ -80,6 +109,7 @@ export default function Inscription() {
                 parentPhone: formData.parentPhone,
                 parentLocation: formData.parentLocation || undefined,
                 parentGeoLocationId: formData.parentGeoLocationId ?? undefined,
+                googleIdToken: googleIdToken || undefined,
                 userType,
                 children: formData.children.map(c => ({
                     name: c.name,
@@ -179,6 +209,34 @@ export default function Inscription() {
                                 <h2 className="text-xl font-semibold flex items-center gap-2">
                                     <User className="text-[#1A6CC8]" /> {userType === "parent" ? "Informations Parent" : "Informations Responsable (Parent/Tuteur)"}
                                 </h2>
+
+                                {!googleIdToken && (
+                                    <>
+                                        <GoogleSignInButton onCredential={handleGoogleCredential} text="signup_with" />
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1 h-px bg-slate-200" />
+                                            <span className="text-xs font-semibold text-slate-400 uppercase">ou</span>
+                                            <div className="flex-1 h-px bg-slate-200" />
+                                        </div>
+                                    </>
+                                )}
+
+                                {googleIdToken && (
+                                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                                        <span className="text-sm font-medium text-emerald-700 flex items-center gap-2">
+                                            <CheckCircle2 className="w-4 h-4" /> Connecté avec Google : {formData.parentEmail}
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => { setGoogleIdToken(null); setFormData(prev => ({ ...prev, parentEmail: "" })); }}
+                                        >
+                                            Changer
+                                        </Button>
+                                    </div>
+                                )}
+
                                 <div className="grid gap-4">
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Nom complet</label>
@@ -187,14 +245,16 @@ export default function Inscription() {
                                             <Input className="pl-10" name="parentName" placeholder={userType === "parent" ? "Ex: Jean Dupont" : "Nom du parent ou tuteur"} value={formData.parentName} onChange={handleChange} />
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Email de connexion</label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                            <Input className="pl-10" type="email" name="parentEmail" placeholder="votre@email.com" value={formData.parentEmail} onChange={handleChange} />
+                                    {!googleIdToken && (
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Email de connexion</label>
+                                            <div className="relative">
+                                                <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                                                <Input className="pl-10" type="email" name="parentEmail" placeholder="votre@email.com" value={formData.parentEmail} onChange={handleChange} />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    )}
+                                    <div className={googleIdToken ? "" : "grid grid-cols-2 gap-4"}>
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Téléphone</label>
                                             <div className="relative">
@@ -202,13 +262,15 @@ export default function Inscription() {
                                                 <Input className="pl-10" name="parentPhone" placeholder="+237 ..." value={formData.parentPhone} onChange={handleChange} />
                                             </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Mot de passe</label>
-                                            <div className="relative">
-                                                <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                                <Input className="pl-10" type="password" name="parentPassword" placeholder="••••••••" value={formData.parentPassword} onChange={handleChange} />
+                                        {!googleIdToken && (
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">Mot de passe</label>
+                                                <div className="relative">
+                                                    <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                                                    <Input className="pl-10" type="password" name="parentPassword" placeholder="••••••••" value={formData.parentPassword} onChange={handleChange} />
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                     <GeoSelector
                                         label="Ville / Quartier"
