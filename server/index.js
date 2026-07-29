@@ -8482,7 +8482,7 @@ async function sendMail({ to, subject, html }) {
 
 // ─── Helpers email templates ──────────────────────────────────────────────────
 function tplNewCourse({ studentName, teacherName, courseTitle, subject, mode, courseId }) {
-  const visioLink = `https://care4success.usra-care.com/#/virtual-class/${courseId}`;
+  const visioLink = `https://care4success.usra-care.com/virtual-class/${courseId}`;
   
   return `
     <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A;background:#f9fafb;padding:20px;border-radius:16px">

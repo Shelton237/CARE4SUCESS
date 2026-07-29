@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, BrowserRouter, Routes, Route } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import { MotionConfig } from "framer-motion";
 import { Layout } from "@/components/Layout";
 import { ROUTE_PATHS } from "@/lib/index";
@@ -32,13 +33,20 @@ import Notifications from "@/pages/common/Notifications";
 
 const queryClient = new QueryClient();
 
+// Le web est servi par Apache avec un fallback SPA (toute URL inconnue
+// renvoie index.html), donc BrowserRouter donne des URLs propres sans "/#".
+// L'app native (Capacitor) charge dist/ en local sans serveur pour faire ce
+// fallback : elle doit rester en HashRouter (cf. src/lib/capacitor-push.ts
+// qui navigue via window.location.hash sur clic de notification).
+const Router = Capacitor.isNativePlatform() ? HashRouter : BrowserRouter;
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <MotionConfig reducedMotion="user">
         <Toaster />
         <Sonner />
-        <HashRouter>
+        <Router>
           <AuthProvider>
             <Routes>
               {/* Public pages — each with its own Layout (navbar + footer) */}
@@ -134,7 +142,7 @@ const App = () => (
               <Route path="*" element={<Layout><NotFound /></Layout>} />
             </Routes>
           </AuthProvider>
-        </HashRouter>
+        </Router>
       </MotionConfig>
     </TooltipProvider>
   </QueryClientProvider>
