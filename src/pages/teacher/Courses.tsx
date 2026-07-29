@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 
 const SUBJECTS = ["Mathématiques", "Français", "Physique-Chimie", "SVT", "Histoire-Géo", "Anglais", "Philosophie", "Informatique", "Économie", "Autre"];
 const LEVELS = ["CP", "CE1", "CE2", "CM1", "CM2", "6ème", "5ème", "4ème", "3ème", "Seconde", "Première", "Terminale", "BTS / Licence", "Tous niveaux"];
@@ -54,6 +55,7 @@ export default function TeacherCourses() {
 
     // ─── Editor state ──────────────────────────────────────────────────────────
     const existingCourse = isEditing ? (courses as any[]).find((c: any) => c.id === id) : null;
+    const teacherCurrency = existingCourse?.currency || (courses as any[])[0]?.currency || "XAF";
 
     const [activeTab, setActiveTab] = useState<"infos" | "lessons">("infos");
     const [form, setForm] = useState({
@@ -343,7 +345,7 @@ export default function TeacherCourses() {
 
                         {/* Prix & Durée */}
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tarif horaire (FCFA)</label>
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tarif du cours ({teacherCurrency})</label>
                             <div className="relative">
                                 <input
                                     type="number"
@@ -352,7 +354,7 @@ export default function TeacherCourses() {
                                     onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
                                     className="w-full h-10 bg-slate-50/50 px-3 pr-16 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-300 uppercase">FCFA</span>
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-300 uppercase">{teacherCurrency}</span>
                             </div>
                         </div>
 
@@ -606,7 +608,7 @@ export default function TeacherCourses() {
                                         </span>
                                         {course.price > 0 && (
                                             <span className="flex items-center gap-1 text-[9px] text-slate-400 font-black uppercase">
-                                                {course.price.toLocaleString()} FCFA/h
+                                                {formatMoney(course.price, course.currency || teacherCurrency)}
                                             </span>
                                         )}
                                         {course.duration && (

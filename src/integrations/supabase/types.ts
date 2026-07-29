@@ -261,6 +261,7 @@ export interface CourseLesson {
     content: string;
     videoUrl?: string | null;
     order: number;
+    locked?: boolean;
     quiz?: QuizSummary | null;
 }
 
@@ -297,6 +298,10 @@ export interface CourseSummary {
     level: string;
     mode?: 'online' | 'onsite';
     status: CourseStatus;
+    price?: number;
+    currency?: string;
+    duration?: string;
+    purchased?: boolean;
     coverUrl?: string | null;
     createdBy?: string | null;
     createdAt: string;
