@@ -5,6 +5,7 @@ interface AuthContextType {
     user: User | null;
     token: string | null;
     login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+    loginWithGoogle: (idToken: string) => Promise<{ ok: boolean; error?: string }>;
     logout: () => void;
     updateUser: (next: Partial<User>) => void;
     isAuthenticated: boolean;
@@ -85,6 +86,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const loginWithGoogle = async (idToken: string) => {
+        try {
+            const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
+            const response = await fetch(`${API_BASE_URL}/auth/google`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ idToken }),
+            });
+
+            if (!response.ok) {
+                let errMessage = "Connexion Google impossible.";
+                try {
+                    const errorData = await response.json();
+                    if (errorData.message) errMessage = errorData.message;
+                } catch {
+                    /* ignore JSON parse errors */
+                }
+                return { ok: false, error: errMessage };
+            }
+
+            const responseData = await response.json();
+            setUser(responseData.user);
+            persistUser(responseData.user);
+            setToken(responseData.token ?? null);
+            persistToken(responseData.token ?? null);
+            return { ok: true };
+        } catch (error) {
+            console.error("Google login request failed:", error);
+            return {
+                ok: false,
+                error: "Impossible de contacter le serveur. Merci de réessayer dans un instant.",
+            };
+        }
+    };
+
     const logout = () => {
         setUser(null);
         persistUser(null);
@@ -103,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return (
         <AuthContext.Provider
-            value={{ user, token, login, logout, updateUser, isAuthenticated: !!user }}
+            value={{ user, token, login, loginWithGoogle, logout, updateUser, isAuthenticated: !!user }}
         >
             {children}
         </AuthContext.Provider>

@@ -4,16 +4,37 @@ import { motion } from "framer-motion";
 import { useAuth, ROLE_REDIRECTS } from "@/contexts/AuthContext";
 import { GraduationCap, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { forgotPassword } from "@/api/backoffice";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { toast } from "sonner";
 
 export default function Login() {
-    const { login } = useAuth();
+    const { login, loginWithGoogle } = useAuth();
     const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPwd, setShowPwd] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+
+    const redirectAfterLogin = () => {
+        const stored = localStorage.getItem("c4s_user");
+        if (stored) {
+            const user = JSON.parse(stored);
+            navigate(ROLE_REDIRECTS[user.role as keyof typeof ROLE_REDIRECTS]);
+        }
+    };
+
+    const handleGoogleCredential = async (idToken: string) => {
+        setError("");
+        setLoading(true);
+        const result = await loginWithGoogle(idToken);
+        setLoading(false);
+        if (!result.ok) {
+            setError(result.error || "Connexion Google impossible.");
+            return;
+        }
+        redirectAfterLogin();
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,11 +49,7 @@ export default function Login() {
         }
         // Le rôle est déterminé automatiquement à partir des identifiants via AuthContext
         // result.user contient le rôle → on redirige vers l'espace correspondant
-        const stored = localStorage.getItem("c4s_user");
-        if (stored) {
-            const user = JSON.parse(stored);
-            navigate(ROLE_REDIRECTS[user.role as keyof typeof ROLE_REDIRECTS]);
-        }
+        redirectAfterLogin();
     };
 
     const handleForgotPassword = async () => {
@@ -194,6 +211,14 @@ export default function Login() {
                                 ) : "Se connecter →"}
                             </button>
                         </form>
+
+                        <div className="flex items-center gap-3 my-6">
+                            <div className="flex-1 h-px bg-gray-200" />
+                            <span className="text-xs font-semibold text-gray-400 uppercase">ou</span>
+                            <div className="flex-1 h-px bg-gray-200" />
+                        </div>
+
+                        <GoogleSignInButton onCredential={handleGoogleCredential} disabled={loading} text="signin_with" />
                     </div>
 
                     <p className="text-center text-xs text-gray-400 mt-6">

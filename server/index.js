@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import cron from "node-cron";
+import { OAuth2Client } from "google-auth-library";
 import { resolveJwtSecret } from "./jwtSecret.js";
 
 const rootDir = process.cwd();
@@ -36,6 +37,23 @@ const pool = mysql.createPool({
 
 const JWT_SECRET = resolveJwtSecret();
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleOAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+
+// Vérifie un ID token Google (signature + audience) et retourne le profil
+// vérifié. Ne fait jamais confiance à un payload décodé côté client.
+const verifyGoogleIdToken = async (idToken) => {
+  if (!googleOAuthClient) {
+    throw new Error("Connexion Google non configurée sur le serveur.");
+  }
+  const ticket = await googleOAuthClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
+  const payload = ticket.getPayload();
+  if (!payload?.email || !payload.email_verified) {
+    throw new Error("Email Google non vérifié.");
+  }
+  return payload;
+};
 
 // FALLBACK DATA (IN-MEMORY)
 let fallbackSessions = [];
@@ -1097,6 +1115,9 @@ const initDB = async () => {
     const uColNames = new Set(uCols.map(c => c.Field));
     if (!uColNames.has("secondary_role")) await pool.query("ALTER TABLE users ADD COLUMN secondary_role ENUM('admin','teacher','parent','advisor','student','tutor') NULL DEFAULT NULL").catch(() => {});
     if (!uColNames.has("geo_location_id")) await pool.query("ALTER TABLE users ADD COLUMN geo_location_id INT UNSIGNED NULL AFTER location").catch(() => {});
+    if (!uColNames.has("google_id")) {
+      await pool.query("ALTER TABLE users ADD COLUMN google_id VARCHAR(255) NULL UNIQUE").catch(() => {});
+    }
     await ensureStudentEvaluationsTable();
     await ensureGeoLocationsTable();
     // Migration: geo_location_id sur teachers
@@ -1874,7 +1895,16 @@ app.use("/uploads", express.static(uploadDir));
 app.post("/api/parents/enroll", async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { parentName, parentEmail, parentPassword, parentPhone, parentLocation, parentGeoLocationId, children, childName, childEmail, childPassword, childLevel, subject } = req.body;
+    let { parentName, parentEmail, parentPassword, parentPhone, parentLocation, parentGeoLocationId, children, childName, childEmail, childPassword, childLevel, subject, googleIdToken } = req.body;
+
+    let googleSub = null;
+    if (googleIdToken) {
+      const googlePayload = await verifyGoogleIdToken(googleIdToken);
+      parentEmail = googlePayload.email; // l'email vérifié par Google prévaut sur toute saisie du formulaire
+      googleSub = googlePayload.sub;
+      parentPassword = crypto.randomBytes(24).toString("hex"); // jamais communiqué : connexion via Google uniquement
+    }
+
     console.log("DEBUG: Enrollment start for", parentEmail);
 
     const finalChildren = Array.isArray(children) ? children : [
@@ -1908,10 +1938,11 @@ app.post("/api/parents/enroll", async (req, res) => {
     const parentId = crypto.randomUUID();
     const hashedParentPwd = bcrypt.hashSync(parentPassword, 10);
     await connection.query(
-      "INSERT INTO users (id, name, email, password, role, phone, location, geo_location_id, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?, ?, ?)",
+      "INSERT INTO users (id, name, email, password, role, phone, location, geo_location_id, google_id, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?, ?, ?, ?)",
       [
         parentId, parentName, parentEmail, hashedParentPwd, parentPhone || null,
         parentLocation || null, parentGeoLocationId ? Number(parentGeoLocationId) : null,
+        googleSub,
         (parentName || "P")[0],
       ]
     );
@@ -1920,7 +1951,7 @@ app.post("/api/parents/enroll", async (req, res) => {
     await sendMail({
       to: parentEmail,
       subject: "Bienvenue sur Care4Success — Vos identifiants parent",
-      html: tplAccountCreated({ name: parentName, email: parentEmail, password: parentPassword, role: 'parent' })
+      html: tplAccountCreated({ name: parentName, email: parentEmail, password: parentPassword, role: 'parent', viaGoogle: Boolean(googleSub) })
     }).catch(e => console.warn("Parent welcome mail failed:", e.message));
 
     const results = {
@@ -4954,6 +4985,35 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+// Connexion à un compte EXISTANT via Google (n'en crée jamais un nouveau —
+// la création de compte via Google passe par /api/parents/enroll).
+app.post("/api/auth/google", async (req, res) => {
+  const { idToken } = req.body ?? {};
+  if (!idToken) return res.status(400).json({ message: "idToken requis." });
+
+  try {
+    const payload = await verifyGoogleIdToken(idToken);
+    await ensureUsersTable();
+
+    const [rows] = await pool.query(
+      `SELECT ${USER_PUBLIC_COLUMNS} FROM users WHERE google_id = ? OR email = ? LIMIT 1`,
+      [payload.sub, payload.email]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Aucun compte associé à cet email Google. Inscrivez-vous d'abord." });
+    }
+
+    const user = rows[0];
+    await pool.query("UPDATE users SET google_id = ?, last_login_at = NOW() WHERE id = ?", [payload.sub, user.id]).catch(() => {});
+    const safeUser = mapUserRow(user);
+    const token = generateToken(safeUser);
+    res.json({ token, user: safeUser });
+  } catch (error) {
+    console.error("Google login failed", error.message);
+    res.status(401).json({ message: "Connexion Google invalide." });
+  }
+});
+
 app.post("/api/admin/reset-user-password", authenticateRequest, async (req, res) => {
   if (req.user?.role !== "admin") return res.status(403).json({ message: "Accès réservé aux administrateurs." });
   const { email, newPassword = "eleve123" } = req.body;
@@ -7748,7 +7808,7 @@ function tplNewCourse({ studentName, teacherName, courseTitle, subject, mode, co
       </div>
     </div>`;
 }
-function tplAccountCreated({ name, email, password, role }) {
+function tplAccountCreated({ name, email, password, role, viaGoogle = false }) {
   const roleLabel = {
     admin: "Administrateur",
     teacher: "Professeur",
@@ -7756,6 +7816,16 @@ function tplAccountCreated({ name, email, password, role }) {
     student: "Élève",
     advisor: "Conseiller"
   }[role] || role;
+
+  const credentialsBlock = viaGoogle
+    ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;padding:20px;border-radius:8px;margin:24px 0">
+         <p style="margin:0;font-size:14px">Connectez-vous avec le bouton <strong>« Continuer avec Google »</strong> sur la page de connexion, en utilisant l'adresse <strong>${email}</strong>.</p>
+       </div>`
+    : `<div style="background:#f8fafc;border:1px solid #e2e8f0;padding:20px;border-radius:8px;margin:24px 0">
+         <p style="margin:0 0 10px;font-size:14px">Voici vos identifiants de connexion :</p>
+         <p style="margin:0 0 5px;font-size:14px">📧 Email : <strong>${email}</strong></p>
+         <p style="margin:0;font-size:14px">🔑 Mot de passe : <strong>${password}</strong></p>
+       </div>`;
 
   return `
     <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A;background:#f9fafb;padding:20px;border-radius:16px">
@@ -7766,13 +7836,9 @@ function tplAccountCreated({ name, email, password, role }) {
       <div style="padding:32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
         <p style="font-size:15px">Bonjour <strong>${name}</strong>,</p>
         <p>Votre compte <strong>${roleLabel}</strong> a été créé avec succès sur Care4Success.</p>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:20px;border-radius:8px;margin:24px 0">
-          <p style="margin:0 0 10px;font-size:14px">Voici vos identifiants de connexion :</p>
-          <p style="margin:0 0 5px;font-size:14px">📧 Email : <strong>${email}</strong></p>
-          <p style="margin:0;font-size:14px">🔑 Mot de passe : <strong>${password}</strong></p>
-        </div>
+        ${credentialsBlock}
         <p style="font-size:14px">Vous pouvez vous connecter dès maintenant sur : <a href="https://care4success.usra-care.com" style="color:#1A6CC8;text-decoration:none;font-weight:bold">https://care4success.usra-care.com</a></p>
-        <p style="font-size:13px;color:#6b7280;margin-top:24px">Nous vous recommandons de changer votre mot de passe dès votre première connexion.</p>
+        ${viaGoogle ? "" : `<p style="font-size:13px;color:#6b7280;margin-top:24px">Nous vous recommandons de changer votre mot de passe dès votre première connexion.</p>`}
         <p style="font-size:13px;color:#6b7280;margin-top:20px">L'équipe Care4Success</p>
       </div>
     </div>`;
