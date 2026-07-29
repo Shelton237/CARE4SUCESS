@@ -1884,8 +1884,12 @@ app.post("/api/parents/enroll", async (req, res) => {
     const parentId = crypto.randomUUID();
     const hashedParentPwd = bcrypt.hashSync(parentPassword, 10);
     await connection.query(
-      "INSERT INTO users (id, name, email, password, role, phone, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?)",
-      [parentId, parentName, parentEmail, hashedParentPwd, parentPhone || null, (parentName || "P")[0]]
+      "INSERT INTO users (id, name, email, password, role, phone, location, geo_location_id, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?, ?, ?)",
+      [
+        parentId, parentName, parentEmail, hashedParentPwd, parentPhone || null,
+        parentLocation || null, parentGeoLocationId ? Number(parentGeoLocationId) : null,
+        (parentName || "P")[0],
+      ]
     );
 
     // Bienvenue Parent
@@ -1906,10 +1910,15 @@ app.post("/api/parents/enroll", async (req, res) => {
       const finalStudentEmail = child.email || `student.${crypto.randomBytes(4).toString('hex')}@care4success.cm`;
       const hashedStudentPwd = bcrypt.hashSync(child.password || "eleve123", 10);
       
-      // Create Student User
+      // Create Student User — hérite de la localisation du parent (même foyer),
+      // faute de champ de localisation dédié à l'enfant dans ce formulaire.
       await connection.query(
-        "INSERT INTO users (id, name, email, password, role, parent_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?)",
-        [studentId, child.name, finalStudentEmail, hashedStudentPwd, parentId, (child.name || "S")[0]]
+        "INSERT INTO users (id, name, email, password, role, parent_id, location, geo_location_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?, ?, ?)",
+        [
+          studentId, child.name, finalStudentEmail, hashedStudentPwd, parentId,
+          parentLocation || null, parentGeoLocationId ? Number(parentGeoLocationId) : null,
+          (child.name || "S")[0],
+        ]
       );
 
       // Bienvenue Élève
