@@ -4534,6 +4534,136 @@ app.get("/api/admin/finance/teacher-payroll", authenticateRequest, async (req, r
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SUIVI DES PAIEMENTS ENSEIGNANTS (paie) — trace un versement réellement
+// effectué (virement/mobile money hors app), distinct du calcul en direct
+// de teacher-payroll qui n'est qu'une estimation issue des séances.
+// ─────────────────────────────────────────────────────────────────────────────
+const ensureTeacherPayoutsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS teacher_payouts (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      teacher_id CHAR(36) NOT NULL,
+      period_month VARCHAR(7) NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      currency VARCHAR(3) NOT NULL DEFAULT 'XAF',
+      payment_method VARCHAR(50) NULL,
+      note VARCHAR(255) NULL,
+      paid_by VARCHAR(191) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_payouts_teacher (teacher_id),
+      KEY idx_payouts_period (period_month)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+app.post("/api/admin/finance/teacher-payouts", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  const { teacherId, periodMonth, amount, currency, paymentMethod, note } = req.body ?? {};
+  if (!teacherId || !periodMonth || !amount) {
+    return res.status(400).json({ message: "teacherId, periodMonth et amount sont requis." });
+  }
+  try {
+    await ensureTeacherPayoutsTable();
+    const [[teacher]] = await pool.query("SELECT id, currency FROM teachers WHERE id = ?", [teacherId]);
+    if (!teacher) return res.status(404).json({ message: "Enseignant introuvable." });
+
+    const id = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO teacher_payouts (id, teacher_id, period_month, amount, currency, payment_method, note, paid_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, teacherId, periodMonth, Number(amount),
+        (currency || teacher.currency || "XAF").toUpperCase().slice(0, 3),
+        paymentMethod || null, note || null, req.user?.role === "admin" ? (req.user?.sub || null) : null,
+      ]
+    );
+    res.status(201).json({ id });
+  } catch (error) {
+    console.error("[teacher-payouts POST]", error);
+    res.status(500).json({ message: "Impossible d'enregistrer le paiement." });
+  }
+});
+
+app.get("/api/admin/finance/teacher-payouts", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  try {
+    await ensureTeacherPayoutsTable();
+    const [rows] = await pool.query(
+      `SELECT p.id, p.teacher_id, t.name AS teacher_name, p.period_month, p.amount, p.currency,
+              p.payment_method, p.note, p.paid_by, p.created_at
+       FROM teacher_payouts p
+       LEFT JOIN teachers t ON t.id = p.teacher_id
+       ORDER BY p.created_at DESC`
+    );
+    res.json(rows.map((r) => ({
+      id: r.id,
+      teacherId: r.teacher_id,
+      teacherName: r.teacher_name || "—",
+      periodMonth: r.period_month,
+      amount: Number(r.amount),
+      currency: r.currency,
+      paymentMethod: r.payment_method,
+      note: r.note,
+      paidBy: r.paid_by,
+      createdAt: r.created_at,
+    })));
+  } catch (error) {
+    console.error("[teacher-payouts GET]", error);
+    res.status(500).json({ message: "Impossible de récupérer l'historique de paie." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTORIQUE DES TRANSACTIONS (admin) — vue ligne-par-ligne de toutes les
+// factures/paiements parents, tous parents confondus (distinct de
+// GET /api/parents/:parentId/invoices qui ne montre que les siennes).
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/api/admin/finance/transactions", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  try {
+    await ensureParentInvoicesTable();
+    const { status, method, search } = req.query ?? {};
+    const clauses = [];
+    const params = [];
+    if (status && status !== "all") { clauses.push("i.status = ?"); params.push(status); }
+    if (method && method !== "all") { clauses.push("i.payment_method = ?"); params.push(method); }
+    if (search) { clauses.push("(u.name LIKE ? OR i.description LIKE ? OR i.payment_ref LIKE ?)"); params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+    const [rows] = await pool.query(
+      `SELECT i.id, i.parent_id, u.name AS parent_name, u.email AS parent_email,
+              i.invoice_date, i.description, i.amount, i.status,
+              i.payment_ref, i.flw_transaction_id, i.payment_method, i.paid_at, i.created_at
+       FROM parent_invoices i
+       LEFT JOIN users u ON u.id = i.parent_id
+       ${where}
+       ORDER BY i.created_at DESC
+       LIMIT 500`,
+      params
+    );
+    res.json(rows.map((r) => ({
+      id: r.id,
+      parentId: r.parent_id,
+      parentName: r.parent_name || "—",
+      parentEmail: r.parent_email || null,
+      date: r.invoice_date,
+      description: r.description,
+      amount: Number(r.amount),
+      status: r.status,
+      paymentRef: r.payment_ref,
+      flwTransactionId: r.flw_transaction_id,
+      paymentMethod: r.payment_method,
+      paidAt: r.paid_at,
+      createdAt: r.created_at,
+    })));
+  } catch (error) {
+    console.error("[admin/finance/transactions]", error);
+    res.status(500).json({ message: "Impossible de récupérer l'historique des transactions." });
+  }
+});
+
 // Manual Invoice Generation
 app.post("/api/admin/finance/generate-invoices", authenticateRequest, async (req, res) => {
   if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });

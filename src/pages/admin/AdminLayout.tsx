@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { LayoutDashboard, Users, GraduationCap, ClipboardList, Settings, UserPlus, BookOpen, UserCog, Wallet, GitMerge, Globe } from "lucide-react";
+import { LayoutDashboard, Users, GraduationCap, ClipboardList, Settings, UserPlus, BookOpen, UserCog, Wallet, GitMerge, Globe, History } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import AdminDashboard from "./Dashboard";
 import AdminTeachers from "./Teachers";
@@ -9,6 +9,7 @@ import AdminSettings from "./Settings";
 import AdminTeacherApplications from "./TeacherApplications";
 import AdminCourses from "./Courses";
 import AdminFinance from "./Finance";
+import AdminTransactions from "./Transactions";
 import ProfileManager from "./ProfileManager";
 import AdvisorMatching from "../advisor/Matching";
 import AdminGeography from "./Geography";
@@ -23,6 +24,7 @@ const NAV = [
     { to: "/admin/matching", label: "Matching", icon: GitMerge },
     { to: "/admin/profiles", label: "Profils utilisateurs", icon: UserCog },
     { to: "/admin/finance", label: "Finance & Paie", icon: Wallet },
+    { to: "/admin/transactions", label: "Transactions", icon: History },
     { to: "/admin/geography", label: "Géographie", icon: Globe },
     { to: "/admin/settings", label: "Paramètres", icon: Settings },
 ];
@@ -42,6 +44,7 @@ export default function AdminLayout() {
                     <Route path="profiles/:userId?" element={<ProfileManager />} />
                     <Route path="matching" element={<AdvisorMatching />} />
                     <Route path="finance" element={<AdminFinance />} />
+                    <Route path="transactions" element={<AdminTransactions />} />
                     <Route path="geography" element={<AdminGeography />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="*" element={<Navigate to="/admin" replace />} />

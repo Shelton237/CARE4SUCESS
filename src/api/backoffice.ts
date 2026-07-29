@@ -670,6 +670,60 @@ export const generateManualInvoices = (month?: string) =>
         body: JSON.stringify({ month }),
     });
 
+export interface AdminTransaction {
+    id: string;
+    parentId: string;
+    parentName: string;
+    parentEmail: string | null;
+    date: string;
+    description: string;
+    amount: number;
+    status: "paid" | "pending";
+    paymentRef: string | null;
+    flwTransactionId: string | null;
+    paymentMethod: string | null;
+    paidAt: string | null;
+    createdAt: string;
+}
+
+export const fetchAdminTransactions = (filters?: { status?: string; method?: string; search?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.status && filters.status !== "all") params.set("status", filters.status);
+    if (filters?.method && filters.method !== "all") params.set("method", filters.method);
+    if (filters?.search) params.set("search", filters.search);
+    const qs = params.toString();
+    return request<AdminTransaction[]>(`/admin/finance/transactions${qs ? `?${qs}` : ""}`);
+};
+
+export interface TeacherPayout {
+    id: string;
+    teacherId: string;
+    teacherName: string;
+    periodMonth: string;
+    amount: number;
+    currency: string;
+    paymentMethod: string | null;
+    note: string | null;
+    paidBy: string | null;
+    createdAt: string;
+}
+
+export const fetchTeacherPayouts = () =>
+    request<TeacherPayout[]>("/admin/finance/teacher-payouts");
+
+export const createTeacherPayout = (payload: {
+    teacherId: string;
+    periodMonth: string;
+    amount: number;
+    currency?: string;
+    paymentMethod?: string;
+    note?: string;
+}) =>
+    request<{ id: string }>("/admin/finance/teacher-payouts", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
 export const resetUserPassword = (email: string, newPassword?: string) =>
     request<{ success: boolean; message: string }>("/admin/reset-user-password", {
         method: "POST",
