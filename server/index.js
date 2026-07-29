@@ -5452,6 +5452,11 @@ const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || "https://care4success
 // pour le Mobile Money camerounais ("Currency not supported for CM Mobile
 // Money"), confirmé en sandbox.
 const PARENT_INVOICE_CURRENCY = "XAF";
+// En sandbox, le Mobile Money ne contacte jamais un vrai téléphone : on
+// demande le scénario "auth_redirect" pour obtenir une page de test
+// Flutterwave permettant de simuler manuellement l'approbation/le refus.
+// Ne doit jamais être envoyé en production (ignoré/refusé sur l'API live).
+const FLW_IS_SANDBOX = FLW_API_BASE_URL.includes("developersandbox");
 
 // Cache mémoire du jeton OAuth2 (validité annoncée : 10 min) — évite de
 // redemander un jeton à chaque appel API.
@@ -5578,6 +5583,7 @@ app.post("/api/payments/flutterwave/initiate", authenticateRequest, async (req, 
     const chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
       method: "POST",
       idempotencyKey: reference,
+      headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
       body: JSON.stringify({
         amount: invoice.amount,
         currency: PARENT_INVOICE_CURRENCY,
