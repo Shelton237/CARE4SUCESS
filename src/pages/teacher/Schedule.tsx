@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession, fetchCourses } from "@/api/backoffice";
+import {
+    fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession, fetchCourses,
+    fetchTeacherSlotsManage, createTeacherSlot, deleteTeacherSlot,
+} from "@/api/backoffice";
 import type { CreateSessionPayload } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
-import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi } from "lucide-react";
+import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi, Trash2 } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -248,6 +251,8 @@ export default function TeacherSchedule() {
                     </button>
                 </div>
             )}
+
+            {user?.id && <TeacherSlotsManager teacherId={user.id} />}
 
             {/* GRID 6 JOURS */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -708,6 +713,142 @@ export default function TeacherSchedule() {
                     </div>
                 </DialogContent>
             </Dialog>
+        </div>
+    );
+}
+
+function TeacherSlotsManager({ teacherId }: { teacherId: string }) {
+    const queryClient = useQueryClient();
+    const [showAdd, setShowAdd] = useState(false);
+    const [date, setDate] = useState("");
+    const [startHour, setStartHour] = useState("14:00");
+    const [endHour, setEndHour] = useState("15:00");
+    const [subject, setSubject] = useState("");
+
+    const { data: slots = [], isLoading } = useQuery({
+        queryKey: ["teacherSlotsManage", teacherId],
+        queryFn: () => fetchTeacherSlotsManage(teacherId),
+    });
+
+    const createMutation = useMutation({
+        mutationFn: () => createTeacherSlot(teacherId, {
+            startTime: `${date}T${startHour}:00`,
+            endTime: `${date}T${endHour}:00`,
+            subject: subject || undefined,
+        }),
+        onSuccess: () => {
+            toast.success("Créneau ajouté — visible sur votre page publique.");
+            queryClient.invalidateQueries({ queryKey: ["teacherSlotsManage", teacherId] });
+            setShowAdd(false);
+            setDate(""); setSubject("");
+        },
+        onError: (err: Error) => toast.error(err.message || "Impossible d'ajouter le créneau."),
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (slotId: string) => deleteTeacherSlot(teacherId, slotId),
+        onSuccess: () => {
+            toast.success("Créneau supprimé.");
+            queryClient.invalidateQueries({ queryKey: ["teacherSlotsManage", teacherId] });
+        },
+        onError: (err: Error) => toast.error(err.message || "Impossible de supprimer le créneau."),
+    });
+
+    const upcomingSlots = slots
+        .filter(s => new Date(s.startTime) > new Date())
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    const STATUS_LABEL: Record<string, string> = { open: "Disponible", booked: "Réservé", cancelled: "Annulé" };
+    const STATUS_STYLE: Record<string, string> = {
+        open: "bg-emerald-50 text-emerald-600 border-emerald-100",
+        booked: "bg-blue-50 text-blue-600 border-blue-200",
+        cancelled: "bg-gray-50 text-gray-400 border-gray-100",
+    };
+
+    return (
+        <div className="border border-slate-200 bg-white">
+            <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h2 className="text-[11px] font-black text-[#0D2D5A] uppercase tracking-widest flex items-center gap-1.5">
+                        <CalendarDays className="w-3.5 h-3.5 text-[#1A6CC8]" /> Créneaux réservables en ligne
+                    </h2>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">Visibles et réservables depuis votre fiche publique</p>
+                </div>
+                <Button
+                    size="sm"
+                    onClick={() => setShowAdd(v => !v)}
+                    className="bg-[#1A6CC8] hover:bg-[#0D2D5A] h-7 px-2.5 rounded-none shadow-none font-black text-[9px] uppercase gap-1"
+                >
+                    <Plus className="w-3 h-3" /> Ajouter
+                </Button>
+            </div>
+
+            {showAdd && (
+                <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-end gap-2">
+                    <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Date</label>
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-8 text-xs border border-slate-200 px-2" />
+                    </div>
+                    <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Début</label>
+                        <input type="time" value={startHour} onChange={e => setStartHour(e.target.value)} className="h-8 text-xs border border-slate-200 px-2" />
+                    </div>
+                    <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Fin</label>
+                        <input type="time" value={endHour} onChange={e => setEndHour(e.target.value)} className="h-8 text-xs border border-slate-200 px-2" />
+                    </div>
+                    <div className="flex-1 min-w-[140px]">
+                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Matière (optionnel)</label>
+                        <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Ex: Mathématiques" className="h-8 text-xs border border-slate-200 px-2 w-full" />
+                    </div>
+                    <Button
+                        size="sm"
+                        disabled={!date || createMutation.isPending}
+                        onClick={() => createMutation.mutate()}
+                        className="bg-[#1A6CC8] hover:bg-[#0D2D5A] h-8 rounded-none shadow-none font-black text-[9px] uppercase"
+                    >
+                        {createMutation.isPending ? "..." : "Créer"}
+                    </Button>
+                </div>
+            )}
+
+            <div className="p-3">
+                {isLoading ? (
+                    <p className="text-[10px] text-slate-400 text-center py-4">Chargement...</p>
+                ) : upcomingSlots.length === 0 ? (
+                    <p className="text-[10px] text-slate-400 text-center py-4">Aucun créneau à venir. Ajoutez-en pour être réservable sur votre fiche publique.</p>
+                ) : (
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {upcomingSlots.map(slot => (
+                            <div key={slot.id} className="p-2.5 border border-slate-100 flex items-center justify-between gap-2">
+                                <div>
+                                    <p className="text-[10px] font-black text-[#0D2D5A]">
+                                        {new Date(slot.startTime).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                                    </p>
+                                    <p className="text-[9px] text-slate-500 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {new Date(slot.startTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                        {" – "}
+                                        {new Date(slot.endTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                    </p>
+                                    <span className={`inline-block mt-1 text-[8px] font-black px-1.5 py-0.5 rounded-full border uppercase ${STATUS_STYLE[slot.status]}`}>
+                                        {STATUS_LABEL[slot.status]}
+                                    </span>
+                                </div>
+                                {slot.status === "open" && (
+                                    <button
+                                        onClick={() => deleteMutation.mutate(slot.id)}
+                                        className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                                        title="Supprimer"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
-import { Search, Star, ArrowRight, GraduationCap, BookOpen, Award, Users, Filter } from "lucide-react";
-import { teachers } from "@/data/index";
+import { Search, Star, ArrowRight, GraduationCap, BookOpen, Award, Users, Filter, Loader2, MapPin } from "lucide-react";
+import { fetchPublicTeachers } from "@/api/public";
+import { formatMoney } from "@/lib/money";
 import { ALL_SUBJECTS, ALL_LEVELS } from "@/lib/education";
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
@@ -19,13 +21,19 @@ export default function Professeurs() {
   const [subject, setSubject] = useState("all");
   const [level,   setLevel]   = useState("all");
 
+  const { data: teachers = [], isLoading, isError } = useQuery({
+    queryKey: ["public-teachers"],
+    queryFn: fetchPublicTeachers,
+    staleTime: 60_000,
+  });
+
   const filtered = useMemo(() => teachers.filter(t => {
     const q = search.toLowerCase();
     const matchSearch = !q || t.name.toLowerCase().includes(q) || t.subjects.some(s => s.toLowerCase().includes(q));
     const matchSub    = subject === "all" || t.subjects.some(s => s.toLowerCase().includes(subject.toLowerCase()));
-    const matchLvl    = level   === "all" || t.levels.some(l => l.toLowerCase().includes(level.toLowerCase()));
+    const matchLvl    = level   === "all" || (t.level || "").toLowerCase().includes(level.toLowerCase());
     return matchSearch && matchSub && matchLvl;
-  }), [search, subject, level]);
+  }), [teachers, search, subject, level]);
 
   const reset = () => { setSearch(""); setSubject("all"); setLevel("all"); };
 
@@ -140,7 +148,7 @@ export default function Professeurs() {
               )}
             </div>
 
-            {filtered.length > 0 && (
+            {!isLoading && filtered.length > 0 && (
               <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-100">
                 <span className="font-bold text-[#0D2D5A]">{filtered.length}</span> enseignant{filtered.length > 1 ? "s" : ""} trouvé{filtered.length > 1 ? "s" : ""}
               </p>
@@ -148,7 +156,16 @@ export default function Professeurs() {
           </motion.div>
 
           {/* Grille */}
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
+            </div>
+          ) : isError ? (
+            <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
+              <p className="font-bold text-[#0D2D5A] mb-1">Impossible de charger les enseignants</p>
+              <p className="text-sm text-gray-400">Merci de réessayer dans un instant.</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
               <p className="text-3xl mb-3 opacity-30">🔍</p>
               <p className="font-bold text-[#0D2D5A] mb-1">Aucun résultat</p>
@@ -167,27 +184,30 @@ export default function Professeurs() {
                 <motion.div key={teacher.id} variants={staggerItem}>
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-[#1A6CC8]/20 transition-all duration-200 overflow-hidden flex flex-col">
                     <div className="h-1 bg-[#F5A623]" />
-                    <div className="relative h-52 overflow-hidden">
-                      <img src={teacher.photo} alt={teacher.name} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0D2D5A]/80 via-[#0D2D5A]/20 to-transparent" />
-                      <div className="absolute bottom-3 left-3 right-3">
-                        <p className="text-white font-black text-base leading-tight">{teacher.name}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <div className="flex gap-0.5">
-                            {[1,2,3,4,5].map(i => (
-                              <Star key={i} className={`w-3 h-3 ${i <= Math.floor(teacher.rating) ? "fill-[#F5A623] text-[#F5A623]" : "text-white/20"}`} />
-                            ))}
+                    <div className="p-5 flex flex-col gap-3 flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 h-14 rounded-2xl bg-[#1A6CC8]/10 flex items-center justify-center font-black text-lg text-[#1A6CC8] flex-shrink-0">
+                          {teacher.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[#0D2D5A] font-black text-base leading-tight truncate">{teacher.name}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="flex gap-0.5">
+                              {[1,2,3,4,5].map(i => (
+                                <Star key={i} className={`w-3 h-3 ${i <= Math.floor(teacher.rating) ? "fill-[#F5A623] text-[#F5A623]" : "text-gray-200"}`} />
+                              ))}
+                            </div>
+                            <span className="text-[#F5A623] text-xs font-bold">{teacher.rating.toFixed(1)}</span>
                           </div>
-                          <span className="text-[#F5A623] text-xs font-bold">{teacher.rating.toFixed(1)}</span>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="p-4 flex-1 flex flex-col gap-3">
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                        <GraduationCap className="w-3.5 h-3.5 text-[#1A6CC8]" />
-                        <span><strong className="text-[#0D2D5A]">{teacher.experience} ans</strong> d'expérience</span>
-                      </div>
+                      {teacher.city && (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <MapPin className="w-3.5 h-3.5 text-[#1A6CC8]" />
+                          <span>{teacher.city}</span>
+                        </div>
+                      )}
 
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1.5">Matières</p>
@@ -201,13 +221,16 @@ export default function Professeurs() {
                         </div>
                       </div>
 
-                      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed flex-1">{teacher.bio}</p>
+                      <p className="text-xs font-bold text-[#0D2D5A] mt-1">
+                        {formatMoney(teacher.rate, teacher.currency)}
+                        <span className="text-gray-400 font-medium"> / {teacher.rateType === "monthly" ? "mois" : `${teacher.rateUnitMinutes} min`}</span>
+                      </p>
 
                       <NavLink
-                        to="/inscription"
+                        to={`/professeurs/${teacher.id}`}
                         className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#0D2D5A] text-white text-xs font-bold hover:bg-[#1A6CC8] transition-all duration-150 cursor-pointer mt-auto"
                       >
-                        Demander ce prof <ArrowRight className="w-3.5 h-3.5" />
+                        Voir le profil <ArrowRight className="w-3.5 h-3.5" />
                       </NavLink>
                     </div>
                   </div>

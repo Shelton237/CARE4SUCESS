@@ -330,6 +330,191 @@ const ensureTeachersTable = async () => {
   }
 };
 
+// Créneaux explicites saisis un par un par l'enseignant/l'admin — consommés
+// lorsqu'un visiteur du site public réserve puis paie (cf. section
+// RÉSERVATION PUBLIQUE plus loin).
+const ensureTeacherSlotsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS teacher_slots (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      teacher_id CHAR(36) NOT NULL,
+      subject VARCHAR(120) NULL,
+      start_time DATETIME NOT NULL,
+      end_time DATETIME NOT NULL,
+      status ENUM('open','booked','cancelled') NOT NULL DEFAULT 'open',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_slots_teacher (teacher_id),
+      KEY idx_slots_status (status),
+      KEY idx_slots_start (start_time)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const mapSlotRow = (row) => ({
+  id: row.id,
+  teacherId: row.teacher_id,
+  subject: row.subject,
+  startTime: row.start_time,
+  endTime: row.end_time,
+  status: row.status,
+});
+
+app.post("/api/teachers/:teacherId/slots", authenticateRequest, async (req, res) => {
+  const { teacherId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  const { startTime, endTime, subject } = req.body ?? {};
+  if (!startTime || !endTime) {
+    return res.status(400).json({ message: "startTime et endTime sont requis." });
+  }
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    return res.status(400).json({ message: "Plage horaire invalide." });
+  }
+  if (start < new Date()) {
+    return res.status(400).json({ message: "Le créneau doit être dans le futur." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [[teacher]] = await pool.query("SELECT id FROM teachers WHERE id = ?", [teacherId]);
+    if (!teacher) return res.status(404).json({ message: "Enseignant introuvable." });
+
+    const id = crypto.randomUUID();
+    await pool.query(
+      "INSERT INTO teacher_slots (id, teacher_id, subject, start_time, end_time) VALUES (?, ?, ?, ?, ?)",
+      [id, teacherId, subject || null, start, end]
+    );
+    res.status(201).json({ id });
+  } catch (error) {
+    console.error("[teacher_slots POST]", error);
+    res.status(500).json({ message: "Impossible de créer le créneau." });
+  }
+});
+
+// Gestion (enseignant/admin) — tous les créneaux, passés ou non, tous statuts.
+app.get("/api/teachers/:teacherId/slots/manage", authenticateRequest, async (req, res) => {
+  const { teacherId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [rows] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE teacher_id = ? ORDER BY start_time DESC",
+      [teacherId]
+    );
+    res.json(rows.map(mapSlotRow));
+  } catch (error) {
+    console.error("[teacher_slots manage GET]", error);
+    res.status(500).json({ message: "Impossible de récupérer les créneaux." });
+  }
+});
+
+// Vue publique — uniquement les créneaux ouverts et futurs (utilisée par la
+// page de profil public pour proposer une réservation).
+app.get("/api/teachers/:teacherId/slots", async (req, res) => {
+  const { teacherId } = req.params;
+  try {
+    await ensureTeacherSlotsTable();
+    const [rows] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE teacher_id = ? AND status = 'open' AND start_time > NOW() ORDER BY start_time ASC",
+      [teacherId]
+    );
+    res.json(rows.map(mapSlotRow));
+  } catch (error) {
+    console.error("[teacher_slots GET]", error);
+    res.status(500).json({ message: "Impossible de récupérer les créneaux." });
+  }
+});
+
+app.delete("/api/teachers/:teacherId/slots/:slotId", authenticateRequest, async (req, res) => {
+  const { teacherId, slotId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [[slot]] = await pool.query("SELECT status FROM teacher_slots WHERE id = ? AND teacher_id = ?", [slotId, teacherId]);
+    if (!slot) return res.status(404).json({ message: "Créneau introuvable." });
+    if (slot.status !== "open") {
+      return res.status(400).json({ message: "Seul un créneau non réservé peut être supprimé." });
+    }
+    await pool.query("DELETE FROM teacher_slots WHERE id = ?", [slotId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[teacher_slots DELETE]", error);
+    res.status(500).json({ message: "Impossible de supprimer le créneau." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANNUAIRE PUBLIC — recherche d'enseignant sur le site public, sans
+// authentification. N'expose que des champs adaptés à un affichage public
+// (jamais email/téléphone/coordonnées bancaires).
+// ─────────────────────────────────────────────────────────────────────────────
+const mapPublicTeacherRow = (row) => ({
+  id: row.id,
+  name: row.name,
+  subjects: parseJson(row.subjects, []),
+  level: row.level,
+  city: row.city,
+  rating: Number(row.rating),
+  students: row.students,
+  rateType: row.rate_type,
+  rate: row.rate_type === "monthly" ? Number(row.monthly_rate) : Number(row.hourly_rate),
+  currency: row.currency || "XAF",
+  rateUnitMinutes: row.rate_unit_minutes || 60,
+});
+
+app.get("/api/public/teachers", async (req, res) => {
+  try {
+    await ensureTeachersTable();
+    const [rows] = await pool.query(
+      `SELECT id, name, subjects, level, city, status, rating, students, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes
+       FROM teachers
+       WHERE status = 'actif'
+       ORDER BY rating DESC, students DESC`
+    );
+    res.json(rows.map(mapPublicTeacherRow));
+  } catch (error) {
+    if (isDbConnectionError(error)) {
+      return res.status(503).json({ message: "Base de données indisponible." });
+    }
+    console.error("[public/teachers]", error);
+    res.status(500).json({ message: "Impossible de récupérer les enseignants." });
+  }
+});
+
+app.get("/api/public/teachers/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureTeachersTable();
+    await ensureTeacherSlotsTable();
+    const [[row]] = await pool.query(
+      `SELECT id, name, subjects, level, city, status, rating, students, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes
+       FROM teachers WHERE id = ? AND status = 'actif'`,
+      [id]
+    );
+    if (!row) return res.status(404).json({ message: "Enseignant introuvable." });
+
+    const [slotRows] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE teacher_id = ? AND status = 'open' AND start_time > NOW() ORDER BY start_time ASC",
+      [id]
+    );
+
+    res.json({ ...mapPublicTeacherRow(row), slots: slotRows.map(mapSlotRow) });
+  } catch (error) {
+    if (isDbConnectionError(error)) {
+      return res.status(503).json({ message: "Base de données indisponible." });
+    }
+    console.error("[public/teachers/:id]", error);
+    res.status(500).json({ message: "Impossible de récupérer le profil." });
+  }
+});
+
 const ensureSessionsTable = async () => {
   await pool.query(
     `CREATE TABLE IF NOT EXISTS sessions (
@@ -5871,12 +6056,327 @@ app.post("/api/payments/flutterwave/webhook", async (req, res) => {
 
     const event = req.body ?? {};
     if (event.type === "charge.completed" && event.data?.reference) {
-      await finalizeFlutterwaveCharge(event.data.reference, event.data);
+      const invoiceResult = await finalizeFlutterwaveCharge(event.data.reference, event.data);
+      if (!invoiceResult.success && invoiceResult.reason === "invoice_not_found") {
+        await finalizeSlotBooking(event.data.reference, event.data);
+      }
     }
     res.status(200).json({ received: true });
   } catch (error) {
     console.error("[flutterwave/webhook]", error);
     res.status(200).json({ received: true }); // Toujours 200 pour éviter les re-tentatives en boucle
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RÉSERVATION PUBLIQUE — un visiteur du site public choisit un créneau
+// (teacher_slots), paie en Mobile Money, ce qui crée à la volée son compte
+// parent+élève (s'il n'existe pas déjà), transforme le créneau en séance
+// réelle, et envoie le lien de visioconférence par email.
+// ─────────────────────────────────────────────────────────────────────────────
+const ensureSlotBookingsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS slot_bookings (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      slot_id CHAR(36) NOT NULL,
+      teacher_id CHAR(36) NOT NULL,
+      parent_id CHAR(36) NOT NULL,
+      student_id CHAR(36) NOT NULL,
+      session_id CHAR(36) NULL,
+      subject VARCHAR(120) NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      currency VARCHAR(3) NOT NULL,
+      payment_ref VARCHAR(100) NULL,
+      flw_charge_id VARCHAR(100) NULL,
+      status ENUM('pending','paid','expired') NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_bookings_slot (slot_id),
+      KEY idx_bookings_ref (payment_ref)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const DAYS_FR = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+
+const finalizeSlotBooking = async (reference, chargeData) => {
+  const [[booking]] = await pool.query(
+    "SELECT * FROM slot_bookings WHERE payment_ref = ?", [reference]
+  );
+  if (!booking) {
+    console.warn(`[flutterwave] booking reference inconnue: ${reference}`);
+    return { success: false, reason: "booking_not_found" };
+  }
+  if (booking.status === "paid") {
+    return { success: true, alreadyProcessed: true, sessionId: booking.session_id };
+  }
+
+  const amountOk = Number(chargeData.amount) >= Number(booking.amount);
+  const currencyOk = chargeData.currency === booking.currency;
+  const statusOk = chargeData.status === "succeeded";
+
+  if (!statusOk || !amountOk || !currencyOk) {
+    console.warn(
+      `[flutterwave] Booking non validé pour ${reference} — status=${chargeData.status} amount=${chargeData.amount}/${booking.amount} currency=${chargeData.currency}/${booking.currency}`
+    );
+    return { success: false, reason: "verification_failed", status: chargeData.status };
+  }
+
+  const [[slot]] = await pool.query("SELECT * FROM teacher_slots WHERE id = ?", [booking.slot_id]);
+  if (!slot || slot.status === "booked") {
+    console.warn(`[flutterwave] Créneau ${booking.slot_id} déjà réservé ou introuvable pour ${reference}`);
+    return { success: false, reason: "slot_unavailable" };
+  }
+
+  const [[teacher]] = await pool.query("SELECT name FROM teachers WHERE id = ?", [booking.teacher_id]);
+  const [[student]] = await pool.query("SELECT name FROM users WHERE id = ?", [booking.student_id]);
+  const [[parent]] = await pool.query("SELECT name, email FROM users WHERE id = ?", [booking.parent_id]);
+
+  const sessionId = crypto.randomUUID();
+  const start = new Date(slot.start_time);
+  const end = new Date(slot.end_time);
+  const dateStr = start.toISOString().split("T")[0];
+  const timeStr = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")} - ${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+  const virtualLink = `https://meet.care4success.usra-care.com/Care4Success-${sessionId.split("-")[0]}`;
+
+  await pool.query(
+    `INSERT INTO sessions (id, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, subject, session_day, session_date, session_time, location, status, virtual_link)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'En ligne', 'planifié', ?)`,
+    [
+      sessionId, booking.teacher_id, teacher?.name || "Enseignant",
+      booking.student_id, student?.name || "Élève",
+      booking.parent_id, parent?.name || "Parent",
+      booking.subject || "Cours particulier",
+      DAYS_FR[start.getDay()], dateStr, timeStr, virtualLink,
+    ]
+  );
+  await linkStudentTeacherRelation(booking.student_id, booking.teacher_id).catch(() => {});
+
+  await pool.query("UPDATE teacher_slots SET status = 'booked' WHERE id = ?", [slot.id]);
+  await pool.query(
+    `UPDATE slot_bookings SET status = 'paid', flw_charge_id = ?, session_id = ? WHERE id = ?`,
+    [String(chargeData.id), sessionId, booking.id]
+  );
+
+  if (parent?.email) {
+    await sendMail({
+      to: parent.email,
+      subject: `Réservation confirmée — ${teacher?.name || "votre enseignant"} le ${dateStr}`,
+      html: `<div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A">
+        <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+          <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+          <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Réservation confirmée</p>
+        </div>
+        <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+          <p>Bonjour <b>${parent.name}</b>,</p>
+          <p>Votre séance avec <b>${teacher?.name || "votre enseignant"}</b> est confirmée :</p>
+          <table style="width:100%;border-collapse:collapse;margin:24px 0">
+            <tr style="background:#f9fafb"><td style="padding:12px 16px;border:1px solid #e5e7eb">Date</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${dateStr}</td></tr>
+            <tr><td style="padding:12px 16px;border:1px solid #e5e7eb">Horaire</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${timeStr}</td></tr>
+            <tr style="background:#f9fafb"><td style="padding:12px 16px;border:1px solid #e5e7eb">Matière</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${booking.subject || "Cours particulier"}</td></tr>
+          </table>
+          <p style="text-align:center;margin:24px 0">
+            <a href="${virtualLink}" style="display:inline-block;background:#1A6CC8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Rejoindre la classe virtuelle</a>
+          </p>
+          <p style="font-size:13px;color:#6b7280">Ce lien sera actif à l'heure de la séance. Conservez cet email.</p>
+        </div>
+      </div>`,
+    }).catch((e) => console.warn("Booking confirmation mail failed:", e.message));
+  }
+
+  return { success: true, sessionId, virtualLink };
+};
+
+// Crée le compte parent+élève à la volée si l'email fourni n'existe pas
+// déjà, sinon réutilise le compte existant (retrouvé par email).
+const resolveOrCreateBookingFamily = async ({ parentName, parentEmail, parentPhone, studentName, studentEmail }) => {
+  const [[existingParent]] = await pool.query(
+    "SELECT id FROM users WHERE email = ? AND role = 'parent'", [parentEmail]
+  );
+  if (existingParent) {
+    const [[existingChild]] = await pool.query(
+      "SELECT id FROM users WHERE parent_id = ? ORDER BY created_at DESC LIMIT 1", [existingParent.id]
+    );
+    if (existingChild) return { parentId: existingParent.id, studentId: existingChild.id, created: false };
+  }
+
+  const parentId = existingParent?.id || crypto.randomUUID();
+  const studentId = crypto.randomUUID();
+  const randomPassword = crypto.randomBytes(12).toString("hex");
+
+  if (!existingParent) {
+    await pool.query(
+      "INSERT INTO users (id, name, email, password, role, phone, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?)",
+      [parentId, parentName, parentEmail, bcrypt.hashSync(randomPassword, 10), parentPhone || null, (parentName || "P")[0]]
+    );
+    await sendMail({
+      to: parentEmail,
+      subject: "Bienvenue sur Care4Success — Vos identifiants parent",
+      html: tplAccountCreated({ name: parentName, email: parentEmail, password: randomPassword, role: "parent" }),
+    }).catch((e) => console.warn("Booking parent welcome mail failed:", e.message));
+  }
+
+  const finalStudentEmail = studentEmail || `student.${crypto.randomBytes(4).toString("hex")}@care4success.cm`;
+  await pool.query(
+    "INSERT INTO users (id, name, email, password, role, parent_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?)",
+    [studentId, studentName || parentName, finalStudentEmail, bcrypt.hashSync(crypto.randomBytes(12).toString("hex"), 10), parentId, (studentName || "S")[0]]
+  );
+
+  return { parentId, studentId, created: true };
+};
+
+app.post("/api/bookings/initiate", async (req, res) => {
+  const {
+    slotId, network, phoneNumber, countryCode = "237",
+    parentName, parentEmail, parentPhone, studentName, studentEmail, subject,
+  } = req.body ?? {};
+  if (!slotId || !network || !phoneNumber || !parentName || !parentEmail) {
+    return res.status(400).json({ message: "Champs obligatoires manquants." });
+  }
+  if (!["MTN", "ORANGE"].includes(network)) {
+    return res.status(400).json({ message: "Réseau non supporté." });
+  }
+
+  try {
+    await ensureTeacherSlotsTable();
+    await ensureSlotBookingsTable();
+
+    const [[slot]] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE id = ? AND status = 'open' AND start_time > NOW()", [slotId]
+    );
+    if (!slot) return res.status(409).json({ message: "Ce créneau n'est plus disponible." });
+
+    const [[teacher]] = await pool.query(
+      "SELECT id, name, rate_type, hourly_rate, currency, rate_unit_minutes FROM teachers WHERE id = ?", [slot.teacher_id]
+    );
+    if (!teacher) return res.status(404).json({ message: "Enseignant introuvable." });
+    if (teacher.rate_type !== "hourly") {
+      return res.status(400).json({ message: "Cet enseignant n'est pas réservable en ligne pour l'instant." });
+    }
+
+    const minutes = Math.round((new Date(slot.end_time) - new Date(slot.start_time)) / 60000);
+    const amount = computeEarnedAmount(minutes, teacher);
+
+    // Verrouille immédiatement le créneau pour éviter une double réservation
+    // pendant le paiement — libéré automatiquement après 20 min sans paiement
+    // (cf. cron d'expiration).
+    const [lockResult] = await pool.query(
+      "UPDATE teacher_slots SET status = 'pending' WHERE id = ? AND status = 'open'", [slotId]
+    );
+    if (lockResult.affectedRows === 0) {
+      return res.status(409).json({ message: "Ce créneau vient d'être réservé par quelqu'un d'autre." });
+    }
+
+    const { parentId, studentId } = await resolveOrCreateBookingFamily({
+      parentName, parentEmail, parentPhone, studentName, studentEmail,
+    });
+
+    const reference = `slot-${slotId.slice(0, 8)}-${Date.now()}`;
+    const [firstName, ...restName] = (parentName || "Parent").split(" ");
+
+    let chargeRes;
+    try {
+      chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+        method: "POST",
+        idempotencyKey: reference,
+        headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
+        body: JSON.stringify({
+          amount,
+          currency: teacher.currency || "XAF",
+          reference,
+          payment_method: {
+            type: "mobile_money",
+            mobile_money: { country_code: countryCode, network, phone_number: phoneNumber },
+          },
+          customer: {
+            email: parentEmail,
+            name: { first: firstName, last: restName.join(" ") || firstName },
+            phone: { country_code: countryCode, number: phoneNumber },
+          },
+          redirect_url: `${FRONTEND_BASE_URL}/professeurs/${teacher.id}`,
+        }),
+      });
+    } catch (chargeError) {
+      // Échec d'initiation du paiement : libérer le créneau immédiatement
+      // plutôt que d'attendre l'expiration automatique.
+      await pool.query("UPDATE teacher_slots SET status = 'open' WHERE id = ?", [slotId]).catch(() => {});
+      throw chargeError;
+    }
+
+    const bookingId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO slot_bookings (id, slot_id, teacher_id, parent_id, student_id, subject, amount, currency, payment_ref, flw_charge_id, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [bookingId, slotId, teacher.id, parentId, studentId, subject || null, amount, teacher.currency || "XAF", reference, chargeRes.data?.id || null]
+    );
+
+    res.status(201).json({
+      chargeId: chargeRes.data?.id,
+      reference,
+      status: chargeRes.data?.status,
+      nextAction: chargeRes.data?.next_action || null,
+      amount,
+      currency: teacher.currency || "XAF",
+    });
+  } catch (error) {
+    console.error("[bookings/initiate]", error);
+    res.status(500).json({ message: error.message || "Impossible d'initier la réservation." });
+  }
+});
+
+app.post("/api/bookings/authorize", async (req, res) => {
+  const { chargeId, type, code } = req.body ?? {};
+  if (!chargeId || !type || !code) {
+    return res.status(400).json({ message: "chargeId, type et code sont requis." });
+  }
+  try {
+    const chargeRes = await flutterwaveRequest(`/charges/${chargeId}`, {
+      method: "PUT",
+      body: JSON.stringify({ authorization: { type, [type]: code } }),
+    });
+    res.json({ status: chargeRes.data?.status, nextAction: chargeRes.data?.next_action || null });
+  } catch (error) {
+    console.error("[bookings/authorize]", error);
+    res.status(500).json({ message: error.message || "Autorisation refusée." });
+  }
+});
+
+app.get("/api/bookings/status/:reference", async (req, res) => {
+  const { reference } = req.params;
+  try {
+    const [[booking]] = await pool.query("SELECT * FROM slot_bookings WHERE payment_ref = ?", [reference]);
+    if (!booking) return res.status(404).json({ message: "Réservation introuvable." });
+    if (booking.status === "paid") {
+      return res.json({ success: true, alreadyProcessed: true, sessionId: booking.session_id });
+    }
+    if (!booking.flw_charge_id) {
+      return res.json({ success: false, reason: "pending" });
+    }
+    const chargeRes = await flutterwaveRequest(`/charges/${booking.flw_charge_id}`);
+    const result = await finalizeSlotBooking(reference, chargeRes.data);
+    res.json(result);
+  } catch (error) {
+    console.error("[bookings/status]", error);
+    res.status(500).json({ message: error.message || "Impossible de vérifier le paiement." });
+  }
+});
+
+// Libère les créneaux verrouillés ('pending') dont le paiement n'a jamais
+// abouti après 20 minutes, pour ne pas les bloquer indéfiniment.
+cron.schedule("*/5 * * * *", async () => {
+  try {
+    const [expired] = await pool.query(
+      `SELECT b.id, b.slot_id FROM slot_bookings b
+       JOIN teacher_slots s ON s.id = b.slot_id
+       WHERE b.status = 'pending' AND s.status = 'pending' AND b.created_at < DATE_SUB(NOW(), INTERVAL 20 MINUTE)`
+    );
+    for (const row of expired) {
+      await pool.query("UPDATE teacher_slots SET status = 'open' WHERE id = ? AND status = 'pending'", [row.slot_id]);
+      await pool.query("UPDATE slot_bookings SET status = 'expired' WHERE id = ?", [row.id]);
+    }
+    if (expired.length > 0) console.log(`[cron/booking-expiry] ${expired.length} créneau(x) libéré(s)`);
+  } catch (err) {
+    console.error("[cron/booking-expiry]", err.message);
   }
 });
 

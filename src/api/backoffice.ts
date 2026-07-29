@@ -399,6 +399,27 @@ export const fetchTeacherEarnings = (teacherId: string) =>
 export const fetchTeacherStudents = (teacherId: string) =>
     request<any[]>(`/teachers/${teacherId}/students`);
 
+export interface TeacherSlotManage {
+    id: string;
+    teacherId: string;
+    subject: string | null;
+    startTime: string;
+    endTime: string;
+    status: "open" | "booked" | "cancelled";
+}
+
+export const fetchTeacherSlotsManage = (teacherId: string) =>
+    request<TeacherSlotManage[]>(`/teachers/${teacherId}/slots/manage`);
+
+export const createTeacherSlot = (teacherId: string, payload: { startTime: string; endTime: string; subject?: string }) =>
+    request<{ id: string }>(`/teachers/${teacherId}/slots`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
+export const deleteTeacherSlot = (teacherId: string, slotId: string) =>
+    request<{ success: boolean }>(`/teachers/${teacherId}/slots/${slotId}`, { method: "DELETE" });
+
 export const fetchTeacherContacts = (teacherId: string) =>
     request<any[]>(`/teachers/${teacherId}/contacts`);
 
