@@ -5,7 +5,7 @@ import { NavLink } from "react-router-dom";
 import {
   ArrowRight, Users, ShieldCheck, Wallet, CreditCard, ClipboardCheck,
   BadgeCheck, CalendarCheck, BookOpen, ChevronDown,
-  Phone, Smartphone, Download, GraduationCap, CheckCircle, Star, Monitor,
+  Smartphone, Download, GraduationCap, CheckCircle, Star, Monitor,
 } from "lucide-react";
 import { fetchPublicTeachers } from "@/api/public";
 import { ALL_SUBJECTS } from "@/lib/education";
@@ -637,41 +637,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════
-          §9 — CTA FINAL
-          ══════════════════════════════════════════════════════ */}
-      <section className="py-20 bg-[#F7FAFD]">
-        <div className="container mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={springPresets.gentle}
-            className="max-w-3xl mx-auto text-center bg-white rounded-3xl border border-gray-100 shadow-sm p-10 md:p-14"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#1A6CC8] mb-3">Bilan personnalisé — 100% gratuit</p>
-            <h2 className="text-3xl md:text-4xl font-black text-[#0D2D5A] mb-4">Décrivez votre projet, on s'occupe du reste.</h2>
-            <p className="text-gray-500 mb-8 max-w-lg mx-auto">
-              Un conseiller pédagogique vous rappelle sous 24h pour construire avec vous un programme adapté.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <NavLink
-                to={ROUTE_PATHS.CONTACT}
-                id="footer-cta"
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-[#1A6CC8] text-white font-black hover:bg-[#0D2D5A] transition-colors shadow-lg"
-              >
-                Demander mon bilan gratuit <ArrowRight className="w-4 h-4" />
-              </NavLink>
-              <a
-                href="tel:+237675252048"
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl border border-gray-200 text-[#0D2D5A] font-bold hover:bg-gray-50 transition-colors"
-              >
-                <Phone className="w-4 h-4 text-[#1A6CC8]" /> +237 675 252 048
-              </a>
-            </div>
-          </motion.div>
-        </div>
-      </section>
     </div>
   );
 }
