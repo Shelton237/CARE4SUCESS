@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-    BookOpen, 
-    Search, 
-    PlayCircle, 
-    CheckCircle2, 
-    Clock, 
+import {
+    BookOpen,
+    Search,
+    PlayCircle,
+    CheckCircle2,
+    Clock,
     Loader2,
     ArrowRight,
     ArrowLeft,
@@ -14,27 +14,37 @@ import {
     Bookmark,
     Video,
     FileText,
-    HelpCircle
+    HelpCircle,
+    Lock
 } from "lucide-react";
-import { 
-    fetchCourses, 
-    fetchCourseBookmarks, 
-    addCourseBookmark, 
-    removeCourseBookmark, 
+import {
+    fetchCourses,
+    fetchCourseBookmarks,
+    addCourseBookmark,
+    removeCourseBookmark,
     fetchActiveCourse,
     updateCourseProgress,
-    fetchCourseDetails
+    fetchCourseDetails,
+    initiateCoursePurchase,
+    authorizeCoursePurchase,
+    checkCoursePurchaseStatus,
+    type MobileMoneyNetwork,
 } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 import { toast } from "sonner";
-import { 
-    Drawer, 
-    DrawerContent, 
-    DrawerHeader, 
-    DrawerTitle 
+import {
+    Drawer,
+    DrawerContent,
+    DrawerHeader,
+    DrawerTitle
 } from "@/components/ui/drawer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function StudentCourses() {
     const { user } = useAuth();
@@ -42,6 +52,7 @@ export default function StudentCourses() {
     const [search, setSearch] = useState("");
     const [activeTab, setActiveTab] = useState<'all' | 'in_progress' | 'completed' | 'favorites'>('all');
     const [viewingCourseId, setViewingCourseId] = useState<string | null>(null);
+    const [purchasingCourse, setPurchasingCourse] = useState<{ id: string; title: string; price: number; currency: string } | null>(null);
 
     const { data: courses, isLoading: coursesLoading } = useQuery({
         queryKey: ["studentCourses", user?.id],
@@ -128,15 +139,26 @@ export default function StudentCourses() {
             <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredCourses.length > 0 ? (
                     filteredCourses.map((course) => (
-                        <CourseCard 
-                            key={course.id} 
-                            course={course} 
+                        <CourseCard
+                            key={course.id}
+                            course={course}
                             isBookmarked={bookmarkIds.has(course.id)}
-                            onToggleBookmark={() => toggleBookmarkMutation.mutate({ 
-                                courseId: course.id, 
-                                isBookmarked: bookmarkIds.has(course.id) 
+                            onToggleBookmark={() => toggleBookmarkMutation.mutate({
+                                courseId: course.id,
+                                isBookmarked: bookmarkIds.has(course.id)
                             })}
-                            onView={() => setViewingCourseId(course.id)}
+                            onView={() => {
+                                if (course.price && course.price > 0 && course.purchased === false) {
+                                    setPurchasingCourse({
+                                        id: course.id,
+                                        title: course.title,
+                                        price: course.price,
+                                        currency: course.currency || "XAF",
+                                    });
+                                } else {
+                                    setViewingCourseId(course.id);
+                                }
+                            }}
                         />
                     ))
                 ) : (
@@ -171,13 +193,23 @@ export default function StudentCourses() {
                 </div>
             )}
 
-            <CourseViewer 
-                courseId={viewingCourseId} 
+            <CourseViewer
+                courseId={viewingCourseId}
                 onClose={() => {
                     setViewingCourseId(null);
                     queryClient.invalidateQueries({ queryKey: ["studentCourses"] });
                     queryClient.invalidateQueries({ queryKey: ["activeCourse"] });
-                }} 
+                }}
+            />
+
+            <CoursePurchaseDialog
+                course={purchasingCourse}
+                onClose={() => setPurchasingCourse(null)}
+                onPurchased={(courseId) => {
+                    setPurchasingCourse(null);
+                    queryClient.invalidateQueries({ queryKey: ["studentCourses"] });
+                    setViewingCourseId(courseId);
+                }}
             />
         </div>
     );
@@ -201,7 +233,8 @@ function TabButton({ active, onClick, label }: any) {
 
 function CourseCard({ course, isBookmarked, onToggleBookmark, onView }: { course: any; isBookmarked: boolean; onToggleBookmark: () => void; onView: () => void }) {
     const isCompleted = course.progress === 100;
-    
+    const isLocked = course.price > 0 && course.purchased === false;
+
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:border-[#1A6CC8]/20 transition-all flex flex-col h-full">
             <div className="h-32 md:h-44 bg-gray-50 relative overflow-hidden cursor-pointer" onClick={onView}>
@@ -229,10 +262,15 @@ function CourseCard({ course, isBookmarked, onToggleBookmark, onView }: { course
                         <Bookmark className={cn("w-4 h-4", isBookmarked && "fill-current")} />
                     </button>
                 </div>
-                <div className="absolute bottom-3 left-3">
+                <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
                     <span className="text-[9px] font-bold uppercase bg-white border border-gray-100 px-2 py-0.5 rounded-lg text-[#0D2D5A]">
                         {course.subject}
                     </span>
+                    {isLocked && (
+                        <span className="text-[9px] font-bold uppercase bg-[#0D2D5A] px-2 py-0.5 rounded-lg text-white flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5" /> Payant
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -246,28 +284,39 @@ function CourseCard({ course, isBookmarked, onToggleBookmark, onView }: { course
                     </p>
                 </div>
 
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                        <span>Progression</span>
-                        <span className={isCompleted ? "text-green-600" : "text-[#1A6CC8]"}>{course.progress || 0}%</span>
+                {isLocked ? (
+                    <div className="flex items-center justify-between text-[11px] font-bold text-[#0D2D5A]">
+                        <span>Débloquer ce cours</span>
+                        <span className="text-[#F5A623]">{formatMoney(course.price, course.currency || "XAF")}</span>
                     </div>
-                    <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                            className={cn(
-                                "h-full transition-all duration-700",
-                                isCompleted ? "bg-green-500" : "bg-[#1A6CC8]"
-                            )} 
-                            style={{ width: `${course.progress || 0}%` }} 
-                        />
+                ) : (
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                            <span>Progression</span>
+                            <span className={isCompleted ? "text-green-600" : "text-[#1A6CC8]"}>{course.progress || 0}%</span>
+                        </div>
+                        <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                                className={cn(
+                                    "h-full transition-all duration-700",
+                                    isCompleted ? "bg-green-500" : "bg-[#1A6CC8]"
+                                )}
+                                style={{ width: `${course.progress || 0}%` }}
+                            />
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-tight">
                         <Clock className="w-3.5 h-3.5 text-gray-300" />
                         {course.lessons?.length || 0} leçons
                     </div>
-                    {isCompleted ? (
+                    {isLocked ? (
+                        <button onClick={onView} className="p-2 text-[#0D2D5A] hover:bg-blue-50 rounded-xl transition-all active:scale-95">
+                            <Lock className="w-6 h-6" />
+                        </button>
+                    ) : isCompleted ? (
                         <div className="text-green-600 flex items-center gap-1.5 text-[10px] font-bold uppercase transition-all" onClick={onView}>
                             <CheckCircle2 className="w-4 h-4" />
                             Réussi
@@ -291,9 +340,9 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
     const [mobileView, setMobileView] = useState<'list' | 'content'>('list');
 
     const { data: course, isLoading } = useQuery({
-        queryKey: ["courseDetails", courseId],
-        queryFn: () => fetchCourseDetails(courseId!),
-        enabled: !!courseId,
+        queryKey: ["courseDetails", courseId, user?.id],
+        queryFn: () => fetchCourseDetails(courseId!, user!.id),
+        enabled: !!courseId && !!user?.id,
     });
 
     const progressMutation = useMutation({
@@ -420,60 +469,71 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
                                             <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-[#0D2D5A] tracking-tight">{activeLesson.title}</h1>
                                         </div>
 
-                                        {activeLesson.videoUrl && (
-                                            <div className="aspect-video bg-black rounded-2xl md:rounded-[2.5rem] overflow-hidden shadow-2xl relative group">
-                                                <iframe 
-                                                    src={activeLesson.videoUrl.replace("watch?v=", "embed/")} 
-                                                    className="w-full h-full"
-                                                    allowFullScreen
-                                                />
+                                        {activeLesson.locked ? (
+                                            <div className="flex flex-col items-center gap-3 py-16 text-center text-gray-400">
+                                                <Lock className="w-10 h-10 opacity-30" />
+                                                <p className="font-bold">Contenu verrouillé — achetez ce cours pour y accéder.</p>
                                             </div>
-                                        )}
+                                        ) : (
+                                            <>
+                                                {activeLesson.videoUrl && (
+                                                    <div className="aspect-video bg-black rounded-2xl md:rounded-[2.5rem] overflow-hidden shadow-2xl relative group">
+                                                        <iframe
+                                                            src={activeLesson.videoUrl.replace("watch?v=", "embed/")}
+                                                            className="w-full h-full"
+                                                            allowFullScreen
+                                                        />
+                                                    </div>
+                                                )}
 
-                                        <div className="prose prose-slate max-w-none prose-p:text-gray-600 prose-p:leading-relaxed prose-headings:text-[#0D2D5A] prose-headings:font-black pb-20">
-                                            {activeLesson.content.split('\n').map((para, i) => (
-                                                <p key={i}>{para}</p>
-                                            ))}
-                                        </div>
+                                                <div className="prose prose-slate max-w-none prose-p:text-gray-600 prose-p:leading-relaxed prose-headings:text-[#0D2D5A] prose-headings:font-black pb-20">
+                                                    {(activeLesson.content || "").split('\n').map((para, i) => (
+                                                        <p key={i}>{para}</p>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Bottom bar */}
-                                <div className="p-4 md:p-6 bg-white border-t border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-center gap-3 w-full shrink-0">
-                                    <Button 
-                                        onClick={() => handleComplete(activeLesson.id)}
-                                        className={cn(
-                                            "h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 w-full sm:w-auto",
-                                            course?.completedLessons?.includes(activeLesson.id)
-                                                ? "bg-green-500 hover:bg-green-600 text-white shadow-green-500/20"
-                                                : "bg-[#1A6CC8] hover:bg-blue-700 text-white shadow-blue-500/20"
-                                        )}
-                                    >
-                                        {course?.completedLessons?.includes(activeLesson.id) ? (
-                                            <><CheckCircle2 className="mr-2 w-4 h-4" /> Terminée</>
-                                        ) : (
-                                            "Marquer comme terminée"
-                                        )}
-                                    </Button>
-                                    
-                                    {activeLesson.quiz && (
-                                        <Button 
-                                            variant="outline"
-                                            className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest border-2 border-orange-100 text-[#F5A623] hover:bg-orange-50 transition-all w-full sm:w-auto"
+                                {!activeLesson.locked && (
+                                    <div className="p-4 md:p-6 bg-white border-t border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-center gap-3 w-full shrink-0">
+                                        <Button
+                                            onClick={() => handleComplete(activeLesson.id)}
+                                            className={cn(
+                                                "h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 w-full sm:w-auto",
+                                                course?.completedLessons?.includes(activeLesson.id)
+                                                    ? "bg-green-500 hover:bg-green-600 text-white shadow-green-500/20"
+                                                    : "bg-[#1A6CC8] hover:bg-blue-700 text-white shadow-blue-500/20"
+                                            )}
                                         >
-                                            <HelpCircle className="mr-2 w-4 h-4" /> Passer le Test
+                                            {course?.completedLessons?.includes(activeLesson.id) ? (
+                                                <><CheckCircle2 className="mr-2 w-4 h-4" /> Terminée</>
+                                            ) : (
+                                                "Marquer comme terminée"
+                                            )}
                                         </Button>
-                                    )}
 
-                                    {course?.mode === 'online' && (
-                                        <Button 
-                                            onClick={() => navigate(`/virtual-class/${course.id}`)}
-                                            className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 active:scale-95 transition-all w-full sm:w-auto"
-                                        >
-                                            <Video className="mr-2 w-4 h-4" /> Rejoindre la Classe
-                                        </Button>
-                                    )}
-                                </div>
+                                        {activeLesson.quiz && (
+                                            <Button
+                                                variant="outline"
+                                                className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest border-2 border-orange-100 text-[#F5A623] hover:bg-orange-50 transition-all w-full sm:w-auto"
+                                            >
+                                                <HelpCircle className="mr-2 w-4 h-4" /> Passer le Test
+                                            </Button>
+                                        )}
+
+                                        {course?.mode === 'online' && (
+                                            <Button
+                                                onClick={() => navigate(`/virtual-class/${course.id}`)}
+                                                className="h-14 px-8 rounded-2xl font-black text-xs uppercase tracking-widest bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 active:scale-95 transition-all w-full sm:w-auto"
+                                            >
+                                                <Video className="mr-2 w-4 h-4" /> Rejoindre la Classe
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 space-y-4">
@@ -493,5 +553,197 @@ function Badge({ children, className }: { children: React.ReactNode, className?:
         <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", className)}>
             {children}
         </span>
+    );
+}
+
+type PurchaseStep = "form" | "otp" | "waiting" | "redirect" | "success";
+
+function CoursePurchaseDialog({
+    course,
+    onClose,
+    onPurchased,
+}: {
+    course: { id: string; title: string; price: number; currency: string } | null;
+    onClose: () => void;
+    onPurchased: (courseId: string) => void;
+}) {
+    const [step, setStep] = useState<PurchaseStep>("form");
+    const [network, setNetwork] = useState<MobileMoneyNetwork>("MTN");
+    const [momoPhone, setMomoPhone] = useState("");
+    const [charge, setCharge] = useState<{ chargeId: string; reference: string } | null>(null);
+    const [otpType, setOtpType] = useState<"otp" | "pin">("otp");
+    const [code, setCode] = useState("");
+    const [testRedirectUrl, setTestRedirectUrl] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const pollAttempts = useRef(0);
+    const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    useEffect(() => {
+        if (course) {
+            setStep("form");
+            setMomoPhone("");
+            setCode("");
+            setError(null);
+            setCharge(null);
+            setTestRedirectUrl(null);
+        }
+        return () => {
+            if (pollTimer.current) clearInterval(pollTimer.current);
+        };
+    }, [course?.id]);
+
+    if (!course) return null;
+
+    const startPolling = (reference: string) => {
+        pollAttempts.current = 0;
+        pollTimer.current = setInterval(async () => {
+            pollAttempts.current += 1;
+            try {
+                const result = await checkCoursePurchaseStatus(reference);
+                if (result.success) {
+                    if (pollTimer.current) clearInterval(pollTimer.current);
+                    setStep("success");
+                    return;
+                }
+            } catch {
+                // erreur transitoire — on continue de sonder
+            }
+            if (pollAttempts.current >= 20) {
+                if (pollTimer.current) clearInterval(pollTimer.current);
+                setError("Paiement non confirmé après plusieurs minutes. Vérifiez votre téléphone ou réessayez.");
+                setStep("form");
+            }
+        }, 4000);
+    };
+
+    const handleSubmit = async () => {
+        setError(null);
+        if (!momoPhone.trim()) {
+            setError("Merci de renseigner votre numéro Mobile Money.");
+            return;
+        }
+        setSubmitting(true);
+        try {
+            const data = await initiateCoursePurchase(course.id, { network, phoneNumber: momoPhone });
+            setCharge({ chargeId: data.chargeId, reference: data.reference });
+            const nextAction = data.nextAction;
+            if (nextAction?.type === "requires_otp") {
+                setOtpType("otp");
+                setStep("otp");
+            } else if (nextAction?.type === "requires_pin") {
+                setOtpType("pin");
+                setStep("otp");
+            } else if (nextAction?.type === "redirect_url" && nextAction.redirect_url?.url) {
+                setTestRedirectUrl(nextAction.redirect_url.url);
+                setStep("redirect");
+                startPolling(data.reference);
+            } else {
+                setStep("waiting");
+                startPolling(data.reference);
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Impossible d'initier l'achat.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleAuthorize = async () => {
+        if (!charge) return;
+        setError(null);
+        setSubmitting(true);
+        try {
+            const data = await authorizeCoursePurchase(charge.chargeId, otpType, code);
+            if (data.nextAction?.type === "requires_otp" || data.nextAction?.type === "requires_pin") {
+                setError("Code invalide, réessayez.");
+                setCode("");
+            } else {
+                setStep("waiting");
+                startPolling(charge.reference);
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Autorisation refusée.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <Dialog open={!!course} onOpenChange={(o) => !o && onClose()}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Débloquer « {course.title} »</DialogTitle>
+                </DialogHeader>
+
+                {step === "form" && (
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label className="text-xs">Opérateur Mobile Money</Label>
+                            <Select value={network} onValueChange={v => setNetwork(v as MobileMoneyNetwork)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="MTN">MTN Mobile Money</SelectItem>
+                                    <SelectItem value="ORANGE">Orange Money</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Numéro Mobile Money</Label>
+                            <Input value={momoPhone} onChange={e => setMomoPhone(e.target.value)} placeholder="6XX XXX XXX" />
+                        </div>
+
+                        {error && <p className="text-xs text-red-500">{error}</p>}
+
+                        <Button className="w-full" disabled={submitting} onClick={handleSubmit}>
+                            {submitting ? "Initialisation..." : `Payer ${formatMoney(course.price, course.currency)}`}
+                        </Button>
+                    </div>
+                )}
+
+                {step === "otp" && (
+                    <div className="space-y-3">
+                        <p className="text-xs text-gray-500">
+                            {otpType === "pin" ? "Entrez votre code PIN Mobile Money." : "Entrez le code reçu par SMS."}
+                        </p>
+                        <Input value={code} onChange={e => setCode(e.target.value)} placeholder="Code" />
+                        {error && <p className="text-xs text-red-500">{error}</p>}
+                        <Button className="w-full" disabled={!code.trim() || submitting} onClick={handleAuthorize}>
+                            {submitting ? "Vérification..." : "Valider"}
+                        </Button>
+                    </div>
+                )}
+
+                {step === "redirect" && testRedirectUrl && (
+                    <div className="flex flex-col items-center gap-3 py-4 text-center">
+                        <p className="text-xs text-gray-500">Environnement de test — validez le paiement sur la page Flutterwave.</p>
+                        <Button className="w-full" onClick={() => window.open(testRedirectUrl, "_blank", "noopener,noreferrer")}>
+                            Ouvrir la page de test Flutterwave
+                        </Button>
+                        <div className="flex items-center gap-2 text-xs text-slate-400"><Loader2 className="w-3.5 h-3.5 animate-spin" /> En attente de confirmation...</div>
+                        {error && <p className="text-xs text-red-500">{error}</p>}
+                    </div>
+                )}
+
+                {step === "waiting" && (
+                    <div className="flex flex-col items-center gap-3 py-6 text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
+                        <p className="text-sm text-gray-600">Validez la transaction sur votre téléphone ({network === "MTN" ? "MTN Mobile Money" : "Orange Money"})...</p>
+                        {error && <p className="text-xs text-red-500">{error}</p>}
+                    </div>
+                )}
+
+                {step === "success" && (
+                    <div className="flex flex-col items-center gap-3 py-6 text-center">
+                        <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+                        <p className="font-bold text-[#0D2D5A]">Achat confirmé !</p>
+                        <p className="text-sm text-gray-500">Le contenu du cours est désormais accessible.</p>
+                        <Button className="w-full" onClick={() => onPurchased(course.id)}>
+                            Accéder au cours
+                        </Button>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
     );
 }

@@ -241,8 +241,30 @@ export const fetchCourses = (role: CourseRole = "admin", userId?: string) => {
     return request<CourseSummary[]>(`/courses${suffix}`);
 };
 
-export const fetchCourseDetails = (courseId: string) =>
-    request<CourseSummary>(`/courses/${courseId}`);
+export const fetchCourseDetails = (courseId: string, studentId?: string) => {
+    const suffix = studentId ? `?studentId=${encodeURIComponent(studentId)}` : "";
+    return request<CourseSummary>(`/courses/${courseId}${suffix}`);
+};
+
+export const initiateCoursePurchase = (
+    courseId: string,
+    payload: { phoneNumber: string; network: MobileMoneyNetwork; countryCode?: string }
+) =>
+    request<{ chargeId: string; reference: string; status: string; nextAction: FlutterwaveNextAction; amount: number; currency: string }>(
+        `/courses/${courseId}/purchase/initiate`,
+        { method: "POST", body: JSON.stringify(payload) }
+    );
+
+export const authorizeCoursePurchase = (chargeId: string, type: "otp" | "pin", code: string) =>
+    request<{ status: string; nextAction: FlutterwaveNextAction }>("/courses/purchase/authorize", {
+        method: "POST",
+        body: JSON.stringify({ chargeId, type, code }),
+    });
+
+export const checkCoursePurchaseStatus = (reference: string) =>
+    request<{ success: boolean; alreadyProcessed?: boolean; reason?: string; courseId?: string }>(
+        `/courses/purchase/status/${encodeURIComponent(reference)}`
+    );
 
 export type CoursePayload = {
     title: string;

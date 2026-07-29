@@ -731,6 +731,26 @@ const ensureCourseEnrollmentsTable = async () => {
       CONSTRAINT fk_enrollments_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  // Migration : traçabilité du paiement quand l'inscription vient d'un achat
+  // de cours payant (NULL = accès gratuit / assigné manuellement par le prof).
+  const [existingCols] = await pool.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'course_enrollments'`
+  );
+  const cols = new Set(existingCols.map((r) => r.COLUMN_NAME));
+  const migrations = [
+    ["payment_ref",        "ALTER TABLE course_enrollments ADD COLUMN payment_ref VARCHAR(100) NULL"],
+    ["flw_charge_id",      "ALTER TABLE course_enrollments ADD COLUMN flw_charge_id VARCHAR(100) NULL"],
+    ["amount",             "ALTER TABLE course_enrollments ADD COLUMN amount DECIMAL(10,2) NULL"],
+    ["currency",           "ALTER TABLE course_enrollments ADD COLUMN currency VARCHAR(3) NULL"],
+    ["paid_at",            "ALTER TABLE course_enrollments ADD COLUMN paid_at TIMESTAMP NULL"],
+  ];
+  for (const [col, sql] of migrations) {
+    if (!cols.has(col)) await pool.query(sql).catch(() => {});
+  }
+  await pool.query(
+    "CREATE UNIQUE INDEX idx_enrollments_payment_ref ON course_enrollments (payment_ref)"
+  ).catch(() => {});
 };
 
 const ensureQuizzesTable = async () => {
@@ -1659,21 +1679,24 @@ const mapCourseRow = (row) => ({
   level: fixEncoding(row.level),
   mode: row.mode || 'presentiel',
   price: row.price ? Number(row.price) : 0,
+  currency: row.currency || "XAF",
   duration: row.duration || '',
   status: row.status,
   coverUrl: row.cover_url,
   createdBy: row.created_by,
   createdAt: row.created_at,
+  purchased: row.purchased !== undefined ? Boolean(row.purchased) : undefined,
   lessons: [],
 });
 
-const mapLessonRow = (row) => ({
+const mapLessonRow = (row, locked = false) => ({
   id: row.id,
   course_id: row.course_id,
   title: fixEncoding(row.title),
-  content: fixEncoding(row.content),
-  videoUrl: row.video_url,
+  content: locked ? null : fixEncoding(row.content),
+  videoUrl: locked ? null : row.video_url,
   order: row.order_index,
+  locked,
   quiz: null,
 });
 
@@ -1791,7 +1814,8 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
   lessonRows.forEach((lesson) => {
     const parent = courseMap.get(lesson.course_id);
     if (!parent) return;
-    parent.lessons.push(mapLessonRow(lesson));
+    const locked = parent.purchased === false;
+    parent.lessons.push(mapLessonRow(lesson, locked));
   });
 
   // Calculate progress
@@ -1808,7 +1832,7 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
       const course = courseMap.get(summary.courseId);
       if (!course) return;
       const lesson = course.lessons.find((l) => l.id === summary.lessonId);
-      if (lesson) {
+      if (lesson && !lesson.locked) {
         lesson.quiz = summary;
       }
     }
@@ -1817,17 +1841,21 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
   return Array.from(courseMap.values());
 };
 
-const fetchCourseDetails = async (courseId, includeQuestions = false) => {
+const fetchCourseDetails = async (courseId, includeQuestions = false, studentId = null) => {
   const [courseRows] = await pool.query(
-    `SELECT id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, created_at
-     FROM courses
-     WHERE id = ?`,
-    [courseId]
+    `SELECT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at,
+       COALESCE(t.currency, 'XAF') AS currency
+       ${studentId ? ", (ce.id IS NOT NULL OR c.price = 0 OR c.price IS NULL) AS purchased" : ""}
+     FROM courses c
+     LEFT JOIN teachers t ON t.id = c.created_by
+     ${studentId ? "LEFT JOIN course_enrollments ce ON ce.course_id = c.id AND ce.student_id = ?" : ""}
+     WHERE c.id = ?`,
+    studentId ? [studentId, courseId] : [courseId]
   );
   if (!courseRows.length) return null;
-  const courses = await buildCoursesPayload(courseRows);
+  const courses = await buildCoursesPayload(courseRows, studentId);
   const course = courses[0];
-  if (includeQuestions) {
+  if (includeQuestions && course.purchased !== false) {
     const lessonIds = course.lessons.map((lesson) => lesson.id);
     if (lessonIds.length) {
       const [quizRows] = await pool.query(
@@ -3658,10 +3686,13 @@ app.get("/api/courses", async (req, res) => {
         return res.status(400).json({ message: "userId requis pour le role student." });
       }
       [rows] = await pool.query(
-        `SELECT DISTINCT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at
+        `SELECT DISTINCT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at,
+           (ce.id IS NOT NULL OR c.price = 0 OR c.price IS NULL) AS purchased,
+           COALESCE(t.currency, 'XAF') AS currency
          FROM courses c
          LEFT JOIN course_enrollments ce ON ce.course_id = c.id AND ce.student_id = ?
          LEFT JOIN student_teacher st ON st.teacher_id = c.created_by AND st.student_id = ?
+         LEFT JOIN teachers t ON t.id = c.created_by
          WHERE (ce.id IS NOT NULL OR st.student_id IS NOT NULL) AND c.status = 'published'
          ORDER BY c.created_at DESC`,
         [userId, userId]
@@ -3671,17 +3702,21 @@ app.get("/api/courses", async (req, res) => {
         return res.status(400).json({ message: "userId requis pour le role teacher." });
       }
       [rows] = await pool.query(
-        `SELECT id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, created_at
-         FROM courses
-         WHERE created_by = ?
-         ORDER BY created_at DESC`,
+        `SELECT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at,
+           COALESCE(t.currency, 'XAF') AS currency
+         FROM courses c
+         LEFT JOIN teachers t ON t.id = c.created_by
+         WHERE c.created_by = ?
+         ORDER BY c.created_at DESC`,
         [userId]
       );
     } else {
       [rows] = await pool.query(
-        `SELECT id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, created_at
-         FROM courses
-         ORDER BY created_at DESC`
+        `SELECT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at,
+           COALESCE(t.currency, 'XAF') AS currency
+         FROM courses c
+         LEFT JOIN teachers t ON t.id = c.created_by
+         ORDER BY c.created_at DESC`
       );
     }
 
@@ -3705,8 +3740,9 @@ app.get("/api/courses", async (req, res) => {
 
 app.get("/api/courses/:courseId", async (req, res) => {
   const { courseId } = req.params;
+  const { studentId } = req.query;
   try {
-    const course = await fetchCourseDetails(courseId, true);
+    const course = await fetchCourseDetails(courseId, true, studentId || null);
     if (!course) {
       return res.status(404).json({ message: "Cours introuvable." });
     }
@@ -6058,7 +6094,10 @@ app.post("/api/payments/flutterwave/webhook", async (req, res) => {
     if (event.type === "charge.completed" && event.data?.reference) {
       const invoiceResult = await finalizeFlutterwaveCharge(event.data.reference, event.data);
       if (!invoiceResult.success && invoiceResult.reason === "invoice_not_found") {
-        await finalizeSlotBooking(event.data.reference, event.data);
+        const bookingResult = await finalizeSlotBooking(event.data.reference, event.data);
+        if (!bookingResult.success && bookingResult.reason === "booking_not_found") {
+          await finalizeCoursePurchase(event.data.reference, event.data);
+        }
       }
     }
     res.status(200).json({ received: true });
@@ -6068,7 +6107,6 @@ app.post("/api/payments/flutterwave/webhook", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // RÉSERVATION PUBLIQUE — un visiteur du site public choisit un créneau
 // (teacher_slots), paie en Mobile Money, ce qui crée à la volée son compte
 // parent+élève (s'il n'existe pas déjà), transforme le créneau en séance
@@ -6377,6 +6415,173 @@ cron.schedule("*/5 * * * *", async () => {
     if (expired.length > 0) console.log(`[cron/booking-expiry] ${expired.length} créneau(x) libéré(s)`);
   } catch (err) {
     console.error("[cron/booking-expiry]", err.message);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACHAT DE COURS PAYANT — un élève déjà lié à l'enseignant (séance déjà
+// planifiée, relation student_teacher existante) paie en Mobile Money pour
+// débloquer le contenu complet d'un cours de son catalogue.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Idempotent : appelable depuis le polling front-end ET le webhook pour la
+// même charge, comme finalizeFlutterwaveCharge/finalizeSlotBooking.
+const finalizeCoursePurchase = async (reference, chargeData) => {
+  const [[enrollment]] = await pool.query(
+    "SELECT * FROM course_enrollments WHERE payment_ref = ?", [reference]
+  );
+  if (!enrollment) {
+    console.warn(`[flutterwave] achat de cours introuvable: ${reference}`);
+    return { success: false, reason: "enrollment_not_found" };
+  }
+  if (enrollment.paid_at) {
+    return { success: true, alreadyProcessed: true, courseId: enrollment.course_id };
+  }
+
+  const amountOk = Number(chargeData.amount) >= Number(enrollment.amount);
+  const currencyOk = chargeData.currency === enrollment.currency;
+  const statusOk = chargeData.status === "succeeded";
+
+  if (!statusOk || !amountOk || !currencyOk) {
+    console.warn(
+      `[flutterwave] Achat de cours non validé pour ${reference} — status=${chargeData.status} amount=${chargeData.amount}/${enrollment.amount} currency=${chargeData.currency}/${enrollment.currency}`
+    );
+    return { success: false, reason: "verification_failed", status: chargeData.status };
+  }
+
+  await pool.query(
+    "UPDATE course_enrollments SET flw_charge_id = ?, paid_at = NOW() WHERE id = ?",
+    [String(chargeData.id), enrollment.id]
+  );
+  return { success: true, courseId: enrollment.course_id };
+};
+
+app.post("/api/courses/:courseId/purchase/initiate", authenticateRequest, async (req, res) => {
+  const { courseId } = req.params;
+  const { phoneNumber, network, countryCode = "237" } = req.body ?? {};
+  const studentId = req.user?.sub;
+  if (req.user?.role !== "student") {
+    return res.status(403).json({ message: "Réservé aux élèves." });
+  }
+  if (!phoneNumber || !network) {
+    return res.status(400).json({ message: "phoneNumber et network sont requis." });
+  }
+  if (!["MTN", "ORANGE"].includes(network)) {
+    return res.status(400).json({ message: "Réseau non supporté." });
+  }
+
+  try {
+    const [[course]] = await pool.query(
+      `SELECT c.*, COALESCE(t.currency, 'XAF') AS teacher_currency
+       FROM courses c LEFT JOIN teachers t ON t.id = c.created_by
+       WHERE c.id = ?`,
+      [courseId]
+    );
+    if (!course) return res.status(404).json({ message: "Cours introuvable." });
+    if (!course.price || Number(course.price) <= 0) {
+      return res.status(400).json({ message: "Ce cours est gratuit." });
+    }
+
+    const [[relation]] = await pool.query(
+      "SELECT 1 FROM student_teacher WHERE teacher_id = ? AND student_id = ?",
+      [course.created_by, studentId]
+    );
+    if (!relation) {
+      return res.status(403).json({ message: "Cet enseignant ne vous a pas encore planifié de séance." });
+    }
+
+    const [[existing]] = await pool.query(
+      "SELECT id FROM course_enrollments WHERE course_id = ? AND student_id = ? AND (paid_at IS NOT NULL OR payment_ref IS NULL)",
+      [courseId, studentId]
+    );
+    if (existing) return res.status(400).json({ message: "Vous avez déjà accès à ce cours." });
+
+    const [[student]] = await pool.query("SELECT name, email FROM users WHERE id = ?", [studentId]);
+    if (!student) return res.status(404).json({ message: "Élève introuvable." });
+
+    const currency = course.teacher_currency || "XAF";
+    const reference = `c4s-course-${courseId.slice(0, 8)}-${Date.now()}`;
+    const [firstName, ...restName] = (student.name || "Élève").split(" ");
+
+    const chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+      method: "POST",
+      idempotencyKey: reference,
+      headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
+      body: JSON.stringify({
+        amount: course.price,
+        currency,
+        reference,
+        payment_method: {
+          type: "mobile_money",
+          mobile_money: { country_code: countryCode, network, phone_number: phoneNumber },
+        },
+        customer: {
+          email: student.email,
+          name: { first: firstName, last: restName.join(" ") || firstName },
+          phone: { country_code: countryCode, number: phoneNumber },
+        },
+        redirect_url: `${FRONTEND_BASE_URL}/student/courses`,
+      }),
+    });
+
+    const enrollmentId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO course_enrollments (id, course_id, student_id, student_name, payment_ref, flw_charge_id, amount, currency)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [enrollmentId, courseId, studentId, student.name || "Élève", reference, chargeRes.data?.id || null, course.price, currency]
+    );
+
+    res.status(201).json({
+      chargeId: chargeRes.data?.id,
+      reference,
+      status: chargeRes.data?.status,
+      nextAction: chargeRes.data?.next_action || null,
+      amount: Number(course.price),
+      currency,
+    });
+  } catch (error) {
+    console.error("[courses/purchase/initiate]", error);
+    res.status(500).json({ message: error.message || "Impossible d'initier l'achat." });
+  }
+});
+
+app.post("/api/courses/purchase/authorize", authenticateRequest, async (req, res) => {
+  const { chargeId, type, code } = req.body ?? {};
+  if (!chargeId || !type || !code) {
+    return res.status(400).json({ message: "chargeId, type et code sont requis." });
+  }
+  try {
+    const chargeRes = await flutterwaveRequest(`/charges/${chargeId}`, {
+      method: "PUT",
+      body: JSON.stringify({ authorization: { type, [type]: code } }),
+    });
+    res.json({ status: chargeRes.data?.status, nextAction: chargeRes.data?.next_action || null });
+  } catch (error) {
+    console.error("[courses/purchase/authorize]", error);
+    res.status(500).json({ message: error.message || "Autorisation refusée." });
+  }
+});
+
+app.get("/api/courses/purchase/status/:reference", authenticateRequest, async (req, res) => {
+  const { reference } = req.params;
+  try {
+    const [[enrollment]] = await pool.query("SELECT * FROM course_enrollments WHERE payment_ref = ?", [reference]);
+    if (!enrollment) return res.status(404).json({ message: "Achat introuvable." });
+    if (req.user?.sub !== enrollment.student_id && req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+    if (enrollment.paid_at) {
+      return res.json({ success: true, alreadyProcessed: true, courseId: enrollment.course_id });
+    }
+    if (!enrollment.flw_charge_id) {
+      return res.json({ success: false, reason: "pending" });
+    }
+    const chargeRes = await flutterwaveRequest(`/charges/${enrollment.flw_charge_id}`);
+    const result = await finalizeCoursePurchase(reference, chargeRes.data);
+    res.json(result);
+  } catch (error) {
+    console.error("[courses/purchase/status]", error);
+    res.status(500).json({ message: error.message || "Impossible de vérifier le paiement." });
   }
 });
 
