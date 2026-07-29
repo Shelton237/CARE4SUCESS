@@ -2046,6 +2046,9 @@ app.delete("/api/teachers/:teacherId/slots/:slotId", authenticateRequest, async 
 // authentification. N'expose que des champs adaptés à un affichage public
 // (jamais email/téléphone/coordonnées bancaires).
 // ─────────────────────────────────────────────────────────────────────────────
+// Le champ image est réel (photo uploadée par l'enseignant, via users.avatar_url)
+// ou absent — jamais de photo de stock générée : le front affiche alors des
+// initiales.
 const mapPublicTeacherRow = (row) => ({
   id: row.id,
   name: row.name,
@@ -2058,16 +2061,40 @@ const mapPublicTeacherRow = (row) => ({
   rate: row.rate_type === "monthly" ? Number(row.monthly_rate) : Number(row.hourly_rate),
   currency: row.currency || "XAF",
   rateUnitMinutes: row.rate_unit_minutes || 60,
+  avatarUrl: row.avatar_url || null,
+  countryId: row.geo_country_id || null,
+  country: row.geo_country_name || null,
+  regionId: row.geo_region_id || null,
+  region: row.geo_region_name || null,
 });
+
+// Résout pays/région même quand geo_location_id pointe directement sur un
+// pays ou une région (pas seulement un département/arrondissement) —
+// IF(gl.type = 'country', gl.id, gl.country_id) capture les deux cas.
+const PUBLIC_TEACHER_GEO_JOIN = `
+  LEFT JOIN geo_locations gl ON gl.id = t.geo_location_id
+  LEFT JOIN geo_locations gc ON gc.id = IF(gl.type = 'country', gl.id, gl.country_id)
+  LEFT JOIN geo_locations gr ON gr.id = IF(gl.type = 'region', gl.id, gl.region_id)
+  LEFT JOIN users u ON u.email = t.email
+`;
+const PUBLIC_TEACHER_GEO_COLUMNS = `
+  gc.id AS geo_country_id, gc.name AS geo_country_name,
+  gr.id AS geo_region_id, gr.name AS geo_region_name,
+  u.avatar_url
+`;
 
 app.get("/api/public/teachers", async (req, res) => {
   try {
     await ensureTeachersTable();
+    await ensureGeoLocationsTable();
     const [rows] = await pool.query(
-      `SELECT id, name, subjects, level, city, status, rating, students, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes
-       FROM teachers
-       WHERE status = 'actif'
-       ORDER BY rating DESC, students DESC`
+      `SELECT t.id, t.name, t.subjects, t.level, t.city, t.status, t.rating, t.students,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.currency, t.rate_unit_minutes,
+              ${PUBLIC_TEACHER_GEO_COLUMNS}
+       FROM teachers t
+       ${PUBLIC_TEACHER_GEO_JOIN}
+       WHERE t.status = 'actif'
+       ORDER BY t.rating DESC, t.students DESC`
     );
     res.json(rows.map(mapPublicTeacherRow));
   } catch (error) {
@@ -2084,9 +2111,14 @@ app.get("/api/public/teachers/:id", async (req, res) => {
   try {
     await ensureTeachersTable();
     await ensureTeacherSlotsTable();
+    await ensureGeoLocationsTable();
     const [[row]] = await pool.query(
-      `SELECT id, name, subjects, level, city, status, rating, students, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes
-       FROM teachers WHERE id = ? AND status = 'actif'`,
+      `SELECT t.id, t.name, t.subjects, t.level, t.city, t.status, t.rating, t.students,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.currency, t.rate_unit_minutes,
+              ${PUBLIC_TEACHER_GEO_COLUMNS}
+       FROM teachers t
+       ${PUBLIC_TEACHER_GEO_JOIN}
+       WHERE t.id = ? AND t.status = 'actif'`,
       [id]
     );
     if (!row) return res.status(404).json({ message: "Enseignant introuvable." });
