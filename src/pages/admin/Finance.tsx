@@ -100,6 +100,16 @@ export default function AdminFinance() {
         { name: "Marge Nette", value: Math.max(0, summary.margin), color: "#10b981" }
     ];
 
+    const marginPercent = summary.totalBilled > 0 ? (summary.margin / summary.totalBilled) * 100 : 0;
+    const marginHealthLabel =
+        summary.margin < 0
+            ? "Déficit détecté — les dépenses dépassent les revenus encaissés."
+            : marginPercent < 20
+            ? "Marge faible, à surveiller."
+            : marginPercent < 40
+            ? "Marge saine."
+            : "Niveau optimal de rentabilité détecté.";
+
     return (
         <div className="w-full p-4 md:p-6 space-y-6 animate-in fade-in duration-500 bg-white min-h-screen">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -291,8 +301,7 @@ export default function AdminFinance() {
                        <History className="w-5 h-5 text-[#F5A623] mb-1 relative z-10" />
                        <h4 className="text-[11px] font-black uppercase tracking-widest relative z-10">Santé Plateforme</h4>
                        <p className="text-[10px] font-bold text-slate-300 leading-normal relative z-10">
-                           Marge brute : <span className="text-white font-black">{((summary.margin / summary.totalBilled) * 100).toFixed(1)}%</span>. 
-                           Niveau optimal de rentabilité détecté.
+                           Marge brute : <span className="text-white font-black">{marginPercent.toFixed(1)}%</span>. {marginHealthLabel}
                        </p>
                        <TrendingUp className="absolute -bottom-4 -right-4 w-12 h-12 text-white/5 group-hover:scale-110 transition-transform duration-500" />
                     </div>
