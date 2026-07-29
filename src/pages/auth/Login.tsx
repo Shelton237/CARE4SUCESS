@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth, ROLE_REDIRECTS } from "@/contexts/AuthContext";
 import { GraduationCap, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
@@ -222,7 +222,7 @@ export default function Login() {
                     </div>
 
                     <p className="text-center text-xs text-gray-400 mt-6">
-                        <a href="/#/" className="text-[#1A6CC8] font-medium hover:underline">← Retour au site</a>
+                        <Link to="/" className="text-[#1A6CC8] font-medium hover:underline">← Retour au site</Link>
                     </p>
                 </motion.div>
             </div>
