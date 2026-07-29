@@ -1,27 +1,46 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-    Wallet, TrendingUp, Users, GraduationCap, 
+import {
+    Wallet, TrendingUp, Users, GraduationCap,
     Download, RefreshCw, Loader2, CheckCircle2,
     ArrowUpRight, ArrowDownRight, Printer, Mail,
     History, DollarSign, PieChart as PieChartIcon
 } from "lucide-react";
-import { fetchFinanceSummary, fetchTeacherPayroll, generateManualInvoices } from "@/api/backoffice";
+import {
+    fetchFinanceSummary,
+    fetchTeacherPayroll,
+    generateManualInvoices,
+    fetchTeacherPayouts,
+    createTeacherPayout,
+} from "@/api/backoffice";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatFCFA, formatMoney } from "@/lib/money";
 import { toast } from "sonner";
-import { 
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-    ResponsiveContainer, Cell, PieChart, Pie 
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+    ResponsiveContainer, Cell, PieChart, Pie
 } from "recharts";
+
+const currentPeriodMonth = () => new Date().toISOString().slice(0, 7);
 
 export default function AdminFinance() {
     const queryClient = useQueryClient();
     const [isGenerating, setIsGenerating] = useState(false);
+    const [payoutTarget, setPayoutTarget] = useState<{ id: string; name: string; amount: number; currency: string } | null>(null);
 
     const summaryQuery = useQuery({
         queryKey: ["financeSummary"],
@@ -31,6 +50,11 @@ export default function AdminFinance() {
     const payrollQuery = useQuery({
         queryKey: ["teacherPayroll"],
         queryFn: fetchTeacherPayroll
+    });
+
+    const payoutsQuery = useQuery({
+        queryKey: ["teacherPayouts"],
+        queryFn: fetchTeacherPayouts
     });
 
     const generateMutation = useMutation({
@@ -56,6 +80,12 @@ export default function AdminFinance() {
 
     const summary = summaryQuery.data || { totalBilled: 0, totalPaid: 0, totalTeacherExpenses: 0, margin: 0 };
     const payroll = payrollQuery.data || [];
+    const payouts = payoutsQuery.data || [];
+
+    const periodMonth = currentPeriodMonth();
+    const paidTeacherIdsThisPeriod = new Set(
+        payouts.filter((p) => p.periodMonth === periodMonth).map((p) => p.teacherId)
+    );
 
     // Devise par enseignant, sans conversion : les totaux de paie sont donc
     // des sous-totaux groupés par devise plutôt qu'une somme unique mélangée.
@@ -150,7 +180,8 @@ export default function AdminFinance() {
                                     <TableHead className="pl-6 font-black text-[#0D2D5A] uppercase text-[9px] tracking-widest h-10">Enseignant</TableHead>
                                     <TableHead className="font-black text-[#0D2D5A] uppercase text-[9px] tracking-widest h-10">Mode</TableHead>
                                     <TableHead className="font-black text-[#0D2D5A] uppercase text-[9px] tracking-widest h-10">Ce mois</TableHead>
-                                    <TableHead className="font-black text-[#0D2D5A] uppercase text-[9px] tracking-widest h-10 text-right pr-6">Total</TableHead>
+                                    <TableHead className="font-black text-[#0D2D5A] uppercase text-[9px] tracking-widest h-10 text-right">Total</TableHead>
+                                    <TableHead className="font-black text-[#0D2D5A] uppercase text-[9px] tracking-widest h-10 text-right pr-6">Paie</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -176,8 +207,24 @@ export default function AdminFinance() {
                                         <TableCell>
                                             <span className="font-black text-[13px] text-[#0D2D5A] tracking-tight">{formatMoney(t.monthlyEarnings, t.currency)}</span>
                                         </TableCell>
-                                        <TableCell className="text-right pr-6">
+                                        <TableCell className="text-right">
                                             <span className="font-black text-[13px] text-[#1A6CC8] tracking-tight">{formatMoney(t.totalEarnings, t.currency)}</span>
+                                        </TableCell>
+                                        <TableCell className="text-right pr-6">
+                                            {paidTeacherIdsThisPeriod.has(t.id) ? (
+                                                <Badge className="text-[8px] font-black uppercase tracking-widest px-2 h-5 rounded-full border-none bg-emerald-50 text-emerald-700">
+                                                    Payé ce mois
+                                                </Badge>
+                                            ) : (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-7 px-3 text-[9px] font-black uppercase tracking-widest rounded-lg"
+                                                    onClick={() => setPayoutTarget({ id: t.id, name: t.name, amount: t.totalEarnings, currency: t.currency })}
+                                                >
+                                                    Marquer comme payé
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -251,6 +298,97 @@ export default function AdminFinance() {
                     </div>
                 </div>
             </div>
+
+            <PayoutDialog
+                target={payoutTarget}
+                periodMonth={periodMonth}
+                onClose={() => setPayoutTarget(null)}
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ["teacherPayouts"] })}
+            />
         </div>
+    );
+}
+
+function PayoutDialog({
+    target,
+    periodMonth,
+    onClose,
+    onSuccess,
+}: {
+    target: { id: string; name: string; amount: number; currency: string } | null;
+    periodMonth: string;
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const [amount, setAmount] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState("virement");
+    const [note, setNote] = useState("");
+
+    const mutation = useMutation({
+        mutationFn: createTeacherPayout,
+        onSuccess: () => {
+            toast.success("Paiement enregistré.");
+            onSuccess();
+            onClose();
+            setAmount("");
+            setNote("");
+        },
+        onError: (err: Error) => toast.error(err.message || "Impossible d'enregistrer le paiement."),
+    });
+
+    if (!target) return null;
+
+    return (
+        <Dialog open={Boolean(target)} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="sm:max-w-[420px]">
+                <DialogHeader>
+                    <DialogTitle>Marquer {target.name} comme payé</DialogTitle>
+                    <DialogDescription>Période : {periodMonth}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-1.5">
+                        <Label>Montant ({target.currency})</Label>
+                        <Input
+                            type="number"
+                            defaultValue={target.amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder={String(target.amount)}
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Méthode de paiement</Label>
+                        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="virement">Virement bancaire</SelectItem>
+                                <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                                <SelectItem value="especes">Espèces</SelectItem>
+                                <SelectItem value="autre">Autre</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Note (optionnel)</Label>
+                        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Référence de virement, remarque..." />
+                    </div>
+                    <Button
+                        className="w-full"
+                        disabled={mutation.isPending}
+                        onClick={() => mutation.mutate({
+                            teacherId: target.id,
+                            periodMonth,
+                            amount: parseFloat(amount) || target.amount,
+                            currency: target.currency,
+                            paymentMethod,
+                            note: note || undefined,
+                        })}
+                    >
+                        {mutation.isPending ? "Enregistrement..." : "Confirmer le paiement"}
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }
