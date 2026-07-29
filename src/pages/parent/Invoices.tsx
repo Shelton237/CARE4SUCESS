@@ -326,7 +326,7 @@ export default function ParentInvoices() {
     );
 }
 
-type PaymentStep = "form" | "otp" | "waiting";
+type PaymentStep = "form" | "otp" | "waiting" | "redirect";
 
 function PaymentDialog({
     invoice,
@@ -399,11 +399,15 @@ function PaymentDialog({
             } else if (nextAction?.type === "requires_pin") {
                 setOtpType("pin");
                 setStep("otp");
+            } else if (nextAction?.type === "redirect_url" && nextAction.redirect_url?.url) {
+                // Sandbox uniquement : ouvrir automatiquement échoue souvent
+                // (bloqueur de popup, l'appel réseau casse le geste utilisateur
+                // requis par le navigateur) — on affiche un bouton explicite à
+                // la place et on sonde en arrière-plan pendant ce temps.
+                setTestRedirectUrl(nextAction.redirect_url.url);
+                setStep("redirect");
+                startPolling(data.reference);
             } else {
-                if (nextAction?.type === "redirect_url" && nextAction.redirect_url?.url) {
-                    setTestRedirectUrl(nextAction.redirect_url.url);
-                    window.open(nextAction.redirect_url.url, "_blank", "noopener,noreferrer");
-                }
                 setStep("waiting");
                 startPolling(data.reference);
             }
@@ -495,24 +499,31 @@ function PaymentDialog({
                     </div>
                 )}
 
+                {step === "redirect" && testRedirectUrl && (
+                    <div className="flex flex-col items-center gap-4 py-6 text-center">
+                        <p className="text-sm text-slate-600">
+                            Environnement de test — cliquez ci-dessous pour ouvrir la page de simulation Flutterwave et valider (ou refuser) le paiement.
+                        </p>
+                        <Button
+                            className="w-full"
+                            onClick={() => window.open(testRedirectUrl, "_blank", "noopener,noreferrer")}
+                        >
+                            Ouvrir la page de test Flutterwave
+                        </Button>
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            En attente de confirmation...
+                        </div>
+                        {error && <p className="text-xs text-red-500">{error}</p>}
+                    </div>
+                )}
+
                 {step === "waiting" && (
                     <div className="flex flex-col items-center gap-3 py-6 text-center">
                         <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
                         <p className="text-sm text-slate-600">
-                            {testRedirectUrl
-                                ? "Environnement de test : validez la transaction sur la page ouverte dans un nouvel onglet."
-                                : `Validez la transaction sur votre téléphone (${network === "MTN" ? "MTN Mobile Money" : "Orange Money"})...`}
+                            Validez la transaction sur votre téléphone ({network === "MTN" ? "MTN Mobile Money" : "Orange Money"})...
                         </p>
-                        {testRedirectUrl && (
-                            <a
-                                href={testRedirectUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-bold text-[#1A6CC8] underline"
-                            >
-                                La page ne s'est pas ouverte ? Cliquez ici
-                            </a>
-                        )}
                         {error && <p className="text-xs text-red-500">{error}</p>}
                     </div>
                 )}
