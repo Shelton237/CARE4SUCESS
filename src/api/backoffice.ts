@@ -202,6 +202,35 @@ export const fetchStudentGrades = (studentId: string) =>
 export const fetchParentInvoices = (parentId: string) =>
     request<ParentInvoice[]>(`/parents/${parentId}/invoices`);
 
+export type MobileMoneyNetwork = "MTN" | "ORANGE";
+
+export type FlutterwaveNextAction = {
+    type: "payment_instructions" | "requires_otp" | "requires_pin" | "redirect_url" | string;
+    [key: string]: unknown;
+} | null;
+
+export const initiateFlutterwavePayment = (payload: {
+    invoiceId: string;
+    phoneNumber: string;
+    network: MobileMoneyNetwork;
+    countryCode?: string;
+}) =>
+    request<{ chargeId: string; reference: string; status: string; nextAction: FlutterwaveNextAction }>(
+        "/payments/flutterwave/initiate",
+        { method: "POST", body: JSON.stringify(payload) }
+    );
+
+export const authorizeFlutterwaveCharge = (chargeId: string, type: "otp" | "pin", code: string) =>
+    request<{ status: string; nextAction: FlutterwaveNextAction }>("/payments/flutterwave/authorize", {
+        method: "POST",
+        body: JSON.stringify({ chargeId, type, code }),
+    });
+
+export const checkFlutterwavePaymentStatus = (reference: string) =>
+    request<{ success: boolean; alreadyProcessed?: boolean; reason?: string }>(
+        `/payments/flutterwave/status/${encodeURIComponent(reference)}`
+    );
+
 export const fetchCourses = (role: CourseRole = "admin", userId?: string) => {
     const params = new URLSearchParams();
     if (role) params.set("role", role);

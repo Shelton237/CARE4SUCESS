@@ -1725,6 +1725,25 @@ const ensureParentInvoicesTable = async () => {
       KEY idx_invoices_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  // Migration : suivi du paiement en ligne Flutterwave
+  const [existingCols] = await pool.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'parent_invoices'`
+  );
+  const cols = new Set(existingCols.map((r) => r.COLUMN_NAME));
+  const migrations = [
+    ["payment_ref",        "ALTER TABLE parent_invoices ADD COLUMN payment_ref VARCHAR(100) NULL"],
+    ["flw_transaction_id", "ALTER TABLE parent_invoices ADD COLUMN flw_transaction_id VARCHAR(100) NULL"],
+    ["flw_charge_id",      "ALTER TABLE parent_invoices ADD COLUMN flw_charge_id VARCHAR(100) NULL"],
+    ["payment_method",     "ALTER TABLE parent_invoices ADD COLUMN payment_method VARCHAR(50) NULL"],
+    ["paid_at",            "ALTER TABLE parent_invoices ADD COLUMN paid_at TIMESTAMP NULL"],
+  ];
+  for (const [col, sql] of migrations) {
+    if (!cols.has(col)) await pool.query(sql).catch(() => {});
+  }
+  await pool.query(
+    "CREATE UNIQUE INDEX idx_invoices_payment_ref ON parent_invoices (payment_ref)"
+  ).catch(() => {});
 };
 
 const ensureParentOverviewTable = async () => {
@@ -1828,7 +1847,12 @@ const unlinkStudentTeacherRelation = async (studentId, teacherId) => {
 
 const app = express();
 app.use(cors({ origin: corsOrigin }));
-app.use(express.json());
+// `verify` conserve le corps brut de la requête (req.rawBody) — nécessaire
+// pour recalculer la signature HMAC-SHA256 des webhooks Flutterwave, qui
+// porte sur les octets exacts reçus et non sur le JSON re-sérialisé.
+app.use(express.json({
+  verify: (req, _res, buf) => { req.rawBody = buf; },
+}));
 
 const uploadDir = path.join(rootDir, "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -5397,6 +5421,247 @@ app.get("/api/parents/:parentId/overview", async (req, res) => {
   } catch (error) {
     console.error("Parent overview error", error);
     res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAIEMENTS EN LIGNE — FLUTTERWAVE v4 (Mobile Money, flux Orchestrator)
+// API v4 (OAuth2 client_credentials) — voir developer.flutterwave.com/reference.
+// Le paiement carte n'est pas couvert ici : l'algorithme de chiffrement de
+// carte n'est pas documenté publiquement pour v4 au moment de cette
+// intégration ; ne pas l'implémenter par approximation sur des données
+// bancaires réelles.
+// ─────────────────────────────────────────────────────────────────────────────
+const FLW_IDP_TOKEN_URL = "https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token";
+const FLW_API_BASE_URL = process.env.FLUTTERWAVE_API_BASE_URL || "https://developersandbox-api.flutterwave.com";
+const FLW_CLIENT_ID = process.env.FLUTTERWAVE_CLIENT_ID;
+const FLW_CLIENT_SECRET = process.env.FLUTTERWAVE_CLIENT_SECRET;
+const FLW_WEBHOOK_SECRET_HASH = process.env.FLUTTERWAVE_WEBHOOK_SECRET_HASH;
+const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || "https://care4success.usra-care.com";
+
+// Cache mémoire du jeton OAuth2 (validité annoncée : 10 min) — évite de
+// redemander un jeton à chaque appel API.
+let flwTokenCache = { accessToken: null, expiresAt: 0 };
+const getFlutterwaveAccessToken = async () => {
+  if (!FLW_CLIENT_ID || !FLW_CLIENT_SECRET) {
+    throw new Error("Flutterwave n'est pas configuré (FLUTTERWAVE_CLIENT_ID/FLUTTERWAVE_CLIENT_SECRET manquants).");
+  }
+  if (flwTokenCache.accessToken && Date.now() < flwTokenCache.expiresAt) {
+    return flwTokenCache.accessToken;
+  }
+  const res = await fetch(FLW_IDP_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: FLW_CLIENT_ID,
+      client_secret: FLW_CLIENT_SECRET,
+      grant_type: "client_credentials",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.access_token) {
+    throw new Error(data?.error_description || "Impossible d'obtenir un jeton Flutterwave.");
+  }
+  // Marge de sécurité de 60s avant l'expiration annoncée.
+  flwTokenCache = {
+    accessToken: data.access_token,
+    expiresAt: Date.now() + (Number(data.expires_in) || 600) * 1000 - 60000,
+  };
+  return flwTokenCache.accessToken;
+};
+
+const flutterwaveRequest = async (path, options = {}) => {
+  const token = await getFlutterwaveAccessToken();
+  const res = await fetch(`${FLW_API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "X-Trace-Id": crypto.randomUUID(),
+      "X-Idempotency-Key": options.idempotencyKey || crypto.randomUUID(),
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error?.message || "Erreur Flutterwave");
+  }
+  return data;
+};
+
+// Valide et applique un paiement confirmé côté Flutterwave à la facture
+// correspondante. Idempotent : appelable indifféremment depuis le polling
+// front-end ET depuis le webhook pour la même charge.
+const finalizeFlutterwaveCharge = async (reference, chargeData) => {
+  const [[invoice]] = await pool.query(
+    "SELECT * FROM parent_invoices WHERE payment_ref = ?", [reference]
+  );
+  if (!invoice) {
+    console.warn(`[flutterwave] reference inconnue: ${reference}`);
+    return { success: false, reason: "invoice_not_found" };
+  }
+  if (invoice.status === "paid") {
+    return { success: true, alreadyProcessed: true };
+  }
+
+  const amountOk = Number(chargeData.amount) >= Number(invoice.amount);
+  const currencyOk = chargeData.currency === "XOF";
+  const statusOk = chargeData.status === "succeeded";
+
+  if (!statusOk || !amountOk || !currencyOk) {
+    console.warn(
+      `[flutterwave] Charge non validée pour ${reference} — status=${chargeData.status} amount=${chargeData.amount}/${invoice.amount} currency=${chargeData.currency}`
+    );
+    return { success: false, reason: "verification_failed", status: chargeData.status };
+  }
+
+  await pool.query(
+    `UPDATE parent_invoices
+     SET status = 'paid', flw_transaction_id = ?, payment_method = ?, paid_at = NOW()
+     WHERE id = ?`,
+    [String(chargeData.id), chargeData.payment_method?.type || "mobile_money", invoice.id]
+  );
+  return { success: true, invoiceId: invoice.id };
+};
+
+// Initie un paiement Mobile Money (MTN, Orange) pour une facture donnée.
+// Retourne le `next_action` renvoyé par Flutterwave : le front doit inviter
+// le parent à valider sur son téléphone (payment_instructions) ou saisir un
+// code (requires_otp/requires_pin) selon le réseau/pays.
+app.post("/api/payments/flutterwave/initiate", authenticateRequest, async (req, res) => {
+  const { invoiceId, phoneNumber, network, countryCode = "237" } = req.body ?? {};
+  if (!invoiceId || !phoneNumber || !network) {
+    return res.status(400).json({ message: "invoiceId, phoneNumber et network sont requis." });
+  }
+  if (!["MTN", "ORANGE"].includes(network)) {
+    return res.status(400).json({ message: "Réseau non supporté." });
+  }
+
+  try {
+    await ensureParentInvoicesTable();
+    const [[invoice]] = await pool.query("SELECT * FROM parent_invoices WHERE id = ?", [invoiceId]);
+    if (!invoice) return res.status(404).json({ message: "Facture introuvable." });
+    if (req.user?.sub !== invoice.parent_id && req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+    if (invoice.status === "paid") {
+      return res.status(400).json({ message: "Cette facture est déjà réglée." });
+    }
+
+    const [[payer]] = await pool.query(
+      "SELECT name, email FROM users WHERE id = ?", [invoice.parent_id]
+    );
+    if (!payer) return res.status(404).json({ message: "Parent introuvable." });
+
+    const reference = `c4s-inv-${invoice.id.slice(0, 8)}-${Date.now()}`;
+    const [firstName, ...restName] = (payer.name || "Parent").split(" ");
+
+    const chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+      method: "POST",
+      idempotencyKey: reference,
+      body: JSON.stringify({
+        amount: invoice.amount,
+        currency: "XOF",
+        reference,
+        payment_method: {
+          type: "mobile_money",
+          mobile_money: { country_code: countryCode, network, phone_number: phoneNumber },
+        },
+        customer: {
+          email: payer.email,
+          name: { first: firstName, last: restName.join(" ") || firstName },
+          phone: { country_code: countryCode, number: phoneNumber },
+        },
+        redirect_url: `${FRONTEND_BASE_URL}/parent/invoices`,
+      }),
+    });
+
+    await pool.query(
+      "UPDATE parent_invoices SET payment_ref = ?, flw_charge_id = ? WHERE id = ?",
+      [reference, chargeRes.data?.id || null, invoice.id]
+    );
+    res.status(201).json({
+      chargeId: chargeRes.data?.id,
+      reference,
+      status: chargeRes.data?.status,
+      nextAction: chargeRes.data?.next_action || null,
+    });
+  } catch (error) {
+    console.error("[flutterwave/initiate]", error);
+    res.status(500).json({ message: error.message || "Impossible d'initier le paiement." });
+  }
+});
+
+// Soumission d'un OTP/PIN pour autoriser une charge en attente (selon le
+// réseau/pays, certains paiements Mobile Money l'exigent en plus de la
+// validation sur le téléphone du client).
+app.post("/api/payments/flutterwave/authorize", authenticateRequest, async (req, res) => {
+  const { chargeId, type, code } = req.body ?? {};
+  if (!chargeId || !type || !code) {
+    return res.status(400).json({ message: "chargeId, type et code sont requis." });
+  }
+  try {
+    const chargeRes = await flutterwaveRequest(`/charges/${chargeId}`, {
+      method: "PUT",
+      body: JSON.stringify({ authorization: { type, [type]: code } }),
+    });
+    res.json({ status: chargeRes.data?.status, nextAction: chargeRes.data?.next_action || null });
+  } catch (error) {
+    console.error("[flutterwave/authorize]", error);
+    res.status(500).json({ message: error.message || "Autorisation refusée." });
+  }
+});
+
+// Poll côté front en complément du webhook (utile pendant que le client
+// valide sur son téléphone) — vérifie et applique le statut à la facture.
+app.get("/api/payments/flutterwave/status/:reference", authenticateRequest, async (req, res) => {
+  const { reference } = req.params;
+  try {
+    const [[invoice]] = await pool.query("SELECT * FROM parent_invoices WHERE payment_ref = ?", [reference]);
+    if (!invoice) return res.status(404).json({ message: "Paiement introuvable." });
+    if (req.user?.sub !== invoice.parent_id && req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+    if (invoice.status === "paid") {
+      return res.json({ success: true, alreadyProcessed: true });
+    }
+    if (!invoice.flw_charge_id) {
+      return res.json({ success: false, reason: "pending" });
+    }
+    const chargeRes = await flutterwaveRequest(`/charges/${invoice.flw_charge_id}`);
+    const result = await finalizeFlutterwaveCharge(reference, chargeRes.data);
+    res.json(result);
+  } catch (error) {
+    console.error("[flutterwave/status]", error);
+    res.status(500).json({ message: error.message || "Impossible de vérifier le paiement." });
+  }
+});
+
+// Endpoint public (aucun JWT) — authentifié par calcul HMAC-SHA256 du corps
+// brut de la requête avec le secret hash configuré dans le dashboard
+// Flutterwave, comparé au header `flutterwave-signature`.
+app.post("/api/payments/flutterwave/webhook", async (req, res) => {
+  try {
+    if (!FLW_WEBHOOK_SECRET_HASH || !req.rawBody) {
+      return res.status(401).json({ message: "Webhook non configuré." });
+    }
+    const expectedSignature = crypto
+      .createHmac("sha256", FLW_WEBHOOK_SECRET_HASH)
+      .update(req.rawBody)
+      .digest("base64");
+    const signature = req.headers["flutterwave-signature"];
+    if (!signature || signature !== expectedSignature) {
+      return res.status(401).json({ message: "Signature invalide." });
+    }
+
+    const event = req.body ?? {};
+    if (event.type === "charge.completed" && event.data?.reference) {
+      await finalizeFlutterwaveCharge(event.data.reference, event.data);
+    }
+    res.status(200).json({ received: true });
+  } catch (error) {
+    console.error("[flutterwave/webhook]", error);
+    res.status(200).json({ received: true }); // Toujours 200 pour éviter les re-tentatives en boucle
   }
 });
 
