@@ -12,6 +12,7 @@ import { NavLink } from "react-router-dom";
 import { TeacherCard } from "@/components/TeacherCard";
 import { testimonials, teachers, stats } from "@/data/index";
 import { IMAGES } from "@/assets/images";
+import { HERO_IMAGES } from "@/assets/hero-images";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { ROUTE_PATHS } from "@/lib/index";
 
@@ -119,6 +120,14 @@ export default function Home() {
           Composition asymétrique magazine : texte gauche / images droite
           ══════════════════════════════════════════════════════ */}
       <section className="relative bg-[#0D2D5A] overflow-hidden min-h-[92vh] flex items-stretch">
+
+        {/* Photo de fond */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${HERO_IMAGES.home})` }}
+        />
+        {/* Voile de lisibilité — assombrit la photo pour garder le texte blanc lisible */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0D2D5A]/95 via-[#0D2D5A]/88 to-[#0D2D5A]/70" />
 
         {/* Fond : grille de points décoratives */}
         <div
