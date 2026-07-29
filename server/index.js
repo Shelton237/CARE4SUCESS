@@ -330,190 +330,6 @@ const ensureTeachersTable = async () => {
   }
 };
 
-// Créneaux explicites saisis un par un par l'enseignant/l'admin — consommés
-// lorsqu'un visiteur du site public réserve puis paie (cf. section
-// RÉSERVATION PUBLIQUE plus loin).
-const ensureTeacherSlotsTable = async () => {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS teacher_slots (
-      id CHAR(36) NOT NULL DEFAULT (UUID()),
-      teacher_id CHAR(36) NOT NULL,
-      subject VARCHAR(120) NULL,
-      start_time DATETIME NOT NULL,
-      end_time DATETIME NOT NULL,
-      status ENUM('open','booked','cancelled') NOT NULL DEFAULT 'open',
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      KEY idx_slots_teacher (teacher_id),
-      KEY idx_slots_status (status),
-      KEY idx_slots_start (start_time)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-};
-
-const mapSlotRow = (row) => ({
-  id: row.id,
-  teacherId: row.teacher_id,
-  subject: row.subject,
-  startTime: row.start_time,
-  endTime: row.end_time,
-  status: row.status,
-});
-
-app.post("/api/teachers/:teacherId/slots", authenticateRequest, async (req, res) => {
-  const { teacherId } = req.params;
-  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
-    return res.status(403).json({ message: "Accès refusé." });
-  }
-  const { startTime, endTime, subject } = req.body ?? {};
-  if (!startTime || !endTime) {
-    return res.status(400).json({ message: "startTime et endTime sont requis." });
-  }
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
-    return res.status(400).json({ message: "Plage horaire invalide." });
-  }
-  if (start < new Date()) {
-    return res.status(400).json({ message: "Le créneau doit être dans le futur." });
-  }
-  try {
-    await ensureTeacherSlotsTable();
-    const [[teacher]] = await pool.query("SELECT id FROM teachers WHERE id = ?", [teacherId]);
-    if (!teacher) return res.status(404).json({ message: "Enseignant introuvable." });
-
-    const id = crypto.randomUUID();
-    await pool.query(
-      "INSERT INTO teacher_slots (id, teacher_id, subject, start_time, end_time) VALUES (?, ?, ?, ?, ?)",
-      [id, teacherId, subject || null, start, end]
-    );
-    res.status(201).json({ id });
-  } catch (error) {
-    console.error("[teacher_slots POST]", error);
-    res.status(500).json({ message: "Impossible de créer le créneau." });
-  }
-});
-
-// Gestion (enseignant/admin) — tous les créneaux, passés ou non, tous statuts.
-app.get("/api/teachers/:teacherId/slots/manage", authenticateRequest, async (req, res) => {
-  const { teacherId } = req.params;
-  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
-    return res.status(403).json({ message: "Accès refusé." });
-  }
-  try {
-    await ensureTeacherSlotsTable();
-    const [rows] = await pool.query(
-      "SELECT * FROM teacher_slots WHERE teacher_id = ? ORDER BY start_time DESC",
-      [teacherId]
-    );
-    res.json(rows.map(mapSlotRow));
-  } catch (error) {
-    console.error("[teacher_slots manage GET]", error);
-    res.status(500).json({ message: "Impossible de récupérer les créneaux." });
-  }
-});
-
-// Vue publique — uniquement les créneaux ouverts et futurs (utilisée par la
-// page de profil public pour proposer une réservation).
-app.get("/api/teachers/:teacherId/slots", async (req, res) => {
-  const { teacherId } = req.params;
-  try {
-    await ensureTeacherSlotsTable();
-    const [rows] = await pool.query(
-      "SELECT * FROM teacher_slots WHERE teacher_id = ? AND status = 'open' AND start_time > NOW() ORDER BY start_time ASC",
-      [teacherId]
-    );
-    res.json(rows.map(mapSlotRow));
-  } catch (error) {
-    console.error("[teacher_slots GET]", error);
-    res.status(500).json({ message: "Impossible de récupérer les créneaux." });
-  }
-});
-
-app.delete("/api/teachers/:teacherId/slots/:slotId", authenticateRequest, async (req, res) => {
-  const { teacherId, slotId } = req.params;
-  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
-    return res.status(403).json({ message: "Accès refusé." });
-  }
-  try {
-    await ensureTeacherSlotsTable();
-    const [[slot]] = await pool.query("SELECT status FROM teacher_slots WHERE id = ? AND teacher_id = ?", [slotId, teacherId]);
-    if (!slot) return res.status(404).json({ message: "Créneau introuvable." });
-    if (slot.status !== "open") {
-      return res.status(400).json({ message: "Seul un créneau non réservé peut être supprimé." });
-    }
-    await pool.query("DELETE FROM teacher_slots WHERE id = ?", [slotId]);
-    res.json({ success: true });
-  } catch (error) {
-    console.error("[teacher_slots DELETE]", error);
-    res.status(500).json({ message: "Impossible de supprimer le créneau." });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ANNUAIRE PUBLIC — recherche d'enseignant sur le site public, sans
-// authentification. N'expose que des champs adaptés à un affichage public
-// (jamais email/téléphone/coordonnées bancaires).
-// ─────────────────────────────────────────────────────────────────────────────
-const mapPublicTeacherRow = (row) => ({
-  id: row.id,
-  name: row.name,
-  subjects: parseJson(row.subjects, []),
-  level: row.level,
-  city: row.city,
-  rating: Number(row.rating),
-  students: row.students,
-  rateType: row.rate_type,
-  rate: row.rate_type === "monthly" ? Number(row.monthly_rate) : Number(row.hourly_rate),
-  currency: row.currency || "XAF",
-  rateUnitMinutes: row.rate_unit_minutes || 60,
-});
-
-app.get("/api/public/teachers", async (req, res) => {
-  try {
-    await ensureTeachersTable();
-    const [rows] = await pool.query(
-      `SELECT id, name, subjects, level, city, status, rating, students, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes
-       FROM teachers
-       WHERE status = 'actif'
-       ORDER BY rating DESC, students DESC`
-    );
-    res.json(rows.map(mapPublicTeacherRow));
-  } catch (error) {
-    if (isDbConnectionError(error)) {
-      return res.status(503).json({ message: "Base de données indisponible." });
-    }
-    console.error("[public/teachers]", error);
-    res.status(500).json({ message: "Impossible de récupérer les enseignants." });
-  }
-});
-
-app.get("/api/public/teachers/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    await ensureTeachersTable();
-    await ensureTeacherSlotsTable();
-    const [[row]] = await pool.query(
-      `SELECT id, name, subjects, level, city, status, rating, students, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes
-       FROM teachers WHERE id = ? AND status = 'actif'`,
-      [id]
-    );
-    if (!row) return res.status(404).json({ message: "Enseignant introuvable." });
-
-    const [slotRows] = await pool.query(
-      "SELECT * FROM teacher_slots WHERE teacher_id = ? AND status = 'open' AND start_time > NOW() ORDER BY start_time ASC",
-      [id]
-    );
-
-    res.json({ ...mapPublicTeacherRow(row), slots: slotRows.map(mapSlotRow) });
-  } catch (error) {
-    if (isDbConnectionError(error)) {
-      return res.status(503).json({ message: "Base de données indisponible." });
-    }
-    console.error("[public/teachers/:id]", error);
-    res.status(500).json({ message: "Impossible de récupérer le profil." });
-  }
-});
 
 const ensureSessionsTable = async () => {
   await pool.query(
@@ -2104,6 +1920,191 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10 MB max
 
 app.use("/uploads", express.static(uploadDir));
+
+// Créneaux explicites saisis un par un par l'enseignant/l'admin — consommés
+// lorsqu'un visiteur du site public réserve puis paie (cf. section
+// RÉSERVATION PUBLIQUE plus loin).
+const ensureTeacherSlotsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS teacher_slots (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      teacher_id CHAR(36) NOT NULL,
+      subject VARCHAR(120) NULL,
+      start_time DATETIME NOT NULL,
+      end_time DATETIME NOT NULL,
+      status ENUM('open','booked','cancelled') NOT NULL DEFAULT 'open',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_slots_teacher (teacher_id),
+      KEY idx_slots_status (status),
+      KEY idx_slots_start (start_time)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const mapSlotRow = (row) => ({
+  id: row.id,
+  teacherId: row.teacher_id,
+  subject: row.subject,
+  startTime: row.start_time,
+  endTime: row.end_time,
+  status: row.status,
+});
+
+app.post("/api/teachers/:teacherId/slots", authenticateRequest, async (req, res) => {
+  const { teacherId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  const { startTime, endTime, subject } = req.body ?? {};
+  if (!startTime || !endTime) {
+    return res.status(400).json({ message: "startTime et endTime sont requis." });
+  }
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    return res.status(400).json({ message: "Plage horaire invalide." });
+  }
+  if (start < new Date()) {
+    return res.status(400).json({ message: "Le créneau doit être dans le futur." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [[teacher]] = await pool.query("SELECT id FROM teachers WHERE id = ?", [teacherId]);
+    if (!teacher) return res.status(404).json({ message: "Enseignant introuvable." });
+
+    const id = crypto.randomUUID();
+    await pool.query(
+      "INSERT INTO teacher_slots (id, teacher_id, subject, start_time, end_time) VALUES (?, ?, ?, ?, ?)",
+      [id, teacherId, subject || null, start, end]
+    );
+    res.status(201).json({ id });
+  } catch (error) {
+    console.error("[teacher_slots POST]", error);
+    res.status(500).json({ message: "Impossible de créer le créneau." });
+  }
+});
+
+// Gestion (enseignant/admin) — tous les créneaux, passés ou non, tous statuts.
+app.get("/api/teachers/:teacherId/slots/manage", authenticateRequest, async (req, res) => {
+  const { teacherId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [rows] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE teacher_id = ? ORDER BY start_time DESC",
+      [teacherId]
+    );
+    res.json(rows.map(mapSlotRow));
+  } catch (error) {
+    console.error("[teacher_slots manage GET]", error);
+    res.status(500).json({ message: "Impossible de récupérer les créneaux." });
+  }
+});
+
+// Vue publique — uniquement les créneaux ouverts et futurs (utilisée par la
+// page de profil public pour proposer une réservation).
+app.get("/api/teachers/:teacherId/slots", async (req, res) => {
+  const { teacherId } = req.params;
+  try {
+    await ensureTeacherSlotsTable();
+    const [rows] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE teacher_id = ? AND status = 'open' AND start_time > NOW() ORDER BY start_time ASC",
+      [teacherId]
+    );
+    res.json(rows.map(mapSlotRow));
+  } catch (error) {
+    console.error("[teacher_slots GET]", error);
+    res.status(500).json({ message: "Impossible de récupérer les créneaux." });
+  }
+});
+
+app.delete("/api/teachers/:teacherId/slots/:slotId", authenticateRequest, async (req, res) => {
+  const { teacherId, slotId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [[slot]] = await pool.query("SELECT status FROM teacher_slots WHERE id = ? AND teacher_id = ?", [slotId, teacherId]);
+    if (!slot) return res.status(404).json({ message: "Créneau introuvable." });
+    if (slot.status !== "open") {
+      return res.status(400).json({ message: "Seul un créneau non réservé peut être supprimé." });
+    }
+    await pool.query("DELETE FROM teacher_slots WHERE id = ?", [slotId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[teacher_slots DELETE]", error);
+    res.status(500).json({ message: "Impossible de supprimer le créneau." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANNUAIRE PUBLIC — recherche d'enseignant sur le site public, sans
+// authentification. N'expose que des champs adaptés à un affichage public
+// (jamais email/téléphone/coordonnées bancaires).
+// ─────────────────────────────────────────────────────────────────────────────
+const mapPublicTeacherRow = (row) => ({
+  id: row.id,
+  name: row.name,
+  subjects: parseJson(row.subjects, []),
+  level: row.level,
+  city: row.city,
+  rating: Number(row.rating),
+  students: row.students,
+  rateType: row.rate_type,
+  rate: row.rate_type === "monthly" ? Number(row.monthly_rate) : Number(row.hourly_rate),
+  currency: row.currency || "XAF",
+  rateUnitMinutes: row.rate_unit_minutes || 60,
+});
+
+app.get("/api/public/teachers", async (req, res) => {
+  try {
+    await ensureTeachersTable();
+    const [rows] = await pool.query(
+      `SELECT id, name, subjects, level, city, status, rating, students, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes
+       FROM teachers
+       WHERE status = 'actif'
+       ORDER BY rating DESC, students DESC`
+    );
+    res.json(rows.map(mapPublicTeacherRow));
+  } catch (error) {
+    if (isDbConnectionError(error)) {
+      return res.status(503).json({ message: "Base de données indisponible." });
+    }
+    console.error("[public/teachers]", error);
+    res.status(500).json({ message: "Impossible de récupérer les enseignants." });
+  }
+});
+
+app.get("/api/public/teachers/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureTeachersTable();
+    await ensureTeacherSlotsTable();
+    const [[row]] = await pool.query(
+      `SELECT id, name, subjects, level, city, status, rating, students, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes
+       FROM teachers WHERE id = ? AND status = 'actif'`,
+      [id]
+    );
+    if (!row) return res.status(404).json({ message: "Enseignant introuvable." });
+
+    const [slotRows] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE teacher_id = ? AND status = 'open' AND start_time > NOW() ORDER BY start_time ASC",
+      [id]
+    );
+
+    res.json({ ...mapPublicTeacherRow(row), slots: slotRows.map(mapSlotRow) });
+  } catch (error) {
+    if (isDbConnectionError(error)) {
+      return res.status(503).json({ message: "Base de données indisponible." });
+    }
+    console.error("[public/teachers/:id]", error);
+    res.status(500).json({ message: "Impossible de récupérer le profil." });
+  }
+});
 
 app.post("/api/parents/enroll", async (req, res) => {
   const connection = await pool.getConnection();
