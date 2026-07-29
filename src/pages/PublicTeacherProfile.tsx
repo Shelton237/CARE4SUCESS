@@ -63,9 +63,17 @@ export default function PublicTeacherProfile() {
                         <ArrowLeft className="w-4 h-4" /> Retour à l'annuaire
                     </NavLink>
                     <div className="flex items-center gap-5">
-                        <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center font-black text-2xl text-white flex-shrink-0">
-                            {teacher.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                        </div>
+                        {teacher.avatarUrl ? (
+                            <img
+                                src={teacher.avatarUrl}
+                                alt={teacher.name}
+                                className="w-20 h-20 rounded-2xl object-cover flex-shrink-0"
+                            />
+                        ) : (
+                            <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center font-black text-2xl text-white flex-shrink-0">
+                                {teacher.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                            </div>
+                        )}
                         <div>
                             <h1 className="text-2xl md:text-3xl font-black text-white">{teacher.name}</h1>
                             <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -75,9 +83,9 @@ export default function PublicTeacherProfile() {
                                     ))}
                                     <span className="text-[#F5A623] text-sm font-bold ml-1">{teacher.rating.toFixed(1)}</span>
                                 </div>
-                                {teacher.city && (
+                                {(teacher.city || teacher.region || teacher.country) && (
                                     <span className="flex items-center gap-1 text-blue-200 text-sm">
-                                        <MapPin className="w-3.5 h-3.5" /> {teacher.city}
+                                        <MapPin className="w-3.5 h-3.5" /> {[teacher.city, teacher.region, teacher.country].filter(Boolean).join(", ")}
                                     </span>
                                 )}
                                 <span className="flex items-center gap-1 text-blue-200 text-sm">

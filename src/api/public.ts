@@ -31,6 +31,12 @@ export interface PublicTeacher {
     rate: number;
     currency: string;
     rateUnitMinutes: number;
+    /** Photo réellement uploadée par l'enseignant — null si aucune (jamais de placeholder généré côté serveur). */
+    avatarUrl: string | null;
+    countryId: number | null;
+    country: string | null;
+    regionId: number | null;
+    region: string | null;
 }
 
 export interface TeacherSlot {
