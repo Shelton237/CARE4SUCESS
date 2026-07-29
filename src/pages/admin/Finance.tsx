@@ -60,7 +60,7 @@ export default function AdminFinance() {
     // Devise par enseignant, sans conversion : les totaux de paie sont donc
     // des sous-totaux groupés par devise plutôt qu'une somme unique mélangée.
     const payrollTotalsByCurrency = payroll.reduce((acc: Record<string, number>, t: any) => {
-        const currency = t.currency || "XOF";
+        const currency = t.currency || "XAF";
         acc[currency] = (acc[currency] || 0) + (Number(t.totalEarnings) || 0);
         return acc;
     }, {} as Record<string, number>);

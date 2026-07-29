@@ -1,9 +1,14 @@
-export const SUPPORTED_CURRENCIES = ["XOF", "GHS", "KES", "NGN", "MGA", "USD"] as const;
+// XAF = Franc CFA d'Afrique Centrale (BEAC — Cameroun et pays voisins, marché
+// principal de la plateforme). À ne pas confondre avec XOF (Afrique de
+// l'Ouest, BCEAO) : les deux sont familièrement appelés "FCFA" mais ne sont
+// pas interchangeables pour les paiements Mobile Money (Flutterwave les
+// distingue strictement par pays).
+export const SUPPORTED_CURRENCIES = ["XAF", "XOF", "GHS", "KES", "NGN", "MGA", "USD"] as const;
 export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 
 export const formatMoney = (
   value: number | string | null | undefined,
-  currency: string = "XOF",
+  currency: string = "XAF",
   locale: string = "fr-FR"
 ) => {
   const amount = Number(value ?? 0);
@@ -19,4 +24,4 @@ export const formatMoney = (
   }
 };
 
-export const formatFCFA = (value: number | string | null | undefined) => formatMoney(value, "XOF");
+export const formatFCFA = (value: number | string | null | undefined) => formatMoney(value, "XAF");

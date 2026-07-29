@@ -29,7 +29,7 @@ export default function TeacherEarnings() {
     }
 
     const totalEarnings = history.reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0) || 1450000;
-    const currency = transactions[0]?.currency || "XOF";
+    const currency = transactions[0]?.currency || "XAF";
 
     return (
         <div className="w-full p-3 space-y-3 bg-white min-h-screen">

@@ -304,7 +304,7 @@ const ensureTeachersTable = async () => {
     ["performance_index",    "ALTER TABLE teachers ADD COLUMN performance_index DECIMAL(5,2) NULL"],
     ["levels",               "ALTER TABLE teachers ADD COLUMN levels JSON NULL"],
     ["zones",                "ALTER TABLE teachers ADD COLUMN zones JSON NULL COMMENT 'Zones dintervention acceptees'"],
-    ["currency",             "ALTER TABLE teachers ADD COLUMN currency VARCHAR(3) NOT NULL DEFAULT 'XOF'"],
+    ["currency",             "ALTER TABLE teachers ADD COLUMN currency VARCHAR(3) NOT NULL DEFAULT 'XAF'"],
     ["rate_unit_minutes",    "ALTER TABLE teachers ADD COLUMN rate_unit_minutes INT NOT NULL DEFAULT 60"],
   ];
   for (const [col, sql] of migrations) {
@@ -1369,7 +1369,7 @@ const mapTeacherRow = (row) => ({
   rate_type: row.rate_type,
   hourly_rate: Number(row.hourly_rate),
   monthly_rate: row.monthly_rate !== null ? Number(row.monthly_rate) : null,
-  currency: row.currency || "XOF",
+  currency: row.currency || "XAF",
   rate_unit_minutes: row.rate_unit_minutes ? Number(row.rate_unit_minutes) : 60,
 });
 
@@ -3062,7 +3062,7 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
         const resolvedRate = parseFloat(negotiatedRate) || 7500;
         const hourlyRateValue  = resolvedRateType === "hourly"  ? resolvedRate : 0;
         const monthlyRateValue = resolvedRateType === "monthly" ? resolvedRate : null;
-        const resolvedCurrency = (currency || "XOF").toUpperCase().slice(0, 3);
+        const resolvedCurrency = (currency || "XAF").toUpperCase().slice(0, 3);
         const resolvedRateUnitMinutes = resolvedRateType === "hourly" ? (parseInt(rateUnitMinutes, 10) || 60) : 60;
 
         const teacherLevels = parseJson(updatedApplication.levels, []).join(", ");
@@ -4522,7 +4522,7 @@ app.get("/api/admin/finance/teacher-payroll", authenticateRequest, async (req, r
         name: t.name,
         rateType: t.rate_type,
         rate: t.rate_type === 'monthly' ? t.monthly_rate : t.hourly_rate,
-        currency: t.currency || "XOF",
+        currency: t.currency || "XAF",
         rateUnitMinutes: t.rate_unit_minutes || 60,
         monthlyEarnings,
         totalEarnings
@@ -5447,6 +5447,11 @@ const FLW_CLIENT_ID = process.env.FLUTTERWAVE_CLIENT_ID;
 const FLW_CLIENT_SECRET = process.env.FLUTTERWAVE_CLIENT_SECRET;
 const FLW_WEBHOOK_SECRET_HASH = process.env.FLUTTERWAVE_WEBHOOK_SECRET_HASH;
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || "https://care4success.usra-care.com";
+// XAF (Franc CFA Afrique Centrale, BEAC) — devise du Cameroun, marché
+// principal de la plateforme. Flutterwave rejette XOF (Afrique de l'Ouest)
+// pour le Mobile Money camerounais ("Currency not supported for CM Mobile
+// Money"), confirmé en sandbox.
+const PARENT_INVOICE_CURRENCY = "XAF";
 
 // Cache mémoire du jeton OAuth2 (validité annoncée : 10 min) — évite de
 // redemander un jeton à chaque appel API.
@@ -5493,7 +5498,12 @@ const flutterwaveRequest = async (path, options = {}) => {
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data?.message || data?.error?.message || "Erreur Flutterwave");
+    const validationDetails = data?.error?.validation_errors
+      ?.map((v) => `${v.field_name}: ${v.message}`)
+      .join("; ");
+    throw new Error(
+      [data?.message || data?.error?.message || "Erreur Flutterwave", validationDetails].filter(Boolean).join(" — ")
+    );
   }
   return data;
 };
@@ -5514,7 +5524,7 @@ const finalizeFlutterwaveCharge = async (reference, chargeData) => {
   }
 
   const amountOk = Number(chargeData.amount) >= Number(invoice.amount);
-  const currencyOk = chargeData.currency === "XOF";
+  const currencyOk = chargeData.currency === PARENT_INVOICE_CURRENCY;
   const statusOk = chargeData.status === "succeeded";
 
   if (!statusOk || !amountOk || !currencyOk) {
@@ -5570,7 +5580,7 @@ app.post("/api/payments/flutterwave/initiate", authenticateRequest, async (req, 
       idempotencyKey: reference,
       body: JSON.stringify({
         amount: invoice.amount,
-        currency: "XOF",
+        currency: PARENT_INVOICE_CURRENCY,
         reference,
         payment_method: {
           type: "mobile_money",
@@ -6026,7 +6036,7 @@ app.get("/api/teachers/:teacherId/earnings", authenticateRequest, async (req, re
         student: row.student,
         hours: Math.round((minutes / 60) * 10) / 10,
         rate: isMonthly ? 0 : (Number(teacher?.hourly_rate) || 0),
-        currency: teacher?.currency || "XOF",
+        currency: teacher?.currency || "XAF",
         rateUnitMinutes: teacher?.rate_unit_minutes || 60,
         amount: isMonthly ? 0 : computeEarnedAmount(minutes, teacher),
         status: row.status,
@@ -7367,7 +7377,7 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
       `SELECT t.id, u.name, t.subjects, t.levels, t.availability_json,
               COALESCE(t.performance_index, 3.0) AS perf,
               COALESCE(t.hourly_rate, 7500) AS rate,
-              COALESCE(t.currency, 'XOF') AS currency,
+              COALESCE(t.currency, 'XAF') AS currency,
               COUNT(s.id) AS sessionCount
        FROM teachers t
        JOIN users u ON u.id = t.user_id
