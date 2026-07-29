@@ -12,6 +12,7 @@ import { formatMoney } from "@/lib/money";
 import { ALL_SUBJECTS, ALL_LEVELS } from "@/lib/education";
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
+import { HERO_IMAGES } from "@/assets/hero-images";
 
 const SELECTION_CRITERIA = [
   "Diplôme Bac+3 minimum vérifié",
@@ -114,10 +115,17 @@ export default function Professeurs() {
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section
-        className="relative py-24 overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #0D2D5A 0%, #123a73 55%, #1A6CC8 130%)" }}
-      >
+      <section className="relative py-24 overflow-hidden">
+        {/* Photo de fond */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${HERO_IMAGES.professeurs})` }}
+        />
+        {/* Voile de lisibilité — même dégradé que l'ancien fond uni, en semi-transparent */}
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(135deg, rgba(13,45,90,0.94) 0%, rgba(18,58,115,0.90) 55%, rgba(26,108,200,0.78) 130%)" }}
+        />
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#F5A623]/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-72 h-72 bg-[#1A6CC8]/30 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3 pointer-events-none" />

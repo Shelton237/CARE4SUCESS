@@ -1,0 +1,6 @@
+// Photos de fond des sections hero — fournies par l'équipe Care4Success
+// (pas de banque de stock générique), servies depuis public/images/heroes.
+export const HERO_IMAGES = {
+  home: "/images/heroes/home-hero.jpg",
+  professeurs: "/images/heroes/professeurs-hero.jpg",
+} as const;
