@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import {
   ArrowRight, Users, ShieldCheck, Wallet, CreditCard, ClipboardCheck,
-  Search, BadgeCheck, CalendarCheck, MapPin, BookOpen, ChevronDown,
+  Search, BadgeCheck, CalendarCheck, BookOpen, ChevronDown,
   Phone, Smartphone, Download, GraduationCap, CheckCircle,
 } from "lucide-react";
 import { fetchPublicTeachers } from "@/api/public";
@@ -287,18 +287,12 @@ export default function Home() {
 
           {/* Version desktop : parcours illustré avec flèches en pointillés */}
           <div className="hidden lg:block relative max-w-5xl mx-auto" style={{ height: 760 }}>
-            {/* Texture de fond évoquant une carte du monde */}
+            {/* Carte du monde en fond (pins déjà intégrés à l'image) */}
             <div
-              className="absolute inset-0 opacity-[0.35]"
-              style={{ backgroundImage: "radial-gradient(#c8d3e0 1.5px, transparent 1.5px)", backgroundSize: "14px 14px" }}
+              className="absolute inset-0 bg-no-repeat bg-center opacity-70"
+              style={{ backgroundImage: `url(${HERO_IMAGES.worldMap})`, backgroundSize: "100% auto" }}
               aria-hidden
             />
-            {[
-              { top: "10%", left: "12%" }, { top: "34%", left: "88%" }, { top: "58%", left: "8%" }, { top: "82%", left: "90%" },
-              { top: "20%", left: "70%" }, { top: "68%", left: "40%" },
-            ].map((p, i) => (
-              <MapPin key={i} className="absolute w-4 h-4 text-[#1A6CC8]/30" style={p} aria-hidden />
-            ))}
 
             {/* Flèches en pointillés reliant les 4 étapes */}
             <svg viewBox="0 0 1000 760" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
