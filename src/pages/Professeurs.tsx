@@ -202,8 +202,15 @@ export default function Professeurs() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={springPresets.gentle}
-            className="relative rounded-2xl bg-[#0D2D5A] p-10 overflow-hidden"
+            className="relative rounded-2xl p-10 overflow-hidden"
           >
+            {/* Photo de fond */}
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${HERO_IMAGES.professeursSelection})` }}
+            />
+            {/* Voile de lisibilité */}
+            <div className="absolute inset-0 bg-[#0D2D5A]/85" />
             <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
             <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-[#F5A623]/20 rounded-full blur-3xl pointer-events-none" />
             <div className="relative z-10 flex flex-col items-center text-center gap-3">

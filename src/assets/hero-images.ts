@@ -3,4 +3,5 @@
 export const HERO_IMAGES = {
   home: "/images/heroes/home-hero.jpg",
   professeurs: "/images/heroes/professeurs-hero.jpg",
+  professeursSelection: "/images/heroes/professeurs-selection.jpg",
 } as const;
