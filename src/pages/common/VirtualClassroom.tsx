@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { fetchScheduleByRole, fetchCourseDetails } from "@/api/backoffice";
+import { fetchScheduleByRole, fetchCourseDetails, uploadMessageAttachment } from "@/api/backoffice";
 import { jsPDF } from "jspdf";
 import {
     Loader2,
@@ -24,7 +24,13 @@ import {
     CheckCircle2,
     Youtube,
     Plus,
-    Trash2
+    Trash2,
+    Bold,
+    Italic,
+    Underline,
+    List,
+    ListOrdered,
+    Paperclip
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -75,9 +81,26 @@ declare global {
     }
 }
 
-type WhiteboardVideoItem = {
-    id: string;
-    videoId: string;
+type WhiteboardItem =
+    | { id: string; type: "youtube"; videoId: string }
+    | { id: string; type: "pdf"; url: string; name: string };
+
+// Compat : les anciennes séances stockaient les items vidéo sans champ
+// `type` ({ id, videoId } uniquement) — on les normalise à la lecture.
+function normalizeWhiteboardItems(raw: any[]): WhiteboardItem[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item) =>
+        item?.type === "pdf"
+            ? { id: item.id, type: "pdf" as const, url: item.url, name: item.name || "Document.pdf" }
+            : { id: item.id, type: "youtube" as const, videoId: item.videoId }
+    );
+}
+
+const getFullAttachmentUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const rootUrl = (import.meta.env.VITE_API_URL || "").replace(/\/api\/?$/, "");
+    return `${rootUrl}${url}`;
 };
 
 function extractYouTubeId(url: string): string | null {
@@ -110,8 +133,9 @@ export default function VirtualClassroom() {
     const [activeTab, setActiveTab] = useState(window.innerWidth < 768 ? "video" : "notes");
     const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768);
 
-    // Sync state
-    const [notes, setNotes] = useState("");
+    // Sync state — les notes vivent directement dans le DOM contentEditable
+    // (notesRef), il n'y a pas besoin d'un état React dupliqué pour ce champ.
+    const notesRef = useRef<HTMLDivElement>(null);
     const [code, setCode] = useState("// Saisissez votre code ici...");
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -122,9 +146,12 @@ export default function VirtualClassroom() {
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawColor, setDrawColor] = useState("#1A6CC8");
     const [tool, setTool] = useState<"pen" | "eraser">("pen");
-    const [whiteboardItems, setWhiteboardItems] = useState<WhiteboardVideoItem[]>([]);
+    const [whiteboardItems, setWhiteboardItems] = useState<WhiteboardItem[]>([]);
     const [showYoutubeInput, setShowYoutubeInput] = useState(false);
     const [youtubeUrl, setYoutubeUrl] = useState("");
+    const previewYoutubeId = useMemo(() => extractYouTubeId(youtubeUrl), [youtubeUrl]);
+    const pdfInputRef = useRef<HTMLInputElement>(null);
+    const [uploadingPdf, setUploadingPdf] = useState(false);
 
     // Session Management State
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -146,9 +173,14 @@ export default function VirtualClassroom() {
     // Sync incoming data
     useEffect(() => {
         if (!isEditingRef.current && currentSession) {
-            if (currentSession.notes !== undefined) setNotes(currentSession.notes || "");
+            if (currentSession.notes !== undefined) {
+                const nextNotes = currentSession.notes || "";
+                if (notesRef.current && notesRef.current.innerHTML !== nextNotes) {
+                    notesRef.current.innerHTML = nextNotes;
+                }
+            }
             if (currentSession.codeData !== undefined) setCode(currentSession.codeData || "// Saisissez votre code ici...");
-            if (Array.isArray(currentSession.whiteboardItems)) setWhiteboardItems(currentSession.whiteboardItems);
+            if (Array.isArray(currentSession.whiteboardItems)) setWhiteboardItems(normalizeWhiteboardItems(currentSession.whiteboardItems));
 
             if (currentSession.whiteboardData && canvasRef.current) {
                 const ctx = canvasRef.current.getContext('2d');
@@ -201,7 +233,6 @@ export default function VirtualClassroom() {
     const timerRef = useRef<any>(null);
     const handleWorkspaceUpdate = (type: 'notes' | 'code' | 'whiteboard' | 'whiteboardItems', value: any) => {
         isEditingRef.current = true;
-        if (type === 'notes') setNotes(value);
         if (type === 'code') setCode(value);
         if (type === 'whiteboardItems') setWhiteboardItems(value);
 
@@ -220,19 +251,48 @@ export default function VirtualClassroom() {
     };
 
     const handleAddYoutubeVideo = () => {
-        const videoId = extractYouTubeId(youtubeUrl);
+        const videoId = previewYoutubeId;
         if (!videoId) {
             toast.error("Lien YouTube invalide. Collez un lien du type https://youtube.com/watch?v=... ou https://youtu.be/...");
             return;
         }
-        const nextItems = [...whiteboardItems, { id: crypto.randomUUID(), videoId }];
+        const nextItems: WhiteboardItem[] = [...whiteboardItems, { id: crypto.randomUUID(), type: "youtube", videoId }];
         handleWorkspaceUpdate('whiteboardItems', nextItems);
         setYoutubeUrl("");
         setShowYoutubeInput(false);
     };
 
-    const handleRemoveYoutubeVideo = (id: string) => {
+    const handleRemoveWhiteboardItem = (id: string) => {
         handleWorkspaceUpdate('whiteboardItems', whiteboardItems.filter(item => item.id !== id));
+    };
+
+    const handlePdfSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+        if (file.type !== "application/pdf") {
+            toast.error("Seuls les fichiers PDF sont acceptés.");
+            return;
+        }
+        setUploadingPdf(true);
+        try {
+            const formData = new FormData();
+            formData.append("attachment", file);
+            const { fileUrl } = await uploadMessageAttachment(formData);
+            const nextItems: WhiteboardItem[] = [...whiteboardItems, { id: crypto.randomUUID(), type: "pdf", url: fileUrl, name: file.name }];
+            handleWorkspaceUpdate('whiteboardItems', nextItems);
+            toast.success("PDF ajouté au tableau partagé.");
+        } catch (err) {
+            toast.error("Impossible d'importer le PDF.");
+        } finally {
+            setUploadingPdf(false);
+        }
+    };
+
+    const applyNotesFormat = (command: string) => {
+        notesRef.current?.focus();
+        document.execCommand(command);
+        handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
     };
 
     // Whiteboard Draw Logic
@@ -474,12 +534,22 @@ export default function VirtualClassroom() {
                         <div className={cn("flex-1 flex flex-col", activeTab !== 'notes' && "hidden")}>
                             <div className="px-6 md:px-8 flex-1 flex flex-col">
                                 <h2 className="text-xl md:text-2xl font-black text-[#0D2D5A] mb-1 md:mb-1 uppercase tracking-tighter">Notes <span className="text-blue-600">Live</span></h2>
-                                <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-4 md:mb-8">Compte-rendu partagé en temps réel</p>
-                                <textarea
-                                    className="flex-1 w-full text-sm leading-relaxed text-slate-600 focus:outline-none resize-none border-none p-0 placeholder:italic bg-transparent"
-                                    placeholder="Commencez à rédiger..."
-                                    value={notes}
-                                    onChange={(e) => handleWorkspaceUpdate('notes', e.target.value)}
+                                <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-3">Compte-rendu partagé en temps réel</p>
+                                <div className="flex items-center gap-1 mb-3 pb-3 border-b border-slate-100">
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('bold')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Gras"><Bold className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('italic')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Italique"><Italic className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('underline')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Souligné"><Underline className="w-3.5 h-3.5" /></button>
+                                    <div className="w-px h-4 bg-slate-100 mx-1" />
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('insertUnorderedList')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Liste à puces"><List className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('insertOrderedList')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Liste numérotée"><ListOrdered className="w-3.5 h-3.5" /></button>
+                                </div>
+                                <div
+                                    ref={notesRef}
+                                    contentEditable
+                                    suppressContentEditableWarning
+                                    onInput={(e) => handleWorkspaceUpdate('notes', (e.target as HTMLDivElement).innerHTML)}
+                                    className="flex-1 w-full text-sm leading-relaxed text-slate-600 focus:outline-none overflow-y-auto [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 empty:before:content-[attr(data-placeholder)] empty:before:italic empty:before:text-slate-400"
+                                    data-placeholder="Commencez à rédiger..."
                                 />
                             </div>
                         </div>
@@ -491,23 +561,40 @@ export default function VirtualClassroom() {
                                     <button onClick={() => setTool('pen')} className={`p-2 rounded-xl transition-all ${tool === 'pen' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Palette className="w-4 h-4" /></button>
                                     <button onClick={() => setTool('eraser')} className={`p-2 rounded-xl transition-all ${tool === 'eraser' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Eraser className="w-4 h-4" /></button>
                                     <button onClick={() => setShowYoutubeInput(v => !v)} className={`p-2 rounded-xl transition-all ${showYoutubeInput ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Importer une vidéo YouTube"><Youtube className="w-4 h-4" /></button>
+                                    <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} className="p-2 rounded-xl transition-all bg-slate-50 text-slate-400 disabled:opacity-50" title="Importer un PDF">
+                                        {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                                    </button>
+                                    <input ref={pdfInputRef} type="file" accept="application/pdf" onChange={handlePdfSelected} className="hidden" />
                                 </div>
                                 <input type="color" value={drawColor} onChange={e => setDrawColor(e.target.value)} className="w-8 h-8 rounded-xl cursor-pointer shadow-sm border-2 border-slate-50" />
                             </div>
 
                             {showYoutubeInput && (
-                                <div className="flex gap-2">
-                                    <Input
-                                        autoFocus
-                                        placeholder="Collez un lien YouTube (https://youtube.com/watch?v=...)"
-                                        value={youtubeUrl}
-                                        onChange={(e) => setYoutubeUrl(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddYoutubeVideo(); }}
-                                        className="rounded-xl border-slate-100 bg-slate-50 text-sm"
-                                    />
-                                    <Button onClick={handleAddYoutubeVideo} className="rounded-xl bg-red-500 hover:bg-red-600 shrink-0">
-                                        <Plus className="w-4 h-4 mr-1" /> Importer
-                                    </Button>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex gap-2">
+                                        <Input
+                                            autoFocus
+                                            placeholder="Collez un lien YouTube (https://youtube.com/watch?v=...)"
+                                            value={youtubeUrl}
+                                            onChange={(e) => setYoutubeUrl(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleAddYoutubeVideo(); }}
+                                            className="rounded-xl border-slate-100 bg-slate-50 text-sm"
+                                        />
+                                        <Button onClick={handleAddYoutubeVideo} disabled={!previewYoutubeId} className="rounded-xl bg-red-500 hover:bg-red-600 shrink-0">
+                                            <Plus className="w-4 h-4 mr-1" /> Importer
+                                        </Button>
+                                    </div>
+                                    {previewYoutubeId && (
+                                        <div className="relative w-full max-w-xs aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-black">
+                                            <iframe
+                                                src={`https://www.youtube.com/embed/${previewYoutubeId}`}
+                                                title="Aperçu de la vidéo"
+                                                className="w-full h-full"
+                                                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                                                allowFullScreen
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -515,17 +602,29 @@ export default function VirtualClassroom() {
                                 <div className="flex gap-3 overflow-x-auto pb-1">
                                     {whiteboardItems.map((item) => (
                                         <div key={item.id} className="relative shrink-0 w-56 aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-black group">
-                                            <iframe
-                                                src={`https://www.youtube.com/embed/${item.videoId}`}
-                                                title={`Vidéo YouTube ${item.videoId}`}
-                                                className="w-full h-full"
-                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                allowFullScreen
-                                            />
+                                            {item.type === 'pdf' ? (
+                                                <a
+                                                    href={getFullAttachmentUrl(item.url)}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="flex flex-col items-center justify-center gap-2 w-full h-full bg-slate-800 text-white hover:bg-slate-700 transition-colors px-3"
+                                                >
+                                                    <FileText className="w-8 h-8 text-red-400" />
+                                                    <span className="text-[10px] font-bold text-center line-clamp-2">{item.name}</span>
+                                                </a>
+                                            ) : (
+                                                <iframe
+                                                    src={`https://www.youtube.com/embed/${item.videoId}`}
+                                                    title={`Vidéo YouTube ${item.videoId}`}
+                                                    className="w-full h-full"
+                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                    allowFullScreen
+                                                />
+                                            )}
                                             <button
-                                                onClick={() => handleRemoveYoutubeVideo(item.id)}
+                                                onClick={() => handleRemoveWhiteboardItem(item.id)}
                                                 className="absolute top-1 right-1 p-1 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-                                                title="Retirer la vidéo"
+                                                title="Retirer"
                                             >
                                                 <Trash2 className="w-3 h-3" />
                                             </button>
