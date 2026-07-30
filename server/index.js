@@ -3710,6 +3710,23 @@ async function notifyStudentsOfNewCourse(courseId, teacherId) {
   }
 }
 
+// Vérifie que l'utilisateur authentifié est bien le propriétaire du cours
+// (ou un admin) avant de permettre une modification de son catalogue —
+// chaque enseignant ne doit gérer que ses propres cours. Répond directement
+// et renvoie null si l'accès est refusé, sinon renvoie la ligne du cours.
+const requireCourseOwnership = async (req, res, courseId) => {
+  const [[course]] = await pool.query("SELECT created_by FROM courses WHERE id = ?", [courseId]);
+  if (!course) {
+    res.status(404).json({ message: "Cours introuvable." });
+    return null;
+  }
+  if (req.user?.role !== "admin" && req.user?.sub !== course.created_by) {
+    res.status(403).json({ message: "Vous ne pouvez gérer que les cours de votre propre catalogue." });
+    return null;
+  }
+  return course;
+};
+
 app.get("/api/courses", async (req, res) => {
   const { role, userId } = req.query;
   try {
@@ -3791,6 +3808,11 @@ app.post("/api/courses", authenticateRequest, async (req, res) => {
   if (!title || !subject || !level) {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
   }
+  // Un enseignant crée toujours un cours pour son propre catalogue — on ne
+  // fait jamais confiance à un `createdBy` fourni par le client, sinon
+  // n'importe quel enseignant pourrait planter un cours dans le catalogue
+  // d'un autre. Seul un admin peut créer un cours au nom d'un enseignant.
+  const ownerId = req.user?.role === "admin" ? (createdBy || req.user?.sub) : req.user?.sub;
   try {
     const courseId = crypto.randomUUID();
     // We try to insert with teacher_id/teacher_name since production DB has extra columns.
@@ -3799,7 +3821,7 @@ app.post("/api/courses", authenticateRequest, async (req, res) => {
       await pool.query(
         `INSERT INTO courses (id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, teacher_id, teacher_name)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, createdBy || null, createdBy || null, "Prof Demo"]
+        [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, ownerId || null, ownerId || null, "Prof Demo"]
       );
     } catch (innerErr) {
       if (innerErr.code === 'ER_BAD_FIELD_ERROR' || String(innerErr.message).includes("teacher_name")) {
@@ -3807,19 +3829,19 @@ app.post("/api/courses", authenticateRequest, async (req, res) => {
         await pool.query(
           `INSERT INTO courses (id, title, description, subject, level, mode, price, duration, status, cover_url, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, createdBy || null]
+          [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, ownerId || null]
         );
       } else {
         throw innerErr;
       }
     }
     const course = await fetchCourseDetails(courseId);
-    
+
     // Notification asynchrone des élèves
-    if (status === "published" && createdBy) {
-      notifyStudentsOfNewCourse(courseId, createdBy);
+    if (status === "published" && ownerId) {
+      notifyStudentsOfNewCourse(courseId, ownerId);
     }
-    
+
     res.status(201).json(course);
   } catch (error) {
     if (isDbConnectionError(error)) {
@@ -3828,7 +3850,7 @@ app.post("/api/courses", authenticateRequest, async (req, res) => {
         id: crypto.randomUUID(),
         title, description: description || "", subject, level,
         mode, price: parseFloat(price) || 0, duration, status,
-        coverUrl: coverUrl || null, createdBy: createdBy || null,
+        coverUrl: coverUrl || null, createdBy: ownerId || null,
         lessons: [], enrolledCount: 0,
         createdAt: new Date().toISOString()
       };
@@ -3847,6 +3869,7 @@ app.put("/api/courses/:courseId", authenticateRequest, async (req, res) => {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
   }
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(
       `UPDATE courses SET title=?, description=?, subject=?, level=?, mode=?, price=?, duration=?, status=?, cover_url=?
        WHERE id=?`,
@@ -3871,6 +3894,7 @@ app.delete("/api/courses/:courseId", authenticateRequest, async (req, res) => {
   if (req.user?.role !== "admin" && req.user?.role !== "teacher") return res.status(403).json({ message: "Acces refuse." });
   const { courseId } = req.params;
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(`DELETE FROM courses WHERE id = ?`, [courseId]);
     res.json({ success: true });
   } catch (error) {
@@ -3879,13 +3903,14 @@ app.delete("/api/courses/:courseId", authenticateRequest, async (req, res) => {
   }
 });
 
-app.put("/api/courses/:courseId/lessons/:lessonId", async (req, res) => {
+app.put("/api/courses/:courseId/lessons/:lessonId", authenticateRequest, async (req, res) => {
   const { courseId, lessonId } = req.params;
   const { title, content, videoUrl, order } = req.body ?? {};
   if (!title || !content) {
     return res.status(400).json({ message: "Titre et contenu obligatoires." });
   }
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(
       `UPDATE course_lessons SET title=?, content=?, video_url=?, order_index=? WHERE id=? AND course_id=?`,
       [title, content, videoUrl || null, order || 1, lessonId, courseId]
@@ -3898,9 +3923,10 @@ app.put("/api/courses/:courseId/lessons/:lessonId", async (req, res) => {
   }
 });
 
-app.delete("/api/courses/:courseId/lessons/:lessonId", async (req, res) => {
+app.delete("/api/courses/:courseId/lessons/:lessonId", authenticateRequest, async (req, res) => {
   const { courseId, lessonId } = req.params;
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(`DELETE FROM course_lessons WHERE id = ? AND course_id = ?`, [lessonId, courseId]);
     const course = await fetchCourseDetails(courseId, true);
     res.json(course);
@@ -3910,13 +3936,14 @@ app.delete("/api/courses/:courseId/lessons/:lessonId", async (req, res) => {
   }
 });
 
-app.post("/api/courses/:courseId/lessons", async (req, res) => {
+app.post("/api/courses/:courseId/lessons", authenticateRequest, async (req, res) => {
   const { courseId } = req.params;
   const { title, content, videoUrl, order = 1 } = req.body ?? {};
   if (!title || !content) {
     return res.status(400).json({ message: "Titre et contenu obligatoires." });
   }
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     const lessonId = crypto.randomUUID();
     await pool.query(
       `INSERT INTO course_lessons (id, course_id, title, content, video_url, order_index)
@@ -3931,7 +3958,7 @@ app.post("/api/courses/:courseId/lessons", async (req, res) => {
   }
 });
 
-app.post("/api/lessons/:lessonId/quizzes", async (req, res) => {
+app.post("/api/lessons/:lessonId/quizzes", authenticateRequest, async (req, res) => {
   const { lessonId } = req.params;
   const { title, instructions, totalPoints = 0 } = req.body ?? {};
   if (!title) {
@@ -3947,6 +3974,7 @@ app.post("/api/lessons/:lessonId/quizzes", async (req, res) => {
       return res.status(404).json({ message: "Lecon introuvable." });
     }
     const courseId = lessonRows[0].course_id;
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(
       `INSERT INTO quizzes (id, course_id, lesson_id, title, instructions, total_points)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -3960,23 +3988,24 @@ app.post("/api/lessons/:lessonId/quizzes", async (req, res) => {
   }
 });
 
-app.post("/api/quizzes/:quizId/questions", async (req, res) => {
+app.post("/api/quizzes/:quizId/questions", authenticateRequest, async (req, res) => {
   const { quizId } = req.params;
   const { prompt, choices, correctAnswer, points = 1 } = req.body ?? {};
   if (!prompt || !Array.isArray(choices) || choices.length === 0 || !correctAnswer) {
     return res.status(400).json({ message: "Question invalide." });
   }
   try {
+    const [quizRow] = await pool.query(`SELECT course_id FROM quizzes WHERE id = ?`, [quizId]);
+    if (!quizRow.length) {
+      return res.status(404).json({ message: "Quiz introuvable." });
+    }
+    if (!(await requireCourseOwnership(req, res, quizRow[0].course_id))) return;
     const questionId = crypto.randomUUID();
     await pool.query(
       `INSERT INTO quiz_questions (id, quiz_id, prompt, choices, correct_answer, points)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [questionId, quizId, prompt, JSON.stringify(choices), correctAnswer, points]
     );
-    const [quizRow] = await pool.query(`SELECT course_id FROM quizzes WHERE id = ?`, [quizId]);
-    if (!quizRow.length) {
-      return res.status(404).json({ message: "Quiz introuvable apres creation." });
-    }
     const course = await fetchCourseDetails(quizRow[0].course_id, true);
     res.status(201).json(course);
   } catch (error) {
@@ -4014,17 +4043,18 @@ app.get("/api/quizzes/:quizId", async (req, res) => {
   }
 });
 
-app.post("/api/courses/:courseId/enrollments", async (req, res) => {
+app.post("/api/courses/:courseId/enrollments", authenticateRequest, async (req, res) => {
   const { courseId } = req.params;
   const { studentId, studentName, assignedBy } = req.body ?? {};
   if (!studentId || !studentName) {
     return res.status(400).json({ message: "Informations eleve requises." });
   }
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(
-      `INSERT INTO course_enrollments (course_id, student_id, student_name, assigned_by)
-       VALUES (?, ?, ?, ?)`,
-      [courseId, studentId, studentName, assignedBy || null]
+      `INSERT INTO course_enrollments (id, course_id, student_id, student_name, assigned_by)
+       VALUES (?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), courseId, studentId, studentName, assignedBy || req.user?.sub || null]
     );
     const course = await fetchCourseDetails(courseId);
 
