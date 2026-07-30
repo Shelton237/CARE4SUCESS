@@ -548,37 +548,6 @@ export default function Home() {
       </section>
 
       {/* ══════════════════════════════════════════════════════
-          §7 — BANDEAU COMMUNAUTÉ
-          ══════════════════════════════════════════════════════ */}
-      <section className="py-16" style={{ backgroundColor: "#4F7A5C" }}>
-        <div className="container mx-auto px-6 grid md:grid-cols-2 gap-10 items-center">
-          <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={springPresets.gentle}>
-            <h2 className="text-2xl md:text-3xl font-black text-white mb-4 leading-tight">
-              Rejoignez une communauté d'enseignants engagés à travers l'Afrique francophone.
-            </h2>
-            <p className="text-white/80 text-sm mb-6 max-w-md">
-              Ensemble, nous transformons chaque savoir-faire en opportunité — pour rendre l'éducation accessible et de qualité, partout où nous sommes présents.
-            </p>
-            <NavLink
-              to={ROUTE_PATHS.DEVENIR_PROFESSEUR}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#0D2D5A] text-white font-bold text-sm hover:bg-black transition-colors"
-            >
-              Comment ça marche ? <ArrowRight className="w-4 h-4" />
-            </NavLink>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={springPresets.gentle}
-            className="rounded-2xl overflow-hidden shadow-xl"
-          >
-            <img src={IMAGES.STUDENTS_STUDYING_3} alt="Communauté Care4Success" className="w-full h-64 object-cover" />
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════
           §8 — APPLICATION MOBILE
           ══════════════════════════════════════════════════════ */}
       <section className="py-20 bg-white relative overflow-hidden">
