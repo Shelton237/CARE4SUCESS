@@ -2895,6 +2895,50 @@ app.patch("/api/sessions/:id/sync", async (req, res) => {
   }
 });
 
+// Retrouve le contenu (notes, tableau, code) de la derniere seance passee
+// entre le meme enseignant et le meme eleve qui contient reellement quelque
+// chose — pour proposer de reprendre le fil d'une seance a l'autre plutot
+// que de repartir d'une page blanche a chaque fois.
+app.get("/api/sessions/:id/previous-workspace", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[current]] = await pool.query(
+      "SELECT teacher_id, student_id, session_date, session_time FROM sessions WHERE id = ?",
+      [id]
+    );
+    if (!current) return res.status(404).json({ message: "Séance introuvable." });
+
+    const [[previous]] = await pool.query(
+      `SELECT id, session_date, notes, whiteboard_data, whiteboard_items, code_data
+       FROM sessions
+       WHERE teacher_id = ? AND student_id = ? AND id != ?
+         AND (session_date < ? OR (session_date = ? AND session_time < ?))
+         AND (
+           (notes IS NOT NULL AND notes != '') OR
+           whiteboard_data IS NOT NULL OR
+           (whiteboard_items IS NOT NULL AND whiteboard_items != '[]') OR
+           (code_data IS NOT NULL AND code_data != '')
+         )
+       ORDER BY session_date DESC, session_time DESC
+       LIMIT 1`,
+      [current.teacher_id, current.student_id, id, current.session_date, current.session_date, current.session_time]
+    );
+
+    if (!previous) return res.json(null);
+    res.json({
+      sessionId: previous.id,
+      sessionDate: formatDate(previous.session_date),
+      notes: previous.notes,
+      whiteboardData: previous.whiteboard_data,
+      whiteboardItems: parseJson(previous.whiteboard_items, []),
+      codeData: previous.code_data,
+    });
+  } catch (error) {
+    console.error("Failed to fetch previous workspace", error);
+    res.status(500).json({ message: "Impossible de récupérer le cours précédent." });
+  }
+});
+
 app.patch("/api/sessions/:id/status", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
