@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import {
   ArrowRight, Users, ShieldCheck, Wallet, CreditCard, ClipboardCheck,
-  BadgeCheck, CalendarCheck, BookOpen, ChevronDown,
+  BadgeCheck, CalendarCheck, BookOpen, ChevronDown, ChevronLeft, ChevronRight,
   Smartphone, Download, GraduationCap, CheckCircle, Star, Monitor,
 } from "lucide-react";
 import { fetchPublicTeachers } from "@/api/public";
@@ -71,6 +71,92 @@ const BECOME_TEACHER_BENEFITS = [
   { icon: CalendarCheck, label: "Fixez vos disponibilités et vos tarifs" },
   { icon: CreditCard, label: "Paiement Mobile Money sécurisé" },
 ];
+
+// Vraies captures d'écran de la plateforme sur mobile — jamais de maquette
+// générée.
+const APP_SCREENSHOTS = [
+  { src: "/images/app-screens/screen-4-hero.jpg", alt: "Accueil Care4Success sur mobile" },
+  { src: "/images/app-screens/screen-1-welcome.jpg", alt: "Choix du profil à l'inscription" },
+  { src: "/images/app-screens/screen-2-matieres.jpg", alt: "Catalogue de matières" },
+  { src: "/images/app-screens/screen-3-fonctionnement.jpg", alt: "Mode de fonctionnement" },
+];
+
+function AppScreensCarousel() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+
+  const scrollToIndex = (i: number) => {
+    const el = scrollRef.current;
+    const child = el?.children[i] as HTMLElement | undefined;
+    child?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    setActive(i);
+  };
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const center = el.scrollLeft + el.clientWidth / 2;
+    let closest = 0;
+    let closestDist = Infinity;
+    Array.from(el.children).forEach((c, i) => {
+      const child = c as HTMLElement;
+      const dist = Math.abs(child.offsetLeft + child.offsetWidth / 2 - center);
+      if (dist < closestDist) { closestDist = dist; closest = i; }
+    });
+    setActive(closest);
+  };
+
+  return (
+    <div className="relative">
+      <div className="hidden md:flex">
+        <button
+          type="button"
+          onClick={() => scrollToIndex(Math.max(0, active - 1))}
+          className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          aria-label="Écran précédent"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToIndex(Math.min(APP_SCREENSHOTS.length - 1, active + 1))}
+          className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          aria-label="Écran suivant"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex gap-5 overflow-x-auto snap-x snap-mandatory pb-1 scroll-smooth"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {APP_SCREENSHOTS.map(s => (
+          <div key={s.src} className="snap-center shrink-0 w-48">
+            <div className="relative bg-slate-900 rounded-[28px] border-[5px] border-slate-700 shadow-2xl overflow-hidden">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-4 bg-slate-700 rounded-b-xl z-20" />
+              <img src={s.src} alt={s.alt} className="w-full h-auto block" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-center gap-2 mt-5">
+        {APP_SCREENSHOTS.map((s, i) => (
+          <button
+            key={s.src}
+            type="button"
+            onClick={() => scrollToIndex(i)}
+            aria-label={`Aller à l'écran ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all ${active === i ? "w-6 bg-[#F5A623]" : "w-1.5 bg-white/25"}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /* ─── COMPOSANT PRINCIPAL ─────────────────────── */
 export default function Home() {
@@ -548,7 +634,7 @@ export default function Home() {
       </section>
 
       {/* ══════════════════════════════════════════════════════
-          §8 — APPLICATION MOBILE
+          §8 — APPLICATION MOBILE (vraies captures d'écran)
           ══════════════════════════════════════════════════════ */}
       <section className="py-20 bg-white relative overflow-hidden">
         <div className="container mx-auto px-6">
@@ -557,8 +643,8 @@ export default function Home() {
             <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-[#F5A623]/10 blur-3xl pointer-events-none" />
             <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-[#1A6CC8]/20 blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 grid md:grid-cols-12 gap-8 items-center">
-              <div className="md:col-span-7 space-y-6">
+            <div className="relative z-10 grid md:grid-cols-12 gap-10 items-center">
+              <div className="md:col-span-6 space-y-6">
                 <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F5A623]/20 border border-[#F5A623]/30 text-[#F5A623] text-xs font-black uppercase tracking-widest">
                   <Smartphone className="w-3.5 h-3.5" />
                   Application Android
@@ -590,16 +676,8 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="md:col-span-5 flex justify-center">
-                <div className="relative w-56 h-96 bg-slate-900 rounded-[36px] border-[6px] border-slate-700 shadow-2xl overflow-hidden flex flex-col justify-between p-3">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-5 bg-slate-700 rounded-b-2xl z-20" />
-                  <div className="relative w-full h-full bg-[#0D2D5A] rounded-[26px] overflow-hidden flex flex-col justify-center items-center gap-3 p-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20">
-                      <GraduationCap className="w-7 h-7 text-[#F5A623]" />
-                    </div>
-                    <h4 className="text-sm font-black text-white uppercase tracking-wide">Care4Success</h4>
-                  </div>
-                </div>
+              <div className="md:col-span-6">
+                <AppScreensCarousel />
               </div>
             </div>
           </div>
