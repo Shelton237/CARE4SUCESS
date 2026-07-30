@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import {
   ArrowRight, Users, ShieldCheck, Wallet, CreditCard, ClipboardCheck,
@@ -82,75 +82,72 @@ const APP_SCREENSHOTS = [
 ];
 
 function AppScreensCarousel() {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
+  const [direction, setDirection] = useState(0);
 
-  const scrollToIndex = (i: number) => {
-    const el = scrollRef.current;
-    const child = el?.children[i] as HTMLElement | undefined;
-    child?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  const goTo = (i: number) => {
+    setDirection(i > active ? 1 : -1);
     setActive(i);
   };
 
-  const handleScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const center = el.scrollLeft + el.clientWidth / 2;
-    let closest = 0;
-    let closestDist = Infinity;
-    Array.from(el.children).forEach((c, i) => {
-      const child = c as HTMLElement;
-      const dist = Math.abs(child.offsetLeft + child.offsetWidth / 2 - center);
-      if (dist < closestDist) { closestDist = dist; closest = i; }
-    });
-    setActive(closest);
-  };
-
   return (
-    <div className="relative">
-      <div className="hidden md:flex">
+    <div className="relative flex flex-col items-center">
+      <div className="relative flex items-center justify-center gap-4 md:gap-6">
         <button
           type="button"
-          onClick={() => scrollToIndex(Math.max(0, active - 1))}
-          className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          onClick={() => goTo(active === 0 ? APP_SCREENSHOTS.length - 1 : active - 1)}
+          className="shrink-0 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:border-[#1A6CC8]/40 hover:text-[#1A6CC8] flex items-center justify-center text-[#0D2D5A] transition-colors"
           aria-label="Écran précédent"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
+
+        <div className="relative w-56 h-[440px] shrink-0">
+          {/* Halo doux derrière le téléphone */}
+          <div className="absolute inset-0 bg-[#1A6CC8]/10 blur-3xl rounded-full scale-90 pointer-events-none" />
+
+          <AnimatePresence initial={false} custom={direction} mode="wait">
+            <motion.div
+              key={APP_SCREENSHOTS[active].src}
+              custom={direction}
+              initial={{ opacity: 0, x: direction * 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: direction * -40 }}
+              transition={springPresets.gentle}
+              className="absolute inset-0"
+            >
+              <div className="relative w-full h-full bg-slate-900 rounded-[32px] border-[6px] border-slate-800 shadow-xl overflow-hidden">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-5 bg-slate-800 rounded-b-2xl z-20" />
+                <img
+                  src={APP_SCREENSHOTS[active].src}
+                  alt={APP_SCREENSHOTS[active].alt}
+                  className="w-full h-full object-cover object-top"
+                />
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
         <button
           type="button"
-          onClick={() => scrollToIndex(Math.min(APP_SCREENSHOTS.length - 1, active + 1))}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          onClick={() => goTo(active === APP_SCREENSHOTS.length - 1 ? 0 : active + 1)}
+          className="shrink-0 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:border-[#1A6CC8]/40 hover:text-[#1A6CC8] flex items-center justify-center text-[#0D2D5A] transition-colors"
           aria-label="Écran suivant"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex gap-5 overflow-x-auto snap-x snap-mandatory pb-1 scroll-smooth"
-        style={{ scrollbarWidth: "none" }}
-      >
-        {APP_SCREENSHOTS.map(s => (
-          <div key={s.src} className="snap-center shrink-0 w-48">
-            <div className="relative bg-slate-900 rounded-[28px] border-[5px] border-slate-700 shadow-2xl overflow-hidden">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-4 bg-slate-700 rounded-b-xl z-20" />
-              <img src={s.src} alt={s.alt} className="w-full h-auto block" />
-            </div>
-          </div>
-        ))}
-      </div>
+      <p className="text-xs font-bold text-[#0D2D5A] mt-6 mb-3">{APP_SCREENSHOTS[active].alt}</p>
 
-      <div className="flex items-center justify-center gap-2 mt-5">
+      <div className="flex items-center justify-center gap-2">
         {APP_SCREENSHOTS.map((s, i) => (
           <button
             key={s.src}
             type="button"
-            onClick={() => scrollToIndex(i)}
+            onClick={() => goTo(i)}
             aria-label={`Aller à l'écran ${i + 1}`}
-            className={`h-1.5 rounded-full transition-all ${active === i ? "w-6 bg-[#F5A623]" : "w-1.5 bg-white/25"}`}
+            className={`h-1.5 rounded-full transition-all ${active === i ? "w-6 bg-[#1A6CC8]" : "w-1.5 bg-gray-200"}`}
           />
         ))}
       </div>
@@ -636,50 +633,56 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════
           §8 — APPLICATION MOBILE (vraies captures d'écran)
           ══════════════════════════════════════════════════════ */}
-      <section className="py-20 bg-white relative overflow-hidden">
+      <section className="py-20 bg-white">
         <div className="container mx-auto px-6">
-          <div className="relative rounded-3xl bg-gradient-to-br from-[#0D2D5A] via-[#0b2447] to-[#1A6CC8] overflow-hidden p-8 md:p-12 lg:p-16 shadow-2xl">
-            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
-            <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-[#F5A623]/10 blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-[#1A6CC8]/20 blur-3xl pointer-events-none" />
+          <div className="grid md:grid-cols-12 gap-12 items-center">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={springPresets.gentle}
+              className="md:col-span-6 space-y-6"
+            >
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1A6CC8]/8 border border-[#1A6CC8]/15 text-[#1A6CC8] text-xs font-black uppercase tracking-widest">
+                <Smartphone className="w-3.5 h-3.5" />
+                Application Android
+              </span>
 
-            <div className="relative z-10 grid md:grid-cols-12 gap-10 items-center">
-              <div className="md:col-span-6 space-y-6">
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F5A623]/20 border border-[#F5A623]/30 text-[#F5A623] text-xs font-black uppercase tracking-widest">
-                  <Smartphone className="w-3.5 h-3.5" />
-                  Application Android
-                </span>
+              <h2 className="text-3xl md:text-4xl font-black text-[#0D2D5A] leading-tight">
+                Toute l'expérience Care4Success dans votre poche
+              </h2>
 
-                <h2 className="text-3xl md:text-4xl font-black text-white leading-tight">
-                  Toute l'expérience Care4Success dans votre poche
-                </h2>
+              <p className="text-gray-500 text-sm leading-relaxed max-w-lg">
+                Suivez vos cours, communiquez avec votre enseignant et gérez vos devoirs directement depuis votre smartphone.
+              </p>
 
-                <p className="text-blue-100 text-sm leading-relaxed max-w-lg">
-                  Suivez vos cours, communiquez avec votre enseignant et gérez vos devoirs directement depuis votre smartphone.
-                </p>
+              <ul className="space-y-2.5 text-sm">
+                <li className="flex items-center gap-3 text-[#0D2D5A] font-medium"><CheckCircle className="w-4 h-4 text-[#1A6CC8] shrink-0" /> Accès instantané aux cours en ligne</li>
+                <li className="flex items-center gap-3 text-[#0D2D5A] font-medium"><CheckCircle className="w-4 h-4 text-[#1A6CC8] shrink-0" /> Notifications push en temps réel</li>
+                <li className="flex items-center gap-3 text-[#0D2D5A] font-medium"><CheckCircle className="w-4 h-4 text-[#1A6CC8] shrink-0" /> Optimisée pour les connexions lentes</li>
+              </ul>
 
-                <ul className="space-y-2.5 text-blue-100 text-sm">
-                  <li className="flex items-center gap-3"><CheckCircle className="w-4 h-4 text-[#F5A623] shrink-0" /> Accès instantané aux cours en ligne</li>
-                  <li className="flex items-center gap-3"><CheckCircle className="w-4 h-4 text-[#F5A623] shrink-0" /> Notifications push en temps réel</li>
-                  <li className="flex items-center gap-3"><CheckCircle className="w-4 h-4 text-[#F5A623] shrink-0" /> Optimisée pour les connexions lentes</li>
-                </ul>
-
-                <div className="flex flex-wrap gap-4 pt-2">
-                  <a
-                    href="/app-release-signed.apk"
-                    download="Care4Success.apk"
-                    id="download-apk-btn"
-                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-[#F5A623] text-[#0D2D5A] font-black text-sm shadow-lg hover:shadow-xl transition-shadow"
-                  >
-                    <Download className="w-4 h-4" /> Télécharger l'APK
-                  </a>
-                </div>
+              <div className="flex flex-wrap gap-4 pt-2">
+                <a
+                  href="/app-release-signed.apk"
+                  download="Care4Success.apk"
+                  id="download-apk-btn"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#1A6CC8] text-white font-bold text-sm shadow-md hover:bg-[#0D2D5A] transition-colors"
+                >
+                  <Download className="w-4 h-4" /> Télécharger l'APK — gratuit
+                </a>
               </div>
+            </motion.div>
 
-              <div className="md:col-span-6">
-                <AppScreensCarousel />
-              </div>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ ...springPresets.gentle, delay: 0.1 }}
+              className="md:col-span-6"
+            >
+              <AppScreensCarousel />
+            </motion.div>
           </div>
         </div>
       </section>
