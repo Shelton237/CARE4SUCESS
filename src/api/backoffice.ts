@@ -596,6 +596,18 @@ export const sessionCheckIn = (sessionId: string) =>
 export const sessionCheckOut = (sessionId: string) =>
     request<{ success: boolean }>(`/sessions/${sessionId}/check-out`, { method: "PATCH" });
 
+export type PreviousWorkspace = {
+    sessionId: string;
+    sessionDate: string;
+    notes: string | null;
+    whiteboardData: string | null;
+    whiteboardItems: any[];
+    codeData: string | null;
+};
+
+export const fetchPreviousWorkspace = (sessionId: string) =>
+    request<PreviousWorkspace | null>(`/sessions/${sessionId}/previous-workspace`);
+
 export const submitSessionReport = (sessionId: string, payload: {
     reportText: string;
     understandingScore: number;

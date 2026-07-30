@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { fetchScheduleByRole, fetchCourseDetails, uploadMessageAttachment } from "@/api/backoffice";
+import { fetchScheduleByRole, fetchCourseDetails, uploadMessageAttachment, fetchPreviousWorkspace } from "@/api/backoffice";
 import { jsPDF } from "jspdf";
 import {
     Loader2,
@@ -30,7 +30,11 @@ import {
     Underline,
     List,
     ListOrdered,
-    Paperclip
+    Paperclip,
+    Heading3,
+    Quote,
+    Link2,
+    History
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -170,6 +174,48 @@ export default function VirtualClassroom() {
 
     const currentSession = schedule?.find(s => s.id === sessionId);
 
+    // Continuité entre séances : propose de reprendre le contenu de la
+    // dernière séance (même prof + élève) si la séance courante est encore vierge.
+    const [previousBannerDismissed, setPreviousBannerDismissed] = useState(false);
+    const { data: previousWorkspace } = useQuery({
+        queryKey: ["previous-workspace", sessionId],
+        queryFn: () => fetchPreviousWorkspace(sessionId!),
+        enabled: Boolean(sessionId),
+        staleTime: Infinity,
+    });
+
+    const isCurrentWorkspaceEmpty = useMemo(() => {
+        const notesEmpty = !currentSession?.notes || currentSession.notes.trim() === "" || currentSession.notes === "<br>";
+        const whiteboardItemsEmpty = !Array.isArray(currentSession?.whiteboardItems) || currentSession.whiteboardItems.length === 0;
+        const canvasEmpty = !currentSession?.whiteboardData;
+        const codeEmpty = !currentSession?.codeData || currentSession.codeData === "// Saisissez votre code ici...";
+        return notesEmpty && whiteboardItemsEmpty && canvasEmpty && codeEmpty;
+    }, [currentSession]);
+
+    const showResumeBanner = !previousBannerDismissed && isCurrentWorkspaceEmpty && Boolean(previousWorkspace);
+
+    const handleResumePreviousSession = () => {
+        if (!previousWorkspace) return;
+        if (notesRef.current) notesRef.current.innerHTML = previousWorkspace.notes || "";
+        const resumedItems = normalizeWhiteboardItems(previousWorkspace.whiteboardItems || []);
+        setWhiteboardItems(resumedItems);
+        setCode(previousWorkspace.codeData || "// Saisissez votre code ici...");
+        if (previousWorkspace.whiteboardData && canvasRef.current) {
+            const ctx = canvasRef.current.getContext('2d');
+            const img = new Image();
+            img.onload = () => ctx?.drawImage(img, 0, 0);
+            img.src = previousWorkspace.whiteboardData;
+        }
+        syncWorkspace({
+            notes: previousWorkspace.notes || "",
+            codeData: previousWorkspace.codeData || "",
+            whiteboardItems: resumedItems,
+            whiteboardData: previousWorkspace.whiteboardData || undefined,
+        });
+        setPreviousBannerDismissed(true);
+        toast.success("Contenu du cours précédent repris.");
+    };
+
     // Sync incoming data
     useEffect(() => {
         if (!isEditingRef.current && currentSession) {
@@ -292,6 +338,34 @@ export default function VirtualClassroom() {
     const applyNotesFormat = (command: string) => {
         notesRef.current?.focus();
         document.execCommand(command);
+        handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+    };
+
+    const applyNotesBlock = (tag: "h3" | "blockquote") => {
+        notesRef.current?.focus();
+        document.execCommand("formatBlock", false, tag);
+        handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+    };
+
+    const applyNotesLink = () => {
+        const url = window.prompt("Adresse du lien (https://...)");
+        if (!url) return;
+        notesRef.current?.focus();
+        document.execCommand("createLink", false, url);
+        handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+    };
+
+    // Si on colle uniquement un lien YouTube (rien d'autre autour), on
+    // l'intègre directement en aperçu vidéo au lieu de l'URL en texte brut —
+    // le bloc est non-éditable (contenteditable="false") pour rester un îlot
+    // atomique dans la zone de texte enrichi, comme dans Notion/Slack.
+    const handleNotesPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+        const pasted = e.clipboardData.getData("text/plain").trim();
+        const videoId = pasted ? extractYouTubeId(pasted) : null;
+        if (!videoId) return;
+        e.preventDefault();
+        const embedHtml = `<div contenteditable="false" class="c4s-yt-embed" style="position:relative;width:100%;max-width:320px;aspect-ratio:16/9;margin:8px 0;border-radius:12px;overflow:hidden;background:#000;"><iframe src="https://www.youtube.com/embed/${videoId}" style="width:100%;height:100%;border:0;" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div><p><br></p>`;
+        document.execCommand("insertHTML", false, embedHtml);
         handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
     };
 
@@ -535,6 +609,23 @@ export default function VirtualClassroom() {
                             <div className="px-6 md:px-8 flex-1 flex flex-col">
                                 <h2 className="text-xl md:text-2xl font-black text-[#0D2D5A] mb-1 md:mb-1 uppercase tracking-tighter">Notes <span className="text-blue-600">Live</span></h2>
                                 <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-3">Compte-rendu partagé en temps réel</p>
+                                {showResumeBanner && (
+                                    <div className="mb-3 p-3 rounded-xl bg-blue-50 border border-blue-100 flex items-start gap-2.5">
+                                        <History className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="text-[11px] font-black text-[#0D2D5A]">Reprendre le cours précédent ?</p>
+                                            <p className="text-[10px] text-slate-500 mt-0.5">Séance du {previousWorkspace?.sessionDate} — notes et ressources disponibles pour continuer.</p>
+                                            <div className="flex gap-2 mt-2">
+                                                <Button size="sm" onClick={handleResumePreviousSession} className="h-7 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-700">
+                                                    Reprendre
+                                                </Button>
+                                                <Button size="sm" variant="ghost" onClick={() => setPreviousBannerDismissed(true)} className="h-7 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600">
+                                                    Ignorer
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-1 mb-3 pb-3 border-b border-slate-100">
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('bold')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Gras"><Bold className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('italic')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Italique"><Italic className="w-3.5 h-3.5" /></button>
@@ -542,13 +633,18 @@ export default function VirtualClassroom() {
                                     <div className="w-px h-4 bg-slate-100 mx-1" />
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('insertUnorderedList')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Liste à puces"><List className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('insertOrderedList')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Liste numérotée"><ListOrdered className="w-3.5 h-3.5" /></button>
+                                    <div className="w-px h-4 bg-slate-100 mx-1" />
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesBlock('h3')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Titre"><Heading3 className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesBlock('blockquote')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Citation"><Quote className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={applyNotesLink} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Insérer un lien"><Link2 className="w-3.5 h-3.5" /></button>
                                 </div>
                                 <div
                                     ref={notesRef}
                                     contentEditable
                                     suppressContentEditableWarning
                                     onInput={(e) => handleWorkspaceUpdate('notes', (e.target as HTMLDivElement).innerHTML)}
-                                    className="flex-1 w-full text-sm leading-relaxed text-slate-600 focus:outline-none overflow-y-auto [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 empty:before:content-[attr(data-placeholder)] empty:before:italic empty:before:text-slate-400"
+                                    onPaste={handleNotesPaste}
+                                    className="flex-1 w-full text-sm leading-relaxed text-slate-600 focus:outline-none overflow-y-auto [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h3]:text-base [&_h3]:font-black [&_h3]:text-[#0D2D5A] [&_h3]:uppercase [&_h3]:tracking-tight [&_h3]:mt-3 [&_h3]:mb-1 [&_blockquote]:border-l-2 [&_blockquote]:border-blue-200 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-slate-500 [&_a]:text-blue-600 [&_a]:underline empty:before:content-[attr(data-placeholder)] empty:before:italic empty:before:text-slate-400"
                                     data-placeholder="Commencez à rédiger..."
                                 />
                             </div>
