@@ -9,9 +9,11 @@ import {
     TrendingUp,
     History,
     FileQuestion,
-    Library
+    Library,
+    FileText
 } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { useAuth } from "@/contexts/AuthContext";
 import StudentDashboard from "./Dashboard";
 import StudentSchedule from "./Schedule";
 import StudentTeachers from "./Teachers";
@@ -22,6 +24,7 @@ import StudentCourses from "./Courses";
 import StudentMessages from "./Messages";
 import StudentHistory from "./History";
 import StudentResources from "./Resources";
+import AcademicFile from "../common/AcademicFile";
 
 const NAV = [
     { to: "/student", label: "Dashboard", icon: LayoutDashboard },
@@ -32,11 +35,14 @@ const NAV = [
     { to: "/student/quizzes", label: "Tests & Quiz", icon: FileQuestion },
     { to: "/student/courses", label: "Mes Cours", icon: BookOpen },
     { to: "/student/progress", label: "Mes Notes", icon: TrendingUp },
+    { to: "/student/academic-file", label: "Mon Dossier", icon: FileText },
     { to: "/student/history", label: "Historique Cours", icon: History },
     { to: "/student/resources", label: "Bibliothèque", icon: Library },
 ];
 
 export default function StudentLayout() {
+    const { user } = useAuth();
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
             <DashboardSidebar items={NAV} roleLabel="Élève" roleColor="#1A6CC8" />
@@ -49,6 +55,7 @@ export default function StudentLayout() {
                     <Route path="quizzes" element={<StudentQuizzes />} />
                     <Route path="courses" element={<StudentCourses />} />
                     <Route path="progress" element={<StudentProgress />} />
+                    <Route path="academic-file" element={<AcademicFile studentId={user?.id || ""} />} />
                     <Route path="messages" element={<StudentMessages />} />
                     <Route path="history" element={<StudentHistory />} />
                     <Route path="resources" element={<StudentResources />} />
