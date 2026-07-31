@@ -165,6 +165,7 @@ export default function VirtualClassroom() {
     const pdfInputRef = useRef<HTMLInputElement>(null);
     const [uploadingPdf, setUploadingPdf] = useState(false);
     const [boardExpanded, setBoardExpanded] = useState(false);
+    const [notesExpanded, setNotesExpanded] = useState(false);
 
     // Session Management State
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -629,7 +630,11 @@ export default function VirtualClassroom() {
                     "bg-white shadow-2xl transition-all duration-500 flex flex-col relative overflow-hidden",
                     activeTab === 'video' ? "hidden md:flex" : "flex",
                     !showSidebar && "w-0 md:w-0",
-                    showSidebar && (boardExpanded && activeTab === 'whiteboard' ? "w-full md:w-[75vw] md:max-w-[1100px]" : "w-full md:w-[450px]")
+                    showSidebar && (
+                        (boardExpanded && activeTab === 'whiteboard') || (notesExpanded && activeTab === 'notes')
+                            ? "w-full md:w-[75vw] md:max-w-[1100px]"
+                            : "w-full md:w-[450px]"
+                    )
                 )}>
                     <div className="absolute top-4 right-4 z-10 hidden md:block">
                         {isSaving ? (
@@ -647,8 +652,19 @@ export default function VirtualClassroom() {
                         {/* Notes View */}
                         <div className={cn("flex-1 flex flex-col", activeTab !== 'notes' && "hidden")}>
                             <div className="px-6 md:px-8 flex-1 flex flex-col">
-                                <h2 className="text-xl md:text-2xl font-black text-[#0D2D5A] mb-1 md:mb-1 uppercase tracking-tighter">Notes <span className="text-blue-600">Live</span></h2>
-                                <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-3">Compte-rendu partagé en temps réel</p>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <h2 className="text-xl md:text-2xl font-black text-[#0D2D5A] mb-1 md:mb-1 uppercase tracking-tighter">Notes <span className="text-blue-600">Live</span></h2>
+                                        <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-3">Compte-rendu partagé en temps réel</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setNotesExpanded(v => !v)}
+                                        className={`hidden md:flex p-2 rounded-xl transition-all shrink-0 ${notesExpanded ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
+                                        title={notesExpanded ? "Réduire les notes" : "Agrandir les notes"}
+                                    >
+                                        {notesExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                                    </button>
+                                </div>
                                 {showResumeBanner && (
                                     <div className="mb-3 p-3 rounded-xl bg-blue-50 border border-blue-100 flex items-start gap-2.5">
                                         <History className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
@@ -755,15 +771,23 @@ export default function VirtualClassroom() {
                                     {whiteboardItems.map((item) => (
                                         <div key={item.id} className="relative shrink-0 w-56 aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-black group">
                                             {item.type === 'pdf' ? (
-                                                <a
-                                                    href={getFullAttachmentUrl(item.url)}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="flex flex-col items-center justify-center gap-2 w-full h-full bg-slate-800 text-white hover:bg-slate-700 transition-colors px-3"
-                                                >
-                                                    <FileText className="w-8 h-8 text-red-400" />
-                                                    <span className="text-[10px] font-bold text-center line-clamp-2">{item.name}</span>
-                                                </a>
+                                                <div className="relative w-full h-full bg-white">
+                                                    <iframe
+                                                        src={`${getFullAttachmentUrl(item.url)}#toolbar=0&navpanes=0`}
+                                                        title={item.name}
+                                                        className="w-full h-full border-0"
+                                                    />
+                                                    <a
+                                                        href={getFullAttachmentUrl(item.url)}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="absolute bottom-1 left-1 right-1 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/85"
+                                                        title="Ouvrir en plein écran"
+                                                    >
+                                                        <FileText className="w-3 h-3 text-red-400 shrink-0" />
+                                                        <span className="text-[9px] font-bold truncate">{item.name}</span>
+                                                    </a>
+                                                </div>
                                             ) : (
                                                 <iframe
                                                     src={`https://www.youtube.com/embed/${item.videoId}`}
