@@ -34,7 +34,15 @@ import {
     Heading3,
     Quote,
     Link2,
-    History
+    History,
+    Strikethrough,
+    Highlighter,
+    Code,
+    Undo2,
+    Redo2,
+    RemoveFormatting,
+    Maximize2,
+    Minimize2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -156,6 +164,7 @@ export default function VirtualClassroom() {
     const previewYoutubeId = useMemo(() => extractYouTubeId(youtubeUrl), [youtubeUrl]);
     const pdfInputRef = useRef<HTMLInputElement>(null);
     const [uploadingPdf, setUploadingPdf] = useState(false);
+    const [boardExpanded, setBoardExpanded] = useState(false);
 
     // Session Management State
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -352,6 +361,36 @@ export default function VirtualClassroom() {
         if (!url) return;
         notesRef.current?.focus();
         document.execCommand("createLink", false, url);
+        handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+    };
+
+    const applyNotesHighlight = () => {
+        notesRef.current?.focus();
+        document.execCommand("hiliteColor", false, "#FDE68A");
+        handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+    };
+
+    const applyNotesInlineCode = () => {
+        notesRef.current?.focus();
+        const text = window.getSelection()?.toString();
+        if (!text) return;
+        document.execCommand(
+            "insertHTML",
+            false,
+            `<code style="background:#F1F5F9;color:#0D2D5A;padding:1px 5px;border-radius:6px;font-family:monospace;font-size:0.85em;">${text}</code>`
+        );
+        handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+    };
+
+    const applyNotesHistory = (command: "undo" | "redo") => {
+        notesRef.current?.focus();
+        document.execCommand(command);
+        handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+    };
+
+    const applyNotesClearFormat = () => {
+        notesRef.current?.focus();
+        document.execCommand("removeFormat");
         handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
     };
 
@@ -589,7 +628,8 @@ export default function VirtualClassroom() {
                 <aside className={cn(
                     "bg-white shadow-2xl transition-all duration-500 flex flex-col relative overflow-hidden",
                     activeTab === 'video' ? "hidden md:flex" : "flex",
-                    showSidebar ? "w-full md:w-[450px]" : "w-0 md:w-0"
+                    !showSidebar && "w-0 md:w-0",
+                    showSidebar && (boardExpanded && activeTab === 'whiteboard' ? "w-full md:w-[75vw] md:max-w-[1100px]" : "w-full md:w-[450px]")
                 )}>
                     <div className="absolute top-4 right-4 z-10 hidden md:block">
                         {isSaving ? (
@@ -626,10 +666,13 @@ export default function VirtualClassroom() {
                                         </div>
                                     </div>
                                 )}
-                                <div className="flex items-center gap-1 mb-3 pb-3 border-b border-slate-100">
+                                <div className="flex items-center flex-wrap gap-y-1 gap-x-1 mb-3 pb-3 border-b border-slate-100">
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('bold')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Gras"><Bold className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('italic')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Italique"><Italic className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('underline')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Souligné"><Underline className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('strikeThrough')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Barré"><Strikethrough className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={applyNotesHighlight} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Surligner"><Highlighter className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={applyNotesInlineCode} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Code"><Code className="w-3.5 h-3.5" /></button>
                                     <div className="w-px h-4 bg-slate-100 mx-1" />
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('insertUnorderedList')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Liste à puces"><List className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('insertOrderedList')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Liste numérotée"><ListOrdered className="w-3.5 h-3.5" /></button>
@@ -637,6 +680,10 @@ export default function VirtualClassroom() {
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesBlock('h3')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Titre"><Heading3 className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesBlock('blockquote')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Citation"><Quote className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={applyNotesLink} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Insérer un lien"><Link2 className="w-3.5 h-3.5" /></button>
+                                    <div className="w-px h-4 bg-slate-100 mx-1" />
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesHistory('undo')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Annuler"><Undo2 className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesHistory('redo')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Rétablir"><Redo2 className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={applyNotesClearFormat} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Effacer la mise en forme"><RemoveFormatting className="w-3.5 h-3.5" /></button>
                                 </div>
                                 <div
                                     ref={notesRef}
@@ -662,7 +709,16 @@ export default function VirtualClassroom() {
                                     </button>
                                     <input ref={pdfInputRef} type="file" accept="application/pdf" onChange={handlePdfSelected} className="hidden" />
                                 </div>
-                                <input type="color" value={drawColor} onChange={e => setDrawColor(e.target.value)} className="w-8 h-8 rounded-xl cursor-pointer shadow-sm border-2 border-slate-50" />
+                                <div className="flex items-center gap-2">
+                                    <input type="color" value={drawColor} onChange={e => setDrawColor(e.target.value)} className="w-8 h-8 rounded-xl cursor-pointer shadow-sm border-2 border-slate-50" />
+                                    <button
+                                        onClick={() => setBoardExpanded(v => !v)}
+                                        className={`hidden md:flex p-2 rounded-xl transition-all ${boardExpanded ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
+                                        title={boardExpanded ? "Réduire le tableau" : "Agrandir le tableau"}
+                                    >
+                                        {boardExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                                    </button>
+                                </div>
                             </div>
 
                             {showYoutubeInput && (
