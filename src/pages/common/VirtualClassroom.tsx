@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { fetchScheduleByRole, fetchCourseDetails, uploadMessageAttachment, fetchPreviousWorkspace } from "@/api/backoffice";
 import { jsPDF } from "jspdf";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import {
     Loader2,
     X,
@@ -42,7 +44,12 @@ import {
     Redo2,
     RemoveFormatting,
     Maximize2,
-    Minimize2
+    Minimize2,
+    Sigma,
+    ImagePlus,
+    Presentation,
+    ListTree,
+    ClipboardList
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -115,6 +122,15 @@ const getFullAttachmentUrl = (url: string) => {
     return `${rootUrl}${url}`;
 };
 
+const escapeHtmlAttr = (value: string) =>
+    value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const stripHtmlToText = (html: string) => {
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    return (container.textContent || "").trim();
+};
+
 function extractYouTubeId(url: string): string | null {
     try {
         const parsed = new URL(url.trim());
@@ -167,12 +183,21 @@ export default function VirtualClassroom() {
     const [boardExpanded, setBoardExpanded] = useState(false);
     const [notesExpanded, setNotesExpanded] = useState(false);
 
+    // Notes Live — images, table des matières, mode présentation
+    const imageInputRef = useRef<HTMLInputElement>(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [notesHeadings, setNotesHeadings] = useState<{ id: string; text: string }[]>([]);
+    const [showToc, setShowToc] = useState(false);
+    const [presentationMode, setPresentationMode] = useState(false);
+    const [presentationHtml, setPresentationHtml] = useState("");
+
     // Session Management State
     const [isReportOpen, setIsReportOpen] = useState(false);
     const queryClient = useQueryClient();
 
     // Homework Assignment state
     const [showHomeworkForm, setShowHomeworkForm] = useState(false);
+    const [homeworkPrefillDescription, setHomeworkPrefillDescription] = useState("");
 
     // Query Data
     const { data: schedule, refetch: refetchSession } = useQuery({
@@ -206,7 +231,10 @@ export default function VirtualClassroom() {
 
     const handleResumePreviousSession = () => {
         if (!previousWorkspace) return;
-        if (notesRef.current) notesRef.current.innerHTML = previousWorkspace.notes || "";
+        if (notesRef.current) {
+            notesRef.current.innerHTML = previousWorkspace.notes || "";
+            refreshNotesHeadings();
+        }
         const resumedItems = normalizeWhiteboardItems(previousWorkspace.whiteboardItems || []);
         setWhiteboardItems(resumedItems);
         setCode(previousWorkspace.codeData || "// Saisissez votre code ici...");
@@ -233,6 +261,7 @@ export default function VirtualClassroom() {
                 const nextNotes = currentSession.notes || "";
                 if (notesRef.current && notesRef.current.innerHTML !== nextNotes) {
                     notesRef.current.innerHTML = nextNotes;
+                    refreshNotesHeadings();
                 }
             }
             if (currentSession.codeData !== undefined) setCode(currentSession.codeData || "// Saisissez votre code ici...");
@@ -355,6 +384,7 @@ export default function VirtualClassroom() {
         notesRef.current?.focus();
         document.execCommand("formatBlock", false, tag);
         handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+        if (tag === "h3") refreshNotesHeadings();
     };
 
     const applyNotesLink = () => {
@@ -393,6 +423,84 @@ export default function VirtualClassroom() {
         notesRef.current?.focus();
         document.execCommand("removeFormat");
         handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+    };
+
+    const applyNotesEquation = () => {
+        const latex = window.prompt("Formule LaTeX (ex: x^2 + y^2 = r^2)");
+        if (!latex) return;
+        let renderedHtml: string;
+        try {
+            renderedHtml = katex.renderToString(latex, { throwOnError: false });
+        } catch {
+            toast.error("Formule LaTeX invalide.");
+            return;
+        }
+        notesRef.current?.focus();
+        const wrapped = `<span contenteditable="false" class="c4s-katex" data-latex="${escapeHtmlAttr(latex)}" style="display:inline-block;vertical-align:middle;">${renderedHtml}</span>&nbsp;`;
+        document.execCommand("insertHTML", false, wrapped);
+        handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+    };
+
+    const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            toast.error("Seuls les fichiers image sont acceptés.");
+            return;
+        }
+        setUploadingImage(true);
+        try {
+            const formData = new FormData();
+            formData.append("attachment", file);
+            const { fileUrl } = await uploadMessageAttachment(formData);
+            notesRef.current?.focus();
+            const fullUrl = getFullAttachmentUrl(fileUrl);
+            document.execCommand(
+                "insertHTML",
+                false,
+                `<img src="${escapeHtmlAttr(fullUrl)}" alt="" style="max-width:100%;border-radius:12px;margin:8px 0;display:block;" />`
+            );
+            handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
+            toast.success("Image insérée dans les notes.");
+        } catch {
+            toast.error("Impossible d'importer l'image.");
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    // Reconstruit l'index des titres (H3) présents dans les notes pour la
+    // table des matières — chaque titre reçoit un id stable pour permettre
+    // le défilement direct au clic.
+    const refreshNotesHeadings = () => {
+        if (!notesRef.current) return;
+        const headings = Array.from(notesRef.current.querySelectorAll("h3"));
+        const next = headings.map((el, index) => {
+            if (!el.id) el.id = `notes-heading-${index}-${crypto.randomUUID().slice(0, 8)}`;
+            return { id: el.id, text: el.textContent || `Section ${index + 1}` };
+        });
+        setNotesHeadings(next);
+    };
+
+    const scrollToHeading = (id: string) => {
+        notesRef.current?.querySelector(`#${CSS.escape(id)}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setShowToc(false);
+    };
+
+    const handleExportNoteToHomework = () => {
+        const text = stripHtmlToText(notesRef.current?.innerHTML || "");
+        if (!text) {
+            toast.error("Les notes sont vides, rien à exporter.");
+            return;
+        }
+        setHomeworkPrefillDescription(text);
+        setShowHomeworkForm(true);
+    };
+
+    const togglePresentationMode = () => {
+        setPresentationHtml(notesRef.current?.innerHTML || "");
+        setPresentationMode(true);
     };
 
     // Si on colle uniquement un lien YouTube (rien d'autre autour), on
@@ -657,13 +765,53 @@ export default function VirtualClassroom() {
                                         <h2 className="text-xl md:text-2xl font-black text-[#0D2D5A] mb-1 md:mb-1 uppercase tracking-tighter">Notes <span className="text-blue-600">Live</span></h2>
                                         <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-3">Compte-rendu partagé en temps réel</p>
                                     </div>
-                                    <button
-                                        onClick={() => setNotesExpanded(v => !v)}
-                                        className={`hidden md:flex p-2 rounded-xl transition-all shrink-0 ${notesExpanded ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
-                                        title={notesExpanded ? "Réduire les notes" : "Agrandir les notes"}
-                                    >
-                                        {notesExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                                    </button>
+                                    <div className="flex items-center gap-1.5 shrink-0 relative">
+                                        {notesHeadings.length > 0 && (
+                                            <>
+                                                <button
+                                                    onClick={() => setShowToc(v => !v)}
+                                                    className={`p-2 rounded-xl transition-all ${showToc ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
+                                                    title="Table des matières"
+                                                >
+                                                    <ListTree className="w-4 h-4" />
+                                                </button>
+                                                {showToc && (
+                                                    <div className="absolute top-10 right-0 z-20 w-56 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 max-h-64 overflow-y-auto">
+                                                        {notesHeadings.map((h) => (
+                                                            <button
+                                                                key={h.id}
+                                                                onClick={() => scrollToHeading(h.id)}
+                                                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors truncate"
+                                                            >
+                                                                {h.text}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                        <button
+                                            onClick={handleExportNoteToHomework}
+                                            className="p-2 rounded-xl transition-all bg-slate-50 text-slate-400 hover:text-[#0D2D5A]"
+                                            title="Exporter les notes en devoir"
+                                        >
+                                            <ClipboardList className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={togglePresentationMode}
+                                            className="hidden md:flex p-2 rounded-xl transition-all bg-slate-50 text-slate-400 hover:text-[#0D2D5A]"
+                                            title="Mode présentation"
+                                        >
+                                            <Presentation className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setNotesExpanded(v => !v)}
+                                            className={`hidden md:flex p-2 rounded-xl transition-all ${notesExpanded ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
+                                            title={notesExpanded ? "Réduire les notes" : "Agrandir les notes"}
+                                        >
+                                            {notesExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                                        </button>
+                                    </div>
                                 </div>
                                 {showResumeBanner && (
                                     <div className="mb-3 p-3 rounded-xl bg-blue-50 border border-blue-100 flex items-start gap-2.5">
@@ -689,6 +837,11 @@ export default function VirtualClassroom() {
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('strikeThrough')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Barré"><Strikethrough className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={applyNotesHighlight} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Surligner"><Highlighter className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={applyNotesInlineCode} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Code"><Code className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={applyNotesEquation} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Équation (LaTeX)"><Sigma className="w-3.5 h-3.5" /></button>
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors disabled:opacity-50" title="Insérer une image">
+                                        {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+                                    </button>
+                                    <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageSelected} className="hidden" />
                                     <div className="w-px h-4 bg-slate-100 mx-1" />
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('insertUnorderedList')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Liste à puces"><List className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('insertOrderedList')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Liste numérotée"><ListOrdered className="w-3.5 h-3.5" /></button>
@@ -705,7 +858,9 @@ export default function VirtualClassroom() {
                                     ref={notesRef}
                                     contentEditable
                                     suppressContentEditableWarning
-                                    onInput={(e) => handleWorkspaceUpdate('notes', (e.target as HTMLDivElement).innerHTML)}
+                                    spellCheck
+                                    lang="fr"
+                                    onInput={(e) => { handleWorkspaceUpdate('notes', (e.target as HTMLDivElement).innerHTML); refreshNotesHeadings(); }}
                                     onPaste={handleNotesPaste}
                                     className="flex-1 w-full text-sm leading-relaxed text-slate-600 focus:outline-none overflow-y-auto [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h3]:text-base [&_h3]:font-black [&_h3]:text-[#0D2D5A] [&_h3]:uppercase [&_h3]:tracking-tight [&_h3]:mt-3 [&_h3]:mb-1 [&_blockquote]:border-l-2 [&_blockquote]:border-blue-200 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-slate-500 [&_a]:text-blue-600 [&_a]:underline empty:before:content-[attr(data-placeholder)] empty:before:italic empty:before:text-slate-400"
                                     data-placeholder="Commencez à rédiger..."
@@ -917,9 +1072,29 @@ export default function VirtualClassroom() {
                 </button>
             </nav>
 
+            {/* Mode présentation : affiche les notes en grand pour la lecture partagée */}
+            {presentationMode && (
+                <div className="fixed inset-0 z-[100] bg-white flex flex-col">
+                    <div className="h-14 flex items-center justify-between px-6 border-b border-slate-100 shrink-0">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Mode présentation</span>
+                        <button
+                            onClick={() => setPresentationMode(false)}
+                            className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors"
+                            title="Quitter le mode présentation"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <div
+                        className="flex-1 overflow-y-auto px-6 md:px-24 py-10 md:py-16 text-lg md:text-2xl leading-relaxed text-[#0D2D5A] max-w-4xl mx-auto w-full [&_ul]:list-disc [&_ul]:pl-8 [&_ol]:list-decimal [&_ol]:pl-8 [&_h3]:text-2xl md:[&_h3]:text-4xl [&_h3]:font-black [&_h3]:uppercase [&_h3]:tracking-tight [&_h3]:mt-8 [&_h3]:mb-3 [&_blockquote]:border-l-4 [&_blockquote]:border-blue-200 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-500 [&_a]:text-blue-600 [&_a]:underline"
+                        dangerouslySetInnerHTML={{ __html: presentationHtml || "<p class='text-slate-300'>Aucune note à présenter pour le moment.</p>" }}
+                    />
+                </div>
+            )}
+
             {/* Session Report Modal */}
-            <SessionReportModal 
-                isOpen={isReportOpen} 
+            <SessionReportModal
+                isOpen={isReportOpen}
                 onClose={() => {
                     setIsReportOpen(false);
                     navigate(-1);
@@ -929,12 +1104,13 @@ export default function VirtualClassroom() {
             />
 
             {/* Homework Assignment Modal */}
-            <HomeworkModal 
-                isOpen={showHomeworkForm} 
-                onClose={() => setShowHomeworkForm(false)}
+            <HomeworkModal
+                isOpen={showHomeworkForm}
+                onClose={() => { setShowHomeworkForm(false); setHomeworkPrefillDescription(""); }}
                 sessionId={sessionId!}
                 sessionDetails={currentSession}
                 teacherId={user?.id ?? ''}
+                initialDescription={homeworkPrefillDescription}
             />
         </div>
     );
@@ -1115,7 +1291,7 @@ const homeworkSchema = z.object({
     dueDate: z.string().min(1, "Date requise"),
 });
 
-function HomeworkModal({ isOpen, onClose, sessionId, sessionDetails, teacherId }: { isOpen: boolean, onClose: () => void, sessionId: string, sessionDetails: any, teacherId: string }) {
+function HomeworkModal({ isOpen, onClose, sessionId, sessionDetails, teacherId, initialDescription }: { isOpen: boolean, onClose: () => void, sessionId: string, sessionDetails: any, teacherId: string, initialDescription?: string }) {
     const form = useForm<z.infer<typeof homeworkSchema>>({
         resolver: zodResolver(homeworkSchema),
         defaultValues: {
@@ -1124,6 +1300,19 @@ function HomeworkModal({ isOpen, onClose, sessionId, sessionDetails, teacherId }
             dueDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0], // +7 days
         },
     });
+
+    // Pré-remplit la description quand la modale s'ouvre suite à un export
+    // de notes ("Exporter en devoir") — sinon repart sur un formulaire vierge.
+    useEffect(() => {
+        if (isOpen) {
+            form.reset({
+                title: "",
+                description: initialDescription || "",
+                dueDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0],
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, initialDescription]);
 
     const mutation = useMutation({
         mutationFn: (values: z.infer<typeof homeworkSchema>) => createHomework({
