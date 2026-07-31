@@ -262,6 +262,12 @@ export default defineConfig(({ mode }) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          // Sans ça, le service worker intercepte TOUTE requête de navigation
+          // (y compris un <iframe src="..."> ou un lien ouvert dans un nouvel
+          // onglet) et sert index.html en secours — donc un PDF importé dans
+          // le tableau blanc ou ouvert directement affichait la page 404 de
+          // l'app React au lieu du fichier réel.
+          navigateFallbackDenylist: [/^\/uploads\//, /^\/api\//],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/care4success\.usra-care\.com\/api\/.*/i,
