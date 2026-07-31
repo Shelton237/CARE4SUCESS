@@ -151,7 +151,7 @@ function extractYouTubeId(url: string): string | null {
 
 export default function VirtualClassroom() {
     const { sessionId } = useParams();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
     const jitsiContainerRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(true);
@@ -351,6 +351,22 @@ export default function VirtualClassroom() {
         handleWorkspaceUpdate('whiteboardItems', whiteboardItems.filter(item => item.id !== id));
     };
 
+    // Un import (PDF/image) échoue le plus souvent soit parce que le
+    // fichier est refusé côté serveur, soit parce que le jeton de session
+    // a expiré (12h) pendant une visio longue — dans ce cas, on informe
+    // clairement l'utilisateur au lieu d'un message générique et on le
+    // renvoie se reconnecter plutôt que de le laisser réessayer en vain.
+    const handleUploadError = (err: unknown, fallbackMessage: string) => {
+        const message = err instanceof Error ? err.message : "";
+        if (message === "Authentification invalide." || message === "Jeton d'authentification manquant.") {
+            toast.error("Votre session a expiré. Merci de vous reconnecter.");
+            logout();
+            navigate("/login");
+            return;
+        }
+        toast.error(message || fallbackMessage);
+    };
+
     const handlePdfSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = "";
@@ -368,7 +384,7 @@ export default function VirtualClassroom() {
             handleWorkspaceUpdate('whiteboardItems', nextItems);
             toast.success("PDF ajouté au tableau partagé.");
         } catch (err) {
-            toast.error("Impossible d'importer le PDF.");
+            handleUploadError(err, "Impossible d'importer le PDF.");
         } finally {
             setUploadingPdf(false);
         }
@@ -463,8 +479,8 @@ export default function VirtualClassroom() {
             );
             handleWorkspaceUpdate('notes', notesRef.current?.innerHTML || "");
             toast.success("Image insérée dans les notes.");
-        } catch {
-            toast.error("Impossible d'importer l'image.");
+        } catch (err) {
+            handleUploadError(err, "Impossible d'importer l'image.");
         } finally {
             setUploadingImage(false);
         }
