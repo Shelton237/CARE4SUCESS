@@ -294,9 +294,11 @@ export const updateCourse = (courseId: string, payload: CoursePayload) =>
 export const deleteCourse = (courseId: string) =>
     request<{ success: boolean }>(`/courses/${courseId}`, { method: "DELETE" });
 
+export type LessonVideoPayload = { title: string; videoUrl: string; isPaid: boolean; order?: number };
+
 export const createCourseLesson = (
     courseId: string,
-    payload: { title: string; content: string; videoUrl?: string; order?: number }
+    payload: { title: string; content: string; videoUrl?: string; order?: number; videos?: LessonVideoPayload[] }
 ) =>
     request<CourseSummary>(`/courses/${courseId}/lessons`, {
         method: "POST",
@@ -306,7 +308,7 @@ export const createCourseLesson = (
 export const updateCourseLesson = (
     courseId: string,
     lessonId: string,
-    payload: { title: string; content: string; videoUrl?: string; order?: number }
+    payload: { title: string; content: string; videoUrl?: string; order?: number; videos?: LessonVideoPayload[] }
 ) =>
     request<CourseSummary>(`/courses/${courseId}/lessons/${lessonId}`, {
         method: "PUT",

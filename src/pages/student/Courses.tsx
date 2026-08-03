@@ -469,6 +469,40 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
                                             <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-[#0D2D5A] tracking-tight">{activeLesson.title}</h1>
                                         </div>
 
+                                        {/* Vidéos de la leçon — les extraits gratuits restent visibles même si
+                                            le reste de la leçon (texte + vidéo historique) est verrouillé. */}
+                                        {Array.isArray(activeLesson.videos) && activeLesson.videos.length > 0 && (
+                                            <div className="space-y-5">
+                                                {activeLesson.videos.map((video: any) => (
+                                                    <div key={video.id} className="space-y-2">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                            <Video className="w-3.5 h-3.5" /> {video.title}
+                                                            <Badge className={cn(
+                                                                "text-[8px] font-black uppercase px-2 py-0.5 rounded-full border-none",
+                                                                video.isPaid ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                                                            )}>
+                                                                {video.isPaid ? "Payant" : "Gratuit"}
+                                                            </Badge>
+                                                        </p>
+                                                        {video.locked ? (
+                                                            <div className="aspect-video bg-slate-100 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400">
+                                                                <Lock className="w-8 h-8 opacity-40" />
+                                                                <p className="text-xs font-bold">Vidéo réservée aux élèves ayant acheté ce cours</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-xl">
+                                                                <iframe
+                                                                    src={video.videoUrl.replace("watch?v=", "embed/")}
+                                                                    className="w-full h-full"
+                                                                    allowFullScreen
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
                                         {activeLesson.locked ? (
                                             <div className="flex flex-col items-center gap-3 py-16 text-center text-gray-400">
                                                 <Lock className="w-10 h-10 opacity-30" />
