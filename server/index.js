@@ -417,6 +417,15 @@ const ensureSessionsTable = async () => {
       await pool.query("ALTER TABLE sessions ADD COLUMN course_id VARCHAR(36) DEFAULT NULL AFTER lesson_id");
       console.log("Migration: Added course_id to sessions table");
     }
+    // Un cours groupé crée une ligne `sessions` par participant payant (le
+    // modèle sessions est 1 prof/1 élève) — toutes ces lignes partagent le
+    // même group_class_id pour que VirtualClassroom dérive le même nom de
+    // salle Jitsi et fasse atterrir tous les participants dans la même salle.
+    const [colsGcid] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'group_class_id'");
+    if (colsGcid.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN group_class_id VARCHAR(36) DEFAULT NULL AFTER course_id");
+      console.log("Migration: Added group_class_id to sessions table");
+    }
     // Fix ENUM status — include all values used by frontend (no duplicates)
     try {
       await pool.query("ALTER TABLE sessions MODIFY COLUMN status ENUM('planifié','à venir','en cours','effectué','annulé','scheduled','in_progress','completed') NOT NULL DEFAULT 'planifié'");
@@ -1109,6 +1118,10 @@ const initDB = async () => {
     await ensureCourseLessonsTable();
     await ensureLessonVideosTable();
     await ensureCourseEnrollmentsTable();
+    await ensureTeacherSlotsTable();
+    await ensureSlotBookingsTable();
+    await ensureGroupClassesTable();
+    await ensureGroupClassRegistrationsTable();
     await ensureQuizzesTable();
     await ensureQuizQuestionsTable();
     await ensureQuizAttemptsTable();
@@ -1399,6 +1412,7 @@ const mapSessionRow = (row) => ({
   isPaid: Boolean(row.is_paid),
   lessonId: row.lesson_id,
   courseId: row.course_id,
+  groupClassId: row.group_class_id,
 });
 
 const mapTeacherApplicationRow = (row) => ({
@@ -2858,7 +2872,7 @@ app.get("/api/sessions", async (req, res) => {
     await ensureSessionsTable();
     const column = roleColumn[role];
     const [rows] = await pool.query(
-      `SELECT id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, virtual_link, notes, whiteboard_data, whiteboard_items, code_data, actual_start_time, actual_end_time, report_text, understanding_score, is_paid, lesson_id, course_id
+      `SELECT id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, virtual_link, notes, whiteboard_data, whiteboard_items, code_data, actual_start_time, actual_end_time, report_text, understanding_score, is_paid, lesson_id, course_id, group_class_id
        FROM sessions
        WHERE ${column} = ?
        ORDER BY session_date ASC, session_time ASC`,
@@ -6286,7 +6300,10 @@ app.post("/api/payments/flutterwave/webhook", async (req, res) => {
       if (!invoiceResult.success && invoiceResult.reason === "invoice_not_found") {
         const bookingResult = await finalizeSlotBooking(event.data.reference, event.data);
         if (!bookingResult.success && bookingResult.reason === "booking_not_found") {
-          await finalizeCoursePurchase(event.data.reference, event.data);
+          const courseResult = await finalizeCoursePurchase(event.data.reference, event.data);
+          if (!courseResult.success && courseResult.reason === "enrollment_not_found") {
+            await finalizeGroupClassRegistration(event.data.reference, event.data);
+          }
         }
       }
     }
@@ -6772,6 +6789,450 @@ app.get("/api/courses/purchase/status/:reference", authenticateRequest, async (r
   } catch (error) {
     console.error("[courses/purchase/status]", error);
     res.status(500).json({ message: error.message || "Impossible de vérifier le paiement." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COURS GROUPÉS PAYANTS — un enseignant crée une séance à capacité limitée
+// (ex: masterclass) et partage un lien public ; qui paie en Mobile Money
+// réserve une des places, jusqu'à épuisement. Réutilise le même flux
+// Flutterwave que la réservation de créneau (voir plus haut) : chaque
+// participant payé obtient sa propre ligne `sessions` (le modèle sessions
+// est 1 prof / 1 élève) mais toutes partagent le même `group_class_id`, ce
+// qui fait que VirtualClassroom (voir sessionId côté frontend) dérive le
+// même nom de salle Jitsi pour tout le monde et les réunit dans la même
+// visio.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ensureGroupClassesTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS group_classes (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      teacher_id CHAR(36) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      subject VARCHAR(120) NOT NULL,
+      description TEXT NULL,
+      session_date DATE NOT NULL,
+      session_time VARCHAR(20) NOT NULL,
+      price DECIMAL(10,2) NOT NULL,
+      currency VARCHAR(3) NOT NULL DEFAULT 'XAF',
+      max_participants INT NOT NULL,
+      virtual_link VARCHAR(255) NOT NULL,
+      status ENUM('scheduled','cancelled') NOT NULL DEFAULT 'scheduled',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_group_classes_teacher (teacher_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const ensureGroupClassRegistrationsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS group_class_registrations (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      group_class_id CHAR(36) NOT NULL,
+      parent_id VARCHAR(36) NOT NULL,
+      student_id VARCHAR(36) NOT NULL,
+      student_name VARCHAR(191) NOT NULL,
+      session_id CHAR(36) NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      currency VARCHAR(3) NOT NULL,
+      payment_ref VARCHAR(100) NULL,
+      flw_charge_id VARCHAR(100) NULL,
+      status ENUM('pending','paid','expired') NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_gcr_class FOREIGN KEY (group_class_id) REFERENCES group_classes(id) ON DELETE CASCADE,
+      KEY idx_gcr_ref (payment_ref)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const requireGroupClassOwnership = async (req, res, groupClassId) => {
+  const [[groupClass]] = await pool.query("SELECT teacher_id FROM group_classes WHERE id = ?", [groupClassId]);
+  if (!groupClass) {
+    res.status(404).json({ message: "Cours groupé introuvable." });
+    return null;
+  }
+  if (req.user?.role !== "admin" && req.user?.sub !== groupClass.teacher_id) {
+    res.status(403).json({ message: "Vous ne pouvez gérer que vos propres cours groupés." });
+    return null;
+  }
+  return groupClass;
+};
+
+const mapGroupClassRow = (row) => ({
+  id: row.id,
+  teacherId: row.teacher_id,
+  title: row.title,
+  subject: row.subject,
+  description: row.description,
+  sessionDate: row.session_date instanceof Date ? row.session_date.toISOString().split("T")[0] : String(row.session_date).split("T")[0],
+  sessionTime: row.session_time,
+  price: Number(row.price),
+  currency: row.currency,
+  maxParticipants: row.max_participants,
+  paidCount: row.paid_count !== undefined ? Number(row.paid_count) : undefined,
+  virtualLink: row.virtual_link,
+  status: row.status,
+  publicUrl: `${FRONTEND_BASE_URL}/cours-groupe/${row.id}`,
+  createdAt: row.created_at,
+});
+
+app.post("/api/group-classes", authenticateRequest, async (req, res) => {
+  const { title, subject, description, sessionDate, sessionTime, price, maxParticipants } = req.body ?? {};
+  if (!title || !subject || !sessionDate || !sessionTime || !price || !maxParticipants) {
+    return res.status(400).json({ message: "Champs obligatoires manquants." });
+  }
+  if (Number(price) <= 0) return res.status(400).json({ message: "Le tarif doit être supérieur à 0." });
+  if (Number(maxParticipants) < 1) return res.status(400).json({ message: "Le nombre de places doit être d'au moins 1." });
+
+  try {
+    const [[teacher]] = await pool.query("SELECT currency FROM teachers WHERE id = ?", [req.user.sub]);
+    const groupClassId = crypto.randomUUID();
+    const virtualLink = `https://meet.care4success.usra-care.com/Care4Success-${groupClassId.split("-")[0]}`;
+    await pool.query(
+      `INSERT INTO group_classes (id, teacher_id, title, subject, description, session_date, session_time, price, currency, max_participants, virtual_link)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [groupClassId, req.user.sub, title, subject, description || null, sessionDate, sessionTime, price, teacher?.currency || "XAF", maxParticipants, virtualLink]
+    );
+    res.status(201).json({ id: groupClassId, publicUrl: `${FRONTEND_BASE_URL}/cours-groupe/${groupClassId}` });
+  } catch (error) {
+    console.error("Failed to create group class", error);
+    res.status(500).json({ message: "Impossible de créer le cours groupé." });
+  }
+});
+
+app.get("/api/group-classes/teacher/:teacherId", authenticateRequest, async (req, res) => {
+  const { teacherId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== teacherId) {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    const [rows] = await pool.query(
+      `SELECT gc.*,
+         (SELECT COUNT(*) FROM group_class_registrations r WHERE r.group_class_id = gc.id AND r.status = 'paid') AS paid_count
+       FROM group_classes gc
+       WHERE gc.teacher_id = ?
+       ORDER BY gc.session_date DESC, gc.session_time DESC`,
+      [teacherId]
+    );
+    res.json(rows.map(mapGroupClassRow));
+  } catch (error) {
+    console.error("Failed to fetch group classes", error);
+    res.status(500).json({ message: "Impossible de récupérer les cours groupés." });
+  }
+});
+
+app.get("/api/group-classes/:id", authenticateRequest, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const groupClass = await requireGroupClassOwnership(req, res, id);
+    if (!groupClass) return;
+    const [[row]] = await pool.query(
+      `SELECT gc.*,
+         (SELECT COUNT(*) FROM group_class_registrations r WHERE r.group_class_id = gc.id AND r.status = 'paid') AS paid_count
+       FROM group_classes gc WHERE gc.id = ?`,
+      [id]
+    );
+    const [registrations] = await pool.query(
+      `SELECT id, student_name, amount, currency, created_at
+       FROM group_class_registrations WHERE group_class_id = ? AND status = 'paid'
+       ORDER BY created_at ASC`,
+      [id]
+    );
+    res.json({
+      ...mapGroupClassRow(row),
+      registrations: registrations.map((r) => ({
+        id: r.id, studentName: r.student_name, amount: Number(r.amount), currency: r.currency, createdAt: r.created_at,
+      })),
+    });
+  } catch (error) {
+    console.error("Failed to fetch group class", error);
+    res.status(500).json({ message: "Impossible de récupérer le cours groupé." });
+  }
+});
+
+app.delete("/api/group-classes/:id", authenticateRequest, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const groupClass = await requireGroupClassOwnership(req, res, id);
+    if (!groupClass) return;
+    await pool.query("UPDATE group_classes SET status = 'cancelled' WHERE id = ?", [id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to cancel group class", error);
+    res.status(500).json({ message: "Impossible d'annuler le cours groupé." });
+  }
+});
+
+// Détails publics pour la page de paiement — pas d'authentification.
+app.get("/api/group-classes/:id/public", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[row]] = await pool.query(
+      `SELECT gc.*, u.name AS teacher_name,
+         (SELECT COUNT(*) FROM group_class_registrations r WHERE r.group_class_id = gc.id AND r.status IN ('paid','pending')) AS taken_count
+       FROM group_classes gc
+       LEFT JOIN users u ON u.id = gc.teacher_id
+       WHERE gc.id = ?`,
+      [id]
+    );
+    if (!row) return res.status(404).json({ message: "Cours groupé introuvable." });
+    const sessionDate = row.session_date instanceof Date ? row.session_date.toISOString().split("T")[0] : String(row.session_date).split("T")[0];
+    res.json({
+      id: row.id,
+      title: row.title,
+      subject: row.subject,
+      description: row.description,
+      teacherName: row.teacher_name || "Enseignant",
+      sessionDate,
+      sessionTime: row.session_time,
+      price: Number(row.price),
+      currency: row.currency,
+      maxParticipants: row.max_participants,
+      spotsLeft: Math.max(0, row.max_participants - row.taken_count),
+      status: row.status,
+    });
+  } catch (error) {
+    console.error("Failed to fetch public group class", error);
+    res.status(500).json({ message: "Impossible de récupérer le cours groupé." });
+  }
+});
+
+// Idempotent : appelable depuis le polling front-end ET le webhook, comme
+// finalizeSlotBooking/finalizeCoursePurchase.
+const finalizeGroupClassRegistration = async (reference, chargeData) => {
+  const [[registration]] = await pool.query(
+    "SELECT * FROM group_class_registrations WHERE payment_ref = ?", [reference]
+  );
+  if (!registration) {
+    console.warn(`[flutterwave] inscription cours groupé introuvable: ${reference}`);
+    return { success: false, reason: "registration_not_found" };
+  }
+  if (registration.status === "paid") {
+    return { success: true, alreadyProcessed: true, sessionId: registration.session_id };
+  }
+
+  const amountOk = Number(chargeData.amount) >= Number(registration.amount);
+  const currencyOk = chargeData.currency === registration.currency;
+  const statusOk = chargeData.status === "succeeded";
+  if (!statusOk || !amountOk || !currencyOk) {
+    console.warn(
+      `[flutterwave] Inscription cours groupé non validée pour ${reference} — status=${chargeData.status} amount=${chargeData.amount}/${registration.amount} currency=${chargeData.currency}/${registration.currency}`
+    );
+    return { success: false, reason: "verification_failed", status: chargeData.status };
+  }
+
+  const [[groupClass]] = await pool.query("SELECT * FROM group_classes WHERE id = ?", [registration.group_class_id]);
+  if (!groupClass) return { success: false, reason: "group_class_not_found" };
+
+  const [[teacher]] = await pool.query("SELECT name FROM users WHERE id = ?", [groupClass.teacher_id]);
+  const [[student]] = await pool.query("SELECT name FROM users WHERE id = ?", [registration.student_id]);
+  const [[parent]] = await pool.query("SELECT name, email FROM users WHERE id = ?", [registration.parent_id]);
+
+  const dateStr = groupClass.session_date instanceof Date
+    ? groupClass.session_date.toISOString().split("T")[0]
+    : String(groupClass.session_date).split("T")[0];
+  const dayLabel = DAYS_FR[new Date(`${dateStr}T00:00:00`).getDay()];
+
+  const sessionId = crypto.randomUUID();
+  await pool.query(
+    `INSERT INTO sessions (id, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, subject, session_day, session_date, session_time, location, status, virtual_link, group_class_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'En ligne', 'planifié', ?, ?)`,
+    [
+      sessionId, groupClass.teacher_id, teacher?.name || "Enseignant",
+      registration.student_id, student?.name || registration.student_name,
+      registration.parent_id, parent?.name || "Parent",
+      groupClass.title, dayLabel, dateStr, groupClass.session_time, groupClass.virtual_link, groupClass.id,
+    ]
+  );
+  await linkStudentTeacherRelation(registration.student_id, groupClass.teacher_id).catch(() => {});
+
+  await pool.query(
+    `UPDATE group_class_registrations SET status = 'paid', flw_charge_id = ?, session_id = ? WHERE id = ?`,
+    [String(chargeData.id), sessionId, registration.id]
+  );
+
+  if (parent?.email) {
+    await sendMail({
+      to: parent.email,
+      subject: `Inscription confirmée — ${groupClass.title}`,
+      html: `<div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A">
+        <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+          <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+          <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Inscription confirmée</p>
+        </div>
+        <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+          <p>Bonjour <b>${parent.name}</b>,</p>
+          <p>Votre inscription à <b>${groupClass.title}</b> avec <b>${teacher?.name || "votre enseignant"}</b> est confirmée :</p>
+          <table style="width:100%;border-collapse:collapse;margin:24px 0">
+            <tr style="background:#f9fafb"><td style="padding:12px 16px;border:1px solid #e5e7eb">Date</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${dateStr}</td></tr>
+            <tr><td style="padding:12px 16px;border:1px solid #e5e7eb">Horaire</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${groupClass.session_time}</td></tr>
+          </table>
+          <p style="text-align:center;margin:24px 0">
+            <a href="${groupClass.virtual_link}" style="display:inline-block;background:#1A6CC8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Rejoindre la classe virtuelle</a>
+          </p>
+          <p style="font-size:13px;color:#6b7280">Ce lien sera actif à l'heure de la séance. Conservez cet email.</p>
+        </div>
+      </div>`,
+    }).catch((e) => console.warn("Group class confirmation mail failed:", e.message));
+  }
+
+  return { success: true, sessionId, virtualLink: groupClass.virtual_link };
+};
+
+app.post("/api/group-classes/:id/register/initiate", async (req, res) => {
+  const { id: groupClassId } = req.params;
+  const {
+    network, phoneNumber, countryCode = "237",
+    parentName, parentEmail, parentPhone, studentName, studentEmail,
+  } = req.body ?? {};
+  if (!network || !phoneNumber || !parentName || !parentEmail || !studentName) {
+    return res.status(400).json({ message: "Champs obligatoires manquants." });
+  }
+  if (!["MTN", "ORANGE"].includes(network)) {
+    return res.status(400).json({ message: "Réseau non supporté." });
+  }
+
+  const connection = await pool.getConnection();
+  let registrationId = null;
+  let groupClass = null;
+  try {
+    await connection.beginTransaction();
+
+    const [[gc]] = await connection.query("SELECT * FROM group_classes WHERE id = ? FOR UPDATE", [groupClassId]);
+    if (!gc || gc.status !== "scheduled") {
+      await connection.rollback();
+      return res.status(404).json({ message: "Cours groupé introuvable ou annulé." });
+    }
+    groupClass = gc;
+
+    const [[{ takenCount }]] = await connection.query(
+      `SELECT COUNT(*) AS takenCount FROM group_class_registrations WHERE group_class_id = ? AND status IN ('paid','pending')`,
+      [groupClassId]
+    );
+    if (takenCount >= groupClass.max_participants) {
+      await connection.rollback();
+      return res.status(409).json({ message: "Ce cours groupé est complet." });
+    }
+
+    const { parentId, studentId } = await resolveOrCreateBookingFamily({
+      parentName, parentEmail, parentPhone, studentName, studentEmail,
+    });
+
+    const reference = `c4s-group-${groupClassId.slice(0, 8)}-${Date.now()}`;
+    registrationId = crypto.randomUUID();
+    await connection.query(
+      `INSERT INTO group_class_registrations (id, group_class_id, parent_id, student_id, student_name, amount, currency, payment_ref, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [registrationId, groupClassId, parentId, studentId, studentName, groupClass.price, groupClass.currency, reference]
+    );
+
+    await connection.commit();
+
+    const [firstName, ...restName] = (parentName || "Parent").split(" ");
+    let chargeRes;
+    try {
+      chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+        method: "POST",
+        idempotencyKey: reference,
+        headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
+        body: JSON.stringify({
+          amount: groupClass.price,
+          currency: groupClass.currency,
+          reference,
+          payment_method: {
+            type: "mobile_money",
+            mobile_money: { country_code: countryCode, network, phone_number: phoneNumber },
+          },
+          customer: {
+            email: parentEmail,
+            name: { first: firstName, last: restName.join(" ") || firstName },
+            phone: { country_code: countryCode, number: phoneNumber },
+          },
+          redirect_url: `${FRONTEND_BASE_URL}/cours-groupe/${groupClassId}`,
+        }),
+      });
+    } catch (chargeError) {
+      // Échec d'initiation du paiement : libérer la place réservée
+      // immédiatement plutôt que d'attendre l'expiration automatique.
+      await pool.query("DELETE FROM group_class_registrations WHERE id = ?", [registrationId]).catch(() => {});
+      throw chargeError;
+    }
+
+    await pool.query(
+      "UPDATE group_class_registrations SET flw_charge_id = ? WHERE id = ?",
+      [chargeRes.data?.id || null, registrationId]
+    );
+
+    res.status(201).json({
+      chargeId: chargeRes.data?.id,
+      reference,
+      status: chargeRes.data?.status,
+      nextAction: chargeRes.data?.next_action || null,
+      amount: Number(groupClass.price),
+      currency: groupClass.currency,
+    });
+  } catch (error) {
+    try { await connection.rollback(); } catch { /* déjà commit ou pas de transaction active */ }
+    console.error("[group-classes/register/initiate]", error);
+    res.status(500).json({ message: error.message || "Impossible d'initier l'inscription." });
+  } finally {
+    connection.release();
+  }
+});
+
+app.post("/api/group-classes/register/authorize", async (req, res) => {
+  const { chargeId, type, code } = req.body ?? {};
+  if (!chargeId || !type || !code) {
+    return res.status(400).json({ message: "chargeId, type et code sont requis." });
+  }
+  try {
+    const chargeRes = await flutterwaveRequest(`/charges/${chargeId}`, {
+      method: "PUT",
+      body: JSON.stringify({ authorization: { type, [type]: code } }),
+    });
+    res.json({ status: chargeRes.data?.status, nextAction: chargeRes.data?.next_action || null });
+  } catch (error) {
+    console.error("[group-classes/register/authorize]", error);
+    res.status(500).json({ message: error.message || "Autorisation refusée." });
+  }
+});
+
+app.get("/api/group-classes/register/status/:reference", async (req, res) => {
+  const { reference } = req.params;
+  try {
+    const [[registration]] = await pool.query("SELECT * FROM group_class_registrations WHERE payment_ref = ?", [reference]);
+    if (!registration) return res.status(404).json({ message: "Inscription introuvable." });
+    if (registration.status === "paid") {
+      return res.json({ success: true, alreadyProcessed: true, sessionId: registration.session_id });
+    }
+    if (!registration.flw_charge_id) {
+      return res.json({ success: false, reason: "pending" });
+    }
+    const chargeRes = await flutterwaveRequest(`/charges/${registration.flw_charge_id}`);
+    const result = await finalizeGroupClassRegistration(reference, chargeRes.data);
+    res.json(result);
+  } catch (error) {
+    console.error("[group-classes/register/status]", error);
+    res.status(500).json({ message: error.message || "Impossible de vérifier le paiement." });
+  }
+});
+
+// Libère les inscriptions 'pending' dont le paiement n'a jamais abouti après
+// 20 minutes, pour ne pas bloquer une place indéfiniment (même logique que
+// le cron d'expiration des réservations de créneau).
+cron.schedule("*/5 * * * *", async () => {
+  try {
+    const [expired] = await pool.query(
+      `SELECT id FROM group_class_registrations
+       WHERE status = 'pending' AND created_at < DATE_SUB(NOW(), INTERVAL 20 MINUTE)`
+    );
+    for (const row of expired) {
+      await pool.query("UPDATE group_class_registrations SET status = 'expired' WHERE id = ?", [row.id]);
+    }
+    if (expired.length > 0) console.log(`[cron/group-class-expiry] ${expired.length} inscription(s) expirée(s)`);
+  } catch (err) {
+    console.error("[cron/group-class-expiry]", err.message);
   }
 });
 
