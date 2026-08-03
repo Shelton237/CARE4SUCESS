@@ -254,6 +254,16 @@ export interface ParentEvaluationSummary {
 
 export type CourseStatus = "draft" | "published";
 
+export interface LessonVideo {
+    id: string;
+    lessonId: string;
+    title: string;
+    videoUrl: string | null;
+    isPaid: boolean;
+    order: number;
+    locked?: boolean;
+}
+
 export interface CourseLesson {
     id: string;
     courseId: string;
@@ -263,6 +273,7 @@ export interface CourseLesson {
     order: number;
     locked?: boolean;
     quiz?: QuizSummary | null;
+    videos?: LessonVideo[];
 }
 
 export interface QuizSummary {

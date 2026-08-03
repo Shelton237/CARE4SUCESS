@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     BookOpen, Search, Plus, Loader2, FileText, Video, Settings2,
     ArrowLeft, Save, Trash2, Monitor, Users, Globe, MapPin, Clock,
-    ChevronDown, ChevronUp, GripVertical, X, CheckCircle2
+    ChevronDown, ChevronUp, GripVertical, X, CheckCircle2, Lock, Unlock
 } from "lucide-react";
 import {
     fetchCourses, createCourse, updateCourse, deleteCourse,
@@ -24,10 +24,36 @@ const MODES = [
     { value: "hybride", label: "Hybride", icon: Globe, color: "text-purple-600 bg-purple-50 border-purple-200" },
 ] as const;
 
-type LessonDraft = { id?: string; title: string; content: string; videoUrl: string; order: number; _tempId: string };
+type VideoDraft = { id?: string; title: string; videoUrl: string; isPaid: boolean; order: number; _tempId: string };
+type LessonDraft = { id?: string; title: string; content: string; videoUrl: string; order: number; videos: VideoDraft[]; _tempId: string };
+
+function newVideo(order: number): VideoDraft {
+    return { title: "", videoUrl: "", isPaid: true, order, _tempId: Math.random().toString(36).slice(2) };
+}
 
 function newLesson(order: number): LessonDraft {
-    return { title: "", content: "", videoUrl: "", order, _tempId: Math.random().toString(36).slice(2) };
+    return { title: "", content: "", videoUrl: "", order, videos: [], _tempId: Math.random().toString(36).slice(2) };
+}
+
+// Les leçons créées avant l'introduction des vidéos multiples n'ont qu'un
+// unique lien vidéo (toujours payant, car verrouillé avec le reste de la
+// leçon) — on le fait apparaître comme une première vidéo dans la nouvelle
+// liste plutôt que de le faire disparaître de l'éditeur.
+function draftVideosFromLesson(lesson: any): VideoDraft[] {
+    if (Array.isArray(lesson?.videos) && lesson.videos.length) {
+        return lesson.videos.map((v: any, i: number) => ({
+            id: v.id,
+            title: v.title || `Vidéo ${i + 1}`,
+            videoUrl: v.videoUrl || "",
+            isPaid: v.isPaid !== false,
+            order: v.order ?? i + 1,
+            _tempId: v.id || Math.random().toString(36).slice(2),
+        }));
+    }
+    if (lesson?.videoUrl) {
+        return [{ title: "Vidéo principale", videoUrl: lesson.videoUrl, isPaid: true, order: 1, _tempId: Math.random().toString(36).slice(2) }];
+    }
+    return [];
 }
 
 export default function TeacherCourses() {
@@ -70,7 +96,7 @@ export default function TeacherCourses() {
     });
     const [lessons, setLessons] = useState<LessonDraft[]>(
         existingCourse?.lessons?.length
-            ? existingCourse.lessons.map((l: any) => ({ ...l, videoUrl: l.videoUrl || "", _tempId: l.id }))
+            ? existingCourse.lessons.map((l: any) => ({ ...l, videoUrl: l.videoUrl || "", videos: draftVideosFromLesson(l), _tempId: l.id }))
             : [newLesson(1)]
     );
     const [expandedLesson, setExpandedLesson] = useState<string | null>(lessons[0]?._tempId ?? null);
@@ -120,12 +146,16 @@ export default function TeacherCourses() {
             const existingIds = new Set((existingCourse?.lessons || []).map((l: any) => l.id));
             for (const lesson of lessons) {
                 if (!lesson.title.trim()) continue;
+                const videos = lesson.videos
+                    .filter(v => v.videoUrl.trim())
+                    .map((v, i) => ({ title: v.title.trim() || `Vidéo ${i + 1}`, videoUrl: v.videoUrl.trim(), isPaid: v.isPaid, order: i + 1 }));
                 if (lesson.id && existingIds.has(lesson.id)) {
                     await updateCourseLesson(courseId, lesson.id, {
                         title: lesson.title,
                         content: lesson.content,
                         videoUrl: lesson.videoUrl || undefined,
                         order: lesson.order,
+                        videos,
                     });
                 } else {
                     await createCourseLesson(courseId, {
@@ -133,6 +163,7 @@ export default function TeacherCourses() {
                         content: lesson.content,
                         videoUrl: lesson.videoUrl || undefined,
                         order: lesson.order,
+                        videos,
                     });
                 }
             }
@@ -164,6 +195,35 @@ export default function TeacherCourses() {
 
     const updateLesson = (tempId: string, field: keyof LessonDraft, value: string) => {
         setLessons(prev => prev.map(l => l._tempId === tempId ? { ...l, [field]: value } : l));
+    };
+
+    // ─── Video helpers (per leçon) ─────────────────────────────────────────────
+    const addVideo = (lessonTempId: string) => {
+        setLessons(prev => prev.map(l => l._tempId === lessonTempId
+            ? { ...l, videos: [...l.videos, newVideo(l.videos.length + 1)] }
+            : l
+        ));
+    };
+
+    const removeVideo = (lessonTempId: string, videoTempId: string) => {
+        setLessons(prev => prev.map(l => l._tempId === lessonTempId
+            ? { ...l, videos: l.videos.filter(v => v._tempId !== videoTempId) }
+            : l
+        ));
+    };
+
+    const updateVideo = (lessonTempId: string, videoTempId: string, field: "title" | "videoUrl", value: string) => {
+        setLessons(prev => prev.map(l => l._tempId === lessonTempId
+            ? { ...l, videos: l.videos.map(v => v._tempId === videoTempId ? { ...v, [field]: value } : v) }
+            : l
+        ));
+    };
+
+    const toggleVideoPaid = (lessonTempId: string, videoTempId: string) => {
+        setLessons(prev => prev.map(l => l._tempId === lessonTempId
+            ? { ...l, videos: l.videos.map(v => v._tempId === videoTempId ? { ...v, isPaid: !v.isPaid } : v) }
+            : l
+        ));
     };
 
     // ─── Editor view (no loading block — we don't need the list to create) ─────
@@ -417,7 +477,7 @@ export default function TeacherCourses() {
                                     )}>
                                         {lesson.title || "Leçon sans titre"}
                                     </span>
-                                    {lesson.videoUrl && <Video className="w-3 h-3 text-[#1A6CC8] shrink-0" />}
+                                    {(lesson.videoUrl || lesson.videos.length > 0) && <Video className="w-3 h-3 text-[#1A6CC8] shrink-0" />}
                                     <button
                                         onClick={e => { e.stopPropagation(); removeLesson(lesson._tempId); }}
                                         className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors shrink-0"
@@ -452,16 +512,67 @@ export default function TeacherCourses() {
                                                 className="w-full bg-slate-50/50 p-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all resize-none"
                                             />
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                                <Video className="w-3 h-3" /> Lien vidéo (optionnel)
-                                            </label>
-                                            <input
-                                                value={lesson.videoUrl}
-                                                onChange={e => updateLesson(lesson._tempId, "videoUrl", e.target.value)}
-                                                placeholder="https://youtube.com/watch?v=..."
-                                                className="w-full h-9 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
-                                            />
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                    <Video className="w-3 h-3" /> Vidéos de la leçon
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => addVideo(lesson._tempId)}
+                                                    className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#1A6CC8] hover:text-[#0D2D5A] transition-colors"
+                                                >
+                                                    <Plus className="w-3 h-3" /> Ajouter une vidéo
+                                                </button>
+                                            </div>
+                                            <p className="text-[9px] text-slate-400 font-bold">
+                                                Marquez une vidéo « Gratuite » pour qu'elle reste visible même par les élèves n'ayant pas acheté le cours (extrait/teaser). Les vidéos « Payantes » ne sont débloquées qu'après achat du cours.
+                                            </p>
+                                            {lesson.videos.length === 0 && (
+                                                <p className="text-[9px] text-slate-300 font-bold italic py-2">Aucune vidéo pour cette leçon.</p>
+                                            )}
+                                            {lesson.videos.map((video, vIdx) => (
+                                                <div key={video._tempId} className="flex items-start gap-2 p-2 border border-slate-200 bg-slate-50/30">
+                                                    <span className="w-5 h-5 mt-0.5 bg-slate-100 text-slate-400 text-[9px] font-black flex items-center justify-center shrink-0">
+                                                        {vIdx + 1}
+                                                    </span>
+                                                    <div className="flex-1 space-y-1.5">
+                                                        <input
+                                                            value={video.title}
+                                                            onChange={e => updateVideo(lesson._tempId, video._tempId, "title", e.target.value)}
+                                                            placeholder="Titre de la vidéo"
+                                                            className="w-full h-8 bg-white px-2.5 border border-slate-200 font-bold text-[10px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                                        />
+                                                        <input
+                                                            value={video.videoUrl}
+                                                            onChange={e => updateVideo(lesson._tempId, video._tempId, "videoUrl", e.target.value)}
+                                                            placeholder="https://youtube.com/watch?v=..."
+                                                            className="w-full h-8 bg-white px-2.5 border border-slate-200 font-bold text-[10px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleVideoPaid(lesson._tempId, video._tempId)}
+                                                        className={cn(
+                                                            "h-8 px-2.5 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest border shrink-0 transition-all",
+                                                            video.isPaid
+                                                                ? "bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/30"
+                                                                : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                        )}
+                                                        title={video.isPaid ? "Vidéo payante — cliquer pour rendre gratuite" : "Vidéo gratuite — cliquer pour rendre payante"}
+                                                    >
+                                                        {video.isPaid ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                                                        {video.isPaid ? "Payant" : "Gratuit"}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeVideo(lesson._tempId, video._tempId)}
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors shrink-0"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 )}

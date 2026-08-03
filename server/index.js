@@ -535,6 +535,26 @@ const ensureCourseLessonsTable = async () => {
   );
 };
 
+// Une leçon peut proposer plusieurs vidéos (au-delà de l'unique
+// course_lessons.video_url historique) — chacune marquée individuellement
+// payante ou gratuite, pour permettre à un professeur d'offrir des extraits
+// gratuits tout en réservant le reste du contenu vidéo aux élèves ayant
+// acheté le cours (statut "purchased" déjà porté par course_enrollments).
+const ensureLessonVideosTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS lesson_videos (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      lesson_id CHAR(36) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      video_url VARCHAR(500) NOT NULL,
+      is_paid TINYINT(1) NOT NULL DEFAULT 1,
+      order_index INT NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_lesson_videos_lesson FOREIGN KEY (lesson_id) REFERENCES course_lessons(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
 const ensureCourseEnrollmentsTable = async () => {
   await pool.query(
     `CREATE TABLE IF NOT EXISTS course_enrollments (
@@ -1087,6 +1107,7 @@ const initDB = async () => {
     await ensureLessonResourcesTable();
     await ensureCoursesTable();
     await ensureCourseLessonsTable();
+    await ensureLessonVideosTable();
     await ensureCourseEnrollmentsTable();
     await ensureQuizzesTable();
     await ensureQuizQuestionsTable();
@@ -1505,7 +1526,24 @@ const mapCourseRow = (row) => ({
   lessons: [],
 });
 
-const mapLessonRow = (row, locked = false) => ({
+// Un extrait vidéo gratuit reste visible même quand le reste de la leçon
+// (contenu texte + vidéo historique unique) est verrouillé faute d'achat —
+// seule la vidéo elle-même porte son propre verrou, indépendant de `locked`.
+const mapLessonVideoRow = (row, coursePurchased) => {
+  const isPaid = Boolean(row.is_paid);
+  const videoLocked = isPaid && coursePurchased === false;
+  return {
+    id: row.id,
+    lessonId: row.lesson_id,
+    title: fixEncoding(row.title),
+    videoUrl: videoLocked ? null : row.video_url,
+    isPaid,
+    order: row.order_index,
+    locked: videoLocked,
+  };
+};
+
+const mapLessonRow = (row, locked = false, videos = []) => ({
   id: row.id,
   course_id: row.course_id,
   title: fixEncoding(row.title),
@@ -1514,6 +1552,7 @@ const mapLessonRow = (row, locked = false) => ({
   order: row.order_index,
   locked,
   quiz: null,
+  videos,
 });
 
 const mapMessageRow = (row) => ({
@@ -1571,6 +1610,22 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
      ORDER BY order_index ASC`,
     [courseIds]
   );
+  const lessonVideosByLesson = new Map();
+  if (lessonRows.length) {
+    const lessonIds = lessonRows.map((row) => row.id);
+    const [videoRows] = await pool.query(
+      `SELECT id, lesson_id, title, video_url, is_paid, order_index
+       FROM lesson_videos
+       WHERE lesson_id IN (?)
+       ORDER BY order_index ASC`,
+      [lessonIds]
+    );
+    videoRows.forEach((row) => {
+      const list = lessonVideosByLesson.get(row.lesson_id) || [];
+      list.push(row);
+      lessonVideosByLesson.set(row.lesson_id, list);
+    });
+  }
   let quizRows = [];
   try {
     const [rows] = await pool.query(
@@ -1631,7 +1686,9 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
     const parent = courseMap.get(lesson.course_id);
     if (!parent) return;
     const locked = parent.purchased === false;
-    parent.lessons.push(mapLessonRow(lesson, locked));
+    const videos = (lessonVideosByLesson.get(lesson.id) || [])
+      .map((video) => mapLessonVideoRow(video, parent.purchased));
+    parent.lessons.push(mapLessonRow(lesson, locked, videos));
   });
 
   // Calculate progress
@@ -3947,9 +4004,33 @@ app.delete("/api/courses/:courseId", authenticateRequest, async (req, res) => {
   }
 });
 
+// Remplace l'intégralité des vidéos d'une leçon en une fois — la leçon est
+// toujours sauvegardée en bloc depuis l'éditeur (comme ses autres champs),
+// donc un simple "supprimer puis réinsérer" suffit et évite d'avoir à
+// diffuser les ids d'une sauvegarde à l'autre.
+const syncLessonVideos = async (lessonId, videos) => {
+  await pool.query(`DELETE FROM lesson_videos WHERE lesson_id = ?`, [lessonId]);
+  if (!Array.isArray(videos) || !videos.length) return;
+  const values = videos
+    .filter((v) => v && v.videoUrl)
+    .map((v, index) => [
+      crypto.randomUUID(),
+      lessonId,
+      v.title || `Vidéo ${index + 1}`,
+      v.videoUrl,
+      v.isPaid === false ? 0 : 1,
+      v.order ?? index + 1,
+    ]);
+  if (!values.length) return;
+  await pool.query(
+    `INSERT INTO lesson_videos (id, lesson_id, title, video_url, is_paid, order_index) VALUES ?`,
+    [values]
+  );
+};
+
 app.put("/api/courses/:courseId/lessons/:lessonId", authenticateRequest, async (req, res) => {
   const { courseId, lessonId } = req.params;
-  const { title, content, videoUrl, order } = req.body ?? {};
+  const { title, content, videoUrl, order, videos } = req.body ?? {};
   if (!title || !content) {
     return res.status(400).json({ message: "Titre et contenu obligatoires." });
   }
@@ -3959,6 +4040,7 @@ app.put("/api/courses/:courseId/lessons/:lessonId", authenticateRequest, async (
       `UPDATE course_lessons SET title=?, content=?, video_url=?, order_index=? WHERE id=? AND course_id=?`,
       [title, content, videoUrl || null, order || 1, lessonId, courseId]
     );
+    await syncLessonVideos(lessonId, videos);
     const course = await fetchCourseDetails(courseId, true);
     res.json(course);
   } catch (error) {
@@ -3982,7 +4064,7 @@ app.delete("/api/courses/:courseId/lessons/:lessonId", authenticateRequest, asyn
 
 app.post("/api/courses/:courseId/lessons", authenticateRequest, async (req, res) => {
   const { courseId } = req.params;
-  const { title, content, videoUrl, order = 1 } = req.body ?? {};
+  const { title, content, videoUrl, order = 1, videos } = req.body ?? {};
   if (!title || !content) {
     return res.status(400).json({ message: "Titre et contenu obligatoires." });
   }
@@ -3994,6 +4076,7 @@ app.post("/api/courses/:courseId/lessons", authenticateRequest, async (req, res)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [lessonId, courseId, title, content, videoUrl || null, order]
     );
+    await syncLessonVideos(lessonId, videos);
     const course = await fetchCourseDetails(courseId, true);
     res.status(201).json(course);
   } catch (error) {
