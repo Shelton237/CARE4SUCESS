@@ -203,10 +203,13 @@ function CreateGroupClassDialog({ open, onClose, teacherCurrency }: { open: bool
                             </select>
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Places max *</Label>
+                            <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nombre de places *</Label>
                             <Input type="number" min="1" value={form.maxParticipants} onChange={e => setForm(f => ({ ...f, maxParticipants: e.target.value }))} />
                         </div>
                     </div>
+                    <p className="text-[9px] text-slate-400 font-bold leading-relaxed -mt-1.5">
+                        Le nombre de places est limité : une fois ce nombre de participants ayant payé atteint, toute nouvelle tentative d'inscription sur le lien public est automatiquement refusée ("Cours complet").
+                    </p>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                             <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date *</Label>
