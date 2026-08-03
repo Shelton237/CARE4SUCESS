@@ -49,7 +49,8 @@ import {
     ImagePlus,
     Presentation,
     ListTree,
-    ClipboardList
+    ClipboardList,
+    ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -70,6 +71,7 @@ import {
     DialogFooter,
     DialogDescription
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -180,6 +182,7 @@ export default function VirtualClassroom() {
     const previewYoutubeId = useMemo(() => extractYouTubeId(youtubeUrl), [youtubeUrl]);
     const pdfInputRef = useRef<HTMLInputElement>(null);
     const [uploadingPdf, setUploadingPdf] = useState(false);
+    const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
     const [boardExpanded, setBoardExpanded] = useState(false);
     const [notesExpanded, setNotesExpanded] = useState(false);
 
@@ -946,18 +949,18 @@ export default function VirtualClassroom() {
                                                     <iframe
                                                         src={`${getFullAttachmentUrl(item.url)}#toolbar=0&navpanes=0`}
                                                         title={item.name}
-                                                        className="w-full h-full border-0"
+                                                        className="w-full h-full border-0 pointer-events-none"
                                                     />
-                                                    <a
-                                                        href={getFullAttachmentUrl(item.url)}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="absolute bottom-1 left-1 right-1 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/85"
-                                                        title="Ouvrir en plein écran"
-                                                    >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPdfPreview({ url: item.url, name: item.name })}
+                                                        className="absolute inset-0 w-full h-full cursor-zoom-in"
+                                                        title="Agrandir l'aperçu"
+                                                    />
+                                                    <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                                                         <FileText className="w-3 h-3 text-red-400 shrink-0" />
                                                         <span className="text-[9px] font-bold truncate">{item.name}</span>
-                                                    </a>
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <iframe
@@ -1107,6 +1110,40 @@ export default function VirtualClassroom() {
                     />
                 </div>
             )}
+
+            {/* Aperçu PDF agrandi — panneau large qui s'ouvre depuis la droite */}
+            <Sheet open={!!pdfPreview} onOpenChange={(open) => !open && setPdfPreview(null)}>
+                <SheetContent
+                    side="right"
+                    className="w-full sm:max-w-none sm:w-[75vw] lg:w-[65vw] p-0 flex flex-col gap-0 bg-white"
+                >
+                    <div className="flex items-center justify-between gap-3 pl-4 pr-10 py-3 border-b border-slate-100 shrink-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="w-4 h-4 text-red-500 shrink-0" />
+                            <SheetTitle className="text-sm font-black text-[#0D2D5A] truncate">{pdfPreview?.name}</SheetTitle>
+                        </div>
+                        {pdfPreview && (
+                            <a
+                                href={getFullAttachmentUrl(pdfPreview.url)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#1A6CC8] hover:text-[#0D2D5A] shrink-0"
+                            >
+                                <ExternalLink className="w-3.5 h-3.5" /> Plein écran
+                            </a>
+                        )}
+                    </div>
+                    <div className="flex-1 bg-slate-100">
+                        {pdfPreview && (
+                            <iframe
+                                src={`${getFullAttachmentUrl(pdfPreview.url)}#toolbar=1`}
+                                title={pdfPreview.name}
+                                className="w-full h-full border-0"
+                            />
+                        )}
+                    </div>
+                </SheetContent>
+            </Sheet>
 
             {/* Session Report Modal */}
             <SessionReportModal
