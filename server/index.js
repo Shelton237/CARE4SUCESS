@@ -5333,6 +5333,20 @@ app.post("/api/auth/register", async (req, res) => {
       ]
     );
 
+    // Un compte enseignant créé directement ici (ex: par un admin depuis
+    // ProfileManager, hors du circuit normal candidature → approbation) doit
+    // avoir sa propre ligne `teachers` comme n'importe quel autre enseignant
+    // (teachers.id == users.id) — sans quoi les créneaux réservables, le
+    // tarif, etc. échouent avec "Enseignant introuvable" faute de ligne à
+    // mettre à jour.
+    if (role === "teacher") {
+      await pool.query(
+        `INSERT INTO teachers (id, name, email, subjects, level, city, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'actif')`,
+        [userId, name.trim(), email.trim(), JSON.stringify([]), "", location || ""]
+      ).catch((err) => console.error("Failed to create teachers row for new teacher user", err));
+    }
+
     const linkOps = [];
     if (role === "parent" && Array.isArray(childrenIds)) {
       childrenIds.forEach((childId) => linkOps.push(linkParentChild(userId, childId)));
