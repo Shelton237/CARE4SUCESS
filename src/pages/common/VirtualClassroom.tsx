@@ -50,7 +50,12 @@ import {
     Presentation,
     ListTree,
     ClipboardList,
-    ExternalLink
+    ExternalLink,
+    Minus,
+    Square,
+    Circle,
+    Type,
+    Grid3x3
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -72,6 +77,7 @@ import {
     DialogDescription
 } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -105,6 +111,10 @@ declare global {
 type WhiteboardItem =
     | { id: string; type: "youtube"; videoId: string }
     | { id: string; type: "pdf"; url: string; name: string };
+
+type DrawTool = "pen" | "eraser" | "line" | "rectangle" | "circle" | "text";
+const SHAPE_TOOLS: DrawTool[] = ["line", "rectangle", "circle"];
+const QUICK_COLORS = ["#1A6CC8", "#EF4444", "#22C55E", "#F59E0B", "#000000", "#8B5CF6"];
 
 // Compat : les anciennes séances stockaient les items vidéo sans champ
 // `type` ({ id, videoId } uniquement) — on les normalise à la lecture.
@@ -175,7 +185,13 @@ export default function VirtualClassroom() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawColor, setDrawColor] = useState("#1A6CC8");
-    const [tool, setTool] = useState<"pen" | "eraser">("pen");
+    const [strokeWidth, setStrokeWidth] = useState(4);
+    const [tool, setTool] = useState<DrawTool>("pen");
+    const [showGrid, setShowGrid] = useState(false);
+    const [history, setHistory] = useState<string[]>([]);
+    const [redoStack, setRedoStack] = useState<string[]>([]);
+    const shapeStartRef = useRef<{ x: number; y: number } | null>(null);
+    const shapeSnapshotRef = useRef<ImageData | null>(null);
     const [whiteboardItems, setWhiteboardItems] = useState<WhiteboardItem[]>([]);
     const [showYoutubeInput, setShowYoutubeInput] = useState(false);
     const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -537,13 +553,117 @@ export default function VirtualClassroom() {
     };
 
     // Whiteboard Draw Logic
+    // Le point du clic/toucher est en coordonnées CSS (taille affichée du
+    // canvas) mais le canvas dessine dans sa résolution intrinsèque
+    // (1200×1600) — sans cette mise à l'échelle, le trait se décale du
+    // curseur dès que le canvas n'est pas affiché à sa taille réelle
+    // (systématique avec `w-full h-full`, et flagrant une fois le tableau
+    // agrandi).
+    const getCanvasPoint = (e: any) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return { x: 0, y: 0 };
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? 0;
+        const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY ?? 0;
+        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    };
+
+    // Empile l'état courant du tableau avant chaque nouvelle action pour
+    // permettre d'annuler — plafonné pour ne pas accumuler indéfiniment de
+    // data URLs en mémoire sur une longue séance.
+    const pushHistory = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const snapshot = canvas.toDataURL();
+        setHistory(prev => {
+            const next = [...prev, snapshot];
+            return next.length > 30 ? next.slice(next.length - 30) : next;
+        });
+        setRedoStack([]);
+    };
+
+    const restoreCanvasFromDataUrl = (dataUrl: string) => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            handleWorkspaceUpdate('whiteboard', canvas.toDataURL());
+        };
+        img.src = dataUrl;
+    };
+
+    const handleUndo = () => {
+        const canvas = canvasRef.current;
+        if (!canvas || history.length === 0) return;
+        const previous = history[history.length - 1];
+        setHistory(h => h.slice(0, -1));
+        setRedoStack(r => [...r, canvas.toDataURL()]);
+        restoreCanvasFromDataUrl(previous);
+    };
+
+    const handleRedo = () => {
+        const canvas = canvasRef.current;
+        if (!canvas || redoStack.length === 0) return;
+        const next = redoStack[redoStack.length - 1];
+        setRedoStack(r => r.slice(0, -1));
+        setHistory(h => [...h, canvas.toDataURL()]);
+        restoreCanvasFromDataUrl(next);
+    };
+
+    const handleClearBoard = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+        pushHistory();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        handleWorkspaceUpdate('whiteboard', canvas.toDataURL());
+    };
+
     const startDrawing = (e: any) => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+        const point = getCanvasPoint(e);
+
+        if (tool === 'text') {
+            pushHistory();
+            const text = window.prompt("Texte à écrire sur le tableau :");
+            if (text && text.trim()) {
+                ctx.fillStyle = drawColor;
+                ctx.font = `${Math.max(16, strokeWidth * 6)}px sans-serif`;
+                ctx.textBaseline = 'top';
+                ctx.fillText(text.trim(), point.x, point.y);
+                handleWorkspaceUpdate('whiteboard', canvas.toDataURL());
+            } else {
+                setHistory(h => h.slice(0, -1)); // rien écrit : pas la peine de garder ce snapshot
+            }
+            return;
+        }
+
+        if (SHAPE_TOOLS.includes(tool)) {
+            pushHistory();
+            shapeStartRef.current = point;
+            shapeSnapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            setIsDrawing(true);
+            return;
+        }
+
+        pushHistory();
         setIsDrawing(true);
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
         draw(e);
     };
 
     const stopDrawing = () => {
         setIsDrawing(false);
+        shapeStartRef.current = null;
+        shapeSnapshotRef.current = null;
         const canvas = canvasRef.current;
         if (canvas) {
             canvas.getContext('2d')?.beginPath();
@@ -556,18 +676,35 @@ export default function VirtualClassroom() {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
+        const point = getCanvasPoint(e);
 
-        const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
-        const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+        if (SHAPE_TOOLS.includes(tool)) {
+            if (!shapeStartRef.current || !shapeSnapshotRef.current) return;
+            ctx.putImageData(shapeSnapshotRef.current, 0, 0);
+            ctx.strokeStyle = drawColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.lineCap = 'round';
+            const { x: sx, y: sy } = shapeStartRef.current;
+            ctx.beginPath();
+            if (tool === 'line') {
+                ctx.moveTo(sx, sy);
+                ctx.lineTo(point.x, point.y);
+            } else if (tool === 'rectangle') {
+                ctx.rect(sx, sy, point.x - sx, point.y - sy);
+            } else if (tool === 'circle') {
+                ctx.arc(sx, sy, Math.hypot(point.x - sx, point.y - sy), 0, Math.PI * 2);
+            }
+            ctx.stroke();
+            return;
+        }
 
         ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : drawColor;
-        ctx.lineWidth = tool === 'eraser' ? 20 : 3;
+        ctx.lineWidth = tool === 'eraser' ? 24 : strokeWidth;
         ctx.lineCap = 'round';
-        ctx.lineTo(x, y);
+        ctx.lineTo(point.x, point.y);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(x, y);
+        ctx.moveTo(point.x, point.y);
     };
 
     // Keep a ref to currentSession to avoid stale closures in Jitsi events
@@ -889,25 +1026,75 @@ export default function VirtualClassroom() {
 
                         {/* Whiteboard View */}
                         <div className={cn("flex-1 flex flex-col p-4 md:p-6 gap-4", activeTab !== 'whiteboard' && "hidden")}>
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="flex gap-2">
-                                    <button onClick={() => setTool('pen')} className={`p-2 rounded-xl transition-all ${tool === 'pen' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Palette className="w-4 h-4" /></button>
-                                    <button onClick={() => setTool('eraser')} className={`p-2 rounded-xl transition-all ${tool === 'eraser' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}><Eraser className="w-4 h-4" /></button>
-                                    <button onClick={() => setShowYoutubeInput(v => !v)} className={`p-2 rounded-xl transition-all ${showYoutubeInput ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Importer une vidéo YouTube"><Youtube className="w-4 h-4" /></button>
-                                    <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} className="p-2 rounded-xl transition-all bg-slate-50 text-slate-400 disabled:opacity-50" title="Importer un PDF">
-                                        {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
-                                    </button>
-                                    <input ref={pdfInputRef} type="file" accept="application/pdf" onChange={handlePdfSelected} className="hidden" />
+                            <div className="flex flex-col gap-2">
+                                {/* Rangée 1 : outils de dessin + historique */}
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                        <button onClick={() => setTool('pen')} className={`p-2 rounded-xl transition-all ${tool === 'pen' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Stylo"><Palette className="w-4 h-4" /></button>
+                                        <button onClick={() => setTool('eraser')} className={`p-2 rounded-xl transition-all ${tool === 'eraser' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Gomme"><Eraser className="w-4 h-4" /></button>
+                                        <div className="w-px h-5 bg-slate-100 mx-1" />
+                                        <button onClick={() => setTool('line')} className={`p-2 rounded-xl transition-all ${tool === 'line' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Ligne droite"><Minus className="w-4 h-4" /></button>
+                                        <button onClick={() => setTool('rectangle')} className={`p-2 rounded-xl transition-all ${tool === 'rectangle' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Rectangle"><Square className="w-4 h-4" /></button>
+                                        <button onClick={() => setTool('circle')} className={`p-2 rounded-xl transition-all ${tool === 'circle' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Cercle"><Circle className="w-4 h-4" /></button>
+                                        <div className="w-px h-5 bg-slate-100 mx-1" />
+                                        <button onClick={() => setTool('text')} className={`p-2 rounded-xl transition-all ${tool === 'text' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Texte (idéal pour le vocabulaire, les corrections de langue)"><Type className="w-4 h-4" /></button>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <button onClick={handleUndo} disabled={!history.length} className="p-2 rounded-xl bg-slate-50 text-slate-400 disabled:opacity-30 transition-all" title="Annuler"><Undo2 className="w-4 h-4" /></button>
+                                        <button onClick={handleRedo} disabled={!redoStack.length} className="p-2 rounded-xl bg-slate-50 text-slate-400 disabled:opacity-30 transition-all" title="Rétablir"><Redo2 className="w-4 h-4" /></button>
+                                        <button onClick={handleClearBoard} className="p-2 rounded-xl bg-slate-50 text-red-400 hover:bg-red-50 transition-all" title="Effacer tout le tableau"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <input type="color" value={drawColor} onChange={e => setDrawColor(e.target.value)} className="w-8 h-8 rounded-xl cursor-pointer shadow-sm border-2 border-slate-50" />
-                                    <button
-                                        onClick={() => setBoardExpanded(v => !v)}
-                                        className={`hidden md:flex p-2 rounded-xl transition-all ${boardExpanded ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
-                                        title={boardExpanded ? "Réduire le tableau" : "Agrandir le tableau"}
-                                    >
-                                        {boardExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                                    </button>
+
+                                {/* Rangée 2 : couleurs, épaisseur, grille (maths/physique), import, agrandir */}
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-slate-50">
+                                            {QUICK_COLORS.map(c => (
+                                                <button
+                                                    key={c}
+                                                    onClick={() => setDrawColor(c)}
+                                                    className={cn("w-5 h-5 rounded-full transition-all", drawColor === c && "ring-2 ring-offset-1 ring-[#1A6CC8] scale-110")}
+                                                    style={{ backgroundColor: c }}
+                                                    title={c}
+                                                />
+                                            ))}
+                                            <input type="color" value={drawColor} onChange={e => setDrawColor(e.target.value)} className="w-5 h-5 rounded-full cursor-pointer border-none bg-transparent" title="Couleur personnalisée" />
+                                        </div>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <button className="flex items-center gap-1.5 px-2.5 h-8 rounded-xl bg-slate-50 text-slate-500 transition-all" title="Épaisseur du trait">
+                                                    <span className="rounded-full bg-current shrink-0" style={{ width: Math.min(strokeWidth + 4, 16), height: Math.min(strokeWidth + 4, 16) }} />
+                                                    <span className="text-[9px] font-black uppercase tracking-widest">{strokeWidth}px</span>
+                                                </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-48 p-3" align="start">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Épaisseur du trait</p>
+                                                <Slider min={1} max={20} step={1} value={[strokeWidth]} onValueChange={(v) => setStrokeWidth(v[0])} />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <button
+                                            onClick={() => setShowGrid(v => !v)}
+                                            className={`p-2 rounded-xl transition-all ${showGrid ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
+                                            title="Fond quadrillé (maths, physique, géométrie)"
+                                        >
+                                            <Grid3x3 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setShowYoutubeInput(v => !v)} className={`p-2 rounded-xl transition-all ${showYoutubeInput ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Importer une vidéo YouTube"><Youtube className="w-4 h-4" /></button>
+                                        <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} className="p-2 rounded-xl transition-all bg-slate-50 text-slate-400 disabled:opacity-50" title="Importer un PDF">
+                                            {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                                        </button>
+                                        <input ref={pdfInputRef} type="file" accept="application/pdf" onChange={handlePdfSelected} className="hidden" />
+                                        <button
+                                            onClick={() => setBoardExpanded(v => !v)}
+                                            className={`hidden md:flex p-2 rounded-xl transition-all ${boardExpanded ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
+                                            title={boardExpanded ? "Réduire le tableau" : "Agrandir le tableau"}
+                                        >
+                                            {boardExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -983,12 +1170,18 @@ export default function VirtualClassroom() {
                                 </div>
                             )}
 
-                            <div className="flex-1 bg-slate-50 rounded-[2rem] shadow-inner overflow-hidden border border-slate-100 relative">
+                            <div
+                                className="flex-1 bg-slate-50 rounded-[2rem] shadow-inner overflow-hidden border border-slate-100 relative"
+                                style={showGrid ? {
+                                    backgroundImage: "linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)",
+                                    backgroundSize: "24px 24px",
+                                } : undefined}
+                            >
                                 <canvas
                                     ref={canvasRef}
                                     width={1200}
                                     height={1600}
-                                    className="w-full h-full cursor-crosshair"
+                                    className={cn("w-full h-full", tool === 'text' ? "cursor-text" : "cursor-crosshair")}
                                     onMouseDown={startDrawing}
                                     onMouseUp={stopDrawing}
                                     onMouseMove={draw}
