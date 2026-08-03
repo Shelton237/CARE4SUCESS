@@ -318,6 +318,55 @@ export const updateCourseLesson = (
 export const deleteCourseLesson = (courseId: string, lessonId: string) =>
     request<CourseSummary>(`/courses/${courseId}/lessons/${lessonId}`, { method: "DELETE" });
 
+// ─── Cours groupés payants (capacité limitée, lien public partageable) ─────
+
+export interface GroupClass {
+    id: string;
+    teacherId: string;
+    title: string;
+    subject: string;
+    description: string | null;
+    sessionDate: string;
+    sessionTime: string;
+    price: number;
+    currency: string;
+    maxParticipants: number;
+    paidCount?: number;
+    virtualLink: string;
+    status: "scheduled" | "cancelled";
+    publicUrl: string;
+    createdAt: string;
+}
+
+export interface GroupClassDetail extends GroupClass {
+    registrations: { id: string; studentName: string; amount: number; currency: string; createdAt: string }[];
+}
+
+export type CreateGroupClassPayload = {
+    title: string;
+    subject: string;
+    description?: string;
+    sessionDate: string;
+    sessionTime: string;
+    price: number;
+    maxParticipants: number;
+};
+
+export const createGroupClass = (payload: CreateGroupClassPayload) =>
+    request<{ id: string; publicUrl: string }>("/group-classes", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
+export const fetchTeacherGroupClasses = (teacherId: string) =>
+    request<GroupClass[]>(`/group-classes/teacher/${teacherId}`);
+
+export const fetchGroupClass = (id: string) =>
+    request<GroupClassDetail>(`/group-classes/${id}`);
+
+export const cancelGroupClass = (id: string) =>
+    request<{ success: boolean }>(`/group-classes/${id}`, { method: "DELETE" });
+
 export const createLessonQuiz = (
     lessonId: string,
     payload: { title: string; instructions?: string; totalPoints?: number }

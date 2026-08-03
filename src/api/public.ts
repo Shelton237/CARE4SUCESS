@@ -97,3 +97,51 @@ export const checkBookingStatus = (reference: string) =>
     publicRequest<{ success: boolean; alreadyProcessed?: boolean; sessionId?: string; reason?: string }>(
         `/bookings/status/${encodeURIComponent(reference)}`
     );
+
+// ─── Cours groupés payants (capacité limitée, lien public) ─────────────────
+
+export interface PublicGroupClass {
+    id: string;
+    title: string;
+    subject: string;
+    description: string | null;
+    teacherName: string;
+    sessionDate: string;
+    sessionTime: string;
+    price: number;
+    currency: string;
+    maxParticipants: number;
+    spotsLeft: number;
+    status: "scheduled" | "cancelled";
+}
+
+export const fetchPublicGroupClass = (id: string) =>
+    publicRequest<PublicGroupClass>(`/group-classes/${id}/public`);
+
+export interface InitiateGroupClassRegistrationPayload {
+    network: MobileMoneyNetwork;
+    phoneNumber: string;
+    countryCode?: string;
+    parentName: string;
+    parentEmail: string;
+    parentPhone?: string;
+    studentName: string;
+    studentEmail?: string;
+}
+
+export const initiateGroupClassRegistration = (groupClassId: string, payload: InitiateGroupClassRegistrationPayload) =>
+    publicRequest<{
+        chargeId: string; reference: string; status: string;
+        nextAction: FlutterwaveNextAction; amount: number; currency: string;
+    }>(`/group-classes/${groupClassId}/register/initiate`, { method: "POST", body: JSON.stringify(payload) });
+
+export const authorizeGroupClassRegistration = (chargeId: string, type: "otp" | "pin", code: string) =>
+    publicRequest<{ status: string; nextAction: FlutterwaveNextAction }>("/group-classes/register/authorize", {
+        method: "POST",
+        body: JSON.stringify({ chargeId, type, code }),
+    });
+
+export const checkGroupClassRegistrationStatus = (reference: string) =>
+    publicRequest<{ success: boolean; alreadyProcessed?: boolean; sessionId?: string; reason?: string }>(
+        `/group-classes/register/status/${encodeURIComponent(reference)}`
+    );
