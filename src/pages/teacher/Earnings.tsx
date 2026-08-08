@@ -28,7 +28,7 @@ export default function TeacherEarnings() {
         );
     }
 
-    const totalEarnings = history.reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0) || 1450000;
+    const totalEarnings = history.reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0);
     const currency = transactions[0]?.currency || "XAF";
 
     return (
@@ -55,30 +55,32 @@ export default function TeacherEarnings() {
                         <h3 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest">Analytique mensuelle</h3>
                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Temps Réel</span>
                     </div>
-                    <div className="h-48 flex items-end gap-2 justify-between px-2 pb-2">
-                        {(history.length > 0 ? history : [
-                            { month: "Oct", amount: 480000 },
-                            { month: "Nov", amount: 520000 },
-                            { month: "Déc", amount: 450000 },
-                            { month: "Jan", amount: 590000 },
-                            { month: "Fév", amount: 560000 },
-                            { month: "Mar", amount: 620000 },
-                        ]).slice(-6).map((item: any, i: number) => (
-                            <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                                <div
-                                    className="w-full bg-[#1A6CC8]/10 hover:bg-[#1A6CC8] transition-colors cursor-pointer group relative"
-                                    style={{ height: `${(item.amount / 700000) * 100}%` }}
-                                >
-                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#0D2D5A] text-white text-[9px] px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 font-black uppercase">
-                                        {formatMoney(item.amount, currency)}
+                    {history.length === 0 ? (
+                        <div className="h-48 flex items-center justify-center">
+                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Aucune donnée pour le moment</p>
+                        </div>
+                    ) : (
+                        <div className="h-48 flex items-end gap-2 justify-between px-2 pb-2">
+                            {history.slice(-6).map((item: any, i: number) => {
+                                const maxAmount = Math.max(...history.map((h: any) => h.amount || 0), 1);
+                                return (
+                                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                                        <div
+                                            className="w-full bg-[#1A6CC8]/10 hover:bg-[#1A6CC8] transition-colors cursor-pointer group relative"
+                                            style={{ height: `${((item.amount || 0) / maxAmount) * 100}%` }}
+                                        >
+                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#0D2D5A] text-white text-[9px] px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 font-black uppercase">
+                                                {formatMoney(item.amount, currency)}
+                                            </div>
+                                        </div>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase">
+                                            {item.month || item.date?.split('-')[1]}
+                                        </span>
                                     </div>
-                                </div>
-                                <span className="text-[9px] font-black text-slate-400 uppercase">
-                                    {item.month || item.date?.split('-')[1]}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* Barème + Total */}
@@ -112,7 +114,7 @@ export default function TeacherEarnings() {
                     <div className="border border-[#0D2D5A] bg-[#0D2D5A] p-3 text-white text-center">
                         <p className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">Total perçu</p>
                         <div className="text-lg font-black tracking-tight">
-                            {totalEarnings.toLocaleString()} <span className="text-[10px] opacity-40">XOF</span>
+                            {totalEarnings.toLocaleString()} <span className="text-[10px] opacity-40">{currency}</span>
                         </div>
                         <div className="flex items-center justify-center gap-1 text-[9px] text-[#F5A623] font-black uppercase mt-1">
                             <TrendingUp className="w-3 h-3" /> Flux Actif
@@ -166,9 +168,9 @@ export default function TeacherEarnings() {
                                         </td>
                                         <td className="px-3 py-2 text-right">
                                             <span className="text-[10px] font-black text-[#0D2D5A]">
-                                                {t.amount?.toLocaleString() || "15 000"}
+                                                {(t.amount || 0).toLocaleString()}
                                             </span>
-                                            <span className="text-[9px] text-slate-400 ml-1">XOF</span>
+                                            <span className="text-[9px] text-slate-400 ml-1">{t.currency || currency}</span>
                                         </td>
                                     </tr>
                                 ))
