@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     BookOpen, Search, Plus, Loader2, FileText, Video, Settings2,
-    ArrowLeft, Save, Trash2, Monitor, Users, Globe, MapPin, Clock,
+    ArrowLeft, Save, Trash2, Users, MapPin, Clock, Shuffle, Banknote,
     ChevronDown, ChevronUp, GripVertical, X, CheckCircle2, Lock, Unlock
 } from "lucide-react";
 import {
@@ -19,9 +19,9 @@ import { formatMoney } from "@/lib/money";
 const SUBJECTS = ["Mathématiques", "Français", "Physique-Chimie", "SVT", "Histoire-Géo", "Anglais", "Philosophie", "Informatique", "Économie", "Autre"];
 const LEVELS = ["CP", "CE1", "CE2", "CM1", "CM2", "6ème", "5ème", "4ème", "3ème", "Seconde", "Première", "Terminale", "BTS / Licence", "Tous niveaux"];
 const MODES = [
-    { value: "presentiel", label: "Présentiel", icon: MapPin, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-    { value: "online", label: "En ligne", icon: Monitor, color: "text-blue-600 bg-blue-50 border-blue-200" },
-    { value: "hybride", label: "Hybride", icon: Globe, color: "text-purple-600 bg-purple-50 border-purple-200" },
+    { value: "presentiel", label: "Présentiel", icon: MapPin, description: "Face-à-face, lieu défini à la planification." },
+    { value: "online", label: "En ligne", icon: Video, description: "Visioconférence, lien généré automatiquement." },
+    { value: "hybride", label: "Hybride", icon: Shuffle, description: "Présentiel ou en ligne selon la séance." },
 ] as const;
 
 type VideoDraft = { id?: string; title: string; videoUrl: string; isPaid: boolean; order: number; _tempId: string };
@@ -316,22 +316,24 @@ export default function TeacherCourses() {
                     <div className="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Titre */}
                         <div className="lg:col-span-2 space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Titre du cours *</label>
+                            <label htmlFor="course-title" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Titre du cours *</label>
                             <input
+                                id="course-title"
                                 value={form.title}
                                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                                 placeholder="Ex: Révision Bac – Terminale Mathématiques"
-                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[12px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[12px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                             />
                         </div>
 
                         {/* Matière */}
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Matière *</label>
+                            <label htmlFor="course-subject" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Matière *</label>
                             <select
+                                id="course-subject"
                                 value={form.subject}
                                 onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                             >
                                 <option value="">— Choisir —</option>
                                 {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -340,11 +342,12 @@ export default function TeacherCourses() {
 
                         {/* Niveau */}
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Niveau *</label>
+                            <label htmlFor="course-level" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Niveau *</label>
                             <select
+                                id="course-level"
                                 value={form.level}
                                 onChange={e => setForm(f => ({ ...f, level: e.target.value }))}
-                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                             >
                                 <option value="">— Choisir —</option>
                                 {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
@@ -353,93 +356,89 @@ export default function TeacherCourses() {
 
                         {/* Mode de session */}
                         <div className="lg:col-span-2 space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Mode de session *</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {MODES.map(m => (
-                                    <button
-                                        key={m.value}
-                                        type="button"
-                                        onClick={() => setForm(f => ({ ...f, mode: m.value }))}
-                                        className={cn(
-                                            "flex flex-col items-center gap-2 p-3 border-2 transition-all",
-                                            form.mode === m.value
-                                                ? "border-[#1A6CC8] bg-[#1A6CC8]/5"
-                                                : "border-slate-200 hover:border-slate-300 bg-white"
-                                        )}
-                                    >
-                                        <div className={cn("w-8 h-8 flex items-center justify-center border", m.color)}>
-                                            <m.icon className="w-4 h-4" />
-                                        </div>
-                                        <span className={cn(
-                                            "text-[9px] font-black uppercase tracking-widest",
-                                            form.mode === m.value ? "text-[#1A6CC8]" : "text-slate-400"
-                                        )}>
-                                            {m.label}
-                                        </span>
-                                        {form.mode === m.value && (
-                                            <div className="w-1.5 h-1.5 bg-[#1A6CC8] rounded-full" />
-                                        )}
-                                    </button>
-                                ))}
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Mode de session *</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Mode de session">
+                                {MODES.map(m => {
+                                    const selected = form.mode === m.value;
+                                    return (
+                                        <button
+                                            key={m.value}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={selected}
+                                            onClick={() => setForm(f => ({ ...f, mode: m.value }))}
+                                            className={cn(
+                                                "relative flex items-start gap-3 p-3 border text-left cursor-pointer transition-colors duration-200",
+                                                selected
+                                                    ? "border-[#1A6CC8] bg-[#1A6CC8]/5"
+                                                    : "border-slate-200 hover:border-slate-300 bg-white"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "w-8 h-8 shrink-0 flex items-center justify-center border transition-colors duration-200",
+                                                selected ? "bg-[#1A6CC8] border-[#1A6CC8] text-white" : "bg-slate-50 border-slate-200 text-slate-400"
+                                            )}>
+                                                <m.icon className="w-4 h-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className={cn(
+                                                    "text-[9px] font-black uppercase tracking-widest",
+                                                    selected ? "text-[#1A6CC8]" : "text-slate-500"
+                                                )}>
+                                                    {m.label}
+                                                </p>
+                                                <p className="text-[9px] text-slate-400 font-medium leading-snug mt-0.5">{m.description}</p>
+                                            </div>
+                                            {selected && (
+                                                <CheckCircle2 className="absolute top-2 right-2 w-3.5 h-3.5 text-[#1A6CC8]" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
-                            {/* Mode info */}
-                            {form.mode === "presentiel" && (
-                                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5">
-                                    <MapPin className="w-3 h-3 text-emerald-500" />
-                                    Les séances se déroulent en face-à-face — lieu défini lors de la planification.
-                                </p>
-                            )}
-                            {form.mode === "online" && (
-                                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5">
-                                    <Monitor className="w-3 h-3 text-blue-500" />
-                                    Les séances se déroulent via visioconférence — lien Jitsi auto-généré.
-                                </p>
-                            )}
-                            {form.mode === "hybride" && (
-                                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5">
-                                    <Globe className="w-3 h-3 text-purple-500" />
-                                    Mixte — présentiel ou en ligne selon la séance.
-                                </p>
-                            )}
                         </div>
 
                         {/* Prix & Durée */}
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tarif du cours ({teacherCurrency})</label>
+                            <label htmlFor="course-price" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tarif du cours ({teacherCurrency})</label>
                             <div className="relative">
+                                <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
                                 <input
+                                    id="course-price"
                                     type="number"
                                     min="0"
                                     value={form.price}
                                     onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                                    className="w-full h-10 bg-slate-50/50 px-3 pr-16 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                    className="w-full h-10 bg-slate-50/50 pl-9 pr-16 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                                 />
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-300 uppercase">{teacherCurrency}</span>
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Durée indicative</label>
+                            <label htmlFor="course-duration" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Durée indicative</label>
                             <div className="relative">
                                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
                                 <input
+                                    id="course-duration"
                                     value={form.duration}
                                     onChange={e => setForm(f => ({ ...f, duration: e.target.value }))}
                                     placeholder="Ex: 1h30 / séance"
-                                    className="w-full h-10 bg-slate-50/50 pl-9 pr-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                    className="w-full h-10 bg-slate-50/50 pl-9 pr-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                                 />
                             </div>
                         </div>
 
                         {/* Description */}
                         <div className="lg:col-span-2 space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Description du cours</label>
+                            <label htmlFor="course-description" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Description du cours</label>
                             <textarea
+                                id="course-description"
                                 value={form.description}
                                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                                 rows={5}
                                 placeholder="Décrivez le contenu, les objectifs pédagogiques, les prérequis..."
-                                className="w-full bg-slate-50/50 p-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all resize-none"
+                                className="w-full bg-slate-50/50 p-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200 resize-none"
                             />
                         </div>
                     </div>
