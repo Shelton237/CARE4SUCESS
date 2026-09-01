@@ -93,14 +93,14 @@ export function GeoSelector({ label, required, onChange, suggestedByEmail, hint,
     const pathParts = LEVEL_ORDER.filter(l => selected[l]).map(l => selected[l]!.name);
 
     return (
-        <div className={cn("space-y-3", className)}>
+        <div className={cn("space-y-2", className)}>
             {label && (
-                <Label className="text-sm font-medium">
-                    {label}{required && <span className="text-destructive ml-1">*</span>}
-                </Label>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    {label}{required && <span className="text-red-500 ml-1">*</span>}
+                </p>
             )}
 
-            <div className="space-y-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-3">
+            <div className="space-y-1 border border-slate-200 bg-slate-50/50 p-2.5">
                 {LEVELS.map(({ type, label: lvlLabel, singular, placeholder }) => {
                     const enabled = isEnabled(type);
                     const q = queries[type];
@@ -108,12 +108,12 @@ export function GeoSelector({ label, required, onChange, suggestedByEmail, hint,
                     const current = selected[type];
 
                     return (
-                        <div key={type} className={cn("transition-opacity", !enabled && "opacity-35 pointer-events-none")}>
-                            <div className="flex items-center gap-1.5">
-                                <ChevronRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                                <span className="text-xs text-gray-400 w-28 flex-shrink-0">{lvlLabel}</span>
+                        <div key={type} className={cn("transition-opacity", !enabled && "opacity-30 pointer-events-none")}>
+                            <div className="flex items-center gap-2">
+                                <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide w-24 flex-shrink-0 leading-tight">{lvlLabel}</span>
                                 <select
-                                    className="flex-1 h-8 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-0"
+                                    className="flex-1 h-8 border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#1A6CC8] focus:border-[#1A6CC8] min-w-0 transition-colors"
                                     value={current?.id ?? ""}
                                     disabled={!enabled || q.isLoading}
                                     onChange={(e) => {
@@ -131,18 +131,18 @@ export function GeoSelector({ label, required, onChange, suggestedByEmail, hint,
                                         </option>
                                     ))}
                                     {enabled && (
-                                        <option value="__suggest__">— {lvlLabel} introuvable ? Suggérer</option>
+                                        <option value="__suggest__">— Introuvable ? Suggérer</option>
                                     )}
                                 </select>
                             </div>
 
                             {suggestionLevel === type && (
-                                <div className="ml-[4.5rem] mt-1 flex gap-1.5">
+                                <div className="ml-[6.5rem] mt-1.5 flex gap-1.5">
                                     <Input
                                         value={suggestionText}
                                         onChange={(e) => setSuggestionText(e.target.value)}
                                         placeholder={`Nom du/de la ${singular}`}
-                                        className="h-7 text-xs"
+                                        className="h-7 text-xs rounded-none border-slate-200"
                                         onKeyDown={(e) => {
                                             if (e.key === "Enter") {
                                                 e.preventDefault();
@@ -150,20 +150,20 @@ export function GeoSelector({ label, required, onChange, suggestedByEmail, hint,
                                             }
                                         }}
                                     />
-                                    <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs"
+                                    <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs rounded-none border-slate-200 hover:border-[#1A6CC8] hover:text-[#1A6CC8]"
                                         onClick={() => suggestMut.mutate({ name: suggestionText.trim(), type, parent_id: getParentId(type) })}
                                         disabled={!suggestionText.trim() || suggestMut.isPending}
                                     >
                                         {suggestMut.isPending ? "…" : "Suggérer"}
                                     </Button>
-                                    <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs text-gray-400"
+                                    <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs text-slate-400 hover:text-slate-600"
                                         onClick={() => setSuggestionLevel(null)}
                                     >✕</Button>
                                 </div>
                             )}
 
                             {current?.status === "pending" && (
-                                <div className="ml-[4.5rem] flex items-center gap-1 text-xs text-amber-600 mt-0.5">
+                                <div className="ml-[6.5rem] flex items-center gap-1 text-[10px] text-amber-600 mt-0.5">
                                     <Clock className="w-3 h-3" />
                                     En attente de validation admin
                                 </div>
@@ -174,13 +174,13 @@ export function GeoSelector({ label, required, onChange, suggestedByEmail, hint,
             </div>
 
             {pathParts.length > 0 && (
-                <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-lg">
+                <div className="flex items-center gap-1.5 text-xs text-[#1A6CC8] bg-blue-50 border border-blue-100 px-3 py-1.5">
                     <MapPin className="w-3 h-3 flex-shrink-0" />
-                    <span className="font-medium">{pathParts.join(" › ")}</span>
+                    <span className="font-bold">{pathParts.join(" › ")}</span>
                 </div>
             )}
 
-            {hint && <p className="text-xs text-gray-400">{hint}</p>}
+            {hint && <p className="text-[10px] text-slate-400">{hint}</p>}
         </div>
     );
 }

@@ -8,7 +8,7 @@ import {
   MessageSquare, Search, ChevronRight, Sparkles,
   Smartphone, Download,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { TeacherCard } from "@/components/TeacherCard";
 import { testimonials, teachers, stats } from "@/data/index";
 import { IMAGES } from "@/assets/images";
@@ -108,8 +108,17 @@ const disciplines = [
 
 /* ─── COMPOSANT PRINCIPAL ─────────────────────── */
 export default function Home() {
+  const navigate = useNavigate();
   const [selNiveau, setSelNiveau] = useState("");
   const [selMatiere, setSelMatiere] = useState("");
+
+  const goToProfesseurs = (niveau = selNiveau, matiere = selMatiere) => {
+    const p = new URLSearchParams();
+    if (niveau)  p.set("niveau",  niveau);
+    if (matiere) p.set("matiere", matiere);
+    const qs = p.toString();
+    navigate(`/professeurs${qs ? `?${qs}` : ""}`);
+  };
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -300,12 +309,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Coupure diagonale bas */}
-        <div className="absolute bottom-0 left-0 right-0 z-20">
-          <svg viewBox="0 0 1440 80" className="w-full block" preserveAspectRatio="none">
-            <polygon points="0,80 1440,0 1440,80" fill="oklch(0.99 0.003 230)" />
-          </svg>
-        </div>
       </section>
 
       {/* ══════════════════════════════════════════════════════
@@ -416,14 +419,13 @@ export default function Home() {
                 </div>
 
                 {/* Bouton */}
-                <NavLink
-                  to={ROUTE_PATHS.CONTACT}
-                  id="selector-cta"
-                  className="group flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-[#0D2D5A] text-white font-black text-sm hover:bg-[#1A6CC8] transition-colors duration-200 shadow-lg"
+                <button
+                  onClick={() => goToProfesseurs()}
+                  className="group flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-[#0D2D5A] text-white font-black text-sm hover:bg-[#1A6CC8] transition-colors duration-200 shadow-lg cursor-pointer"
                 >
                   Trouver mon enseignant
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </NavLink>
+                </button>
               </div>
 
               {/* Tags rapides */}
@@ -432,11 +434,11 @@ export default function Home() {
                 {popularSubjects.map(sub => (
                   <button
                     key={sub}
-                    onClick={() => setSelMatiere(sub)}
+                    onClick={() => goToProfesseurs(selNiveau, sub)}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-150 ${selMatiere === sub
                       ? "bg-[#1A6CC8] border-[#1A6CC8] text-white shadow-md shadow-[#1A6CC8]/20"
                       : "border-[#0D2D5A]/20 text-[#0D2D5A] hover:border-[#1A6CC8] hover:text-[#1A6CC8] bg-white"
-                      }`}
+                      } cursor-pointer`}
                   >
                     {sub}
                   </button>

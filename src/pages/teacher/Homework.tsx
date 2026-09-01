@@ -7,6 +7,7 @@ import {
     Layers, ArrowUpRight, BarChart3, CalendarDays
 } from "lucide-react";
 import { fetchHomework, fetchStudentsByTeacher } from "@/api/backoffice";
+import { FilePreview } from "@/components/ui/FilePreview";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -457,26 +458,9 @@ export default function TeacherHomework() {
 
                             {/* Fichier Rendu par l'Élève */}
                             {selectedHomework.submissionUrl ? (
-                                <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
-                                                <FileText className="w-4 h-4" />
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Travail Rendu</p>
-                                                <p className="text-xs font-semibold text-[#0D2D5A]">Fichier de l'élève</p>
-                                            </div>
-                                        </div>
-                                        <a 
-                                            href={selectedHomework.submissionUrl} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="text-[10px] font-black bg-[#1A6CC8] hover:bg-blue-700 text-white px-3 py-1.5 rounded uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all"
-                                        >
-                                            Ouvrir <ArrowUpRight className="w-3.5 h-3.5" />
-                                        </a>
-                                    </div>
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Travail Rendu</p>
+                                    <FilePreview url={selectedHomework.submissionUrl} label="Fichier de l'élève" />
                                 </div>
                             ) : selectedHomework.status === "rendu" && (
                                 <div className="p-3 bg-amber-50 rounded-lg border border-amber-100 flex items-center gap-2 text-amber-600">

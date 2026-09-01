@@ -4,6 +4,7 @@ import {
   CheckCircle, ArrowRight, Clock, BookOpen,
 } from "lucide-react";
 import { TeacherApplicationForm } from "@/components/TeacherApplicationForm";
+import { IMAGES } from "@/assets/images";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 
 const BENEFITS = [
@@ -58,7 +59,9 @@ export default function DevenirProfesseur() {
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative bg-[#0D2D5A] py-24 overflow-hidden">
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${IMAGES.TEACHER_STUDENT_4})` }} />
+        <div className="absolute inset-0 bg-[#0D2D5A]/78" />
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#F5A623]/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
 

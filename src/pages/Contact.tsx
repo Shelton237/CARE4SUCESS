@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Phone, Mail, MapPin, Clock, CheckCircle, ArrowRight } from "lucide-react";
 import { ContactForm } from "@/components/ContactForm";
+import { IMAGES } from "@/assets/images";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 
 const CONTACT_METHODS = [
@@ -14,8 +15,8 @@ const CONTACT_METHODS = [
   {
     icon: Mail,
     title: "Email",
-    value: "contact@care4success.cm",
-    href: "mailto:contact@care4success.cm",
+    value: "contact@usra-care.com",
+    href: "mailto:contact@usra-care.com",
     note: "Réponse sous 24h ouvrées",
   },
   {
@@ -23,7 +24,7 @@ const CONTACT_METHODS = [
     title: "Bureau principal",
     value: "Douala 5ᵉ, Makepe Bloc L",
     href: "#centres",
-    note: "15 centres au Cameroun",
+    note: "Réseau panafricain — 15 pays",
   },
   {
     icon: Clock,
@@ -43,18 +44,25 @@ const GUARANTEES = [
 
 const CENTERS = [
   {
-    name: "Bureau Régional — Douala",
-    address: "Arrondissement Douala 5ᵉ, Makepe Bloc L",
+    name: "Bureau Régional — Cameroun",
+    address: "Arrondissement Douala 5ᵉ, Makepe Bloc L, Douala",
     phone: "+237 675 252 048",
-    email: "contact@care4success.cm",
-    badge: "Siège principal",
+    email: "contact@usra-care.com",
+    badge: "Siège Cameroun",
   },
   {
-    name: "Antenne Yaoundé",
-    address: "Bastos, Avenue de l'Impératrice",
-    phone: "+237 675 252 048",
-    email: "yaounde@care4success.cm",
-    badge: "Antenne",
+    name: "Siège Social Principal — Madagascar",
+    address: "LOT 230 Ankadivory Talatamaty-Ambohidratrimo, Antananarivo 101",
+    phone: "+261 038 262 0250",
+    email: "contact@usra-care.com",
+    badge: "Siège Afrique",
+  },
+  {
+    name: "Bureau Régional — Côte d'Ivoire",
+    address: "Koumassi, Immeuble Coulibaly Seydou, Lot 5303 — Îlot 218, Abidjan",
+    phone: null,
+    email: "contact@usra-care.com",
+    badge: "Antenne Abidjan",
   },
 ];
 
@@ -63,7 +71,9 @@ export default function Contact() {
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative bg-[#0D2D5A] py-24 overflow-hidden">
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${IMAGES.STUDENTS_STUDYING_6})` }} />
+        <div className="absolute inset-0 bg-[#0D2D5A]/78" />
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
         <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#F5A623]/10 rounded-full blur-3xl translate-x-1/3 translate-y-1/3 pointer-events-none" />
 
@@ -160,13 +170,13 @@ export default function Contact() {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="grid sm:grid-cols-2 gap-5"
+            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"
           >
             {CENTERS.map(c => (
               <motion.div key={c.name} variants={staggerItem} className="bg-gray-50 rounded-2xl border border-gray-100 p-6 hover:border-[#1A6CC8]/20 hover:shadow-md transition-all duration-200">
                 <div className="flex items-start justify-between mb-4">
-                  <h3 className="font-black text-[#0D2D5A] text-base">{c.name}</h3>
-                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#1A6CC8]/10 text-[#1A6CC8]">
+                  <h3 className="font-black text-[#0D2D5A] text-sm leading-snug">{c.name}</h3>
+                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#1A6CC8]/10 text-[#1A6CC8] shrink-0 ml-2">
                     {c.badge}
                   </span>
                 </div>
@@ -175,10 +185,12 @@ export default function Contact() {
                     <MapPin className="w-4 h-4 text-[#F5A623] shrink-0 mt-0.5" />
                     <span>{c.address}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Phone className="w-4 h-4 text-[#F5A623] shrink-0" />
-                    <a href={`tel:${c.phone.replace(/\s/g, "")}`} className="hover:text-[#1A6CC8] transition-colors cursor-pointer">{c.phone}</a>
-                  </div>
+                  {c.phone && (
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Phone className="w-4 h-4 text-[#F5A623] shrink-0" />
+                      <a href={`tel:${c.phone.replace(/\s/g, "")}`} className="hover:text-[#1A6CC8] transition-colors cursor-pointer">{c.phone}</a>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-gray-600">
                     <Mail className="w-4 h-4 text-[#F5A623] shrink-0" />
                     <a href={`mailto:${c.email}`} className="hover:text-[#1A6CC8] transition-colors cursor-pointer">{c.email}</a>

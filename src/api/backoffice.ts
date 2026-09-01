@@ -32,6 +32,7 @@ export type UpdateUserProfilePayload = {
     phone?: string;
     avatar?: string;
     location?: string;
+    geoLocationId?: number | null;
     timezone?: string;
     language?: string;
     bio?: string;
@@ -64,11 +65,16 @@ export type AdminDashboardResponse = {
     stats: {
         totalTeachers: number;
         activeStudents: number;
+        previousTotalTeachers: number;
+        previousActiveStudents: number;
         pendingRequests: number;
         monthlyRevenue: number;
         previousRevenue: number;
         satisfactionRate: number;
         newFamiliesThisMonth: number;
+        occupancyRate: number;
+        activeTeachersThisMonth: number;
+        leadsThisMonth: number;
     };
     monthlyRevenue: { month: string; amount: number }[];
     latestRequests: {
@@ -358,6 +364,9 @@ export const fetchTeacherRatings = () => request<TeacherRating[]>("/teacher-rati
 export const fetchTeacherFeedback = (teacherId: string) =>
     request<TeacherFeedback[]>(`/teachers/${teacherId}/feedback`);
 
+export const fetchTeacherProfile = (teacherId: string) =>
+    request<{ id: string; name: string; email: string; subjects: string[]; level: string; levels?: string[]; city: string; status: string; rating: number }>(`/teachers/${teacherId}/profile`);
+
 export const fetchTeacherDashboard = (teacherId: string) =>
     request<any>(`/teachers/${teacherId}/dashboard`);
 
@@ -374,6 +383,9 @@ export const fetchTeacherContacts = (teacherId: string) =>
 export const fetchParentContacts = (parentId: string) =>
     request<any[]>(`/parents/${parentId}/contacts`);
 
+export const fetchAdvisorContacts = (advisorId: string) =>
+    request<any[]>(`/advisors/${advisorId}/contacts`);
+
 export const fetchAdvisorDashboard = (advisorId: string) =>
     request<any>(`/advisors/${advisorId}/dashboard`);
 
@@ -389,8 +401,8 @@ export const createAdvisorAppointment = (advisorId: string, payload: any) =>
         body: JSON.stringify(payload),
     });
 
-export const fetchMessages = (userId: string) =>
-    request<any[]>(`/messages/${userId}`);
+export const fetchMessages = (userId: string, withUserId?: string) =>
+    request<any[]>(`/messages/${userId}${withUserId ? `?withUser=${withUserId}` : ""}`);
 
 export const fetchUnreadMessagesCount = (userId: string) =>
     request<{ count: number }>(`/messages/unread-count/${userId}`);
@@ -491,6 +503,33 @@ export const globalSearch = (query: string) =>
 export const markNotificationAsRead = (id: string) =>
     request<any>(`/notifications/${id}/read`, {
         method: "PATCH"
+    });
+
+export const markAllNotificationsRead = (userId: string) =>
+    request<any>(`/notifications/read-all/${userId}`, { method: "PATCH" });
+
+export const deleteNotification = (id: string) =>
+    request<any>(`/notifications/${id}`, { method: "DELETE" });
+
+export const getVapidPublicKey = () =>
+    request<{ publicKey: string }>("/notifications/vapid-public-key");
+
+export const subscribePushWeb = (subscription: PushSubscriptionJSON) =>
+    request<any>("/notifications/subscribe/web", {
+        method: "POST",
+        body: JSON.stringify(subscription),
+    });
+
+export const subscribeFCM = (fcmToken: string) =>
+    request<any>("/notifications/subscribe/fcm", {
+        method: "POST",
+        body: JSON.stringify({ token: fcmToken }),
+    });
+
+export const unsubscribePush = (endpoint: string) =>
+    request<any>("/notifications/unsubscribe", {
+        method: "DELETE",
+        body: JSON.stringify({ endpoint }),
     });
 
 export const fetchAdminDashboard = () =>

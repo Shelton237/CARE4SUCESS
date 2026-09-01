@@ -6,8 +6,6 @@ import {
     Clock,
     CheckCircle2,
     ChevronDown,
-    FileText,
-    Eye,
     BookOpen,
     Link as LinkIcon,
     RefreshCw,
@@ -17,9 +15,9 @@ import {
     LayoutDashboard,
     Library,
     UserCircle,
-    ChevronRight
 } from "lucide-react";
 import { fetchHomework, fetchLessonResources, fetchChildrenByParent } from "@/api/backoffice";
+import { FilePreview } from "@/components/ui/FilePreview";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -244,24 +242,22 @@ export default function ParentHomework() {
                                                 </div>
 
                                                 {/* Status / Submission Card */}
-                                                <div className="bg-white border border-slate-100 p-4 flex flex-col justify-center items-center text-center space-y-3">
+                                                <div className="bg-white border border-slate-100 p-4">
                                                     {hw.submissionUrl ? (
-                                                        <>
-                                                            <div className="h-10 w-10 bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                                                                <CheckCircle2 className="w-5 h-5" />
+                                                        <div className="space-y-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="h-8 w-8 bg-emerald-50 text-emerald-500 flex items-center justify-center flex-shrink-0">
+                                                                    <CheckCircle2 className="w-4 h-4" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-tight">Travail rendu</p>
+                                                                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Fichier disponible</p>
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <p className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-tight">Travail rendu et validé</p>
-                                                                <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Fichier disponible pour consultation</p>
-                                                            </div>
-                                                            <Button asChild size="sm" className="h-8 bg-[#1A6CC8] text-white font-black text-[9px] uppercase tracking-widest rounded-none w-full max-w-[200px]">
-                                                                <a href={hw.submissionUrl} target="_blank" rel="noopener noreferrer">
-                                                                    <Eye className="w-3.5 h-3.5 mr-2" /> Visualiser
-                                                                </a>
-                                                            </Button>
-                                                        </>
+                                                            <FilePreview url={hw.submissionUrl} />
+                                                        </div>
                                                     ) : (
-                                                        <>
+                                                        <div className="flex flex-col justify-center items-center text-center space-y-3 py-4">
                                                             <div className="h-10 w-10 bg-slate-50 text-slate-300 flex items-center justify-center">
                                                                 <Clock className="w-5 h-5" />
                                                             </div>
@@ -269,7 +265,7 @@ export default function ParentHomework() {
                                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight">En attente de retour</p>
                                                                 <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Le fichier n'a pas encore été transmis</p>
                                                             </div>
-                                                        </>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>

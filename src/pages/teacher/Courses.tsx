@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import {
     fetchCourses, createCourse, updateCourse, deleteCourse,
-    createCourseLesson, updateCourseLesson, deleteCourseLesson
+    createCourseLesson, updateCourseLesson, deleteCourseLesson, fetchTeacherProfile
 } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,14 @@ export default function TeacherCourses() {
         queryFn: () => fetchCourses("teacher", user!.id),
         enabled: !!user?.id
     });
+
+    const { data: teacherProfile } = useQuery({
+        queryKey: ["teacherProfile", user?.id],
+        queryFn: () => fetchTeacherProfile(user!.id),
+        enabled: !!user?.id,
+    });
+    const teacherSubjects = teacherProfile?.subjects?.length ? teacherProfile.subjects : SUBJECTS;
+    const teacherLevels = teacherProfile?.levels?.length ? teacherProfile.levels : LEVELS;
 
     // ─── Editor state ──────────────────────────────────────────────────────────
     const existingCourse = isEditing ? (courses as any[]).find((c: any) => c.id === id) : null;
@@ -115,10 +123,19 @@ export default function TeacherCourses() {
             }
 
             // Sync lessons
-            const existingIds = new Set((existingCourse?.lessons || []).map((l: any) => l.id));
+            const currentIds = new Set(lessons.map(l => l.id).filter(Boolean));
+            const existingLessons: any[] = existingCourse?.lessons || [];
+
+            // Delete removed lessons
+            for (const oldLesson of existingLessons) {
+                if (oldLesson.id && !currentIds.has(oldLesson.id)) {
+                    await deleteCourseLesson(courseId, oldLesson.id).catch(() => {});
+                }
+            }
+
             for (const lesson of lessons) {
                 if (!lesson.title.trim()) continue;
-                if (lesson.id && existingIds.has(lesson.id)) {
+                if (lesson.id && currentIds.has(lesson.id)) {
                     await updateCourseLesson(courseId, lesson.id, {
                         title: lesson.title,
                         content: lesson.content,
@@ -126,12 +143,15 @@ export default function TeacherCourses() {
                         order: lesson.order,
                     });
                 } else {
-                    await createCourseLesson(courseId, {
+                    const created = await createCourseLesson(courseId, {
                         title: lesson.title,
                         content: lesson.content,
                         videoUrl: lesson.videoUrl || undefined,
                         order: lesson.order,
-                    });
+                    }) as any;
+                    if (created?.id) {
+                        lesson.id = created.id;
+                    }
                 }
             }
 
@@ -177,32 +197,33 @@ export default function TeacherCourses() {
         return (
             <div className="w-full p-3 space-y-3 bg-white min-h-screen">
                 {/* Header */}
-                <div className="border-b border-slate-100 pb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="border-b border-slate-100 pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0 w-full md:w-auto">
                         <button
                             onClick={() => navigate("..", { relative: "path" })}
-                            className="w-8 h-8 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-[#1A6CC8] hover:border-[#1A6CC8] transition-colors shrink-0"
+                            className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-[#1A6CC8] hover:border-[#1A6CC8] hover:bg-blue-50/50 transition-all shrink-0"
                         >
                             <ArrowLeft className="w-4 h-4" />
                         </button>
                         <div className="min-w-0 flex-1">
-                            <h1 className="text-lg md:text-xl font-black text-[#0D2D5A] uppercase tracking-tight truncate max-w-full">
+                            <h1 className="text-xl md:text-2xl font-black text-[#0D2D5A] tracking-tight truncate max-w-full">
                                 {isCreating ? "Créer un cours" : `Éditer : ${existingCourse?.title || "..."}`}
                             </h1>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                                {isCreating ? "Nouveau module" : "Modification du module"}
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                                {isCreating ? "Nouveau module de cours" : "Modification du module de cours"}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto justify-start md:justify-end overflow-x-auto py-1 scrollbar-none shrink-0">
+                    <div className="flex items-center gap-2.5 w-full md:w-auto justify-start md:justify-end overflow-x-auto py-1 scrollbar-none shrink-0">
                         {/* Status badge */}
                         <button
+                            type="button"
                             onClick={() => setForm(f => ({ ...f, status: f.status === "draft" ? "published" : "draft" }))}
                             className={cn(
-                                "h-8 px-3 text-[9px] font-black uppercase tracking-widest border transition-all shrink-0",
+                                "h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 flex items-center gap-1.5",
                                 form.status === "published"
-                                    ? "bg-[#0D2D5A] text-white border-[#0D2D5A]"
-                                    : "bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/30"
+                                    ? "bg-[#0D2D5A] text-white border-[#0D2D5A] shadow-sm"
+                                    : "bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/30 hover:bg-[#F5A623]/20"
                             )}
                         >
                             {form.status === "published" ? "● Publié" : "○ Brouillon"}
@@ -211,39 +232,39 @@ export default function TeacherCourses() {
                             onClick={() => handleSave(false)}
                             disabled={saving}
                             variant="outline"
-                            className="h-8 px-3 rounded-none border-slate-200 shadow-none font-black text-[9px] uppercase tracking-widest text-slate-500 gap-1.5 shrink-0"
+                            className="h-9 px-4 rounded-xl border-slate-200 shadow-none font-bold text-[10px] uppercase tracking-widest text-slate-600 hover:bg-slate-50 gap-2 shrink-0"
                         >
-                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 text-slate-400" />}
                             Enregistrer
                         </Button>
                         <Button
                             onClick={() => handleSave(true)}
                             disabled={saving}
-                            className="h-8 px-4 rounded-none shadow-none bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black text-[9px] uppercase tracking-widest gap-1.5 shrink-0"
+                            className="h-9 px-5 rounded-xl shadow-md shadow-[#1A6CC8]/20 bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black text-[10px] uppercase tracking-widest gap-2 shrink-0 transition-all"
                         >
-                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                             Publier
                         </Button>
                     </div>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-slate-100">
+                <div className="flex border-b border-slate-200/80 gap-2">
                     {[
-                        { id: "infos", label: "Informations", icon: BookOpen },
+                        { id: "infos", label: "Informations générales", icon: BookOpen },
                         { id: "lessons", label: `Leçons (${lessons.length})`, icon: FileText },
                     ].map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as any)}
                             className={cn(
-                                "flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2",
+                                "flex items-center gap-2 px-5 py-3 text-xs font-bold transition-all border-b-2 -mb-px rounded-t-xl",
                                 activeTab === tab.id
-                                    ? "border-[#1A6CC8] text-[#1A6CC8]"
-                                    : "border-transparent text-slate-400 hover:text-slate-600"
+                                    ? "border-[#1A6CC8] text-[#1A6CC8] bg-blue-50/30 font-extrabold"
+                                    : "border-transparent text-slate-400 hover:text-slate-700 hover:bg-slate-50"
                             )}
                         >
-                            <tab.icon className="w-3.5 h-3.5" />
+                            <tab.icon className="w-4 h-4" />
                             {tab.label}
                         </button>
                     ))}
@@ -251,133 +272,169 @@ export default function TeacherCourses() {
 
                 {/* ── Tab: Infos ─────────────────────────────────────────────── */}
                 {activeTab === "infos" && (
-                    <div className="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-white rounded-2xl border border-slate-200/80 p-5 md:p-7 shadow-sm space-y-6">
                         {/* Titre */}
-                        <div className="lg:col-span-2 space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Titre du cours *</label>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">
+                                <span>Titre du cours <span className="text-red-500">*</span></span>
+                                <span className="text-[9px] font-normal text-slate-400">Ex: Révision Bac – Terminale Mathématiques</span>
+                            </label>
                             <input
                                 value={form.title}
                                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                                 placeholder="Ex: Révision Bac – Terminale Mathématiques"
-                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[12px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                className="w-full h-11 bg-slate-50/70 rounded-xl px-4 border border-slate-200 font-semibold text-sm text-[#0D2D5A] placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
                             />
                         </div>
 
-                        {/* Matière */}
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Matière *</label>
-                            <select
-                                value={form.subject}
-                                onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
-                            >
-                                <option value="">— Choisir —</option>
-                                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
+                        {/* Matière & Niveau */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Matière <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={form.subject}
+                                    onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+                                    className="w-full h-11 bg-slate-50/70 rounded-xl px-4 border border-slate-200 font-semibold text-xs text-[#0D2D5A] outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
+                                >
+                                    <option value="">— Sélectionner une matière —</option>
+                                    {teacherSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
 
-                        {/* Niveau */}
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Niveau *</label>
-                            <select
-                                value={form.level}
-                                onChange={e => setForm(f => ({ ...f, level: e.target.value }))}
-                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
-                            >
-                                <option value="">— Choisir —</option>
-                                {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                            </select>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Niveau scolaire <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={form.level}
+                                    onChange={e => setForm(f => ({ ...f, level: e.target.value }))}
+                                    className="w-full h-11 bg-slate-50/70 rounded-xl px-4 border border-slate-200 font-semibold text-xs text-[#0D2D5A] outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
+                                >
+                                    <option value="">— Sélectionner un niveau —</option>
+                                    {teacherLevels.map(l => <option key={l} value={l}>{l}</option>)}
+                                </select>
+                            </div>
                         </div>
 
                         {/* Mode de session */}
-                        <div className="lg:col-span-2 space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Mode de session *</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {MODES.map(m => (
-                                    <button
-                                        key={m.value}
-                                        type="button"
-                                        onClick={() => setForm(f => ({ ...f, mode: m.value }))}
-                                        className={cn(
-                                            "flex flex-col items-center gap-2 p-3 border-2 transition-all",
-                                            form.mode === m.value
-                                                ? "border-[#1A6CC8] bg-[#1A6CC8]/5"
-                                                : "border-slate-200 hover:border-slate-300 bg-white"
-                                        )}
-                                    >
-                                        <div className={cn("w-8 h-8 flex items-center justify-center border", m.color)}>
-                                            <m.icon className="w-4 h-4" />
-                                        </div>
-                                        <span className={cn(
-                                            "text-[9px] font-black uppercase tracking-widest",
-                                            form.mode === m.value ? "text-[#1A6CC8]" : "text-slate-400"
-                                        )}>
-                                            {m.label}
-                                        </span>
-                                        {form.mode === m.value && (
-                                            <div className="w-1.5 h-1.5 bg-[#1A6CC8] rounded-full" />
-                                        )}
-                                    </button>
-                                ))}
+                        <div className="space-y-2.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Mode de session <span className="text-red-500">*</span>
+                            </label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                {MODES.map(m => {
+                                    const isSelected = form.mode === m.value;
+                                    return (
+                                        <button
+                                            key={m.value}
+                                            type="button"
+                                            onClick={() => setForm(f => ({ ...f, mode: m.value }))}
+                                            className={cn(
+                                                "relative flex items-center gap-3.5 p-4 rounded-xl border-2 text-left transition-all group",
+                                                isSelected
+                                                    ? "border-[#1A6CC8] bg-blue-50/40 shadow-sm ring-2 ring-[#1A6CC8]/15"
+                                                    : "border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-sm"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-all",
+                                                m.color
+                                            )}>
+                                                <m.icon className="w-5 h-5" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <span className={cn(
+                                                    "text-xs font-black uppercase tracking-wider block",
+                                                    isSelected ? "text-[#1A6CC8]" : "text-slate-700"
+                                                )}>
+                                                    {m.label}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 font-medium block truncate">
+                                                    {m.value === "presentiel" && "En face-à-face"}
+                                                    {m.value === "online" && "Visioconférence Jitsi"}
+                                                    {m.value === "hybride" && "Présentiel ou en ligne"}
+                                                </span>
+                                            </div>
+                                            {isSelected && (
+                                                <div className="w-2.5 h-2.5 bg-[#1A6CC8] rounded-full shrink-0" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
-                            {/* Mode info */}
-                            {form.mode === "presentiel" && (
-                                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5">
-                                    <MapPin className="w-3 h-3 text-emerald-500" />
-                                    Les séances se déroulent en face-à-face — lieu défini lors de la planification.
-                                </p>
-                            )}
-                            {form.mode === "online" && (
-                                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5">
-                                    <Monitor className="w-3 h-3 text-blue-500" />
-                                    Les séances se déroulent via visioconférence — lien Jitsi auto-généré.
-                                </p>
-                            )}
-                            {form.mode === "hybride" && (
-                                <p className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5">
-                                    <Globe className="w-3 h-3 text-purple-500" />
-                                    Mixte — présentiel ou en ligne selon la séance.
-                                </p>
-                            )}
+
+                            {/* Info complémentaire mode */}
+                            <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-100 text-xs font-semibold text-slate-500 flex items-center gap-2">
+                                {form.mode === "presentiel" && (
+                                    <>
+                                        <MapPin className="w-4 h-4 text-emerald-500 shrink-0" />
+                                        <span>Les séances se déroulent en face-à-face — lieu exact à convenir lors de la planification.</span>
+                                    </>
+                                )}
+                                {form.mode === "online" && (
+                                    <>
+                                        <Monitor className="w-4 h-4 text-blue-500 shrink-0" />
+                                        <span>Les séances se déroulent en visioconférence avec salon Jitsi auto-généré.</span>
+                                    </>
+                                )}
+                                {form.mode === "hybride" && (
+                                    <>
+                                        <Globe className="w-4 h-4 text-purple-500 shrink-0" />
+                                        <span>Format mixte adaptable — séances en présentiel ou en ligne au choix.</span>
+                                    </>
+                                )}
+                            </div>
                         </div>
 
                         {/* Prix & Durée */}
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tarif horaire (FCFA)</label>
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={form.price}
-                                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                                    className="w-full h-10 bg-slate-50/50 px-3 pr-16 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-300 uppercase">FCFA</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Tarif horaire indicatif (FCFA)
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={form.price}
+                                        onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                                        placeholder="0"
+                                        className="w-full h-11 bg-slate-50/70 rounded-xl pl-4 pr-16 border border-slate-200 font-bold text-xs text-[#0D2D5A] outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded-md">FCFA</span>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Durée indicative</label>
-                            <div className="relative">
-                                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
-                                <input
-                                    value={form.duration}
-                                    onChange={e => setForm(f => ({ ...f, duration: e.target.value }))}
-                                    placeholder="Ex: 1h30 / séance"
-                                    className="w-full h-10 bg-slate-50/50 pl-9 pr-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
-                                />
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Durée indicative par séance
+                                </label>
+                                <div className="relative">
+                                    <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input
+                                        value={form.duration}
+                                        onChange={e => setForm(f => ({ ...f, duration: e.target.value }))}
+                                        placeholder="Ex: 1h30 / séance"
+                                        className="w-full h-11 bg-slate-50/70 rounded-xl pl-10 pr-4 border border-slate-200 font-semibold text-xs text-[#0D2D5A] placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
+                                    />
+                                </div>
                             </div>
                         </div>
 
                         {/* Description */}
-                        <div className="lg:col-span-2 space-y-1.5">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Description du cours</label>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">
+                                <span>Description du cours</span>
+                                <span className="text-[9px] font-normal text-slate-400">{form.description.length} caractères</span>
+                            </label>
                             <textarea
                                 value={form.description}
                                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                                 rows={5}
-                                placeholder="Décrivez le contenu, les objectifs pédagogiques, les prérequis..."
-                                className="w-full bg-slate-50/50 p-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all resize-none"
+                                placeholder="Décrivez le contenu pédagogique, le programme, les objectifs et les prérequis de votre module..."
+                                className="w-full bg-slate-50/70 rounded-xl p-4 border border-slate-200 font-medium text-xs text-[#0D2D5A] placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all resize-none shadow-sm"
                             />
                         </div>
                     </div>

@@ -29,6 +29,7 @@ export default function AdminDashboard() {
     monthlyRevenue: 0, previousRevenue: 0, satisfactionRate: 0,
     newFamiliesThisMonth: 0, occupancyRate: 0,
     activeTeachersThisMonth: 0, leadsThisMonth: 0,
+    previousTotalTeachers: 0, previousActiveStudents: 0,
   };
 
   const monthlyRevenueData = data?.monthlyRevenue ?? [];
@@ -43,6 +44,18 @@ export default function AdminDashboard() {
       return stats.monthlyRevenue > 0 ? 100 : 0;
     return Math.round(((stats.monthlyRevenue - stats.previousRevenue) / stats.previousRevenue) * 100);
   }, [stats.monthlyRevenue, stats.previousRevenue]);
+
+  const teacherTrend = useMemo(() => {
+    if (!stats.previousTotalTeachers || stats.previousTotalTeachers === 0)
+      return stats.totalTeachers > 0 ? 100 : 0;
+    return Math.round(((stats.totalTeachers - stats.previousTotalTeachers) / stats.previousTotalTeachers) * 100);
+  }, [stats.totalTeachers, stats.previousTotalTeachers]);
+
+  const studentTrend = useMemo(() => {
+    if (!stats.previousActiveStudents || stats.previousActiveStudents === 0)
+      return stats.activeStudents > 0 ? 100 : 0;
+    return Math.round(((stats.activeStudents - stats.previousActiveStudents) / stats.previousActiveStudents) * 100);
+  }, [stats.activeStudents, stats.previousActiveStudents]);
 
   if (!user) return null;
 
@@ -76,8 +89,8 @@ export default function AdminDashboard() {
 
       {/* Row 1 — KPIs principaux */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <StatCard label="Enseignants actifs" value={stats.totalTeachers} icon={GraduationCap} accentColor="#1A6CC8" trend={8} description="vs mois précédent" />
-        <StatCard label="Élèves suivis" value={stats.activeStudents} icon={Users} accentColor="#0D2D5A" trend={12} description="Actuellement" />
+        <StatCard label="Enseignants actifs" value={stats.totalTeachers} icon={GraduationCap} accentColor="#1A6CC8" trend={teacherTrend} description="vs mois précédent" />
+        <StatCard label="Élèves suivis" value={stats.activeStudents} icon={Users} accentColor="#0D2D5A" trend={studentTrend} description="vs mois précédent" />
         <StatCard label="Demandes en attente" value={stats.pendingRequests} icon={ClipboardList} accentColor="#F5A623" description="À traiter" />
         <StatCard label="CA du mois" value={formatFCFA(stats.monthlyRevenue)} icon={TrendingUp} accentColor="#1A6CC8" trend={revenueTrend} description="vs mois précédent" />
       </div>

@@ -239,12 +239,16 @@ export default defineConfig(({ mode }) => {
       mode === 'development' && componentTagger(),
       cdnPrefixImages(),
       VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         registerType: 'autoUpdate',
+        injectRegister: 'auto',
         includeAssets: ['favicon.ico', 'favicon.png', 'favicon.svg'],
         manifest: {
           name: 'Care4Success',
           short_name: 'Care4Success',
-          description: 'Soutien scolaire personnalisé au Cameroun',
+          description: 'Soutien scolaire personnalisé en Afrique',
           theme_color: '#0D2D5A',
           background_color: '#FFFFFF',
           display: 'standalone',
@@ -255,16 +259,9 @@ export default defineConfig(({ mode }) => {
             { src: '/logo/Care 4 Success-logo-Ok_compact.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           ],
         },
-        workbox: {
+        injectManifest: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-          runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/care4success\.usra-care\.com\/api\/.*/i,
-              handler: 'NetworkFirst',
-              options: { cacheName: 'api-cache', expiration: { maxAgeSeconds: 300 } },
-            },
-          ],
         },
       }),
     ].filter(Boolean),

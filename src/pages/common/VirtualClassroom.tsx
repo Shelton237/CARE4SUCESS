@@ -651,7 +651,9 @@ function SessionReportModal({ isOpen, onClose, sessionId, sessionDetails }: { is
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent className="rounded-xl border-slate-100">
-                                                {courseDetails.lessons?.map((lesson: any) => (
+                                                {courseDetails.lessons?.filter((lesson: any, index: number, self: any[]) =>
+                                                    index === self.findIndex((l: any) => l.title?.trim().toLowerCase() === lesson.title?.trim().toLowerCase())
+                                                ).map((lesson: any) => (
                                                     <SelectItem key={lesson.id} value={lesson.id}>
                                                         {lesson.title}
                                                     </SelectItem>

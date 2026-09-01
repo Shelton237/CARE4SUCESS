@@ -17,6 +17,7 @@ import {
     Star
 } from "lucide-react";
 import { fetchStudentHomework, updateHomework, uploadHomeworkFile } from "@/api/backoffice";
+import { FilePreview } from "@/components/ui/FilePreview";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -167,6 +168,13 @@ export default function StudentHomework() {
                                     {viewingCorrection.description}
                                 </p>
                             </div>
+
+                            {viewingCorrection.submissionUrl && (
+                                <div className="space-y-1.5">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Mon fichier déposé</p>
+                                    <FilePreview url={viewingCorrection.submissionUrl} />
+                                </div>
+                            )}
 
                             <div className="bg-gray-50 rounded-2xl p-4 md:p-6 border border-gray-100 relative overflow-hidden group">
                                 <div className="relative z-10">

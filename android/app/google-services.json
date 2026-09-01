@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "591647690883",
+    "project_id": "care4success-f8c8d",
+    "storage_bucket": "care4success-f8c8d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:591647690883:android:a3de3f4b46974199664bb6",
+        "android_client_info": {
+          "package_name": "com.care4success.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOJgTLnk8Q_1zC47M-gpIXVLZx3775h1M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

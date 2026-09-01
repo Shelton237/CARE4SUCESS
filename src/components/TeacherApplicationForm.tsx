@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { submitTeacherApplication } from "@/api/backoffice";
 import { useMutation } from "@tanstack/react-query";
-import { CheckCircle2, Mail, Phone, GraduationCap } from "lucide-react";
+import { CheckCircle2, Mail, Phone, FileText } from "lucide-react";
 import { springPresets } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { GeoSelector } from "@/components/GeoSelector";
+import { ALL_SUBJECTS, ALL_LEVELS } from "@/lib/education";
 
 const formSchema = z.object({
     fullName: z.string().min(3, "Le nom doit contenir au moins 3 caractères"),
@@ -32,17 +33,23 @@ interface TeacherApplicationFormProps {
     className?: string;
 }
 
-import { ALL_SUBJECTS, ALL_LEVELS } from "@/lib/education";
-
 const AVAILABLE_SUBJECTS = ALL_SUBJECTS.filter(s => s !== "Autre");
 const AVAILABLE_LEVELS = ALL_LEVELS;
+
+function SectionHeader({ children }: { children: string }) {
+    return (
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">{children}</p>
+            <div className="flex-1 h-px bg-slate-100" />
+        </div>
+    );
+}
 
 export function TeacherApplicationForm({ className }: TeacherApplicationFormProps) {
     const { toast } = useToast();
     const [completed, setCompleted] = useState(false);
     const [cvFile, setCvFile] = useState<File | null>(null);
     const [primaryGeoId, setPrimaryGeoId] = useState<number | null>(null);
-    const [primaryGeoPath, setPrimaryGeoPath] = useState("");
     const [geoError, setGeoError] = useState("");
 
     const form = useForm<FormData>({
@@ -118,17 +125,16 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
                 animate={{ opacity: 1, scale: 1 }}
                 transition={springPresets.gentle}
                 className={cn(
-                    "bg-white border border-green-100 rounded-2xl p-10 text-center shadow-lg",
+                    "bg-white border-t-[3px] border-[#F5A623] p-10 text-center shadow-xl",
                     className
                 )}
             >
-                <CheckCircle2 className="w-14 h-14 mx-auto text-green-500 mb-4" />
-                <h3 className="text-2xl font-bold text-[#0D2D5A] mb-2">
-                    Merci pour votre candidature !
-                </h3>
-                <p className="text-gray-500 max-w-xl mx-auto">
-                    Notre équipe recrutement va analyser votre dossier. Vous recevrez une réponse par email sous
-                    48 heures.
+                <div className="w-14 h-14 bg-[#0D2D5A] flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 className="w-7 h-7 text-[#F5A623]" />
+                </div>
+                <h3 className="text-xl font-black text-[#0D2D5A] mb-2">Candidature envoyée !</h3>
+                <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+                    Notre équipe recrutement va analyser votre dossier. Vous recevrez une réponse par email sous 48 heures.
                 </p>
             </motion.div>
         );
@@ -141,196 +147,253 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
             transition={springPresets.gentle}
             onSubmit={form.handleSubmit(onSubmit)}
             className={cn(
-                "bg-white border border-gray-100 rounded-2xl shadow-xl p-8 space-y-6",
+                "bg-white border-t-[3px] border-[#F5A623] shadow-xl divide-y divide-slate-100",
                 className
             )}
         >
-            <div className="space-y-2 text-center">
-                <div className="inline-flex items-center gap-3 px-4 py-2 bg-[#1A6CC8]/10 rounded-full text-[#1A6CC8] font-semibold text-sm">
-                    <GraduationCap className="w-4 h-4" />
-                    Rejoignez notre communauté d'enseignants
+            {/* ── COORDONNÉES ── */}
+            <div className="p-6 space-y-4">
+                <SectionHeader>Coordonnées personnelles</SectionHeader>
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="fullName" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Nom complet *
+                        </Label>
+                        <Input
+                            id="fullName"
+                            className="h-11 rounded-none border-slate-200 focus-visible:ring-[#1A6CC8]"
+                            placeholder="Dr. Clémentine Abanda"
+                            {...form.register("fullName")}
+                        />
+                        {form.formState.errors.fullName && (
+                            <p className="text-xs text-destructive">{form.formState.errors.fullName.message}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <Label htmlFor="phone" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Téléphone *
+                        </Label>
+                        <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                            <Input
+                                id="phone"
+                                className="pl-9 h-11 rounded-none border-slate-200 focus-visible:ring-[#1A6CC8]"
+                                placeholder="+237 6XX XXX XXX"
+                                {...form.register("phone")}
+                            />
+                        </div>
+                        {form.formState.errors.phone && (
+                            <p className="text-xs text-destructive">{form.formState.errors.phone.message}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Adresse email *
+                        </Label>
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                            <Input
+                                id="email"
+                                type="email"
+                                className="pl-9 h-11 rounded-none border-slate-200 focus-visible:ring-[#1A6CC8]"
+                                placeholder="vous@email.com"
+                                {...form.register("email")}
+                            />
+                        </div>
+                        {form.formState.errors.email && (
+                            <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
+                        )}
+                    </div>
                 </div>
-                <h3 className="text-3xl font-bold text-[#0D2D5A]">
-                    Devenez professeur Care4Success
-                </h3>
-                <p className="text-gray-500">
-                    Remplissez le formulaire et nous vous recontacterons rapidement pour un entretien.
-                </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                    <Label htmlFor="fullName">Nom complet *</Label>
-                    <Input
-                        id="fullName"
-                        placeholder="Dr. Clémentine Abanda"
-                        {...form.register("fullName")}
-                    />
-                    {form.formState.errors.fullName && (
-                        <p className="text-sm text-destructive">{form.formState.errors.fullName.message}</p>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                            id="email"
-                            type="email"
-                            className="pl-9"
-                            placeholder="vous@email.com"
-                            {...form.register("email")}
-                        />
-                    </div>
-                    {form.formState.errors.email && (
-                        <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="phone">Téléphone *</Label>
-                    <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                            id="phone"
-                            placeholder="+237 6XX XXX XXX"
-                            className="pl-9"
-                            {...form.register("phone")}
-                        />
-                    </div>
-                    {form.formState.errors.phone && (
-                        <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
-                    )}
-                </div>
-                <div className="md:col-span-2">
+            {/* ── ZONE & MATIÈRES ── */}
+            <div className="p-6 space-y-5">
+                <SectionHeader>Zone d'intervention & Matières</SectionHeader>
+
+                <div>
                     <GeoSelector
-                        label="Zone d'intervention"
+                        label="Zone d'intervention principale"
                         required
                         suggestedByEmail={form.watch("email")}
-                        onChange={(geoId, path) => {
+                        onChange={(geoId) => {
                             setPrimaryGeoId(geoId);
-                            setPrimaryGeoPath(path);
                             if (geoId) setGeoError("");
                         }}
                         hint="Sélectionnez jusqu'au niveau le plus précis disponible."
                     />
-                    {geoError && <p className="text-sm text-destructive mt-1">{geoError}</p>}
-                </div>
-                <div className="space-y-3">
-                    <Label>Matières enseignées *</Label>
-                    <div className="flex flex-wrap gap-2">
-                        {AVAILABLE_SUBJECTS.map((sub) => {
-                            const isSelected = subjectsWatch?.includes(sub);
-                            return (
-                                <button
-                                    key={sub}
-                                    type="button"
-                                    onClick={() => toggleSelection(subjectsWatch, sub, "subjectsText")}
-                                    className={cn(
-                                        "px-3 py-1.5 text-sm font-semibold rounded-full border transition-all",
-                                        isSelected
-                                            ? "bg-[#1A6CC8] text-white border-[#1A6CC8] shadow-md"
-                                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-[#1A6CC8]/50 hover:bg-blue-50"
-                                    )}
-                                >
-                                    {sub}
-                                </button>
-                            );
-                        })}
-                    </div>
-                    {form.formState.errors.subjectsText && (
-                        <p className="text-sm text-destructive">{form.formState.errors.subjectsText.message}</p>
-                    )}
+                    {geoError && <p className="text-xs text-destructive mt-1.5">{geoError}</p>}
                 </div>
 
-                <div className="space-y-3">
-                    <Label>Niveaux scolaires ciblés *</Label>
-                    <div className="flex flex-wrap gap-2">
-                        {AVAILABLE_LEVELS.map((lvl) => {
-                            const isSelected = levelsWatch?.includes(lvl);
-                            return (
-                                <button
-                                    key={lvl}
-                                    type="button"
-                                    onClick={() => toggleSelection(levelsWatch, lvl, "levelsText")}
-                                    className={cn(
-                                        "px-3 py-1.5 text-sm font-semibold rounded-full border transition-all",
-                                        isSelected
-                                            ? "bg-[#F5A623] text-white border-[#F5A623] shadow-md"
-                                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-[#F5A623]/50 hover:bg-orange-50"
-                                    )}
-                                >
-                                    {lvl}
-                                </button>
-                            );
-                        })}
+                <div className="grid sm:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Matières enseignées *
+                        </Label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {AVAILABLE_SUBJECTS.map((sub) => {
+                                const isSelected = subjectsWatch?.includes(sub);
+                                return (
+                                    <button
+                                        key={sub}
+                                        type="button"
+                                        onClick={() => toggleSelection(subjectsWatch, sub, "subjectsText")}
+                                        className={cn(
+                                            "px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide border transition-all cursor-pointer",
+                                            isSelected
+                                                ? "bg-[#1A6CC8] text-white border-[#1A6CC8]"
+                                                : "bg-slate-50 text-slate-500 border-slate-200 hover:border-[#1A6CC8] hover:text-[#1A6CC8]"
+                                        )}
+                                    >
+                                        {sub}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {form.formState.errors.subjectsText && (
+                            <p className="text-xs text-destructive">{form.formState.errors.subjectsText.message}</p>
+                        )}
                     </div>
-                    {form.formState.errors.levelsText && (
-                        <p className="text-sm text-destructive">{form.formState.errors.levelsText.message}</p>
-                    )}
+
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Niveaux scolaires ciblés *
+                        </Label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {AVAILABLE_LEVELS.map((lvl) => {
+                                const isSelected = levelsWatch?.includes(lvl);
+                                return (
+                                    <button
+                                        key={lvl}
+                                        type="button"
+                                        onClick={() => toggleSelection(levelsWatch, lvl, "levelsText")}
+                                        className={cn(
+                                            "px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide border transition-all cursor-pointer",
+                                            isSelected
+                                                ? "bg-[#F5A623] text-[#0D2D5A] border-[#F5A623]"
+                                                : "bg-slate-50 text-slate-500 border-slate-200 hover:border-[#F5A623] hover:text-[#0D2D5A]"
+                                        )}
+                                    >
+                                        {lvl}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {form.formState.errors.levelsText && (
+                            <p className="text-xs text-destructive">{form.formState.errors.levelsText.message}</p>
+                        )}
+                    </div>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="experienceYears">Années d'expérience *</Label>
-                    <Input
-                        id="experienceYears"
-                        type="number"
-                        min={0}
-                        {...form.register("experienceYears", { valueAsNumber: true })}
-                    />
-                    {form.formState.errors.experienceYears && (
-                        <p className="text-sm text-destructive">
-                            {form.formState.errors.experienceYears.message}
-                        </p>
-                    )}
+            </div>
+
+            {/* ── EXPÉRIENCE ── */}
+            <div className="p-6 space-y-4">
+                <SectionHeader>Expérience & Disponibilités</SectionHeader>
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="experienceYears" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Années d'expérience *
+                        </Label>
+                        <Input
+                            id="experienceYears"
+                            type="number"
+                            min={0}
+                            className="h-11 rounded-none border-slate-200 focus-visible:ring-[#1A6CC8]"
+                            {...form.register("experienceYears", { valueAsNumber: true })}
+                        />
+                        {form.formState.errors.experienceYears && (
+                            <p className="text-xs text-destructive">{form.formState.errors.experienceYears.message}</p>
+                        )}
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="availability" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Disponibilités *
+                        </Label>
+                        <Input
+                            id="availability"
+                            className="h-11 rounded-none border-slate-200 focus-visible:ring-[#1A6CC8]"
+                            placeholder="Ex: Soirs 17h-21h + Week-end"
+                            {...form.register("availability")}
+                        />
+                        {form.formState.errors.availability && (
+                            <p className="text-xs text-destructive">{form.formState.errors.availability.message}</p>
+                        )}
+                    </div>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="availability">Disponibilités *</Label>
-                    <Input
-                        id="availability"
-                        placeholder="Ex: Soirs 17h-21h + Week-end"
-                        {...form.register("availability")}
-                    />
-                    {form.formState.errors.availability && (
-                        <p className="text-sm text-destructive">{form.formState.errors.availability.message}</p>
-                    )}
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="motivation">Présentation & motivation *</Label>
+            </div>
+
+            {/* ── CANDIDATURE ── */}
+            <div className="p-6 space-y-4">
+                <SectionHeader>Présentation & Candidature</SectionHeader>
+
+                <div className="space-y-1.5">
+                    <Label htmlFor="motivation" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        Présentation & motivation *
+                    </Label>
                     <Textarea
                         id="motivation"
                         rows={5}
+                        className="rounded-none border-slate-200 focus-visible:ring-[#1A6CC8] resize-none"
                         placeholder="Décrivez votre parcours, vos forces pédagogiques et les profils d'élèves que vous accompagnez le mieux..."
                         {...form.register("motivation")}
                     />
                     {form.formState.errors.motivation && (
-                        <p className="text-sm text-destructive">{form.formState.errors.motivation.message}</p>
+                        <p className="text-xs text-destructive">{form.formState.errors.motivation.message}</p>
                     )}
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="cvFile">Curriculum Vitae (PDF, Word, etc.)</Label>
-                    <Input
-                        id="cvFile"
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => {
-                            if (e.target.files && e.target.files.length > 0) {
-                                setCvFile(e.target.files[0]);
-                            } else {
-                                setCvFile(null);
-                            }
-                        }}
-                        className="cursor-pointer file:text-[#1A6CC8] file:font-semibold file:border-0 file:bg-transparent"
-                    />
-                    {cvFile && <p className="text-sm text-green-600 font-medium">Fichier joint : {cvFile.name}</p>}
+
+                <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        Curriculum Vitae (PDF, Word)
+                    </Label>
+                    <label
+                        className={cn(
+                            "flex flex-col items-center justify-center gap-2 border-2 border-dashed p-6 cursor-pointer transition-colors",
+                            cvFile
+                                ? "border-[#1A6CC8] bg-blue-50/40"
+                                : "border-slate-200 hover:border-[#1A6CC8] hover:bg-slate-50"
+                        )}
+                    >
+                        <FileText className={cn("w-6 h-6", cvFile ? "text-[#1A6CC8]" : "text-slate-300")} />
+                        {cvFile ? (
+                            <p className="text-xs font-bold text-[#1A6CC8]">{cvFile.name}</p>
+                        ) : (
+                            <div className="text-center">
+                                <p className="text-xs font-bold text-slate-500">Cliquez pour joindre votre CV</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">PDF, DOC ou DOCX</p>
+                            </div>
+                        )}
+                        <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            className="sr-only"
+                            onChange={(e) => {
+                                if (e.target.files && e.target.files.length > 0) {
+                                    setCvFile(e.target.files[0]);
+                                } else {
+                                    setCvFile(null);
+                                }
+                            }}
+                        />
+                    </label>
                 </div>
             </div>
 
-            <Button
-                type="submit"
-                disabled={mutation.isPending}
-                className="w-full bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white h-12 text-base font-semibold"
-            >
-                {mutation.isPending ? "Envoi en cours..." : "Envoyer ma candidature"}
-            </Button>
+            {/* ── SUBMIT ── */}
+            <div className="p-6">
+                <Button
+                    type="submit"
+                    disabled={mutation.isPending}
+                    className="w-full bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white h-12 rounded-none font-black text-[10px] tracking-widest uppercase transition-colors"
+                >
+                    {mutation.isPending ? "Envoi en cours…" : "Envoyer ma candidature →"}
+                </Button>
+                <p className="text-center text-[10px] text-slate-400 mt-3">
+                    Notre équipe examine chaque dossier et vous répond sous 48 heures
+                </p>
+            </div>
         </motion.form>
     );
 }

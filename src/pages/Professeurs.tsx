@@ -1,11 +1,21 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { NavLink } from "react-router-dom";
+import { NavLink, useSearchParams } from "react-router-dom";
 import { Search, Star, ArrowRight, GraduationCap, BookOpen, Award, Users, Filter } from "lucide-react";
 import { teachers } from "@/data/index";
-import { ALL_SUBJECTS, ALL_LEVELS } from "@/lib/education";
+import { IMAGES } from "@/assets/images";
+import { ALL_SUBJECTS } from "@/lib/education";
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
+
+const LEVEL_CATEGORIES = ["Primaire", "Collège", "Lycée", "Supérieur", "Adultes"];
+const LEVEL_KEYS: Record<string, string> = {
+  "Primaire":   "primaire",
+  "Collège":    "college",
+  "Lycée":      "lycee",
+  "Supérieur":  "superieur",
+  "Adultes":    "adulte",
+};
 
 const STATS = [
   { value: "500+", label: "enseignants actifs",  icon: Users },
@@ -15,15 +25,18 @@ const STATS = [
 ];
 
 export default function Professeurs() {
-  const [search, setSearch]   = useState("");
-  const [subject, setSubject] = useState("all");
-  const [level,   setLevel]   = useState("all");
+  const [searchParams] = useSearchParams();
+
+  const [search,  setSearch]  = useState("");
+  const [subject, setSubject] = useState(() => searchParams.get("matiere") ?? "all");
+  const [level,   setLevel]   = useState(() => searchParams.get("niveau")  ?? "all");
 
   const filtered = useMemo(() => teachers.filter(t => {
-    const q = search.toLowerCase();
+    const q          = search.toLowerCase();
     const matchSearch = !q || t.name.toLowerCase().includes(q) || t.subjects.some(s => s.toLowerCase().includes(q));
     const matchSub    = subject === "all" || t.subjects.some(s => s.toLowerCase().includes(subject.toLowerCase()));
-    const matchLvl    = level   === "all" || t.levels.some(l => l.toLowerCase().includes(level.toLowerCase()));
+    const key         = LEVEL_KEYS[level] ?? level.toLowerCase();
+    const matchLvl    = level   === "all" || t.levels.some(l => l.toLowerCase() === key);
     return matchSearch && matchSub && matchLvl;
   }), [search, subject, level]);
 
@@ -33,7 +46,9 @@ export default function Professeurs() {
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative bg-[#0D2D5A] py-24 overflow-hidden">
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${IMAGES.TEACHER_STUDENT_3})` }} />
+        <div className="absolute inset-0 bg-[#0D2D5A]/78" />
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#1A6CC8]/20 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
 
@@ -45,7 +60,7 @@ export default function Professeurs() {
               <span className="text-[#F5A623]">rigoureusement sélectionnés</span>
             </h1>
             <p className="text-blue-200 text-lg leading-relaxed max-w-xl mb-8">
-              Bac+3 minimum. Entretien pédagogique. Références vérifiées. 1 candidat sur 10 retenu. Voici ceux qui font confiance à Care4Success.
+              Bac+3 minimum. Entretien pédagogique. Références vérifiées. 1 candidat sur 10 retenu. Sélectionnés à travers 15 pays africains.
             </p>
             <NavLink to="/inscription" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-bold text-sm hover:bg-white transition-all duration-200 shadow-lg cursor-pointer">
               Trouver mon enseignant <ArrowRight className="w-4 h-4" />
@@ -125,7 +140,7 @@ export default function Professeurs() {
                   className="h-10 w-full rounded-xl border border-gray-200 text-sm px-3 focus:outline-none focus:border-[#1A6CC8] transition-colors bg-white cursor-pointer"
                 >
                   <option value="all">Tous les niveaux</option>
-                  {ALL_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                  {LEVEL_CATEGORIES.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
 

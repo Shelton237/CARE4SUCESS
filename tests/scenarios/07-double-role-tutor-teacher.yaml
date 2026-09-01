@@ -1,0 +1,64 @@
+id: "07-double-role-tutor-teacher"
+titre: "Double rôle tutor/teacher"
+reference_cartographie:
+  - "Tuteur > Espace Enseignant (/tutor/enseignant/*)"
+  - "Enseignant (toutes les pages)"
+description: >
+  Vérifie que les mêmes actions exécutées via /tutor/enseignant/* (par un
+  utilisateur au rôle tutor avec secondaryRole teacher) et via /teacher/*
+  (par un enseignant standard) produisent un résultat et un scope de données
+  strictement identiques — sans élévation ni réduction de portée.
+
+seed:
+  - entite: utilisateur_double_role
+    role: tutor
+    secondary_role: teacher
+  - entite: enseignant_standard_equivalent
+    role: teacher
+
+etapes:
+  - numero: 1
+    acteur: actor-teacher
+    parametre: "actingAs: standard"
+    action: >
+      Exécuter un sous-ensemble représentatif des capacités enseignant
+      (createSession, POST /homework, createCourse, sendMessage) via
+      /teacher/*.
+    resultat_attendu: "Toutes les actions réussissent, données scopées à ses propres élèves/cours."
+    verifier_ensuite: []
+
+  - numero: 2
+    acteur: actor-teacher
+    parametre: "actingAs: tutor-secondary-role"
+    action: >
+      Exécuter exactement le même sous-ensemble de capacités pour
+      l'utilisateur double rôle, via /tutor/enseignant/*.
+    resultat_attendu: >
+      Résultat fonctionnel identique à l'étape 1 (mêmes règles de validation,
+      mêmes effets), ET scope de données strictement limité aux
+      élèves/cours propres à cet utilisateur — aucun accès aux données d'un
+      autre enseignant, aucune capacité supplémentaire liée au rôle tutor
+      (ex: pas d'accès aux candidatures depuis ce contexte).
+    verifier_ensuite:
+      - role: actor-tutor
+        endroit: "Espace Tuteur natif (Dashboard, Candidatures)"
+        attendu: >
+          Les actions effectuées côté enseignant n'ont aucun effet de bord
+          sur les données de l'espace tuteur natif (candidatures,
+          évaluations) — les deux espaces restent cloisonnés au sein du
+          même compte.
+
+echec_type:
+  - "Différence de comportement entre /teacher/* et /tutor/enseignant/* pour une même action."
+  - "Accès élargi aux données d'un autre enseignant en mode double rôle."
+  - "Effet de bord de l'Espace Enseignant sur l'Espace Tuteur natif (ou inversement)."
+
+ticket_hotfix_si_echec:
+  titre: "Divergence de comportement entre /teacher/* et /tutor/enseignant/*"
+  inclure: [action_concernee, resultat_teacher, resultat_tutor_secondary, requete_api_exacte]
+
+note_pour_security_boundary_tester: >
+  Ce scénario recoupe directement le point prioritaire "Espace Enseignant du
+  tuteur" de security-boundary-tester — les deux passes (API et frontend)
+  doivent être rejouées sur ce même cas avec un acteur hostile
+  (actor-tutor A tentant d'accéder aux données d'un actor-teacher B).

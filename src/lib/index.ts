@@ -8,6 +8,7 @@ export const ROUTE_PATHS = {
   RECRUTEMENT: "/devenir-professeur",
   A_PROPOS: "/a-propos",
   TARIFS: "/tarifs",
+  POLITIQUE_CONFIDENTIALITE: "/politique-confidentialite",
 } as const;
 
 export interface Teacher {

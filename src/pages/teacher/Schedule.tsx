@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession, fetchCourses } from "@/api/backoffice";
+import { fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession, fetchCourses, fetchCourseDetails, fetchTeacherProfile } from "@/api/backoffice";
 import type { CreateSessionPayload } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi } from "lucide-react";
@@ -19,10 +19,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const WEEK_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
 
-const SUBJECTS = [
-    "Mathématiques", "Français", "Anglais", "Physique-Chimie", "SVT",
-    "Histoire-Géographie", "Philosophie", "Informatique", "Espagnol", "Arabe",
-];
+
 
 const STATUS_COLORS: Record<string, string> = {
     "effectué": "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -68,6 +65,7 @@ export default function TeacherSchedule() {
     const [closingSession, setClosingSession] = useState<any | null>(null);
     const [reportText, setReportText] = useState("");
     const [understandingScore, setUnderstandingScore] = useState(3);
+    const [selectedLessonId, setSelectedLessonId] = useState("");
     const [homeworkTitle, setHomeworkTitle] = useState("");
     const [homeworkDesc, setHomeworkDesc] = useState("");
     const [homeworkDue, setHomeworkDue] = useState("");
@@ -90,6 +88,13 @@ export default function TeacherSchedule() {
         queryFn: () => fetchCourses("teacher", user!.id),
         enabled: Boolean(user?.id),
     });
+
+    const { data: teacherProfile } = useQuery({
+        queryKey: ["teacherProfile", user?.id],
+        queryFn: () => fetchTeacherProfile(user!.id),
+        enabled: Boolean(user?.id),
+    });
+    const teacherSubjects: string[] = teacherProfile?.subjects ?? [];
 
     const filteredCourses = useMemo(() => {
         if (!form.subject) return [];
@@ -129,6 +134,7 @@ export default function TeacherSchedule() {
             setClosingSession(session);
             setReportText("");
             setUnderstandingScore(3);
+            setSelectedLessonId("");
             setHomeworkTitle("");
             setHomeworkDesc("");
             setHomeworkDue("");
@@ -136,9 +142,19 @@ export default function TeacherSchedule() {
         onError: () => toast.error("Erreur lors de la clôture"),
     });
 
+    const { data: closingCourse } = useQuery({
+        queryKey: ["closingCourse", closingSession?.courseId],
+        queryFn: () => fetchCourseDetails(closingSession!.courseId),
+        enabled: !!closingSession?.courseId,
+    });
+
     const handleSubmitReport = async () => {
         if (!reportText.trim()) {
             toast.error("Le rapport de cours est obligatoire.");
+            return;
+        }
+        if (closingCourse?.lessons?.length && !selectedLessonId) {
+            toast.error("Veuillez sélectionner la leçon abordée.");
             return;
         }
         if (!closingSession) return;
@@ -151,7 +167,12 @@ export default function TeacherSchedule() {
             const rRes = await fetch(`${API_BASE}/sessions/${closingSession.id}/report`, {
                 method: "POST",
                 headers,
-                body: JSON.stringify({ reportText, understandingScore }),
+                body: JSON.stringify({
+                    reportText,
+                    understandingScore,
+                    ...(selectedLessonId && { lessonId: selectedLessonId }),
+                    ...(closingSession.courseId && { courseId: closingSession.courseId }),
+                }),
             });
             if (!rRes.ok) throw new Error("Rapport non enregistré");
 
@@ -185,6 +206,10 @@ export default function TeacherSchedule() {
     const handleCreateSubmit = () => {
         if (!form.studentIds?.length || !form.subject || !form.sessionDate || !form.sessionTime) {
             toast.error("Veuillez remplir tous les champs obligatoires (Élèves, Matière, Date, Heure).");
+            return;
+        }
+        if (!form.courseId) {
+            toast.error("Veuillez rattacher la séance à un cours.");
             return;
         }
         createMutation.mutate(form);
@@ -421,22 +446,31 @@ export default function TeacherSchedule() {
                                     className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
                                 >
                                     <option value="">— Matière —</option>
-                                    {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    {teacherSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Lier à un cours</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                    Cours rattaché <span className="text-red-500">*</span>
+                                </label>
                                 <select
                                     value={form.courseId}
                                     onChange={e => setForm(f => ({ ...f, courseId: e.target.value }))}
                                     disabled={!form.subject}
-                                    className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm disabled:opacity-50"
+                                    className={`w-full h-11 bg-gray-50 rounded-xl px-4 border font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm disabled:opacity-50 ${!form.courseId && form.subject ? 'border-red-300' : 'border-gray-200'}`}
                                 >
-                                    <option value="">— Aucun cours —</option>
+                                    <option value="">— Sélectionner un cours —</option>
                                     {filteredCourses.map((c: any) => (
                                         <option key={c.id} value={c.id}>{c.title}</option>
                                     ))}
                                 </select>
+                                {form.subject && !form.courseId && (
+                                    <p className="text-xs text-red-400 mt-1">
+                                        {filteredCourses.length === 0
+                                            ? "Aucun cours disponible pour cette matière. Créez d'abord un cours."
+                                            : "Ce champ est obligatoire."}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -570,7 +604,7 @@ export default function TeacherSchedule() {
                         </Button>
                         <Button
                             onClick={handleCreateSubmit}
-                            disabled={createMutation.isPending || !form.studentIds?.length || !form.subject || !form.sessionDate}
+                            disabled={createMutation.isPending || !form.studentIds?.length || !form.subject || !form.sessionDate || !form.courseId}
                             className="flex-1 bg-[#1A6CC8] hover:bg-[#0D2D5A] gap-2 font-bold"
                         >
                             <Plus className="w-4 h-4" />
@@ -634,6 +668,33 @@ export default function TeacherSchedule() {
                             />
                             {!reportText.trim() && <p className="text-xs text-red-400 mt-1">Ce champ est obligatoire pour finaliser la séance.</p>}
                         </div>
+
+                        {closingCourse?.lessons?.length ? (
+                            <div>
+                                <label className="text-sm font-bold text-[#0D2D5A] flex items-center gap-1 mb-2">
+                                    <BookOpen className="w-4 h-4 text-[#1A6CC8]" />
+                                    Leçon abordée <span className="text-red-500 ml-0.5">*</span>
+                                </label>
+                                <select
+                                    value={selectedLessonId}
+                                    onChange={(e) => setSelectedLessonId(e.target.value)}
+                                    className="w-full h-10 rounded-xl border border-gray-200 text-sm px-3 focus:outline-none focus:ring-2 focus:ring-[#1A6CC8]/30 bg-white cursor-pointer"
+                                >
+                                    <option value="">— Sélectionner une leçon —</option>
+                                    {closingCourse.lessons
+                                        .slice()
+                                        .sort((a, b) => a.order - b.order)
+                                        .map((l) => (
+                                            <option key={l.id} value={l.id}>
+                                                {l.order}. {l.title}
+                                            </option>
+                                        ))}
+                                </select>
+                                {!selectedLessonId && (
+                                    <p className="text-xs text-red-400 mt-1">Ce champ est obligatoire pour finaliser la séance.</p>
+                                )}
+                            </div>
+                        ) : null}
 
                         <div>
                             <label className="text-sm font-bold text-[#0D2D5A] flex items-center gap-1 mb-3">
@@ -699,7 +760,7 @@ export default function TeacherSchedule() {
                         </Button>
                         <Button
                             onClick={handleSubmitReport}
-                            disabled={isSubmitting || !reportText.trim()}
+                            disabled={isSubmitting || !reportText.trim() || (!!closingCourse?.lessons?.length && !selectedLessonId)}
                             className="flex-1 bg-[#1A6CC8] hover:bg-blue-700 gap-2"
                         >
                             <Send className="w-4 h-4" />

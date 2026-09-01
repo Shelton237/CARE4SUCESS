@@ -84,7 +84,7 @@ export default function ParentDashboard() {
     }
 
     const stats = [
-        { label: "Moyenne", value: overview ? `${overview.currentAvg}/20` : "—", icon: BarChart3, color: "text-[#1A6CC8]", bg: "bg-[#1A6CC8]/5" },
+        { label: "Moyenne", value: (overview && overview.currentAvg !== null && overview.currentAvg !== undefined) ? `${overview.currentAvg}/20` : "—", icon: BarChart3, color: "text-[#1A6CC8]", bg: "bg-[#1A6CC8]/5" },
         { label: "Séances", value: overview?.sessionsThisMonth ?? "0", icon: Layers, color: "text-[#0D2D5A]", bg: "bg-[#0D2D5A]/5" },
         { label: "Prochain", value: overview?.upcomingSession?.date?.split('-').slice(1).reverse().join('/') || "—", icon: CalendarCheck, color: "text-emerald-600", bg: "bg-emerald-50" },
         { label: "Budget", value: overview ? formatFCFA(overview.totalPaidThisMonth).split(' ')[0] : "0", icon: Wallet, color: "text-[#F5A623]", bg: "bg-[#F5A623]/5" },

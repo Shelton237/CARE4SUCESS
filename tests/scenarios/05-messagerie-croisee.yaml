@@ -1,0 +1,64 @@
+id: "05-messagerie-croisee"
+titre: "Messagerie croisée"
+reference_cartographie:
+  - "Enseignant > Messages"
+  - "Parent > Messages"
+  - "Conseiller > Messagerie"
+  - "Élève > Mes Messages"
+description: >
+  Vérifie l'envoi, la réception, le badge de non-lu, le marquage lu et la
+  mise à jour du compteur côté expéditeur pour les trois paires de contacts
+  documentées dans la cartographie.
+
+seed:
+  - entite: paires_de_contacts
+    valeurs:
+      - [actor-teacher, actor-parent]
+      - [actor-advisor, actor-parent]
+      - [actor-student, actor-teacher]
+
+etapes:
+  - numero: 1
+    acteur: actor-teacher
+    action: "Envoyer un message texte à actor-parent via sendMessage."
+    resultat_attendu: "Message visible dans le fil, mise à jour optimiste immédiate côté expéditeur."
+    verifier_ensuite:
+      - role: actor-parent
+        endroit: "Messages (Messages.tsx)"
+        attendu: "Message reçu, badge de non-lu incrémenté sur le contact enseignant."
+
+  - numero: 2
+    acteur: actor-parent
+    action: "Ouvrir la conversation avec actor-teacher (déclenche markMessageAsRead)."
+    resultat_attendu: "Badge de non-lu retombe à zéro pour ce contact."
+    verifier_ensuite:
+      - role: actor-teacher
+        endroit: "Messages (Messages.tsx)"
+        attendu: "Statut 'lu' visible côté expéditeur si l'UI l'affiche, sinon absence d'erreur de synchronisation."
+
+  - numero: 3
+    acteur: actor-advisor
+    action: "Envoyer un message avec pièce jointe à actor-parent via uploadMessageAttachment puis sendMessage."
+    resultat_attendu: "Pièce jointe visible côté conseiller (aperçu image ou lien selon le type)."
+    verifier_ensuite:
+      - role: actor-parent
+        endroit: "Messages (Messages.tsx)"
+        attendu: "Pièce jointe accessible et ouvrable côté parent."
+
+  - numero: 4
+    acteur: actor-student
+    action: "Envoyer un message texte à actor-teacher via sendMessage."
+    resultat_attendu: "Message visible dans le fil élève, rafraîchissement automatique déclenché."
+    verifier_ensuite:
+      - role: actor-teacher
+        endroit: "Messages (Messages.tsx)"
+        attendu: "Message reçu avec badge de non-lu, polling 5s le fait apparaître sans rechargement manuel."
+
+echec_type:
+  - "Badge de non-lu non incrémenté ou non remis à zéro."
+  - "Pièce jointe uploadée mais lien/aperçu cassé côté destinataire."
+  - "Polling ne remonte pas le nouveau message dans le délai attendu."
+
+ticket_hotfix_si_echec:
+  titre: "Messagerie : désynchronisation entre {acteur_a} et {acteur_b}"
+  inclure: [paire_contacts, id_message, symptome_observe, requete_api_exacte]
