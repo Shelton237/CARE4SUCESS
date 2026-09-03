@@ -94,11 +94,22 @@ const formatDate = (value) => {
 const parseJson = (value, fallback) => {
   if (!value) return fallback;
   if (Array.isArray(value)) return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+      if (typeof parsed === "string") value = parsed;
+    } catch {
+      /* ignore */
+    }
+    if (value.includes(",")) {
+      return value.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    if (value.trim()) {
+      return [value.trim()];
+    }
   }
+  return fallback;
 };
 
 const REQUEST_STATUS_ALIASES = new Map([
@@ -5519,9 +5530,12 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     await ensureUsersTable();
     const [rows] = await pool.query(
-      `SELECT ${USER_PUBLIC_COLUMNS}, password
-       FROM users
-       WHERE email = ?`,
+      `SELECT u.*, u.password,
+              t.bank_name, t.bank_iban, t.bank_account_holder, t.availability_json,
+              t.subjects AS teacher_subjects, t.level AS teacher_level
+       FROM users u
+       LEFT JOIN teachers t ON (t.id = u.id OR t.email = u.email)
+       WHERE u.email = ?`,
       [email]
     );
     if (rows.length === 0) {

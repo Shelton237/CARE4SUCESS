@@ -6,7 +6,7 @@ import {
     Filter, ChevronRight, Info, GraduationCap, LayoutPanelLeft,
     Layers, ArrowUpRight, BarChart3, CalendarDays
 } from "lucide-react";
-import { fetchHomework, fetchStudentsByTeacher } from "@/api/backoffice";
+import { fetchHomework, fetchStudentsByTeacher, fetchUserProfile } from "@/api/backoffice";
 import { FilePreview } from "@/components/ui/FilePreview";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -71,12 +71,20 @@ export default function TeacherHomework() {
     const [feedbackText, setFeedbackText] = useState("");
     const [isCorrecting, setIsCorrecting] = useState(false);
 
+    const { data: userProfile } = useQuery({
+        queryKey: ["userProfile", user?.id],
+        queryFn: () => fetchUserProfile(user!.id),
+        enabled: !!user?.id,
+    });
+
+    const teacherSubjects = userProfile?.teacherSubjects || user?.teacherSubjects;
+
     const availableSubjects = useMemo(() => {
-        if (Array.isArray(user?.teacherSubjects) && user.teacherSubjects.length > 0) {
-            return user.teacherSubjects;
+        if (Array.isArray(teacherSubjects) && teacherSubjects.length > 0) {
+            return teacherSubjects;
         }
         return SUBJECTS;
-    }, [user?.teacherSubjects]);
+    }, [teacherSubjects]);
 
     // Formulaire
     const [formStudentId, setFormStudentId] = useState("");
