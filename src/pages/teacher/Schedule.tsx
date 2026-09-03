@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession, fetchCourses, fetchCourseDetails, fetchTeacherProfile } from "@/api/backoffice";
+import {
+    fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession, fetchCourses,
+    fetchTeacherSlotsManage, createTeacherSlot, deleteTeacherSlot,
+} from "@/api/backoffice";
 import type { CreateSessionPayload } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
-import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi } from "lucide-react";
+import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi, Trash2 } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -17,9 +20,20 @@ import { toast } from "sonner";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
+/** Add 1 hour to a "HH:MM" string */
+const addHour = (time: string): string => {
+    if (!time) return "17:00";
+    const [h, m] = time.split(":").map(Number);
+    const newH = (h + 1) % 24;
+    return `${String(newH).padStart(2, "0")}:${String(m || 0).padStart(2, "00")}`;
+};
+
 const WEEK_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
 
-
+const SUBJECTS = [
+    "Mathématiques", "Français", "Anglais", "Physique-Chimie", "SVT",
+    "Histoire-Géographie", "Philosophie", "Informatique", "Espagnol", "Arabe",
+];
 
 const STATUS_COLORS: Record<string, string> = {
     "effectué": "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -44,6 +58,7 @@ const defaultForm = (): CreateSessionPayload => ({
     subject: "",
     sessionDate: "",
     sessionTime: "16:00",
+    sessionEndTime: "17:00",
     locationType: "presentiel",
     location: "",
     recurrence: "none",
@@ -57,6 +72,13 @@ export default function TeacherSchedule() {
     const queryClient = useQueryClient();
     const [viewedNote, setViewedNote] = useState<any | null>(null);
 
+    const availableSubjects = useMemo(() => {
+        if (Array.isArray(user?.teacherSubjects) && user.teacherSubjects.length > 0) {
+            return user.teacherSubjects;
+        }
+        return SUBJECTS;
+    }, [user?.teacherSubjects]);
+
     // --- Dialog création de séance ---
     const [showCreate, setShowCreate] = useState(false);
     const [form, setForm] = useState<CreateSessionPayload>(defaultForm());
@@ -65,7 +87,6 @@ export default function TeacherSchedule() {
     const [closingSession, setClosingSession] = useState<any | null>(null);
     const [reportText, setReportText] = useState("");
     const [understandingScore, setUnderstandingScore] = useState(3);
-    const [selectedLessonId, setSelectedLessonId] = useState("");
     const [homeworkTitle, setHomeworkTitle] = useState("");
     const [homeworkDesc, setHomeworkDesc] = useState("");
     const [homeworkDue, setHomeworkDue] = useState("");
@@ -89,13 +110,6 @@ export default function TeacherSchedule() {
         enabled: Boolean(user?.id),
     });
 
-    const { data: teacherProfile } = useQuery({
-        queryKey: ["teacherProfile", user?.id],
-        queryFn: () => fetchTeacherProfile(user!.id),
-        enabled: Boolean(user?.id),
-    });
-    const teacherSubjects: string[] = teacherProfile?.subjects ?? [];
-
     const filteredCourses = useMemo(() => {
         if (!form.subject) return [];
         return allCourses.filter(c => c.subject === form.subject);
@@ -118,23 +132,48 @@ export default function TeacherSchedule() {
         },
     });
 
+    // ─── Geolocation & Justification Dialog State ────────────────────────────────
+    const [justificationModal, setJustificationModal] = useState<{
+        open: boolean;
+        type: "late_start" | "early_end";
+        session: any;
+        lat?: number;
+        lng?: number;
+        justification: string;
+    }>({ open: false, type: "late_start", session: null, justification: "" });
+
+    const getCoordinates = (): Promise<{ lat?: number; lng?: number }> => {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) return resolve({});
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                (err) => {
+                    console.warn("Geolocation warning:", err.message);
+                    resolve({});
+                },
+                { timeout: 8000, enableHighAccuracy: true }
+            );
+        });
+    };
+
     const checkInMutation = useMutation({
-        mutationFn: sessionCheckIn,
+        mutationFn: ({ sessionId, payload }: { sessionId: string; payload?: any }) => sessionCheckIn(sessionId, payload),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["teacherSchedule"] });
-            toast.success("Session démarrée ✅");
+            toast.success("Session démarrée avec succès ✅");
+            setJustificationModal({ open: false, type: "late_start", session: null, justification: "" });
         },
         onError: () => toast.error("Erreur lors du démarrage de la session"),
     });
 
     const checkOutMutation = useMutation({
-        mutationFn: (session: any) => sessionCheckOut(session.id),
-        onSuccess: (_data, session) => {
+        mutationFn: ({ session, payload }: { session: any; payload?: any }) => sessionCheckOut(session.id, payload),
+        onSuccess: (_data, { session }) => {
             queryClient.invalidateQueries({ queryKey: ["teacherSchedule"] });
+            setJustificationModal({ open: false, type: "early_end", session: null, justification: "" });
             setClosingSession(session);
             setReportText("");
             setUnderstandingScore(3);
-            setSelectedLessonId("");
             setHomeworkTitle("");
             setHomeworkDesc("");
             setHomeworkDue("");
@@ -142,19 +181,65 @@ export default function TeacherSchedule() {
         onError: () => toast.error("Erreur lors de la clôture"),
     });
 
-    const { data: closingCourse } = useQuery({
-        queryKey: ["closingCourse", closingSession?.courseId],
-        queryFn: () => fetchCourseDetails(closingSession!.courseId),
-        enabled: !!closingSession?.courseId,
-    });
+    const handleStartSession = async (s: any) => {
+        const coords = await getCoordinates();
+        let isLate = false;
+        if (s.sessionDate && s.sessionTime) {
+            const timeParts = String(s.sessionTime).split(":");
+            const scheduledStart = new Date(s.sessionDate);
+            if (timeParts.length >= 2) {
+                scheduledStart.setHours(parseInt(timeParts[0], 10), parseInt(timeParts[1], 10), 0);
+            }
+            const now = new Date();
+            const diffMinutes = (now.getTime() - scheduledStart.getTime()) / (1000 * 60);
+            if (diffMinutes > 10) {
+                isLate = true;
+            }
+        }
+
+        if (isLate) {
+            setJustificationModal({
+                open: true,
+                type: "late_start",
+                session: s,
+                lat: coords.lat,
+                lng: coords.lng,
+                justification: "",
+            });
+        } else {
+            checkInMutation.mutate({ sessionId: s.id, payload: { lat: coords.lat, lng: coords.lng } });
+        }
+    };
+
+    const handleEndSession = async (s: any) => {
+        const coords = await getCoordinates();
+        let isEarly = false;
+        if (s.actualStartTime) {
+            const start = new Date(s.actualStartTime);
+            const now = new Date();
+            const elapsedMinutes = (now.getTime() - start.getTime()) / (1000 * 60);
+            if (elapsedMinutes < 90) {
+                isEarly = true;
+            }
+        }
+
+        if (isEarly) {
+            setJustificationModal({
+                open: true,
+                type: "early_end",
+                session: s,
+                lat: coords.lat,
+                lng: coords.lng,
+                justification: "",
+            });
+        } else {
+            checkOutMutation.mutate({ session: s, payload: { lat: coords.lat, lng: coords.lng } });
+        }
+    };
 
     const handleSubmitReport = async () => {
         if (!reportText.trim()) {
             toast.error("Le rapport de cours est obligatoire.");
-            return;
-        }
-        if (closingCourse?.lessons?.length && !selectedLessonId) {
-            toast.error("Veuillez sélectionner la leçon abordée.");
             return;
         }
         if (!closingSession) return;
@@ -167,12 +252,7 @@ export default function TeacherSchedule() {
             const rRes = await fetch(`${API_BASE}/sessions/${closingSession.id}/report`, {
                 method: "POST",
                 headers,
-                body: JSON.stringify({
-                    reportText,
-                    understandingScore,
-                    ...(selectedLessonId && { lessonId: selectedLessonId }),
-                    ...(closingSession.courseId && { courseId: closingSession.courseId }),
-                }),
+                body: JSON.stringify({ reportText, understandingScore }),
             });
             if (!rRes.ok) throw new Error("Rapport non enregistré");
 
@@ -204,12 +284,12 @@ export default function TeacherSchedule() {
     };
 
     const handleCreateSubmit = () => {
-        if (!form.studentIds?.length || !form.subject || !form.sessionDate || !form.sessionTime) {
-            toast.error("Veuillez remplir tous les champs obligatoires (Élèves, Matière, Date, Heure).");
+        if (!form.studentIds?.length || !form.subject || !form.sessionDate || !form.sessionTime || !form.sessionEndTime) {
+            toast.error("Veuillez remplir tous les champs obligatoires (Élèves, Matière, Date, Heure début, Heure fin).");
             return;
         }
-        if (!form.courseId) {
-            toast.error("Veuillez rattacher la séance à un cours.");
+        if (form.sessionEndTime <= form.sessionTime) {
+            toast.error("L'heure de fin doit être postérieure à l'heure de début.");
             return;
         }
         createMutation.mutate(form);
@@ -274,6 +354,8 @@ export default function TeacherSchedule() {
                 </div>
             )}
 
+            {user?.id && <TeacherSlotsManager teacherId={user.id} />}
+
             {/* GRID 6 JOURS */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                 {weekSessions.map(({ dayLabel, date, sessions: daySessions }) => (
@@ -328,7 +410,7 @@ export default function TeacherSchedule() {
                         <div key={s.id} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50/50 transition-colors">
                             <div className="w-10 text-center flex-shrink-0">
                                 <div className="text-[9px] font-black text-[#1A6CC8] uppercase">{s.day?.slice(0, 3).toUpperCase() || '---'}</div>
-                                <div className="text-base font-black text-[#0D2D5A]">{s.date?.split(/[-\/]/)[0] || '??'}</div>
+                                <div className="text-base font-black text-[#0D2D5A]">{s.date?.split(/[-/]/)[0] || '??'}</div>
                             </div>
                             <div className="hidden sm:block w-px h-8 bg-slate-100" />
                             <div className="flex-1 min-w-0">
@@ -356,13 +438,13 @@ export default function TeacherSchedule() {
                                 <div className="flex flex-wrap items-center justify-end gap-1.5">
                                     {renderStatusBadge(s.status)}
 
-                                    {(s.status === 'scheduled' || s.status === 'planifié' || s.status === 'à venir') && (
-                                        <Button size="sm" onClick={() => checkInMutation.mutate(s.id)} disabled={checkInMutation.isPending} className="h-6 text-[9px] bg-[#0D2D5A] hover:bg-emerald-600 gap-1 px-2 rounded-none shadow-none font-black uppercase">
+                                    {(s.status === 'planifié' || s.status === 'à venir' || s.status === 'scheduled') && (
+                                        <Button size="sm" onClick={() => handleStartSession(s)} disabled={checkInMutation.isPending} className="h-6 text-[9px] bg-[#0D2D5A] hover:bg-emerald-600 gap-1 px-2 rounded-none shadow-none font-black uppercase">
                                             <Play className="w-3 h-3" /> Démarrer
                                         </Button>
                                     )}
                                     {(s.status === 'in_progress' || s.status === 'en cours') && (
-                                        <Button size="sm" onClick={() => checkOutMutation.mutate(s)} disabled={checkOutMutation.isPending} className="h-6 text-[9px] bg-orange-500 hover:bg-red-600 gap-1 px-2 rounded-none shadow-none text-white font-black uppercase">
+                                        <Button size="sm" onClick={() => handleEndSession(s)} disabled={checkOutMutation.isPending} className="h-6 text-[9px] bg-orange-500 hover:bg-red-600 gap-1 px-2 rounded-none shadow-none text-white font-black uppercase">
                                             <Square className="w-3 h-3" /> Clôturer
                                         </Button>
                                     )}
@@ -446,36 +528,27 @@ export default function TeacherSchedule() {
                                     className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
                                 >
                                     <option value="">— Matière —</option>
-                                    {teacherSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                    {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                                    Cours rattaché <span className="text-red-500">*</span>
-                                </label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Lier à un cours</label>
                                 <select
                                     value={form.courseId}
                                     onChange={e => setForm(f => ({ ...f, courseId: e.target.value }))}
                                     disabled={!form.subject}
-                                    className={`w-full h-11 bg-gray-50 rounded-xl px-4 border font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm disabled:opacity-50 ${!form.courseId && form.subject ? 'border-red-300' : 'border-gray-200'}`}
+                                    className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm disabled:opacity-50"
                                 >
-                                    <option value="">— Sélectionner un cours —</option>
+                                    <option value="">— Aucun cours —</option>
                                     {filteredCourses.map((c: any) => (
                                         <option key={c.id} value={c.id}>{c.title}</option>
                                     ))}
                                 </select>
-                                {form.subject && !form.courseId && (
-                                    <p className="text-xs text-red-400 mt-1">
-                                        {filteredCourses.length === 0
-                                            ? "Aucun cours disponible pour cette matière. Créez d'abord un cours."
-                                            : "Ce champ est obligatoire."}
-                                    </p>
-                                )}
                             </div>
                         </div>
 
-                        {/* Date + Heure */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Date + Heure début + Heure fin */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date <span className="text-red-400">*</span></label>
                                 <input
@@ -487,11 +560,26 @@ export default function TeacherSchedule() {
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Heure <span className="text-red-400">*</span></label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Heure début <span className="text-red-400">*</span></label>
                                 <input
                                     type="time"
                                     value={form.sessionTime}
-                                    onChange={e => setForm(f => ({ ...f, sessionTime: e.target.value }))}
+                                    onChange={e => setForm(f => ({
+                                        ...f,
+                                        sessionTime: e.target.value,
+                                        // Auto-compute end time +1h if not manually set
+                                        sessionEndTime: f.sessionEndTime === addHour(form.sessionTime) ? addHour(e.target.value) : f.sessionEndTime,
+                                    }))}
+                                    className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Heure fin <span className="text-red-400">*</span></label>
+                                <input
+                                    type="time"
+                                    value={form.sessionEndTime || ""}
+                                    min={form.sessionTime}
+                                    onChange={e => setForm(f => ({ ...f, sessionEndTime: e.target.value }))}
                                     className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
                                 />
                             </div>
@@ -604,7 +692,7 @@ export default function TeacherSchedule() {
                         </Button>
                         <Button
                             onClick={handleCreateSubmit}
-                            disabled={createMutation.isPending || !form.studentIds?.length || !form.subject || !form.sessionDate || !form.courseId}
+                            disabled={createMutation.isPending || !form.studentIds?.length || !form.subject || !form.sessionDate}
                             className="flex-1 bg-[#1A6CC8] hover:bg-[#0D2D5A] gap-2 font-bold"
                         >
                             <Plus className="w-4 h-4" />
@@ -668,33 +756,6 @@ export default function TeacherSchedule() {
                             />
                             {!reportText.trim() && <p className="text-xs text-red-400 mt-1">Ce champ est obligatoire pour finaliser la séance.</p>}
                         </div>
-
-                        {closingCourse?.lessons?.length ? (
-                            <div>
-                                <label className="text-sm font-bold text-[#0D2D5A] flex items-center gap-1 mb-2">
-                                    <BookOpen className="w-4 h-4 text-[#1A6CC8]" />
-                                    Leçon abordée <span className="text-red-500 ml-0.5">*</span>
-                                </label>
-                                <select
-                                    value={selectedLessonId}
-                                    onChange={(e) => setSelectedLessonId(e.target.value)}
-                                    className="w-full h-10 rounded-xl border border-gray-200 text-sm px-3 focus:outline-none focus:ring-2 focus:ring-[#1A6CC8]/30 bg-white cursor-pointer"
-                                >
-                                    <option value="">— Sélectionner une leçon —</option>
-                                    {closingCourse.lessons
-                                        .slice()
-                                        .sort((a, b) => a.order - b.order)
-                                        .map((l) => (
-                                            <option key={l.id} value={l.id}>
-                                                {l.order}. {l.title}
-                                            </option>
-                                        ))}
-                                </select>
-                                {!selectedLessonId && (
-                                    <p className="text-xs text-red-400 mt-1">Ce champ est obligatoire pour finaliser la séance.</p>
-                                )}
-                            </div>
-                        ) : null}
 
                         <div>
                             <label className="text-sm font-bold text-[#0D2D5A] flex items-center gap-1 mb-3">
@@ -760,7 +821,7 @@ export default function TeacherSchedule() {
                         </Button>
                         <Button
                             onClick={handleSubmitReport}
-                            disabled={isSubmitting || !reportText.trim() || (!!closingCourse?.lessons?.length && !selectedLessonId)}
+                            disabled={isSubmitting || !reportText.trim()}
                             className="flex-1 bg-[#1A6CC8] hover:bg-blue-700 gap-2"
                         >
                             <Send className="w-4 h-4" />
@@ -769,6 +830,199 @@ export default function TeacherSchedule() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Modal de Justification Retard / Fin Anticipée */}
+            <Dialog open={justificationModal.open} onOpenChange={(open) => !open && setJustificationModal(m => ({ ...m, open: false }))}>
+                <DialogContent className="sm:max-w-[480px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-[#0D2D5A] text-base">
+                            <Clock className="w-5 h-5 text-amber-500" />
+                            {justificationModal.type === "late_start" ? "Démarrage en retard de la séance" : "Fin anticipée de la séance"}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500 mt-1">
+                            {justificationModal.type === "late_start"
+                                ? "Cette séance démarre plus de 10 minutes après l'horaire prévu. Veuillez saisir une justification qui sera enregistrée et transmise à l'administration :"
+                                : "La séance se termine avant l'heure prévue. Veuillez indiquer le motif de cette fin anticipée :"
+                            }
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 py-2">
+                        <textarea
+                            value={justificationModal.justification}
+                            onChange={(e) => setJustificationModal(m => ({ ...m, justification: e.target.value }))}
+                            placeholder={justificationModal.type === "late_start" ? "Ex: Embouteillage imprévu / Retard de l'élève..." : "Ex: Contenu du cours entièrement couvert / Impératif de l'élève..."}
+                            rows={3}
+                            className="w-full text-xs p-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#1A6CC8]/30 resize-none bg-white"
+                        />
+                        {justificationModal.lat && (
+                            <p className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5" /> Position GPS capturée ({justificationModal.lat.toFixed(4)}, {justificationModal.lng?.toFixed(4)})
+                            </p>
+                        )}
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setJustificationModal(m => ({ ...m, open: false }))}
+                            className="h-8 text-xs"
+                        >
+                            Annuler
+                        </Button>
+                        <Button
+                            disabled={!justificationModal.justification.trim() || checkInMutation.isPending || checkOutMutation.isPending}
+                            onClick={() => {
+                                const { type, session, lat, lng, justification } = justificationModal;
+                                if (type === "late_start") {
+                                    checkInMutation.mutate({ sessionId: session.id, payload: { lat, lng, justification } });
+                                } else {
+                                    checkOutMutation.mutate({ session, payload: { lat, lng, justification } });
+                                }
+                            }}
+                            className="h-8 bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white text-xs font-bold"
+                        >
+                            Valider et Transmettre
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function TeacherSlotsManager({ teacherId }: { teacherId: string }) {
+    const queryClient = useQueryClient();
+    const [showAdd, setShowAdd] = useState(false);
+    const [date, setDate] = useState("");
+    const [startHour, setStartHour] = useState("14:00");
+    const [endHour, setEndHour] = useState("15:00");
+    const [subject, setSubject] = useState("");
+
+    const { data: slots = [], isLoading } = useQuery({
+        queryKey: ["teacherSlotsManage", teacherId],
+        queryFn: () => fetchTeacherSlotsManage(teacherId),
+    });
+
+    const createMutation = useMutation({
+        mutationFn: () => createTeacherSlot(teacherId, {
+            startTime: `${date}T${startHour}:00`,
+            endTime: `${date}T${endHour}:00`,
+            subject: subject || undefined,
+        }),
+        onSuccess: () => {
+            toast.success("Créneau ajouté — visible sur votre page publique.");
+            queryClient.invalidateQueries({ queryKey: ["teacherSlotsManage", teacherId] });
+            setShowAdd(false);
+            setDate(""); setSubject("");
+        },
+        onError: (err: Error) => toast.error(err.message || "Impossible d'ajouter le créneau."),
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (slotId: string) => deleteTeacherSlot(teacherId, slotId),
+        onSuccess: () => {
+            toast.success("Créneau supprimé.");
+            queryClient.invalidateQueries({ queryKey: ["teacherSlotsManage", teacherId] });
+        },
+        onError: (err: Error) => toast.error(err.message || "Impossible de supprimer le créneau."),
+    });
+
+    const upcomingSlots = slots
+        .filter(s => new Date(s.startTime) > new Date())
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+    const STATUS_LABEL: Record<string, string> = { open: "Disponible", booked: "Réservé", cancelled: "Annulé" };
+    const STATUS_STYLE: Record<string, string> = {
+        open: "bg-emerald-50 text-emerald-600 border-emerald-100",
+        booked: "bg-blue-50 text-blue-600 border-blue-200",
+        cancelled: "bg-gray-50 text-gray-400 border-gray-100",
+    };
+
+    return (
+        <div className="border border-slate-200 bg-white">
+            <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h2 className="text-[11px] font-black text-[#0D2D5A] uppercase tracking-widest flex items-center gap-1.5">
+                        <CalendarDays className="w-3.5 h-3.5 text-[#1A6CC8]" /> Créneaux réservables en ligne
+                    </h2>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">Visibles et réservables depuis votre fiche publique</p>
+                </div>
+                <Button
+                    size="sm"
+                    onClick={() => setShowAdd(v => !v)}
+                    className="bg-[#1A6CC8] hover:bg-[#0D2D5A] h-7 px-2.5 rounded-none shadow-none font-black text-[9px] uppercase gap-1"
+                >
+                    <Plus className="w-3 h-3" /> Ajouter
+                </Button>
+            </div>
+
+            {showAdd && (
+                <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-end gap-2">
+                    <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Date</label>
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-8 text-xs border border-slate-200 px-2" />
+                    </div>
+                    <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Début</label>
+                        <input type="time" value={startHour} onChange={e => setStartHour(e.target.value)} className="h-8 text-xs border border-slate-200 px-2" />
+                    </div>
+                    <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Fin</label>
+                        <input type="time" value={endHour} onChange={e => setEndHour(e.target.value)} className="h-8 text-xs border border-slate-200 px-2" />
+                    </div>
+                    <div className="flex-1 min-w-[140px]">
+                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Matière (optionnel)</label>
+                        <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Ex: Mathématiques" className="h-8 text-xs border border-slate-200 px-2 w-full" />
+                    </div>
+                    <Button
+                        size="sm"
+                        disabled={!date || createMutation.isPending}
+                        onClick={() => createMutation.mutate()}
+                        className="bg-[#1A6CC8] hover:bg-[#0D2D5A] h-8 rounded-none shadow-none font-black text-[9px] uppercase"
+                    >
+                        {createMutation.isPending ? "..." : "Créer"}
+                    </Button>
+                </div>
+            )}
+
+            <div className="p-3">
+                {isLoading ? (
+                    <p className="text-[10px] text-slate-400 text-center py-4">Chargement...</p>
+                ) : upcomingSlots.length === 0 ? (
+                    <p className="text-[10px] text-slate-400 text-center py-4">Aucun créneau à venir. Ajoutez-en pour être réservable sur votre fiche publique.</p>
+                ) : (
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {upcomingSlots.map(slot => (
+                            <div key={slot.id} className="p-2.5 border border-slate-100 flex items-center justify-between gap-2">
+                                <div>
+                                    <p className="text-[10px] font-black text-[#0D2D5A]">
+                                        {new Date(slot.startTime).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                                    </p>
+                                    <p className="text-[9px] text-slate-500 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {new Date(slot.startTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                        {" – "}
+                                        {new Date(slot.endTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                    </p>
+                                    <span className={`inline-block mt-1 text-[8px] font-black px-1.5 py-0.5 rounded-full border uppercase ${STATUS_STYLE[slot.status]}`}>
+                                        {STATUS_LABEL[slot.status]}
+                                    </span>
+                                </div>
+                                {slot.status === "open" && (
+                                    <button
+                                        onClick={() => deleteMutation.mutate(slot.id)}
+                                        className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                                        title="Supprimer"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

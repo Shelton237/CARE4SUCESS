@@ -542,6 +542,7 @@ export type CreateSessionPayload = {
     subject: string;
     sessionDate: string;   // "YYYY-MM-DD"
     sessionTime: string;   // "HH:MM"
+    sessionEndTime?: string; // "HH:MM"
     locationType: "presentiel" | "online";
     location?: string;
     recurrence: "none" | "weekly";
@@ -555,11 +556,19 @@ export const createSession = (payload: CreateSessionPayload) =>
         body: JSON.stringify(payload),
     });
 
-export const sessionCheckIn = (sessionId: string) =>
-    request<{ success: boolean }>(`/sessions/${sessionId}/check-in`, { method: "PATCH" });
+export type SessionCheckPayload = { lat?: number; lng?: number; justification?: string };
 
-export const sessionCheckOut = (sessionId: string) =>
-    request<{ success: boolean }>(`/sessions/${sessionId}/check-out`, { method: "PATCH" });
+export const sessionCheckIn = (sessionId: string, payload?: SessionCheckPayload) =>
+    request<{ success: boolean }>(`/sessions/${sessionId}/check-in`, {
+        method: "PATCH",
+        body: JSON.stringify(payload || {}),
+    });
+
+export const sessionCheckOut = (sessionId: string, payload?: SessionCheckPayload) =>
+    request<{ success: boolean }>(`/sessions/${sessionId}/check-out`, {
+        method: "PATCH",
+        body: JSON.stringify(payload || {}),
+    });
 
 export const submitSessionReport = (sessionId: string, payload: {
     reportText: string;

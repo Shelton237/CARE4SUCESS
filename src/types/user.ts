@@ -26,4 +26,6 @@ export interface User {
   bankIban?: string | null;
   bankAccountHolder?: string | null;
   availability?: string[] | null;
+  teacherSubjects?: string[] | null;
+  teacherLevel?: string | null;
 }

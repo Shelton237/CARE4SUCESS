@@ -19,6 +19,10 @@ export default function TeacherResources() {
     const [file, setFile] = useState<File | null>(null);
     const [filterSubject, setFilterSubject] = useState("");
 
+    const availableSubjects = Array.isArray(user?.teacherSubjects) && user.teacherSubjects.length > 0
+        ? user.teacherSubjects
+        : SUBJECTS;
+
     const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
         setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -87,7 +91,7 @@ export default function TeacherResources() {
             {/* Filtre */}
             <div className="flex gap-2 flex-wrap">
                 <button onClick={() => setFilterSubject("")} className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border transition-colors ${!filterSubject ? "bg-[#0D2D5A] text-white border-[#0D2D5A]" : "text-slate-400 border-slate-200"}`}>Tout</button>
-                {SUBJECTS.map(s => (
+                {availableSubjects.map(s => (
                     <button key={s} onClick={() => setFilterSubject(s)} className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border transition-colors ${filterSubject === s ? "bg-[#1A6CC8] text-white border-[#1A6CC8]" : "text-slate-400 border-slate-200"}`}>{s}</button>
                 ))}
             </div>
@@ -104,7 +108,7 @@ export default function TeacherResources() {
                     <div className="grid grid-cols-3 gap-2">
                         <select value={form.subject} onChange={set("subject")} className="border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:border-[#1A6CC8] bg-white">
                             <option value="">Matière *</option>
-                            {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                            {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                         <select value={form.level} onChange={set("level")} className="border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:border-[#1A6CC8] bg-white">
                             <option value="">Niveau *</option>

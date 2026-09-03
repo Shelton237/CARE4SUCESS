@@ -1,32 +1,59 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     BookOpen, Search, Plus, Loader2, FileText, Video, Settings2,
-    ArrowLeft, Save, Trash2, Monitor, Users, Globe, MapPin, Clock,
-    ChevronDown, ChevronUp, GripVertical, X, CheckCircle2
+    ArrowLeft, Save, Trash2, Users, MapPin, Clock, Shuffle, Banknote,
+    ChevronDown, ChevronUp, GripVertical, X, CheckCircle2, Lock, Unlock
 } from "lucide-react";
 import {
     fetchCourses, createCourse, updateCourse, deleteCourse,
-    createCourseLesson, updateCourseLesson, deleteCourseLesson, fetchTeacherProfile
+    createCourseLesson, updateCourseLesson, deleteCourseLesson
 } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 
 const SUBJECTS = ["Mathématiques", "Français", "Physique-Chimie", "SVT", "Histoire-Géo", "Anglais", "Philosophie", "Informatique", "Économie", "Autre"];
 const LEVELS = ["CP", "CE1", "CE2", "CM1", "CM2", "6ème", "5ème", "4ème", "3ème", "Seconde", "Première", "Terminale", "BTS / Licence", "Tous niveaux"];
 const MODES = [
-    { value: "presentiel", label: "Présentiel", icon: MapPin, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-    { value: "online", label: "En ligne", icon: Monitor, color: "text-blue-600 bg-blue-50 border-blue-200" },
-    { value: "hybride", label: "Hybride", icon: Globe, color: "text-purple-600 bg-purple-50 border-purple-200" },
+    { value: "presentiel", label: "Présentiel", icon: MapPin, description: "Face-à-face, lieu défini à la planification." },
+    { value: "online", label: "En ligne", icon: Video, description: "Visioconférence, lien généré automatiquement." },
+    { value: "hybride", label: "Hybride", icon: Shuffle, description: "Présentiel ou en ligne selon la séance." },
 ] as const;
 
-type LessonDraft = { id?: string; title: string; content: string; videoUrl: string; order: number; _tempId: string };
+type VideoDraft = { id?: string; title: string; videoUrl: string; isPaid: boolean; order: number; _tempId: string };
+type LessonDraft = { id?: string; title: string; content: string; videoUrl: string; order: number; videos: VideoDraft[]; _tempId: string };
+
+function newVideo(order: number): VideoDraft {
+    return { title: "", videoUrl: "", isPaid: true, order, _tempId: Math.random().toString(36).slice(2) };
+}
 
 function newLesson(order: number): LessonDraft {
-    return { title: "", content: "", videoUrl: "", order, _tempId: Math.random().toString(36).slice(2) };
+    return { title: "", content: "", videoUrl: "", order, videos: [], _tempId: Math.random().toString(36).slice(2) };
+}
+
+// Les leçons créées avant l'introduction des vidéos multiples n'ont qu'un
+// unique lien vidéo (toujours payant, car verrouillé avec le reste de la
+// leçon) — on le fait apparaître comme une première vidéo dans la nouvelle
+// liste plutôt que de le faire disparaître de l'éditeur.
+function draftVideosFromLesson(lesson: any): VideoDraft[] {
+    if (Array.isArray(lesson?.videos) && lesson.videos.length) {
+        return lesson.videos.map((v: any, i: number) => ({
+            id: v.id,
+            title: v.title || `Vidéo ${i + 1}`,
+            videoUrl: v.videoUrl || "",
+            isPaid: v.isPaid !== false,
+            order: v.order ?? i + 1,
+            _tempId: v.id || Math.random().toString(36).slice(2),
+        }));
+    }
+    if (lesson?.videoUrl) {
+        return [{ title: "Vidéo principale", videoUrl: lesson.videoUrl, isPaid: true, order: 1, _tempId: Math.random().toString(36).slice(2) }];
+    }
+    return [];
 }
 
 export default function TeacherCourses() {
@@ -52,16 +79,9 @@ export default function TeacherCourses() {
         enabled: !!user?.id
     });
 
-    const { data: teacherProfile } = useQuery({
-        queryKey: ["teacherProfile", user?.id],
-        queryFn: () => fetchTeacherProfile(user!.id),
-        enabled: !!user?.id,
-    });
-    const teacherSubjects = teacherProfile?.subjects?.length ? teacherProfile.subjects : SUBJECTS;
-    const teacherLevels = teacherProfile?.levels?.length ? teacherProfile.levels : LEVELS;
-
     // ─── Editor state ──────────────────────────────────────────────────────────
     const existingCourse = isEditing ? (courses as any[]).find((c: any) => c.id === id) : null;
+    const teacherCurrency = existingCourse?.currency || (courses as any[])[0]?.currency || "XAF";
 
     const [activeTab, setActiveTab] = useState<"infos" | "lessons">("infos");
     const [form, setForm] = useState({
@@ -76,12 +96,38 @@ export default function TeacherCourses() {
     });
     const [lessons, setLessons] = useState<LessonDraft[]>(
         existingCourse?.lessons?.length
-            ? existingCourse.lessons.map((l: any) => ({ ...l, videoUrl: l.videoUrl || "", _tempId: l.id }))
+            ? existingCourse.lessons.map((l: any) => ({ ...l, videoUrl: l.videoUrl || "", videos: draftVideosFromLesson(l), _tempId: l.id }))
             : [newLesson(1)]
     );
     const [expandedLesson, setExpandedLesson] = useState<string | null>(lessons[0]?._tempId ?? null);
     const [saving, setSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+
+    // ─── Filtered Subjects & Levels according to teacher's profile ────────────
+    const availableSubjects = useMemo(() => {
+        let list = SUBJECTS;
+        if (Array.isArray(user?.teacherSubjects) && user.teacherSubjects.length > 0) {
+            list = user.teacherSubjects;
+        }
+        if (form.subject && !list.includes(form.subject)) {
+            return [form.subject, ...list];
+        }
+        return list;
+    }, [user?.teacherSubjects, form.subject]);
+
+    const availableLevels = useMemo(() => {
+        let list = LEVELS;
+        if (user?.teacherLevel) {
+            const parsed = user.teacherLevel.split(",").map(l => l.trim()).filter(Boolean);
+            if (parsed.length > 0) {
+                list = parsed;
+            }
+        }
+        if (form.level && !list.includes(form.level)) {
+            return [form.level, ...list];
+        }
+        return list;
+    }, [user?.teacherLevel, form.level]);
 
     // ─── Mutations ─────────────────────────────────────────────────────────────
     const deleteCourseMutation = useMutation({
@@ -123,35 +169,28 @@ export default function TeacherCourses() {
             }
 
             // Sync lessons
-            const currentIds = new Set(lessons.map(l => l.id).filter(Boolean));
-            const existingLessons: any[] = existingCourse?.lessons || [];
-
-            // Delete removed lessons
-            for (const oldLesson of existingLessons) {
-                if (oldLesson.id && !currentIds.has(oldLesson.id)) {
-                    await deleteCourseLesson(courseId, oldLesson.id).catch(() => {});
-                }
-            }
-
+            const existingIds = new Set((existingCourse?.lessons || []).map((l: any) => l.id));
             for (const lesson of lessons) {
                 if (!lesson.title.trim()) continue;
-                if (lesson.id && currentIds.has(lesson.id)) {
+                const videos = lesson.videos
+                    .filter(v => v.videoUrl.trim())
+                    .map((v, i) => ({ title: v.title.trim() || `Vidéo ${i + 1}`, videoUrl: v.videoUrl.trim(), isPaid: v.isPaid, order: i + 1 }));
+                if (lesson.id && existingIds.has(lesson.id)) {
                     await updateCourseLesson(courseId, lesson.id, {
                         title: lesson.title,
                         content: lesson.content,
                         videoUrl: lesson.videoUrl || undefined,
                         order: lesson.order,
+                        videos,
                     });
                 } else {
-                    const created = await createCourseLesson(courseId, {
+                    await createCourseLesson(courseId, {
                         title: lesson.title,
                         content: lesson.content,
                         videoUrl: lesson.videoUrl || undefined,
                         order: lesson.order,
-                    }) as any;
-                    if (created?.id) {
-                        lesson.id = created.id;
-                    }
+                        videos,
+                    });
                 }
             }
 
@@ -184,6 +223,35 @@ export default function TeacherCourses() {
         setLessons(prev => prev.map(l => l._tempId === tempId ? { ...l, [field]: value } : l));
     };
 
+    // ─── Video helpers (per leçon) ─────────────────────────────────────────────
+    const addVideo = (lessonTempId: string) => {
+        setLessons(prev => prev.map(l => l._tempId === lessonTempId
+            ? { ...l, videos: [...l.videos, newVideo(l.videos.length + 1)] }
+            : l
+        ));
+    };
+
+    const removeVideo = (lessonTempId: string, videoTempId: string) => {
+        setLessons(prev => prev.map(l => l._tempId === lessonTempId
+            ? { ...l, videos: l.videos.filter(v => v._tempId !== videoTempId) }
+            : l
+        ));
+    };
+
+    const updateVideo = (lessonTempId: string, videoTempId: string, field: "title" | "videoUrl", value: string) => {
+        setLessons(prev => prev.map(l => l._tempId === lessonTempId
+            ? { ...l, videos: l.videos.map(v => v._tempId === videoTempId ? { ...v, [field]: value } : v) }
+            : l
+        ));
+    };
+
+    const toggleVideoPaid = (lessonTempId: string, videoTempId: string) => {
+        setLessons(prev => prev.map(l => l._tempId === lessonTempId
+            ? { ...l, videos: l.videos.map(v => v._tempId === videoTempId ? { ...v, isPaid: !v.isPaid } : v) }
+            : l
+        ));
+    };
+
     // ─── Editor view (no loading block — we don't need the list to create) ─────
     if (isCreating || isEditing) {
         // If editing and course list not loaded yet, show spinner only for edit
@@ -197,33 +265,32 @@ export default function TeacherCourses() {
         return (
             <div className="w-full p-3 space-y-3 bg-white min-h-screen">
                 {/* Header */}
-                <div className="border-b border-slate-100 pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="border-b border-slate-100 pb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0 w-full md:w-auto">
                         <button
                             onClick={() => navigate("..", { relative: "path" })}
-                            className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-[#1A6CC8] hover:border-[#1A6CC8] hover:bg-blue-50/50 transition-all shrink-0"
+                            className="w-8 h-8 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-[#1A6CC8] hover:border-[#1A6CC8] transition-colors shrink-0"
                         >
                             <ArrowLeft className="w-4 h-4" />
                         </button>
                         <div className="min-w-0 flex-1">
-                            <h1 className="text-xl md:text-2xl font-black text-[#0D2D5A] tracking-tight truncate max-w-full">
+                            <h1 className="text-lg md:text-xl font-black text-[#0D2D5A] uppercase tracking-tight truncate max-w-full">
                                 {isCreating ? "Créer un cours" : `Éditer : ${existingCourse?.title || "..."}`}
                             </h1>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                                {isCreating ? "Nouveau module de cours" : "Modification du module de cours"}
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                                {isCreating ? "Nouveau module" : "Modification du module"}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2.5 w-full md:w-auto justify-start md:justify-end overflow-x-auto py-1 scrollbar-none shrink-0">
+                    <div className="flex items-center gap-2 w-full md:w-auto justify-start md:justify-end overflow-x-auto py-1 scrollbar-none shrink-0">
                         {/* Status badge */}
                         <button
-                            type="button"
                             onClick={() => setForm(f => ({ ...f, status: f.status === "draft" ? "published" : "draft" }))}
                             className={cn(
-                                "h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 flex items-center gap-1.5",
+                                "h-8 px-3 text-[9px] font-black uppercase tracking-widest border transition-all shrink-0",
                                 form.status === "published"
-                                    ? "bg-[#0D2D5A] text-white border-[#0D2D5A] shadow-sm"
-                                    : "bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/30 hover:bg-[#F5A623]/20"
+                                    ? "bg-[#0D2D5A] text-white border-[#0D2D5A]"
+                                    : "bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/30"
                             )}
                         >
                             {form.status === "published" ? "● Publié" : "○ Brouillon"}
@@ -232,39 +299,39 @@ export default function TeacherCourses() {
                             onClick={() => handleSave(false)}
                             disabled={saving}
                             variant="outline"
-                            className="h-9 px-4 rounded-xl border-slate-200 shadow-none font-bold text-[10px] uppercase tracking-widest text-slate-600 hover:bg-slate-50 gap-2 shrink-0"
+                            className="h-8 px-3 rounded-none border-slate-200 shadow-none font-black text-[9px] uppercase tracking-widest text-slate-500 gap-1.5 shrink-0"
                         >
-                            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 text-slate-400" />}
+                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                             Enregistrer
                         </Button>
                         <Button
                             onClick={() => handleSave(true)}
                             disabled={saving}
-                            className="h-9 px-5 rounded-xl shadow-md shadow-[#1A6CC8]/20 bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black text-[10px] uppercase tracking-widest gap-2 shrink-0 transition-all"
+                            className="h-8 px-4 rounded-none shadow-none bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black text-[9px] uppercase tracking-widest gap-1.5 shrink-0"
                         >
-                            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
                             Publier
                         </Button>
                     </div>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-slate-200/80 gap-2">
+                <div className="flex border-b border-slate-100">
                     {[
-                        { id: "infos", label: "Informations générales", icon: BookOpen },
+                        { id: "infos", label: "Informations", icon: BookOpen },
                         { id: "lessons", label: `Leçons (${lessons.length})`, icon: FileText },
                     ].map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as any)}
                             className={cn(
-                                "flex items-center gap-2 px-5 py-3 text-xs font-bold transition-all border-b-2 -mb-px rounded-t-xl",
+                                "flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2",
                                 activeTab === tab.id
-                                    ? "border-[#1A6CC8] text-[#1A6CC8] bg-blue-50/30 font-extrabold"
-                                    : "border-transparent text-slate-400 hover:text-slate-700 hover:bg-slate-50"
+                                    ? "border-[#1A6CC8] text-[#1A6CC8]"
+                                    : "border-transparent text-slate-400 hover:text-slate-600"
                             )}
                         >
-                            <tab.icon className="w-4 h-4" />
+                            <tab.icon className="w-3.5 h-3.5" />
                             {tab.label}
                         </button>
                     ))}
@@ -272,169 +339,138 @@ export default function TeacherCourses() {
 
                 {/* ── Tab: Infos ─────────────────────────────────────────────── */}
                 {activeTab === "infos" && (
-                    <div className="bg-white rounded-2xl border border-slate-200/80 p-5 md:p-7 shadow-sm space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Titre */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">
-                                <span>Titre du cours <span className="text-red-500">*</span></span>
-                                <span className="text-[9px] font-normal text-slate-400">Ex: Révision Bac – Terminale Mathématiques</span>
-                            </label>
+                        <div className="lg:col-span-2 space-y-1.5">
+                            <label htmlFor="course-title" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Titre du cours *</label>
                             <input
+                                id="course-title"
                                 value={form.title}
                                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                                 placeholder="Ex: Révision Bac – Terminale Mathématiques"
-                                className="w-full h-11 bg-slate-50/70 rounded-xl px-4 border border-slate-200 font-semibold text-sm text-[#0D2D5A] placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
+                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[12px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                             />
                         </div>
 
-                        {/* Matière & Niveau */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Matière <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={form.subject}
-                                    onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                                    className="w-full h-11 bg-slate-50/70 rounded-xl px-4 border border-slate-200 font-semibold text-xs text-[#0D2D5A] outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
-                                >
-                                    <option value="">— Sélectionner une matière —</option>
-                                    {teacherSubjects.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
+                        {/* Matière */}
+                        <div className="space-y-1.5">
+                            <label htmlFor="course-subject" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Matière *</label>
+                            <select
+                                id="course-subject"
+                                value={form.subject}
+                                onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
+                            >
+                                <option value="">— Choisir —</option>
+                                {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Niveau scolaire <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={form.level}
-                                    onChange={e => setForm(f => ({ ...f, level: e.target.value }))}
-                                    className="w-full h-11 bg-slate-50/70 rounded-xl px-4 border border-slate-200 font-semibold text-xs text-[#0D2D5A] outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
-                                >
-                                    <option value="">— Sélectionner un niveau —</option>
-                                    {teacherLevels.map(l => <option key={l} value={l}>{l}</option>)}
-                                </select>
-                            </div>
+                        {/* Niveau */}
+                        <div className="space-y-1.5">
+                            <label htmlFor="course-level" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Niveau *</label>
+                            <select
+                                id="course-level"
+                                value={form.level}
+                                onChange={e => setForm(f => ({ ...f, level: e.target.value }))}
+                                className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
+                            >
+                                <option value="">— Choisir —</option>
+                                {availableLevels.map(l => <option key={l} value={l}>{l}</option>)}
+                            </select>
                         </div>
 
                         {/* Mode de session */}
-                        <div className="space-y-2.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                Mode de session <span className="text-red-500">*</span>
-                            </label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="lg:col-span-2 space-y-1.5">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Mode de session *</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Mode de session">
                                 {MODES.map(m => {
-                                    const isSelected = form.mode === m.value;
+                                    const selected = form.mode === m.value;
                                     return (
                                         <button
                                             key={m.value}
                                             type="button"
+                                            role="radio"
+                                            aria-checked={selected}
                                             onClick={() => setForm(f => ({ ...f, mode: m.value }))}
                                             className={cn(
-                                                "relative flex items-center gap-3.5 p-4 rounded-xl border-2 text-left transition-all group",
-                                                isSelected
-                                                    ? "border-[#1A6CC8] bg-blue-50/40 shadow-sm ring-2 ring-[#1A6CC8]/15"
-                                                    : "border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-sm"
+                                                "relative flex items-start gap-3 p-3 border text-left cursor-pointer transition-colors duration-200",
+                                                selected
+                                                    ? "border-[#1A6CC8] bg-[#1A6CC8]/5"
+                                                    : "border-slate-200 hover:border-slate-300 bg-white"
                                             )}
                                         >
                                             <div className={cn(
-                                                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-all",
-                                                m.color
+                                                "w-8 h-8 shrink-0 flex items-center justify-center border transition-colors duration-200",
+                                                selected ? "bg-[#1A6CC8] border-[#1A6CC8] text-white" : "bg-slate-50 border-slate-200 text-slate-400"
                                             )}>
-                                                <m.icon className="w-5 h-5" />
+                                                <m.icon className="w-4 h-4" />
                                             </div>
-                                            <div className="min-w-0 flex-1">
-                                                <span className={cn(
-                                                    "text-xs font-black uppercase tracking-wider block",
-                                                    isSelected ? "text-[#1A6CC8]" : "text-slate-700"
+                                            <div className="min-w-0">
+                                                <p className={cn(
+                                                    "text-[9px] font-black uppercase tracking-widest",
+                                                    selected ? "text-[#1A6CC8]" : "text-slate-500"
                                                 )}>
                                                     {m.label}
-                                                </span>
-                                                <span className="text-[10px] text-slate-400 font-medium block truncate">
-                                                    {m.value === "presentiel" && "En face-à-face"}
-                                                    {m.value === "online" && "Visioconférence Jitsi"}
-                                                    {m.value === "hybride" && "Présentiel ou en ligne"}
-                                                </span>
+                                                </p>
+                                                <p className="text-[9px] text-slate-400 font-medium leading-snug mt-0.5">{m.description}</p>
                                             </div>
-                                            {isSelected && (
-                                                <div className="w-2.5 h-2.5 bg-[#1A6CC8] rounded-full shrink-0" />
+                                            {selected && (
+                                                <CheckCircle2 className="absolute top-2 right-2 w-3.5 h-3.5 text-[#1A6CC8]" />
                                             )}
                                         </button>
                                     );
                                 })}
                             </div>
+                        </div>
 
-                            {/* Info complémentaire mode */}
-                            <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-100 text-xs font-semibold text-slate-500 flex items-center gap-2">
-                                {form.mode === "presentiel" && (
-                                    <>
-                                        <MapPin className="w-4 h-4 text-emerald-500 shrink-0" />
-                                        <span>Les séances se déroulent en face-à-face — lieu exact à convenir lors de la planification.</span>
-                                    </>
-                                )}
-                                {form.mode === "online" && (
-                                    <>
-                                        <Monitor className="w-4 h-4 text-blue-500 shrink-0" />
-                                        <span>Les séances se déroulent en visioconférence avec salon Jitsi auto-généré.</span>
-                                    </>
-                                )}
-                                {form.mode === "hybride" && (
-                                    <>
-                                        <Globe className="w-4 h-4 text-purple-500 shrink-0" />
-                                        <span>Format mixte adaptable — séances en présentiel ou en ligne au choix.</span>
-                                    </>
-                                )}
+
+                        {/* Prix & Durée — uniquement pour les profs indépendants (cours groupés) */}
+                        {user?.role === "tutor" && (
+                        <>
+                        <div className="space-y-1.5">
+                            <label htmlFor="course-price" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tarif du cours ({teacherCurrency})</label>
+                            <div className="relative">
+                                <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
+                                <input
+                                    id="course-price"
+                                    type="number"
+                                    min="0"
+                                    value={form.price}
+                                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                                    className="w-full h-10 bg-slate-50/50 pl-9 pr-16 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-300 uppercase">{teacherCurrency}</span>
                             </div>
                         </div>
 
-                        {/* Prix & Durée */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Tarif horaire indicatif (FCFA)
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={form.price}
-                                        onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                                        placeholder="0"
-                                        className="w-full h-11 bg-slate-50/70 rounded-xl pl-4 pr-16 border border-slate-200 font-bold text-xs text-[#0D2D5A] outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded-md">FCFA</span>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Durée indicative par séance
-                                </label>
-                                <div className="relative">
-                                    <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input
-                                        value={form.duration}
-                                        onChange={e => setForm(f => ({ ...f, duration: e.target.value }))}
-                                        placeholder="Ex: 1h30 / séance"
-                                        className="w-full h-11 bg-slate-50/70 rounded-xl pl-10 pr-4 border border-slate-200 font-semibold text-xs text-[#0D2D5A] placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all shadow-sm"
-                                    />
-                                </div>
+                        <div className="space-y-1.5">
+                            <label htmlFor="course-duration" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Durée indicative</label>
+                            <div className="relative">
+                                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
+                                <input
+                                    id="course-duration"
+                                    value={form.duration}
+                                    onChange={e => setForm(f => ({ ...f, duration: e.target.value }))}
+                                    placeholder="Ex: 1h30 / séance"
+                                    className="w-full h-10 bg-slate-50/50 pl-9 pr-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
+                                />
                             </div>
                         </div>
+                        </>
+                        )}
+
 
                         {/* Description */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">
-                                <span>Description du cours</span>
-                                <span className="text-[9px] font-normal text-slate-400">{form.description.length} caractères</span>
-                            </label>
+                        <div className="lg:col-span-2 space-y-1.5">
+                            <label htmlFor="course-description" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Description du cours</label>
                             <textarea
+                                id="course-description"
                                 value={form.description}
                                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                                 rows={5}
-                                placeholder="Décrivez le contenu pédagogique, le programme, les objectifs et les prérequis de votre module..."
-                                className="w-full bg-slate-50/70 rounded-xl p-4 border border-slate-200 font-medium text-xs text-[#0D2D5A] placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/15 transition-all resize-none shadow-sm"
+                                placeholder="Décrivez le contenu, les objectifs pédagogiques, les prérequis..."
+                                className="w-full bg-slate-50/50 p-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200 resize-none"
                             />
                         </div>
                     </div>
@@ -472,7 +508,7 @@ export default function TeacherCourses() {
                                     )}>
                                         {lesson.title || "Leçon sans titre"}
                                     </span>
-                                    {lesson.videoUrl && <Video className="w-3 h-3 text-[#1A6CC8] shrink-0" />}
+                                    {(lesson.videoUrl || lesson.videos.length > 0) && <Video className="w-3 h-3 text-[#1A6CC8] shrink-0" />}
                                     <button
                                         onClick={e => { e.stopPropagation(); removeLesson(lesson._tempId); }}
                                         className="w-5 h-5 flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors shrink-0"
@@ -507,16 +543,67 @@ export default function TeacherCourses() {
                                                 className="w-full bg-slate-50/50 p-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all resize-none"
                                             />
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                                <Video className="w-3 h-3" /> Lien vidéo (optionnel)
-                                            </label>
-                                            <input
-                                                value={lesson.videoUrl}
-                                                onChange={e => updateLesson(lesson._tempId, "videoUrl", e.target.value)}
-                                                placeholder="https://youtube.com/watch?v=..."
-                                                className="w-full h-9 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
-                                            />
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                    <Video className="w-3 h-3" /> Vidéos de la leçon
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => addVideo(lesson._tempId)}
+                                                    className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[#1A6CC8] hover:text-[#0D2D5A] transition-colors"
+                                                >
+                                                    <Plus className="w-3 h-3" /> Ajouter une vidéo
+                                                </button>
+                                            </div>
+                                            <p className="text-[9px] text-slate-400 font-bold">
+                                                Marquez une vidéo « Gratuite » pour qu'elle reste visible même par les élèves n'ayant pas acheté le cours (extrait/teaser). Les vidéos « Payantes » ne sont débloquées qu'après achat du cours.
+                                            </p>
+                                            {lesson.videos.length === 0 && (
+                                                <p className="text-[9px] text-slate-300 font-bold italic py-2">Aucune vidéo pour cette leçon.</p>
+                                            )}
+                                            {lesson.videos.map((video, vIdx) => (
+                                                <div key={video._tempId} className="flex items-start gap-2 p-2 border border-slate-200 bg-slate-50/30">
+                                                    <span className="w-5 h-5 mt-0.5 bg-slate-100 text-slate-400 text-[9px] font-black flex items-center justify-center shrink-0">
+                                                        {vIdx + 1}
+                                                    </span>
+                                                    <div className="flex-1 space-y-1.5">
+                                                        <input
+                                                            value={video.title}
+                                                            onChange={e => updateVideo(lesson._tempId, video._tempId, "title", e.target.value)}
+                                                            placeholder="Titre de la vidéo"
+                                                            className="w-full h-8 bg-white px-2.5 border border-slate-200 font-bold text-[10px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                                        />
+                                                        <input
+                                                            value={video.videoUrl}
+                                                            onChange={e => updateVideo(lesson._tempId, video._tempId, "videoUrl", e.target.value)}
+                                                            placeholder="https://youtube.com/watch?v=..."
+                                                            className="w-full h-8 bg-white px-2.5 border border-slate-200 font-bold text-[10px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleVideoPaid(lesson._tempId, video._tempId)}
+                                                        className={cn(
+                                                            "h-8 px-2.5 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest border shrink-0 transition-all",
+                                                            video.isPaid
+                                                                ? "bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/30"
+                                                                : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                        )}
+                                                        title={video.isPaid ? "Vidéo payante — cliquer pour rendre gratuite" : "Vidéo gratuite — cliquer pour rendre payante"}
+                                                    >
+                                                        {video.isPaid ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                                                        {video.isPaid ? "Payant" : "Gratuit"}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeVideo(lesson._tempId, video._tempId)}
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors shrink-0"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 )}
@@ -663,7 +750,7 @@ export default function TeacherCourses() {
                                         </span>
                                         {course.price > 0 && (
                                             <span className="flex items-center gap-1 text-[9px] text-slate-400 font-black uppercase">
-                                                {course.price.toLocaleString()} FCFA/h
+                                                {formatMoney(course.price, course.currency || teacherCurrency)}
                                             </span>
                                         )}
                                         {course.duration && (

@@ -1,13 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { 
-    Users, 
-    GraduationCap, 
-    Calendar, 
-    MessageCircle, 
-    FileText, 
+import {
+    Users,
+    GraduationCap,
+    Calendar,
+    MessageCircle,
+    FileText,
     Loader2,
-    ShieldCheck,
     TrendingUp,
     Timer,
     Star,
@@ -16,7 +15,6 @@ import {
 import { fetchChildrenByParent } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 export default function ParentChildren() {
@@ -152,21 +150,6 @@ export default function ParentChildren() {
                 )}
             </div>
 
-            {/* Professional Footer Info */}
-            <div className="pt-8 border-t border-slate-50">
-                <div className="p-4 bg-[#0D2D5A] text-white flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/10 rounded">
-                            <ShieldCheck className="w-5 h-5 text-[#F5A623]" />
-                        </div>
-                        <div>
-                             <p className="text-[10px] font-black uppercase tracking-widest">Garantie Excellence Eureka</p>
-                             <p className="text-[10px] opacity-70">Accompagnement certifié par nos experts pédagogiques régis par la charte qualité.</p>
-                        </div>
-                    </div>
-                    <Button size="sm" className="bg-[#F5A623] hover:bg-[#F5A623]/90 text-white font-black text-[10px] uppercase tracking-widest px-6 h-8 rounded-none">Contacter un conseiller</Button>
-                </div>
-            </div>
         </div>
     );
 }

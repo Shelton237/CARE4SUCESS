@@ -10,7 +10,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import cron from "node-cron";
-import webpush from "web-push";
+import { OAuth2Client } from "google-auth-library";
 import { resolveJwtSecret } from "./jwtSecret.js";
 
 const rootDir = process.cwd();
@@ -38,15 +38,22 @@ const pool = mysql.createPool({
 const JWT_SECRET = resolveJwtSecret();
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
 
-// ── WEB PUSH / VAPID ────────────────────────────────────────────────────────
-const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-const VAPID_SUBJECT     = process.env.VAPID_SUBJECT || "mailto:contact@usra-care.com";
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-} else {
-  console.warn("⚠️  VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY non définis — push web désactivé.");
-}
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleOAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+
+// Vérifie un ID token Google (signature + audience) et retourne le profil
+// vérifié. Ne fait jamais confiance à un payload décodé côté client.
+const verifyGoogleIdToken = async (idToken) => {
+  if (!googleOAuthClient) {
+    throw new Error("Connexion Google non configurée sur le serveur.");
+  }
+  const ticket = await googleOAuthClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
+  const payload = ticket.getPayload();
+  if (!payload?.email || !payload.email_verified) {
+    throw new Error("Email Google non vérifié.");
+  }
+  return payload;
+};
 
 // FALLBACK DATA (IN-MEMORY)
 let fallbackSessions = [];
@@ -315,11 +322,14 @@ const ensureTeachersTable = async () => {
     ["performance_index",    "ALTER TABLE teachers ADD COLUMN performance_index DECIMAL(5,2) NULL"],
     ["levels",               "ALTER TABLE teachers ADD COLUMN levels JSON NULL"],
     ["zones",                "ALTER TABLE teachers ADD COLUMN zones JSON NULL COMMENT 'Zones dintervention acceptees'"],
+    ["currency",             "ALTER TABLE teachers ADD COLUMN currency VARCHAR(3) NOT NULL DEFAULT 'XAF'"],
+    ["rate_unit_minutes",    "ALTER TABLE teachers ADD COLUMN rate_unit_minutes INT NOT NULL DEFAULT 60"],
   ];
   for (const [col, sql] of migrations) {
     if (!cols.has(col)) await pool.query(sql).catch(() => {});
   }
 };
+
 
 const ensureSessionsTable = async () => {
   await pool.query(
@@ -367,6 +377,11 @@ const ensureSessionsTable = async () => {
       await pool.query("ALTER TABLE sessions ADD COLUMN code_data TEXT NULL AFTER whiteboard_data");
       console.log("Migration: Added code_data to sessions table");
     }
+    const [colsWI] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'whiteboard_items'");
+    if (colsWI.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN whiteboard_items LONGTEXT NULL AFTER whiteboard_data");
+      console.log("Migration: Added whiteboard_items to sessions table");
+    }
     const [colsAST] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'actual_start_time'");
     if (colsAST.length === 0) {
       await pool.query("ALTER TABLE sessions ADD COLUMN actual_start_time TIMESTAMP NULL AFTER virtual_link");
@@ -401,6 +416,21 @@ const ensureSessionsTable = async () => {
     if (colsCid.length === 0) {
       await pool.query("ALTER TABLE sessions ADD COLUMN course_id VARCHAR(36) DEFAULT NULL AFTER lesson_id");
       console.log("Migration: Added course_id to sessions table");
+    }
+    // Un cours groupé crée une ligne `sessions` par participant payant (le
+    // modèle sessions est 1 prof/1 élève) — toutes ces lignes partagent le
+    // même group_class_id pour que VirtualClassroom dérive le même nom de
+    // salle Jitsi et fasse atterrir tous les participants dans la même salle.
+    const [colsGcid] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'group_class_id'");
+    if (colsGcid.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN group_class_id VARCHAR(36) DEFAULT NULL AFTER course_id");
+      console.log("Migration: Added group_class_id to sessions table");
+    }
+    // Migration: Géolocalisation & Justifications de retard / fin anticipée
+    const [colsSlat] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'start_location_lat'");
+    if (colsSlat.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN start_location_lat DOUBLE NULL, ADD COLUMN start_location_lng DOUBLE NULL, ADD COLUMN start_delay_justification TEXT NULL, ADD COLUMN end_location_lat DOUBLE NULL, ADD COLUMN end_location_lng DOUBLE NULL, ADD COLUMN early_end_justification TEXT NULL");
+      console.log("Migration: Added geolocation and justification columns to sessions table");
     }
     // Fix ENUM status — include all values used by frontend (no duplicates)
     try {
@@ -492,9 +522,14 @@ const ensureCoursesTable = async () => {
       description TEXT,
       subject VARCHAR(120) NOT NULL,
       level VARCHAR(120) NOT NULL,
+      mode ENUM('presentiel','online','hybride') NOT NULL DEFAULT 'presentiel',
+      price DECIMAL(10,2) NOT NULL DEFAULT 0,
+      duration VARCHAR(50) NULL,
       status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
       cover_url VARCHAR(255) NULL,
       created_by VARCHAR(36) NULL,
+      teacher_id CHAR(36) NULL,
+      teacher_name VARCHAR(191) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
@@ -515,6 +550,26 @@ const ensureCourseLessonsTable = async () => {
   );
 };
 
+// Une leçon peut proposer plusieurs vidéos (au-delà de l'unique
+// course_lessons.video_url historique) — chacune marquée individuellement
+// payante ou gratuite, pour permettre à un professeur d'offrir des extraits
+// gratuits tout en réservant le reste du contenu vidéo aux élèves ayant
+// acheté le cours (statut "purchased" déjà porté par course_enrollments).
+const ensureLessonVideosTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS lesson_videos (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      lesson_id CHAR(36) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      video_url VARCHAR(500) NOT NULL,
+      is_paid TINYINT(1) NOT NULL DEFAULT 1,
+      order_index INT NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_lesson_videos_lesson FOREIGN KEY (lesson_id) REFERENCES course_lessons(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
 const ensureCourseEnrollmentsTable = async () => {
   await pool.query(
     `CREATE TABLE IF NOT EXISTS course_enrollments (
@@ -527,6 +582,26 @@ const ensureCourseEnrollmentsTable = async () => {
       CONSTRAINT fk_enrollments_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  // Migration : traçabilité du paiement quand l'inscription vient d'un achat
+  // de cours payant (NULL = accès gratuit / assigné manuellement par le prof).
+  const [existingCols] = await pool.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'course_enrollments'`
+  );
+  const cols = new Set(existingCols.map((r) => r.COLUMN_NAME));
+  const migrations = [
+    ["payment_ref",        "ALTER TABLE course_enrollments ADD COLUMN payment_ref VARCHAR(100) NULL"],
+    ["flw_charge_id",      "ALTER TABLE course_enrollments ADD COLUMN flw_charge_id VARCHAR(100) NULL"],
+    ["amount",             "ALTER TABLE course_enrollments ADD COLUMN amount DECIMAL(10,2) NULL"],
+    ["currency",           "ALTER TABLE course_enrollments ADD COLUMN currency VARCHAR(3) NULL"],
+    ["paid_at",            "ALTER TABLE course_enrollments ADD COLUMN paid_at TIMESTAMP NULL"],
+  ];
+  for (const [col, sql] of migrations) {
+    if (!cols.has(col)) await pool.query(sql).catch(() => {});
+  }
+  await pool.query(
+    "CREATE UNIQUE INDEX idx_enrollments_payment_ref ON course_enrollments (payment_ref)"
+  ).catch(() => {});
 };
 
 const ensureQuizzesTable = async () => {
@@ -1047,7 +1122,12 @@ const initDB = async () => {
     await ensureLessonResourcesTable();
     await ensureCoursesTable();
     await ensureCourseLessonsTable();
+    await ensureLessonVideosTable();
     await ensureCourseEnrollmentsTable();
+    await ensureTeacherSlotsTable();
+    await ensureSlotBookingsTable();
+    await ensureGroupClassesTable();
+    await ensureGroupClassRegistrationsTable();
     await ensureQuizzesTable();
     await ensureQuizQuestionsTable();
     await ensureQuizAttemptsTable();
@@ -1076,6 +1156,7 @@ const initDB = async () => {
     if (!taColNames.has("interview_notes")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN interview_notes TEXT NULL").catch(() => {});
     if (!taColNames.has("interview_status")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN interview_status VARCHAR(20) NULL").catch(() => {});
     if (!taColNames.has("level_classification")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN level_classification JSON NULL").catch(() => {});
+    if (!taColNames.has("levels")) await pool.query("ALTER TABLE teacher_applications ADD COLUMN levels JSON NULL").catch(() => {});
 
     // Migration: performance_index sur teachers
     const [tCols] = await pool.query("SHOW COLUMNS FROM teachers");
@@ -1094,6 +1175,10 @@ const initDB = async () => {
     const [uCols] = await pool.query("SHOW COLUMNS FROM users");
     const uColNames = new Set(uCols.map(c => c.Field));
     if (!uColNames.has("secondary_role")) await pool.query("ALTER TABLE users ADD COLUMN secondary_role ENUM('admin','teacher','parent','advisor','student','tutor') NULL DEFAULT NULL").catch(() => {});
+    if (!uColNames.has("geo_location_id")) await pool.query("ALTER TABLE users ADD COLUMN geo_location_id INT UNSIGNED NULL AFTER location").catch(() => {});
+    if (!uColNames.has("google_id")) {
+      await pool.query("ALTER TABLE users ADD COLUMN google_id VARCHAR(255) NULL UNIQUE").catch(() => {});
+    }
     await ensureStudentEvaluationsTable();
     await ensureGeoLocationsTable();
     // Migration: geo_location_id sur teachers
@@ -1112,6 +1197,16 @@ const initDB = async () => {
     if (taColsGeo.length === 0) await pool.query("ALTER TABLE teacher_applications ADD COLUMN geo_location_id INT UNSIGNED NULL").catch(() => {});
     const [taColsZoneIds] = await pool.query("SHOW COLUMNS FROM teacher_applications LIKE 'geo_zone_ids'");
     if (taColsZoneIds.length === 0) await pool.query("ALTER TABLE teacher_applications ADD COLUMN geo_zone_ids JSON NULL").catch(() => {});
+
+    // Migration: mode/price/duration/teacher_id/teacher_name sur courses
+    // (colonnes exigées par les requêtes de server/index.js — cf. ticket E1)
+    const [crsCols] = await pool.query("SHOW COLUMNS FROM courses");
+    const crsColNames = new Set(crsCols.map(c => c.Field));
+    if (!crsColNames.has("mode")) await pool.query("ALTER TABLE courses ADD COLUMN mode ENUM('presentiel','online','hybride') NOT NULL DEFAULT 'presentiel' AFTER level").catch(() => {});
+    if (!crsColNames.has("price")) await pool.query("ALTER TABLE courses ADD COLUMN price DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER mode").catch(() => {});
+    if (!crsColNames.has("duration")) await pool.query("ALTER TABLE courses ADD COLUMN duration VARCHAR(50) NULL AFTER price").catch(() => {});
+    if (!crsColNames.has("teacher_id")) await pool.query("ALTER TABLE courses ADD COLUMN teacher_id CHAR(36) NULL AFTER created_by").catch(() => {});
+    if (!crsColNames.has("teacher_name")) await pool.query("ALTER TABLE courses ADD COLUMN teacher_name VARCHAR(191) NULL AFTER teacher_id").catch(() => {});
     console.log("Database initialized successfully.");
   } catch (error) {
     console.error("Database initialization failed:", error);
@@ -1314,6 +1409,7 @@ const mapSessionRow = (row) => ({
   virtualLink: row.virtual_link,
   notes: row.notes,
   whiteboardData: row.whiteboard_data,
+  whiteboardItems: parseJson(row.whiteboard_items, []),
   codeData: row.code_data,
   actualStartTime: row.actual_start_time,
   actualEndTime: row.actual_end_time,
@@ -1322,6 +1418,7 @@ const mapSessionRow = (row) => ({
   isPaid: Boolean(row.is_paid),
   lessonId: row.lesson_id,
   courseId: row.course_id,
+  groupClassId: row.group_class_id,
 });
 
 const mapTeacherApplicationRow = (row) => ({
@@ -1355,7 +1452,18 @@ const mapTeacherRow = (row) => ({
   rate_type: row.rate_type,
   hourly_rate: Number(row.hourly_rate),
   monthly_rate: row.monthly_rate !== null ? Number(row.monthly_rate) : null,
+  currency: row.currency || "XAF",
+  rate_unit_minutes: row.rate_unit_minutes ? Number(row.rate_unit_minutes) : 60,
 });
+
+// Montant dû pour `minutesWorked` minutes réellement travaillées, selon le
+// tarif de l'enseignant (horaire ramené à rate_unit_minutes, ou forfait mensuel).
+const computeEarnedAmount = (minutesWorked, teacher) => {
+  if (teacher?.rate_type === "monthly") return Number(teacher.monthly_rate) || 0;
+  const unit = Number(teacher?.rate_unit_minutes) || 60;
+  const rate = Number(teacher?.hourly_rate) || 0;
+  return Math.round((Number(minutesWorked) / unit) * rate);
+};
 
 const mapHomeworkRow = (row) => ({
   id: row.id,
@@ -1428,22 +1536,43 @@ const mapCourseRow = (row) => ({
   level: fixEncoding(row.level),
   mode: row.mode || 'presentiel',
   price: row.price ? Number(row.price) : 0,
+  currency: row.currency || "XAF",
   duration: row.duration || '',
   status: row.status,
   coverUrl: row.cover_url,
   createdBy: row.created_by,
   createdAt: row.created_at,
+  purchased: row.purchased !== undefined ? Boolean(row.purchased) : undefined,
   lessons: [],
 });
 
-const mapLessonRow = (row) => ({
+// Un extrait vidéo gratuit reste visible même quand le reste de la leçon
+// (contenu texte + vidéo historique unique) est verrouillé faute d'achat —
+// seule la vidéo elle-même porte son propre verrou, indépendant de `locked`.
+const mapLessonVideoRow = (row, coursePurchased) => {
+  const isPaid = Boolean(row.is_paid);
+  const videoLocked = isPaid && coursePurchased === false;
+  return {
+    id: row.id,
+    lessonId: row.lesson_id,
+    title: fixEncoding(row.title),
+    videoUrl: videoLocked ? null : row.video_url,
+    isPaid,
+    order: row.order_index,
+    locked: videoLocked,
+  };
+};
+
+const mapLessonRow = (row, locked = false, videos = []) => ({
   id: row.id,
   course_id: row.course_id,
   title: fixEncoding(row.title),
-  content: fixEncoding(row.content),
-  videoUrl: row.video_url,
+  content: locked ? null : fixEncoding(row.content),
+  videoUrl: locked ? null : row.video_url,
   order: row.order_index,
+  locked,
   quiz: null,
+  videos,
 });
 
 const mapMessageRow = (row) => ({
@@ -1501,6 +1630,22 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
      ORDER BY order_index ASC`,
     [courseIds]
   );
+  const lessonVideosByLesson = new Map();
+  if (lessonRows.length) {
+    const lessonIds = lessonRows.map((row) => row.id);
+    const [videoRows] = await pool.query(
+      `SELECT id, lesson_id, title, video_url, is_paid, order_index
+       FROM lesson_videos
+       WHERE lesson_id IN (?)
+       ORDER BY order_index ASC`,
+      [lessonIds]
+    );
+    videoRows.forEach((row) => {
+      const list = lessonVideosByLesson.get(row.lesson_id) || [];
+      list.push(row);
+      lessonVideosByLesson.set(row.lesson_id, list);
+    });
+  }
   let quizRows = [];
   try {
     const [rows] = await pool.query(
@@ -1560,7 +1705,10 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
   lessonRows.forEach((lesson) => {
     const parent = courseMap.get(lesson.course_id);
     if (!parent) return;
-    parent.lessons.push(mapLessonRow(lesson));
+    const locked = parent.purchased === false;
+    const videos = (lessonVideosByLesson.get(lesson.id) || [])
+      .map((video) => mapLessonVideoRow(video, parent.purchased));
+    parent.lessons.push(mapLessonRow(lesson, locked, videos));
   });
 
   // Calculate progress
@@ -1577,7 +1725,7 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
       const course = courseMap.get(summary.courseId);
       if (!course) return;
       const lesson = course.lessons.find((l) => l.id === summary.lessonId);
-      if (lesson) {
+      if (lesson && !lesson.locked) {
         lesson.quiz = summary;
       }
     }
@@ -1586,17 +1734,21 @@ const buildCoursesPayload = async (courseRows, studentId = null) => {
   return Array.from(courseMap.values());
 };
 
-const fetchCourseDetails = async (courseId, includeQuestions = false) => {
+const fetchCourseDetails = async (courseId, includeQuestions = false, studentId = null) => {
   const [courseRows] = await pool.query(
-    `SELECT id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, created_at
-     FROM courses
-     WHERE id = ?`,
-    [courseId]
+    `SELECT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at,
+       COALESCE(t.currency, 'XAF') AS currency
+       ${studentId ? ", (ce.id IS NOT NULL OR c.price = 0 OR c.price IS NULL) AS purchased" : ""}
+     FROM courses c
+     LEFT JOIN teachers t ON t.id = c.created_by
+     ${studentId ? "LEFT JOIN course_enrollments ce ON ce.course_id = c.id AND ce.student_id = ?" : ""}
+     WHERE c.id = ?`,
+    studentId ? [studentId, courseId] : [courseId]
   );
   if (!courseRows.length) return null;
-  const courses = await buildCoursesPayload(courseRows);
+  const courses = await buildCoursesPayload(courseRows, studentId);
   const course = courses[0];
-  if (includeQuestions) {
+  if (includeQuestions && course.purchased !== false) {
     const lessonIds = course.lessons.map((lesson) => lesson.id);
     if (lessonIds.length) {
       const [quizRows] = await pool.query(
@@ -1641,7 +1793,7 @@ const mapParentProgressRow = (row) => ({
   anglais: Number(row.anglais),
 });
 
-const USER_PUBLIC_COLUMNS = `id, name, email, role, secondary_role, avatar, avatar_url, phone, location, timezone, language, bio,
+const USER_PUBLIC_COLUMNS = `id, name, email, role, secondary_role, avatar, avatar_url, phone, location, geo_location_id, timezone, language, bio,
   notify_email, notify_sms, notify_whatsapp, parent_id, last_login_at, created_at, updated_at`;
 
 const mapUserRow = (row) => ({
@@ -1653,6 +1805,7 @@ const mapUserRow = (row) => ({
   avatar: row.avatar,
   phone: row.phone,
   location: row.location ? fixEncoding(row.location) : row.location,
+  geoLocationId: row.geo_location_id ?? null,
   timezone: row.timezone,
   language: row.language,
   bio: row.bio ? fixEncoding(row.bio) : row.bio,
@@ -1669,6 +1822,9 @@ const mapUserRow = (row) => ({
   bankIban: row.bank_iban || null,
   bankAccountHolder: row.bank_account_holder || null,
   availability: parseJson(row.availability_json, []),
+  // Teacher specialties (from teachers table)
+  teacherSubjects: parseJson(row.teacher_subjects, null),
+  teacherLevel: row.teacher_level || null,
 });
 
 const ensureParentChildTable = async () => {
@@ -1699,6 +1855,84 @@ const ensureParentInvoicesTable = async () => {
       KEY idx_invoices_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  // Migration : suivi du paiement en ligne Flutterwave
+  const [existingCols] = await pool.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'parent_invoices'`
+  );
+  const cols = new Set(existingCols.map((r) => r.COLUMN_NAME));
+  const migrations = [
+    ["payment_ref",        "ALTER TABLE parent_invoices ADD COLUMN payment_ref VARCHAR(100) NULL"],
+    ["flw_transaction_id", "ALTER TABLE parent_invoices ADD COLUMN flw_transaction_id VARCHAR(100) NULL"],
+    ["flw_charge_id",      "ALTER TABLE parent_invoices ADD COLUMN flw_charge_id VARCHAR(100) NULL"],
+    ["payment_method",     "ALTER TABLE parent_invoices ADD COLUMN payment_method VARCHAR(50) NULL"],
+    ["paid_at",            "ALTER TABLE parent_invoices ADD COLUMN paid_at TIMESTAMP NULL"],
+    ["session_id",          "ALTER TABLE parent_invoices ADD COLUMN session_id VARCHAR(255) NULL"],
+    ["rate_type",           "ALTER TABLE parent_invoices ADD COLUMN rate_type VARCHAR(20) DEFAULT 'hourly'"],
+  ];
+  for (const [col, sql] of migrations) {
+    if (!cols.has(col)) await pool.query(sql).catch(() => {});
+  }
+  await pool.query(
+    "CREATE UNIQUE INDEX idx_invoices_payment_ref ON parent_invoices (payment_ref)"
+  ).catch(() => {});
+};
+
+const ensureSessionInvoice = async (sessionId) => {
+  try {
+    await ensureParentInvoicesTable();
+    const [[session]] = await pool.query(
+      `SELECT s.id, s.session_date, s.subject, s.actual_start_time, s.actual_end_time,
+              s.student_id, s.teacher_id,
+              u_student.name AS studentName, u_student.parent_id,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.rate_unit_minutes
+       FROM sessions s
+       JOIN users u_student ON u_student.id = s.student_id
+       LEFT JOIN teachers t ON t.id = s.teacher_id
+       WHERE s.id = ? AND s.status = 'effectué'`,
+      [sessionId]
+    );
+
+    if (!session || !session.parent_id) return;
+
+    const [[existingInvoice]] = await pool.query(
+      "SELECT id FROM parent_invoices WHERE session_id = ?",
+      [sessionId]
+    );
+    if (existingInvoice) return;
+
+    const isMonthly = session.rate_type === "monthly";
+    if (!isMonthly) {
+      let minutes = 120;
+      if (session.actual_start_time && session.actual_end_time) {
+        minutes = Math.max(1, Math.round((new Date(session.actual_end_time) - new Date(session.actual_start_time)) / (1000 * 60)));
+      }
+      
+      const amount = computeEarnedAmount(minutes, session);
+      if (amount <= 0) return;
+
+      const dateStr = session.session_date
+        ? new Date(session.session_date).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+
+      const invId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO parent_invoices (id, parent_id, session_id, invoice_date, description, amount, status, rate_type)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', 'hourly')`,
+        [
+          invId,
+          session.parent_id,
+          sessionId,
+          dateStr,
+          `Séance ${session.subject || "de cours"} — ${session.studentName} (${minutes} min)`,
+          amount
+        ]
+      );
+      console.log(`[Invoice] Generated hourly session invoice ${invId} for parent ${session.parent_id} (Amount: ${amount} XAF)`);
+    }
+  } catch (err) {
+    console.error("[ensureSessionInvoice] Error generating session invoice", sessionId, err);
+  }
 };
 
 const ensureParentOverviewTable = async () => {
@@ -1802,7 +2036,12 @@ const unlinkStudentTeacherRelation = async (studentId, teacherId) => {
 
 const app = express();
 app.use(cors({ origin: corsOrigin }));
-app.use(express.json());
+// `verify` conserve le corps brut de la requête (req.rawBody) — nécessaire
+// pour recalculer la signature HMAC-SHA256 des webhooks Flutterwave, qui
+// porte sur les octets exacts reçus et non sur le JSON re-sérialisé.
+app.use(express.json({
+  verify: (req, _res, buf) => { req.rawBody = buf; },
+}));
 
 const uploadDir = path.join(rootDir, "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -1821,10 +2060,236 @@ const upload = multer({ storage: storage, limits: { fileSize: 10 * 1024 * 1024 }
 
 app.use("/uploads", express.static(uploadDir));
 
+// Créneaux explicites saisis un par un par l'enseignant/l'admin — consommés
+// lorsqu'un visiteur du site public réserve puis paie (cf. section
+// RÉSERVATION PUBLIQUE plus loin).
+const ensureTeacherSlotsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS teacher_slots (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      teacher_id CHAR(36) NOT NULL,
+      subject VARCHAR(120) NULL,
+      start_time DATETIME NOT NULL,
+      end_time DATETIME NOT NULL,
+      status ENUM('open','booked','cancelled') NOT NULL DEFAULT 'open',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_slots_teacher (teacher_id),
+      KEY idx_slots_status (status),
+      KEY idx_slots_start (start_time)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const mapSlotRow = (row) => ({
+  id: row.id,
+  teacherId: row.teacher_id,
+  subject: row.subject,
+  startTime: row.start_time,
+  endTime: row.end_time,
+  status: row.status,
+});
+
+app.post("/api/teachers/:teacherId/slots", authenticateRequest, async (req, res) => {
+  const { teacherId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  const { startTime, endTime, subject } = req.body ?? {};
+  if (!startTime || !endTime) {
+    return res.status(400).json({ message: "startTime et endTime sont requis." });
+  }
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    return res.status(400).json({ message: "Plage horaire invalide." });
+  }
+  if (start < new Date()) {
+    return res.status(400).json({ message: "Le créneau doit être dans le futur." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [[teacher]] = await pool.query("SELECT id FROM teachers WHERE id = ?", [teacherId]);
+    if (!teacher) return res.status(404).json({ message: "Enseignant introuvable." });
+
+    const id = crypto.randomUUID();
+    await pool.query(
+      "INSERT INTO teacher_slots (id, teacher_id, subject, start_time, end_time) VALUES (?, ?, ?, ?, ?)",
+      [id, teacherId, subject || null, start, end]
+    );
+    res.status(201).json({ id });
+  } catch (error) {
+    console.error("[teacher_slots POST]", error);
+    res.status(500).json({ message: "Impossible de créer le créneau." });
+  }
+});
+
+// Gestion (enseignant/admin) — tous les créneaux, passés ou non, tous statuts.
+app.get("/api/teachers/:teacherId/slots/manage", authenticateRequest, async (req, res) => {
+  const { teacherId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [rows] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE teacher_id = ? ORDER BY start_time DESC",
+      [teacherId]
+    );
+    res.json(rows.map(mapSlotRow));
+  } catch (error) {
+    console.error("[teacher_slots manage GET]", error);
+    res.status(500).json({ message: "Impossible de récupérer les créneaux." });
+  }
+});
+
+// Vue publique — uniquement les créneaux ouverts et futurs (utilisée par la
+// page de profil public pour proposer une réservation).
+app.get("/api/teachers/:teacherId/slots", async (req, res) => {
+  const { teacherId } = req.params;
+  try {
+    await ensureTeacherSlotsTable();
+    const [rows] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE teacher_id = ? AND status = 'open' AND start_time > NOW() ORDER BY start_time ASC",
+      [teacherId]
+    );
+    res.json(rows.map(mapSlotRow));
+  } catch (error) {
+    console.error("[teacher_slots GET]", error);
+    res.status(500).json({ message: "Impossible de récupérer les créneaux." });
+  }
+});
+
+app.delete("/api/teachers/:teacherId/slots/:slotId", authenticateRequest, async (req, res) => {
+  const { teacherId, slotId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [[slot]] = await pool.query("SELECT status FROM teacher_slots WHERE id = ? AND teacher_id = ?", [slotId, teacherId]);
+    if (!slot) return res.status(404).json({ message: "Créneau introuvable." });
+    if (slot.status !== "open") {
+      return res.status(400).json({ message: "Seul un créneau non réservé peut être supprimé." });
+    }
+    await pool.query("DELETE FROM teacher_slots WHERE id = ?", [slotId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[teacher_slots DELETE]", error);
+    res.status(500).json({ message: "Impossible de supprimer le créneau." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANNUAIRE PUBLIC — recherche d'enseignant sur le site public, sans
+// authentification. N'expose que des champs adaptés à un affichage public
+// (jamais email/téléphone/coordonnées bancaires).
+// ─────────────────────────────────────────────────────────────────────────────
+// Le champ image est réel (photo uploadée par l'enseignant, via users.avatar_url)
+// ou absent — jamais de photo de stock générée : le front affiche alors des
+// initiales.
+const mapPublicTeacherRow = (row) => ({
+  id: row.id,
+  name: row.name,
+  subjects: parseJson(row.subjects, []),
+  level: row.level,
+  city: row.city,
+  rating: Number(row.rating),
+  students: row.students,
+  rateType: row.rate_type,
+  rate: row.rate_type === "monthly" ? Number(row.monthly_rate) : Number(row.hourly_rate),
+  currency: row.currency || "XAF",
+  rateUnitMinutes: row.rate_unit_minutes || 60,
+  avatarUrl: row.avatar_url || null,
+  countryId: row.geo_country_id || null,
+  country: row.geo_country_name || null,
+  regionId: row.geo_region_id || null,
+  region: row.geo_region_name || null,
+});
+
+// Résout pays/région même quand geo_location_id pointe directement sur un
+// pays ou une région (pas seulement un département/arrondissement) —
+// IF(gl.type = 'country', gl.id, gl.country_id) capture les deux cas.
+const PUBLIC_TEACHER_GEO_JOIN = `
+  LEFT JOIN geo_locations gl ON gl.id = t.geo_location_id
+  LEFT JOIN geo_locations gc ON gc.id = IF(gl.type = 'country', gl.id, gl.country_id)
+  LEFT JOIN geo_locations gr ON gr.id = IF(gl.type = 'region', gl.id, gl.region_id)
+  LEFT JOIN users u ON u.email = t.email
+`;
+const PUBLIC_TEACHER_GEO_COLUMNS = `
+  gc.id AS geo_country_id, gc.name AS geo_country_name,
+  gr.id AS geo_region_id, gr.name AS geo_region_name,
+  u.avatar_url
+`;
+
+app.get("/api/public/teachers", async (req, res) => {
+  try {
+    await ensureTeachersTable();
+    await ensureGeoLocationsTable();
+    const [rows] = await pool.query(
+      `SELECT t.id, t.name, t.subjects, t.level, t.city, t.status, t.rating, t.students,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.currency, t.rate_unit_minutes,
+              ${PUBLIC_TEACHER_GEO_COLUMNS}
+       FROM teachers t
+       ${PUBLIC_TEACHER_GEO_JOIN}
+       WHERE t.status = 'actif'
+       ORDER BY t.rating DESC, t.students DESC`
+    );
+    res.json(rows.map(mapPublicTeacherRow));
+  } catch (error) {
+    if (isDbConnectionError(error)) {
+      return res.status(503).json({ message: "Base de données indisponible." });
+    }
+    console.error("[public/teachers]", error);
+    res.status(500).json({ message: "Impossible de récupérer les enseignants." });
+  }
+});
+
+app.get("/api/public/teachers/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureTeachersTable();
+    await ensureTeacherSlotsTable();
+    await ensureGeoLocationsTable();
+    const [[row]] = await pool.query(
+      `SELECT t.id, t.name, t.subjects, t.level, t.city, t.status, t.rating, t.students,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.currency, t.rate_unit_minutes,
+              ${PUBLIC_TEACHER_GEO_COLUMNS}
+       FROM teachers t
+       ${PUBLIC_TEACHER_GEO_JOIN}
+       WHERE t.id = ? AND t.status = 'actif'`,
+      [id]
+    );
+    if (!row) return res.status(404).json({ message: "Enseignant introuvable." });
+
+    const [slotRows] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE teacher_id = ? AND status = 'open' AND start_time > NOW() ORDER BY start_time ASC",
+      [id]
+    );
+
+    res.json({ ...mapPublicTeacherRow(row), slots: slotRows.map(mapSlotRow) });
+  } catch (error) {
+    if (isDbConnectionError(error)) {
+      return res.status(503).json({ message: "Base de données indisponible." });
+    }
+    console.error("[public/teachers/:id]", error);
+    res.status(500).json({ message: "Impossible de récupérer le profil." });
+  }
+});
+
 app.post("/api/parents/enroll", async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { parentName, parentEmail, parentPassword, parentPhone, parentLocation, parentGeoLocationId, children, childName, childEmail, childPassword, childLevel, subject } = req.body;
+    let { parentName, parentEmail, parentPassword, parentPhone, parentLocation, parentGeoLocationId, children, childName, childEmail, childPassword, childLevel, subject, googleIdToken } = req.body;
+
+    let googleSub = null;
+    if (googleIdToken) {
+      const googlePayload = await verifyGoogleIdToken(googleIdToken);
+      parentEmail = googlePayload.email; // l'email vérifié par Google prévaut sur toute saisie du formulaire
+      googleSub = googlePayload.sub;
+      parentPassword = crypto.randomBytes(24).toString("hex"); // jamais communiqué : connexion via Google uniquement
+    }
+
     console.log("DEBUG: Enrollment start for", parentEmail);
 
     const finalChildren = Array.isArray(children) ? children : [
@@ -1858,15 +2323,20 @@ app.post("/api/parents/enroll", async (req, res) => {
     const parentId = crypto.randomUUID();
     const hashedParentPwd = bcrypt.hashSync(parentPassword, 10);
     await connection.query(
-      "INSERT INTO users (id, name, email, password, role, phone, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?)",
-      [parentId, parentName, parentEmail, hashedParentPwd, parentPhone || null, (parentName || "P")[0]]
+      "INSERT INTO users (id, name, email, password, role, phone, location, geo_location_id, google_id, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?, ?, ?, ?)",
+      [
+        parentId, parentName, parentEmail, hashedParentPwd, parentPhone || null,
+        parentLocation || null, parentGeoLocationId ? Number(parentGeoLocationId) : null,
+        googleSub,
+        (parentName || "P")[0],
+      ]
     );
 
     // Bienvenue Parent
     await sendMail({
       to: parentEmail,
       subject: "Bienvenue sur Care4Success — Vos identifiants parent",
-      html: tplAccountCreated({ name: parentName, email: parentEmail, password: parentPassword, role: 'parent' })
+      html: tplAccountCreated({ name: parentName, email: parentEmail, password: parentPassword, role: 'parent', viaGoogle: Boolean(googleSub) })
     }).catch(e => console.warn("Parent welcome mail failed:", e.message));
 
     const results = {
@@ -1880,10 +2350,15 @@ app.post("/api/parents/enroll", async (req, res) => {
       const finalStudentEmail = child.email || `student.${crypto.randomBytes(4).toString('hex')}@care4success.cm`;
       const hashedStudentPwd = bcrypt.hashSync(child.password || "eleve123", 10);
       
-      // Create Student User
+      // Create Student User — hérite de la localisation du parent (même foyer),
+      // faute de champ de localisation dédié à l'enfant dans ce formulaire.
       await connection.query(
-        "INSERT INTO users (id, name, email, password, role, parent_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?)",
-        [studentId, child.name, finalStudentEmail, hashedStudentPwd, parentId, (child.name || "S")[0]]
+        "INSERT INTO users (id, name, email, password, role, parent_id, location, geo_location_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?, ?, ?)",
+        [
+          studentId, child.name, finalStudentEmail, hashedStudentPwd, parentId,
+          parentLocation || null, parentGeoLocationId ? Number(parentGeoLocationId) : null,
+          (child.name || "S")[0],
+        ]
       );
 
       // Bienvenue Élève
@@ -2007,7 +2482,7 @@ app.post("/api/requests", async (req, res) => {
   }
 });
 
-app.patch("/api/requests/:id", async (req, res) => {
+app.patch("/api/requests/:id", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
   const validStatuses = new Set(["reçu", "en traitement", "assigné", "clôturé"]);
@@ -2015,14 +2490,12 @@ app.patch("/api/requests/:id", async (req, res) => {
   // Normalize the incoming status to handle encoding variants
   const normalizedStatus = normalizeRequestStatus(status);
   console.log(`PATCH /api/requests/${id} - New Status: '${status}' -> normalized: '${normalizedStatus}'`);
-  try { fs.appendFileSync('/tmp/debug_api.log', `PATCH /api/requests/${id} - status: ${status} -> ${normalizedStatus}\n`); } catch {}
   if (!normalizedStatus || !validStatuses.has(normalizedStatus)) {
     console.log(`Invalid status: '${status}' (normalized: '${normalizedStatus}')`);
     return res.status(400).json({ message: "Statut invalide.", received: status, normalized: normalizedStatus });
   }
 
   try {
-    try { fs.appendFileSync('/tmp/debug_api.log', `Updating database for request ${id} to ${normalizedStatus}...\n`); } catch {}
     await pool.query(
       "UPDATE requests SET status = ? WHERE id = ?",
       [normalizedStatus, id]
@@ -2131,7 +2604,10 @@ app.patch("/api/requests/:id", async (req, res) => {
   }
 });
 
-app.get("/api/assignments", async (_req, res) => {
+app.get("/api/assignments", authenticateRequest, async (_req, res) => {
+  if (!["admin", "advisor"].includes(_req.user?.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   try {
     const [rows] = await pool.query(
       "SELECT id, child_name, level, subject, needs, schedule, location, geo_location_id, candidates, selected_teacher, status FROM assignments ORDER BY created_at ASC"
@@ -2238,7 +2714,10 @@ app.get("/api/assignments", async (_req, res) => {
   }
 });
 
-app.patch("/api/assignments/:id", async (req, res) => {
+app.patch("/api/assignments/:id", authenticateRequest, async (req, res) => {
+  if (!["admin", "advisor"].includes(req.user?.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   const { id } = req.params;
   const { selectedTeacher } = req.body ?? {};
   if (!selectedTeacher) {
@@ -2333,6 +2812,31 @@ app.get("/api/geo", async (req, res) => {
   } catch (err) {
     console.error("[GET /api/geo]", err);
     res.status(500).json({ message: "Erreur chargement géographie" });
+  }
+});
+
+// Remonte la chaîne parent_id d'un lieu jusqu'à la racine (pays), pour
+// pré-remplir le sélecteur en cascade côté frontend à partir d'un seul id.
+app.get("/api/geo/:id/ancestors", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const chain = [];
+    let currentId = Number(id);
+    let guard = 0;
+    while (currentId && guard < 10) {
+      const [[node]] = await pool.query(
+        "SELECT id, name, type, parent_id, status FROM geo_locations WHERE id = ?",
+        [currentId]
+      );
+      if (!node) break;
+      chain.unshift(node);
+      currentId = node.parent_id;
+      guard++;
+    }
+    res.json(chain);
+  } catch (err) {
+    console.error("[GET /api/geo/:id/ancestors]", err);
+    res.status(500).json({ message: "Erreur chargement de la hiérarchie géographique" });
   }
 });
 
@@ -2436,7 +2940,7 @@ app.get("/api/sessions", async (req, res) => {
     await ensureSessionsTable();
     const column = roleColumn[role];
     const [rows] = await pool.query(
-      `SELECT id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, virtual_link, notes, whiteboard_data, code_data, actual_start_time, actual_end_time, report_text, understanding_score, is_paid, lesson_id, course_id
+      `SELECT id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, virtual_link, notes, whiteboard_data, whiteboard_items, code_data, actual_start_time, actual_end_time, report_text, understanding_score, is_paid, lesson_id, course_id, group_class_id
        FROM sessions
        WHERE ${column} = ?
        ORDER BY session_date ASC, session_time ASC`,
@@ -2456,7 +2960,7 @@ app.get("/api/sessions", async (req, res) => {
 
 
 app.post("/api/sessions", authenticateRequest, async (req, res) => {
-  const { studentIds, studentId, courseId, subject, sessionDate, sessionTime, locationType, location, recurrence, sessionCount } = req.body;
+  const { studentIds, studentId, courseId, subject, sessionDate, sessionTime, sessionEndTime, locationType, location, recurrence, sessionCount } = req.body;
   const teacherId = req.user.sub;
 
   try {
@@ -2465,6 +2969,12 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
 
     const ids = Array.isArray(studentIds) ? studentIds : (studentId ? [studentId] : []);
     if (ids.length === 0) return res.status(400).json({ message: "Au moins un élève est requis." });
+
+    // Format full session time: e.g. "14:00 - 16:00"
+    let formattedTime = sessionTime || "16:00";
+    if (sessionEndTime && sessionTime && !sessionTime.includes("-")) {
+      formattedTime = `${sessionTime} - ${sessionEndTime}`;
+    }
 
     const createdSessions = [];
     const count = recurrence === "weekly" ? Math.min(12, sessionCount || 1) : 1;
@@ -2496,7 +3006,7 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
         await pool.query(
           `INSERT INTO sessions (id, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, subject, session_day, session_date, session_time, location, status, virtual_link, course_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [sessionId, teacherId, teacherName, sId, studentName, parentId, parentName, subject, dayLabel, dateStr, sessionTime, location || (locationType === "online" ? "En ligne" : "Présentiel"), "planifié", virtualLink, courseId || null]
+          [sessionId, teacherId, teacherName, sId, studentName, parentId, parentName, subject, dayLabel, dateStr, formattedTime, location || (locationType === "online" ? "En ligne" : "Présentiel"), "planifié", virtualLink, courseId || null]
         );
         createdSessions.push({ id: sessionId, date: dateStr });
       }
@@ -2510,12 +3020,13 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
 
 app.patch("/api/sessions/:id/sync", async (req, res) => {
   const { id } = req.params;
-  const { notes, whiteboardData, codeData } = req.body ?? {};
+  const { notes, whiteboardData, whiteboardItems, codeData } = req.body ?? {};
   try {
     const updates = [];
     const params = [];
     if (notes !== undefined) { updates.push("notes = ?"); params.push(notes); }
     if (whiteboardData !== undefined) { updates.push("whiteboard_data = ?"); params.push(whiteboardData); }
+    if (whiteboardItems !== undefined) { updates.push("whiteboard_items = ?"); params.push(JSON.stringify(whiteboardItems)); }
     if (codeData !== undefined) { updates.push("code_data = ?"); params.push(codeData); }
 
     if (updates.length > 0) {
@@ -2529,12 +3040,59 @@ app.patch("/api/sessions/:id/sync", async (req, res) => {
   }
 });
 
+// Retrouve le contenu (notes, tableau, code) de la derniere seance passee
+// entre le meme enseignant et le meme eleve qui contient reellement quelque
+// chose — pour proposer de reprendre le fil d'une seance a l'autre plutot
+// que de repartir d'une page blanche a chaque fois.
+app.get("/api/sessions/:id/previous-workspace", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[current]] = await pool.query(
+      "SELECT teacher_id, student_id, session_date, session_time FROM sessions WHERE id = ?",
+      [id]
+    );
+    if (!current) return res.status(404).json({ message: "Séance introuvable." });
+
+    const [[previous]] = await pool.query(
+      `SELECT id, session_date, notes, whiteboard_data, whiteboard_items, code_data
+       FROM sessions
+       WHERE teacher_id = ? AND student_id = ? AND id != ?
+         AND (session_date < ? OR (session_date = ? AND session_time < ?))
+         AND (
+           (notes IS NOT NULL AND notes != '') OR
+           whiteboard_data IS NOT NULL OR
+           (whiteboard_items IS NOT NULL AND whiteboard_items != '[]') OR
+           (code_data IS NOT NULL AND code_data != '')
+         )
+       ORDER BY session_date DESC, session_time DESC
+       LIMIT 1`,
+      [current.teacher_id, current.student_id, id, current.session_date, current.session_date, current.session_time]
+    );
+
+    if (!previous) return res.json(null);
+    res.json({
+      sessionId: previous.id,
+      sessionDate: formatDate(previous.session_date),
+      notes: previous.notes,
+      whiteboardData: previous.whiteboard_data,
+      whiteboardItems: parseJson(previous.whiteboard_items, []),
+      codeData: previous.code_data,
+    });
+  } catch (error) {
+    console.error("Failed to fetch previous workspace", error);
+    res.status(500).json({ message: "Impossible de récupérer le cours précédent." });
+  }
+});
+
 app.patch("/api/sessions/:id/status", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
   if (!status) return res.status(400).json({ message: "Statut requis." });
   try {
     await pool.query("UPDATE sessions SET status = ? WHERE id = ?", [status, id]);
+    if (status === 'effectué') {
+      await ensureSessionInvoice(id);
+    }
     const [rows] = await pool.query("SELECT * FROM sessions WHERE id = ?", [id]);
     res.json(mapSessionRow(rows[0]));
   } catch (error) {
@@ -2545,24 +3103,47 @@ app.patch("/api/sessions/:id/status", authenticateRequest, async (req, res) => {
 
 app.patch("/api/sessions/:id/check-in", authenticateRequest, async (req, res) => {
   const { id } = req.params;
+  const { lat, lng, justification } = req.body ?? {};
   try {
-    await pool.query("UPDATE sessions SET actual_start_time = NOW(), status = 'en cours' WHERE id = ?", [id]);
+    const [[sessionRow]] = await pool.query(
+      "SELECT id, teacher_id, teacher_name, student_name, subject, session_date, session_time FROM sessions WHERE id = ?",
+      [id]
+    );
+    if (!sessionRow) return res.status(404).json({ message: "Session introuvable." });
+    if (sessionRow.teacher_id !== req.user?.sub) {
+      return res.status(403).json({ message: "Seul l'enseignant assigné à cette session peut faire le check-in." });
+    }
+
+    const latVal = lat != null ? Number(lat) : null;
+    const lngVal = lng != null ? Number(lng) : null;
+    const justifVal = justification ? String(justification).trim() : null;
+
+    await pool.query(
+      `UPDATE sessions SET 
+         actual_start_time = NOW(), 
+         status = 'en cours',
+         start_location_lat = ?,
+         start_location_lng = ?,
+         start_delay_justification = ?
+       WHERE id = ?`,
+      [latVal, lngVal, justifVal, id]
+    );
+
+    if (justifVal) {
+      const notifId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO notifications (id, user_id, title, message, type, is_read)
+         SELECT ?, id, 'Alerte Retard Séance', ?, 'warning', FALSE
+         FROM users WHERE role = 'admin'`,
+        [
+          notifId,
+          `Retard au démarrage (${sessionRow.subject} - ${sessionRow.teacher_name} avec ${sessionRow.student_name}). Justification : ${justifVal}`
+        ]
+      ).catch(() => {});
+    }
+
     res.json({ success: true });
   } catch (error) {
-    // If 'en cours' is not in ENUM, try to add it then retry
-    if (error.code === 'WARN_DATA_TRUNCATED' || error.errno === 1265) {
-      try {
-        await pool.query(`ALTER TABLE sessions MODIFY COLUMN status ENUM('effectué','à venir','planifié','en cours','scheduled','in_progress','completed') NOT NULL DEFAULT 'planifié'`);
-        await pool.query("UPDATE sessions SET actual_start_time = NOW(), status = 'en cours' WHERE id = ?", [id]);
-        console.warn("Check-in: ENUM migrated and session started for", id);
-        return res.json({ success: true });
-      } catch (migErr) {
-        console.error("Check-in migration failed", migErr.message);
-        // Last resort: use an accepted value close to 'in_progress'
-        await pool.query("UPDATE sessions SET actual_start_time = NOW() WHERE id = ?", [id]);
-        return res.json({ success: true, note: 'status not updated due to schema constraint' });
-      }
-    }
     console.error("Check-in failed", error);
     res.status(500).json({ message: "Erreur lors du check-in." });
   }
@@ -2570,20 +3151,48 @@ app.patch("/api/sessions/:id/check-in", authenticateRequest, async (req, res) =>
 
 app.patch("/api/sessions/:id/check-out", authenticateRequest, async (req, res) => {
   const { id } = req.params;
+  const { lat, lng, justification } = req.body ?? {};
   try {
-    await pool.query("UPDATE sessions SET actual_end_time = NOW(), status = 'effectué' WHERE id = ?", [id]);
+    const [[sessionRow]] = await pool.query(
+      "SELECT id, teacher_id, teacher_name, student_name, subject, session_date, session_time FROM sessions WHERE id = ?",
+      [id]
+    );
+    if (!sessionRow) return res.status(404).json({ message: "Session introuvable." });
+    if (sessionRow.teacher_id !== req.user?.sub) {
+      return res.status(403).json({ message: "Seul l'enseignant assigné à cette session peut faire le check-out." });
+    }
+
+    const latVal = lat != null ? Number(lat) : null;
+    const lngVal = lng != null ? Number(lng) : null;
+    const justifVal = justification ? String(justification).trim() : null;
+
+    await pool.query(
+      `UPDATE sessions SET 
+         actual_end_time = NOW(), 
+         status = 'effectué',
+         end_location_lat = ?,
+         end_location_lng = ?,
+         early_end_justification = ?
+       WHERE id = ?`,
+      [latVal, lngVal, justifVal, id]
+    );
+
+    if (justifVal) {
+      const notifId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO notifications (id, user_id, title, message, type, is_read)
+         SELECT ?, id, 'Alerte Fin Anticipée', ?, 'warning', FALSE
+         FROM users WHERE role = 'admin'`,
+        [
+          notifId,
+          `Fin de cours anticipée (${sessionRow.subject} - ${sessionRow.teacher_name} avec ${sessionRow.student_name}). Justification : ${justifVal}`
+        ]
+      ).catch(() => {});
+    }
+
+    await ensureSessionInvoice(id);
     res.json({ success: true });
   } catch (error) {
-    if (error.code === 'WARN_DATA_TRUNCATED' || error.errno === 1265) {
-      try {
-        await pool.query(`ALTER TABLE sessions MODIFY COLUMN status ENUM('effectué','à venir','planifié','en cours','scheduled','in_progress','completed') NOT NULL DEFAULT 'planifié'`);
-        await pool.query("UPDATE sessions SET actual_end_time = NOW(), status = 'effectué' WHERE id = ?", [id]);
-        return res.json({ success: true });
-      } catch (migErr) {
-        await pool.query("UPDATE sessions SET actual_end_time = NOW() WHERE id = ?", [id]);
-        return res.json({ success: true });
-      }
-    }
     console.error("Check-out failed", error);
     res.status(500).json({ message: "Erreur lors du check-out." });
   }
@@ -2618,6 +3227,7 @@ app.post("/api/sessions/:id/report", authenticateRequest, async (req, res) => {
     }
 
     await connection.commit();
+    await ensureSessionInvoice(id);
     res.json({ success: true });
   } catch (error) {
     console.log("DEBUG: Caught error in report route:", error.code, error.message);
@@ -2920,7 +3530,7 @@ app.get("/api/teacher-applications", async (req, res) => {
 
 app.patch("/api/teacher-applications/:id", async (req, res) => {
   const { id } = req.params;
-  const { status, reviewNotes, reviewerName, reviewerRole, rateType, negotiatedRate } = req.body ?? {};
+  const { status, reviewNotes, reviewerName, reviewerRole, rateType, negotiatedRate, currency, rateUnitMinutes } = req.body ?? {};
 
   if (!allowedApplicationStatuses.has(status) || status === "pending") {
     return res.status(400).json({ message: "Statut invalide." });
@@ -2963,6 +3573,8 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
         const resolvedRate = parseFloat(negotiatedRate) || 7500;
         const hourlyRateValue  = resolvedRateType === "hourly"  ? resolvedRate : 0;
         const monthlyRateValue = resolvedRateType === "monthly" ? resolvedRate : null;
+        const resolvedCurrency = (currency || "XAF").toUpperCase().slice(0, 3);
+        const resolvedRateUnitMinutes = resolvedRateType === "hourly" ? (parseInt(rateUnitMinutes, 10) || 60) : 60;
 
         const teacherLevels = parseJson(updatedApplication.levels, []).join(", ");
 
@@ -2972,8 +3584,8 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
         const appGeoZoneIds = parseJson(updatedApplication.geo_zone_ids, []);
 
         await pool.query(
-          `INSERT IGNORE INTO teachers (id, name, email, subjects, level, city, zones, geo_location_id, geo_zone_ids, status, rate_type, hourly_rate, monthly_rate)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT IGNORE INTO teachers (id, name, email, subjects, level, city, zones, geo_location_id, geo_zone_ids, status, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             teacherId,
             updatedApplication.full_name,
@@ -2988,9 +3600,11 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
             resolvedRateType,
             hourlyRateValue,
             monthlyRateValue,
+            resolvedCurrency,
+            resolvedRateUnitMinutes,
           ]
         );
-        console.log(`Tarification prof: ${resolvedRateType} → ${resolvedRate} FCFA`);
+        console.log(`Tarification prof: ${resolvedRateType} → ${resolvedRate} ${resolvedCurrency} / ${resolvedRateUnitMinutes} min`);
 
         // 2. Générer un mot de passe aléatoire lisible (ex: Prof#4729)
         const randomSuffix = Math.floor(1000 + Math.random() * 9000);
@@ -3098,7 +3712,7 @@ app.get("/api/teachers", async (req, res) => {
   try {
     await ensureTeachersTable();
     const [rows] = await pool.query(
-      `SELECT id, name, email, subjects, level, city, status, rating, students, created_at, rate_type, hourly_rate, monthly_rate
+      `SELECT id, name, email, subjects, level, city, status, rating, students, created_at, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes
        FROM teachers
        ORDER BY name ASC`
     );
@@ -3146,25 +3760,39 @@ app.post("/api/teachers", async (req, res) => {
 app.patch("/api/admin/teachers/:id", authenticateRequest, async (req, res) => {
   if (req.user?.role !== "admin" && req.user?.role !== "advisor") return res.status(403).json({ message: "Accès refusé." });
   const { id } = req.params;
-  const { subjects, levels } = req.body ?? {};
+  const { subjects, levels, rateType, hourlyRate, monthlyRate, currency, rateUnitMinutes } = req.body ?? {};
 
   try {
     await ensureTeachersTable();
-    const subjectsArray = subjects ? subjects.split(", ").filter(Boolean) : [];
-    
-    const [result] = await pool.query(
-      `UPDATE teachers SET subjects = ?, level = ? WHERE id = ?`,
-      [JSON.stringify(subjectsArray), levels || "", id]
-    );
+
+    const updates = [];
+    const params = [];
+    if (subjects !== undefined) {
+      updates.push("subjects = ?");
+      params.push(JSON.stringify(subjects ? subjects.split(", ").filter(Boolean) : []));
+    }
+    if (levels !== undefined) { updates.push("level = ?"); params.push(levels || ""); }
+    if (rateType !== undefined) { updates.push("rate_type = ?"); params.push(rateType === "monthly" ? "monthly" : "hourly"); }
+    if (hourlyRate !== undefined) { updates.push("hourly_rate = ?"); params.push(Number(hourlyRate) || 0); }
+    if (monthlyRate !== undefined) { updates.push("monthly_rate = ?"); params.push(monthlyRate === null ? null : Number(monthlyRate) || 0); }
+    if (currency !== undefined) { updates.push("currency = ?"); params.push(String(currency).toUpperCase().slice(0, 3)); }
+    if (rateUnitMinutes !== undefined) { updates.push("rate_unit_minutes = ?"); params.push(parseInt(rateUnitMinutes, 10) || 60); }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: "Aucun champ à mettre à jour." });
+    }
+
+    params.push(id);
+    const [result] = await pool.query(`UPDATE teachers SET ${updates.join(", ")} WHERE id = ?`, params);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Enseignant introuvable." });
     }
 
-    res.json({ success: true, message: "Spécialités mises à jour avec succès." });
+    res.json({ success: true, message: "Profil enseignant mis à jour avec succès." });
   } catch (error) {
-    console.error("Failed to update teacher specialties", error);
-    res.status(500).json({ message: "Impossible de mettre à jour les spécialités." });
+    console.error("Failed to update teacher profile", error);
+    res.status(500).json({ message: "Impossible de mettre à jour le profil enseignant." });
   }
 });
 app.patch("/api/teachers/:id/status", async (req, res) => {
@@ -3316,6 +3944,23 @@ async function notifyStudentsOfNewCourse(courseId, teacherId) {
   }
 }
 
+// Vérifie que l'utilisateur authentifié est bien le propriétaire du cours
+// (ou un admin) avant de permettre une modification de son catalogue —
+// chaque enseignant ne doit gérer que ses propres cours. Répond directement
+// et renvoie null si l'accès est refusé, sinon renvoie la ligne du cours.
+const requireCourseOwnership = async (req, res, courseId) => {
+  const [[course]] = await pool.query("SELECT created_by FROM courses WHERE id = ?", [courseId]);
+  if (!course) {
+    res.status(404).json({ message: "Cours introuvable." });
+    return null;
+  }
+  if (req.user?.role !== "admin" && req.user?.sub !== course.created_by) {
+    res.status(403).json({ message: "Vous ne pouvez gérer que les cours de votre propre catalogue." });
+    return null;
+  }
+  return course;
+};
+
 app.get("/api/courses", async (req, res) => {
   const { role, userId } = req.query;
   try {
@@ -3325,10 +3970,13 @@ app.get("/api/courses", async (req, res) => {
         return res.status(400).json({ message: "userId requis pour le role student." });
       }
       [rows] = await pool.query(
-        `SELECT DISTINCT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at
+        `SELECT DISTINCT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at,
+           (ce.id IS NOT NULL OR c.price = 0 OR c.price IS NULL) AS purchased,
+           COALESCE(t.currency, 'XAF') AS currency
          FROM courses c
          LEFT JOIN course_enrollments ce ON ce.course_id = c.id AND ce.student_id = ?
          LEFT JOIN student_teacher st ON st.teacher_id = c.created_by AND st.student_id = ?
+         LEFT JOIN teachers t ON t.id = c.created_by
          WHERE (ce.id IS NOT NULL OR st.student_id IS NOT NULL) AND c.status = 'published'
          ORDER BY c.created_at DESC`,
         [userId, userId]
@@ -3338,17 +3986,21 @@ app.get("/api/courses", async (req, res) => {
         return res.status(400).json({ message: "userId requis pour le role teacher." });
       }
       [rows] = await pool.query(
-        `SELECT id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, created_at
-         FROM courses
-         WHERE created_by = ?
-         ORDER BY created_at DESC`,
+        `SELECT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at,
+           COALESCE(t.currency, 'XAF') AS currency
+         FROM courses c
+         LEFT JOIN teachers t ON t.id = c.created_by
+         WHERE c.created_by = ?
+         ORDER BY c.created_at DESC`,
         [userId]
       );
     } else {
       [rows] = await pool.query(
-        `SELECT id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, created_at
-         FROM courses
-         ORDER BY created_at DESC`
+        `SELECT c.id, c.title, c.description, c.subject, c.level, c.mode, c.price, c.duration, c.status, c.cover_url, c.created_by, c.created_at,
+           COALESCE(t.currency, 'XAF') AS currency
+         FROM courses c
+         LEFT JOIN teachers t ON t.id = c.created_by
+         ORDER BY c.created_at DESC`
       );
     }
 
@@ -3372,8 +4024,9 @@ app.get("/api/courses", async (req, res) => {
 
 app.get("/api/courses/:courseId", async (req, res) => {
   const { courseId } = req.params;
+  const { studentId } = req.query;
   try {
-    const course = await fetchCourseDetails(courseId, true);
+    const course = await fetchCourseDetails(courseId, true, studentId || null);
     if (!course) {
       return res.status(404).json({ message: "Cours introuvable." });
     }
@@ -3389,6 +4042,11 @@ app.post("/api/courses", authenticateRequest, async (req, res) => {
   if (!title || !subject || !level) {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
   }
+  // Un enseignant crée toujours un cours pour son propre catalogue — on ne
+  // fait jamais confiance à un `createdBy` fourni par le client, sinon
+  // n'importe quel enseignant pourrait planter un cours dans le catalogue
+  // d'un autre. Seul un admin peut créer un cours au nom d'un enseignant.
+  const ownerId = req.user?.role === "admin" ? (createdBy || req.user?.sub) : req.user?.sub;
   try {
     const courseId = crypto.randomUUID();
     // We try to insert with teacher_id/teacher_name since production DB has extra columns.
@@ -3397,7 +4055,7 @@ app.post("/api/courses", authenticateRequest, async (req, res) => {
       await pool.query(
         `INSERT INTO courses (id, title, description, subject, level, mode, price, duration, status, cover_url, created_by, teacher_id, teacher_name)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, createdBy || null, createdBy || null, "Prof Demo"]
+        [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, ownerId || null, ownerId || null, "Prof Demo"]
       );
     } catch (innerErr) {
       if (innerErr.code === 'ER_BAD_FIELD_ERROR' || String(innerErr.message).includes("teacher_name")) {
@@ -3405,19 +4063,19 @@ app.post("/api/courses", authenticateRequest, async (req, res) => {
         await pool.query(
           `INSERT INTO courses (id, title, description, subject, level, mode, price, duration, status, cover_url, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, createdBy || null]
+          [courseId, title, description || "", subject, level, mode, price, duration, status, coverUrl || null, ownerId || null]
         );
       } else {
         throw innerErr;
       }
     }
     const course = await fetchCourseDetails(courseId);
-    
+
     // Notification asynchrone des élèves
-    if (status === "published" && createdBy) {
-      notifyStudentsOfNewCourse(courseId, createdBy);
+    if (status === "published" && ownerId) {
+      notifyStudentsOfNewCourse(courseId, ownerId);
     }
-    
+
     res.status(201).json(course);
   } catch (error) {
     if (isDbConnectionError(error)) {
@@ -3426,7 +4084,7 @@ app.post("/api/courses", authenticateRequest, async (req, res) => {
         id: crypto.randomUUID(),
         title, description: description || "", subject, level,
         mode, price: parseFloat(price) || 0, duration, status,
-        coverUrl: coverUrl || null, createdBy: createdBy || null,
+        coverUrl: coverUrl || null, createdBy: ownerId || null,
         lessons: [], enrolledCount: 0,
         createdAt: new Date().toISOString()
       };
@@ -3445,6 +4103,7 @@ app.put("/api/courses/:courseId", authenticateRequest, async (req, res) => {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
   }
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(
       `UPDATE courses SET title=?, description=?, subject=?, level=?, mode=?, price=?, duration=?, status=?, cover_url=?
        WHERE id=?`,
@@ -3469,6 +4128,7 @@ app.delete("/api/courses/:courseId", authenticateRequest, async (req, res) => {
   if (req.user?.role !== "admin" && req.user?.role !== "teacher") return res.status(403).json({ message: "Acces refuse." });
   const { courseId } = req.params;
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(`DELETE FROM courses WHERE id = ?`, [courseId]);
     res.json({ success: true });
   } catch (error) {
@@ -3477,17 +4137,43 @@ app.delete("/api/courses/:courseId", authenticateRequest, async (req, res) => {
   }
 });
 
-app.put("/api/courses/:courseId/lessons/:lessonId", async (req, res) => {
+// Remplace l'intégralité des vidéos d'une leçon en une fois — la leçon est
+// toujours sauvegardée en bloc depuis l'éditeur (comme ses autres champs),
+// donc un simple "supprimer puis réinsérer" suffit et évite d'avoir à
+// diffuser les ids d'une sauvegarde à l'autre.
+const syncLessonVideos = async (lessonId, videos) => {
+  await pool.query(`DELETE FROM lesson_videos WHERE lesson_id = ?`, [lessonId]);
+  if (!Array.isArray(videos) || !videos.length) return;
+  const values = videos
+    .filter((v) => v && v.videoUrl)
+    .map((v, index) => [
+      crypto.randomUUID(),
+      lessonId,
+      v.title || `Vidéo ${index + 1}`,
+      v.videoUrl,
+      v.isPaid === false ? 0 : 1,
+      v.order ?? index + 1,
+    ]);
+  if (!values.length) return;
+  await pool.query(
+    `INSERT INTO lesson_videos (id, lesson_id, title, video_url, is_paid, order_index) VALUES ?`,
+    [values]
+  );
+};
+
+app.put("/api/courses/:courseId/lessons/:lessonId", authenticateRequest, async (req, res) => {
   const { courseId, lessonId } = req.params;
-  const { title, content, videoUrl, order } = req.body ?? {};
+  const { title, content, videoUrl, order, videos } = req.body ?? {};
   if (!title || !content) {
     return res.status(400).json({ message: "Titre et contenu obligatoires." });
   }
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(
       `UPDATE course_lessons SET title=?, content=?, video_url=?, order_index=? WHERE id=? AND course_id=?`,
       [title, content, videoUrl || null, order || 1, lessonId, courseId]
     );
+    await syncLessonVideos(lessonId, videos);
     const course = await fetchCourseDetails(courseId, true);
     res.json(course);
   } catch (error) {
@@ -3496,9 +4182,10 @@ app.put("/api/courses/:courseId/lessons/:lessonId", async (req, res) => {
   }
 });
 
-app.delete("/api/courses/:courseId/lessons/:lessonId", async (req, res) => {
+app.delete("/api/courses/:courseId/lessons/:lessonId", authenticateRequest, async (req, res) => {
   const { courseId, lessonId } = req.params;
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(`DELETE FROM course_lessons WHERE id = ? AND course_id = ?`, [lessonId, courseId]);
     const course = await fetchCourseDetails(courseId, true);
     res.json(course);
@@ -3508,19 +4195,21 @@ app.delete("/api/courses/:courseId/lessons/:lessonId", async (req, res) => {
   }
 });
 
-app.post("/api/courses/:courseId/lessons", async (req, res) => {
+app.post("/api/courses/:courseId/lessons", authenticateRequest, async (req, res) => {
   const { courseId } = req.params;
-  const { title, content, videoUrl, order = 1 } = req.body ?? {};
+  const { title, content, videoUrl, order = 1, videos } = req.body ?? {};
   if (!title || !content) {
     return res.status(400).json({ message: "Titre et contenu obligatoires." });
   }
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     const lessonId = crypto.randomUUID();
     await pool.query(
       `INSERT INTO course_lessons (id, course_id, title, content, video_url, order_index)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [lessonId, courseId, title, content, videoUrl || null, order]
     );
+    await syncLessonVideos(lessonId, videos);
     const course = await fetchCourseDetails(courseId, true);
     res.status(201).json(course);
   } catch (error) {
@@ -3529,7 +4218,7 @@ app.post("/api/courses/:courseId/lessons", async (req, res) => {
   }
 });
 
-app.post("/api/lessons/:lessonId/quizzes", async (req, res) => {
+app.post("/api/lessons/:lessonId/quizzes", authenticateRequest, async (req, res) => {
   const { lessonId } = req.params;
   const { title, instructions, totalPoints = 0 } = req.body ?? {};
   if (!title) {
@@ -3545,6 +4234,7 @@ app.post("/api/lessons/:lessonId/quizzes", async (req, res) => {
       return res.status(404).json({ message: "Lecon introuvable." });
     }
     const courseId = lessonRows[0].course_id;
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(
       `INSERT INTO quizzes (id, course_id, lesson_id, title, instructions, total_points)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -3558,23 +4248,24 @@ app.post("/api/lessons/:lessonId/quizzes", async (req, res) => {
   }
 });
 
-app.post("/api/quizzes/:quizId/questions", async (req, res) => {
+app.post("/api/quizzes/:quizId/questions", authenticateRequest, async (req, res) => {
   const { quizId } = req.params;
   const { prompt, choices, correctAnswer, points = 1 } = req.body ?? {};
   if (!prompt || !Array.isArray(choices) || choices.length === 0 || !correctAnswer) {
     return res.status(400).json({ message: "Question invalide." });
   }
   try {
+    const [quizRow] = await pool.query(`SELECT course_id FROM quizzes WHERE id = ?`, [quizId]);
+    if (!quizRow.length) {
+      return res.status(404).json({ message: "Quiz introuvable." });
+    }
+    if (!(await requireCourseOwnership(req, res, quizRow[0].course_id))) return;
     const questionId = crypto.randomUUID();
     await pool.query(
       `INSERT INTO quiz_questions (id, quiz_id, prompt, choices, correct_answer, points)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [questionId, quizId, prompt, JSON.stringify(choices), correctAnswer, points]
     );
-    const [quizRow] = await pool.query(`SELECT course_id FROM quizzes WHERE id = ?`, [quizId]);
-    if (!quizRow.length) {
-      return res.status(404).json({ message: "Quiz introuvable apres creation." });
-    }
     const course = await fetchCourseDetails(quizRow[0].course_id, true);
     res.status(201).json(course);
   } catch (error) {
@@ -3612,17 +4303,18 @@ app.get("/api/quizzes/:quizId", async (req, res) => {
   }
 });
 
-app.post("/api/courses/:courseId/enrollments", async (req, res) => {
+app.post("/api/courses/:courseId/enrollments", authenticateRequest, async (req, res) => {
   const { courseId } = req.params;
   const { studentId, studentName, assignedBy } = req.body ?? {};
   if (!studentId || !studentName) {
     return res.status(400).json({ message: "Informations eleve requises." });
   }
   try {
+    if (!(await requireCourseOwnership(req, res, courseId))) return;
     await pool.query(
-      `INSERT INTO course_enrollments (course_id, student_id, student_name, assigned_by)
-       VALUES (?, ?, ?, ?)`,
-      [courseId, studentId, studentName, assignedBy || null]
+      `INSERT INTO course_enrollments (id, course_id, student_id, student_name, assigned_by)
+       VALUES (?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), courseId, studentId, studentName, assignedBy || req.user?.sub || null]
     );
     const course = await fetchCourseDetails(courseId);
 
@@ -3888,23 +4580,14 @@ app.put("/api/platform-settings", authenticateRequest, async (req, res) => {
 
 app.get("/api/messages/:userId", authenticateRequest, async (req, res) => {
   const { userId } = req.params;
-  const { withUser } = req.query;
   try {
     await ensureMessagesTable();
-    let query, params;
-    if (withUser) {
-      query = `SELECT * FROM messages 
-               WHERE (sender_id = ? AND receiver_id = ?) 
-                  OR (sender_id = ? AND receiver_id = ?) 
-               ORDER BY created_at ASC`;
-      params = [userId, withUser, withUser, userId];
-    } else {
-      query = `SELECT * FROM messages 
-               WHERE sender_id = ? OR receiver_id = ? 
-               ORDER BY created_at ASC`;
-      params = [userId, userId];
-    }
-    const [rows] = await pool.query(query, params);
+    const [rows] = await pool.query(
+      `SELECT * FROM messages 
+       WHERE sender_id = ? OR receiver_id = ? 
+       ORDER BY created_at ASC`,
+      [userId, userId]
+    );
     res.json(rows.map(mapMessageRow));
   } catch (error) {
     console.error("Failed to fetch messages", error);
@@ -3986,33 +4669,18 @@ app.get("/api/teachers/:teacherId/contacts", async (req, res) => {
       [teacherId]
     );
 
-    const [parents] = await pool.query(
-      `SELECT DISTINCT p.id, CONCAT(p.name, ' (Parent de ', s.name, ')') as name, p.role, p.avatar 
-       FROM student_teacher st
-       JOIN users s ON st.student_id = s.id
-       LEFT JOIN parent_child pc ON pc.child_id = s.id
-       JOIN users p ON (s.parent_id = p.id OR pc.parent_id = p.id)
-       WHERE st.teacher_id = ?`,
-      [teacherId]
-    );
-
     const [advisors] = await pool.query(
       `SELECT id, name, role, avatar FROM users WHERE role = 'advisor'`
     );
 
-    const map = new Map();
-    [...students, ...parents, ...advisors].forEach(c => {
-      if (!map.has(c.id)) {
-        map.set(c.id, {
-          id: c.id,
-          name: c.name,
-          role: c.role,
-          avatar: c.avatar || (c.name ? c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "?")
-        });
-      }
-    });
+    const contacts = [...students, ...advisors].map(c => ({
+      id: c.id,
+      name: c.name,
+      role: c.role,
+      avatar: c.avatar || (c.name ? c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "?")
+    }));
 
-    res.json(Array.from(map.values()));
+    res.json(contacts);
   } catch (error) {
     console.error("Failed to fetch teacher contacts", error);
     res.status(500).json({ message: "Erreur lors de la récupération des contacts." });
@@ -4022,6 +4690,7 @@ app.get("/api/teachers/:teacherId/contacts", async (req, res) => {
 app.get("/api/parents/:parentId/contacts", async (req, res) => {
   const { parentId } = req.params;
   try {
+    // Teachers assigned to parent's children
     const [teachers] = await pool.query(
       `SELECT DISTINCT u.id, u.name, u.role, u.avatar 
        FROM parent_child pc
@@ -4031,23 +4700,19 @@ app.get("/api/parents/:parentId/contacts", async (req, res) => {
       [parentId]
     );
 
+    // All advisors
     const [advisors] = await pool.query(
       `SELECT id, name, role, avatar FROM users WHERE role = 'advisor'`
     );
 
-    const map = new Map();
-    [...teachers, ...advisors].forEach(c => {
-      if (!map.has(c.id)) {
-        map.set(c.id, {
-          id: c.id,
-          name: c.name,
-          role: c.role,
-          avatar: c.avatar || (c.name ? c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "?")
-        });
-      }
-    });
+    const contacts = [...teachers, ...advisors].map(c => ({
+      id: c.id,
+      name: c.name,
+      role: c.role,
+      avatar: c.avatar || (c.name ? c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "?")
+    }));
 
-    res.json(Array.from(map.values()));
+    res.json(contacts);
   } catch (error) {
     console.error("Failed to fetch parent contacts", error);
     res.status(500).json({ message: "Erreur lors de la récupération des contacts." });
@@ -4058,15 +4723,10 @@ app.get("/api/parents/:parentId/contacts", async (req, res) => {
 // CONSEILLER — FAMILLES
 // ==========================================
 
-app.get("/api/advisor/families", async (_req, res) => {
-  const FALLBACK = [
-    { id: "af1", parent: "Aminata Diallo", child: "Koffi Diallo", level: "3e", subject: "Mathématiques", teacher: "Dr. Abanda", nextRdv: "12/03", status: "suivi actif" },
-    { id: "af2", parent: "Kouassi Ébène", child: "Awa Ébène", level: "Tle C", subject: "Physique-Chimie", teacher: "Th. Nkoulou", nextRdv: "14/03", status: "suivi actif" },
-    { id: "af3", parent: "Narcisse Essomba", child: "Léa Essomba", level: "CM2", subject: "Français", teacher: "S. Fouda", nextRdv: "10/03", status: "suivi actif" },
-    { id: "af4", parent: "Fatou Konaté", child: "Ibrahima Konaté", level: "5e", subject: "Anglais", teacher: "Rebecca Ateba", nextRdv: "—", status: "matching" },
-    { id: "af5", parent: "Mariama Bah", child: "Salif Bah", level: "6e", subject: "Mathématiques", teacher: "—", nextRdv: "—", status: "bilan planifié" },
-    { id: "af6", parent: "Hélène Noa", child: "Christelle Noa", level: "3e", subject: "Français", teacher: "—", nextRdv: "—", status: "nouveau" },
-  ];
+app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
+  if (!["admin", "advisor"].includes(_req.user?.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
 
   try {
     // Récupère les demandes avec leur assignment et la prochaine session à venir
@@ -4087,6 +4747,12 @@ app.get("/api/advisor/families", async (_req, res) => {
        FROM requests r
        LEFT JOIN assignments a
               ON a.child_name = r.child_name AND a.level = r.level
+              AND a.id = (
+                SELECT a2.id FROM assignments a2
+                WHERE a2.child_name = r.child_name AND a2.level = r.level
+                ORDER BY (a2.status = 'confirmed') DESC, a2.updated_at DESC, a2.created_at DESC
+                LIMIT 1
+              )
        LEFT JOIN sessions s
               ON s.student_name = r.child_name AND s.parent_name = r.parent_name
        GROUP BY r.id, r.parent_name, r.child_name, r.level, r.subject, r.status,
@@ -4094,7 +4760,50 @@ app.get("/api/advisor/families", async (_req, res) => {
        ORDER BY r.request_date DESC`
     );
 
-    const families = rows.map((row) => {
+    // Élèves créés directement (ex: via l'admin) sans aucune demande de bilan
+    // associée — sans ce complément, ils n'apparaissent jamais sur cet écran
+    // alors que le compte existe bien.
+    const [directRows] = await pool.query(
+      `SELECT
+         u.id,
+         u.name              AS child_name,
+         u.email             AS child_email,
+         u.created_at,
+         p.name              AS parent_name,
+         p.email             AS parent_email,
+         st.teacher_id
+       FROM users u
+       LEFT JOIN users p ON p.id = u.parent_id
+       LEFT JOIN student_teacher st ON st.student_id = u.id
+       WHERE u.role = 'student'
+         AND NOT EXISTS (SELECT 1 FROM requests r2 WHERE r2.child_name = u.name)
+       ORDER BY u.created_at DESC`
+    ).catch(() => [[]]);
+
+    const directTeacherIds = [...new Set(directRows.map((r) => r.teacher_id).filter(Boolean))];
+    let directTeacherNames = {};
+    if (directTeacherIds.length) {
+      const [teacherRows] = await pool.query(
+        `SELECT id, name FROM users WHERE id IN (${directTeacherIds.map(() => "?").join(",")})`,
+        directTeacherIds
+      );
+      directTeacherNames = Object.fromEntries(teacherRows.map((t) => [t.id, t.name]));
+    }
+
+    const directFamilies = directRows.map((row) => ({
+      id: `no-request-${row.id}`,
+      parent: row.parent_name || "—",
+      parentEmail: row.parent_email,
+      child: row.child_name,
+      childEmail: row.child_email,
+      level: null,
+      subject: undefined,
+      teacher: (row.teacher_id && directTeacherNames[row.teacher_id]) || "—",
+      nextRdv: "—",
+      status: "nouveau",
+    }));
+
+    const families = [...rows.map((row) => {
       // Calcule le statut métier
       let status = "nouveau";
       if (row.assignment_status === "confirmed" && row.selected_teacher) {
@@ -4135,23 +4844,30 @@ app.get("/api/advisor/families", async (_req, res) => {
         nextRdv,
         status,
       };
-    });
+    }), ...directFamilies];
 
     res.json(families);
   } catch (error) {
     if (isDbConnectionError(error)) {
-      console.warn("DB indisponible, retour des familles mock.", error.message);
-      return res.json(FALLBACK);
+      console.error("DB indisponible pour /api/advisor/families", error.message);
+      return res.status(503).json({ message: "Service temporairement indisponible, réessayez." });
     }
     console.error("Failed to fetch advisor families", error);
-    // En cas d'erreur SQL (ex: table inexistante), on retourne le fallback 
-    return res.json(FALLBACK);
+    return res.status(500).json({ message: "Erreur lors de la récupération des familles." });
   }
 });
 
 app.patch("/api/advisor/families/:id", async (req, res) => {
   const { id } = req.params;
   const { level, subject } = req.body;
+
+  if (id.startsWith("no-request-")) {
+    return res.status(404).json({
+      success: false,
+      message: "Cet élève n'a pas encore de demande de bilan — créez-en une pour pouvoir renseigner niveau/matière.",
+    });
+  }
+
   try {
     // On récupère d'abord le nom de l'enfant associé à cette demande
     const [reqRows] = await pool.query("SELECT child_name FROM requests WHERE id = ?", [id]);
@@ -4191,12 +4907,6 @@ app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
 
     const [[teachersRow]] = await pool.query("SELECT COUNT(*) as count FROM users WHERE role = 'teacher'");
     const [[studentsRow]] = await pool.query("SELECT COUNT(*) as count FROM users WHERE role = 'student'");
-    const [[previousTeachersRow]] = await pool.query(
-      "SELECT COUNT(*) as count FROM users WHERE role = 'teacher' AND created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')"
-    );
-    const [[previousStudentsRow]] = await pool.query(
-      "SELECT COUNT(*) as count FROM users WHERE role = 'student' AND created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')"
-    );
     const [requestStatusRows] = await pool.query("SELECT status FROM requests");
     const [[familiesRow]] = await pool.query(
       "SELECT COUNT(*) as count FROM requests WHERE YEAR(request_date) = YEAR(CURDATE()) AND MONTH(request_date) = MONTH(CURDATE())"
@@ -4215,20 +4925,27 @@ app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
       ? Math.round((occupancyRow.done / occupancyRow.total) * 100)
       : 0;
 
-    // CA par matière (ce mois)
-    const [subjectRows] = await pool.query(
+    // CA par matière (ce mois) — agrégé en JS via computeEarnedAmount() pour
+    // respecter le tarif (devise, durée de référence, forfait mensuel) de
+    // chaque enseignant plutôt qu'une formule SQL horaire figée à 7500.
+    const [subjectSessionRows] = await pool.query(
       `SELECT s.subject,
-              SUM(ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL,
-                TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time)/60, 2)
-                * COALESCE(t.hourly_rate, 7500), 0)) AS amount
+              TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) AS minutes,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.rate_unit_minutes
        FROM sessions s
        LEFT JOIN teachers t ON t.id = s.teacher_id
        WHERE DATE_FORMAT(s.session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
-         AND s.status = 'effectué'
-       GROUP BY s.subject
-       ORDER BY amount DESC
-       LIMIT 8`
+         AND s.status = 'effectué'`
     );
+    const subjectTotals = new Map();
+    for (const row of subjectSessionRows) {
+      const minutes = row.minutes != null ? Number(row.minutes) : 120; // défaut 2h si horodatage manquant
+      const amount = computeEarnedAmount(minutes, row);
+      subjectTotals.set(row.subject, (subjectTotals.get(row.subject) || 0) + amount);
+    }
+    const subjectRows = Array.from(subjectTotals, ([subject, amount]) => ({ subject, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 8);
 
     // Profs actifs ce mois
     const [[activeTeachersRow]] = await pool.query(
@@ -4281,8 +4998,6 @@ app.get("/api/admin/dashboard", authenticateRequest, async (req, res) => {
       stats: {
         totalTeachers: teachersRow?.count ?? 0,
         activeStudents: studentsRow?.count ?? 0,
-        previousTotalTeachers: previousTeachersRow?.count ?? 0,
-        previousActiveStudents: previousStudentsRow?.count ?? 0,
         pendingRequests,
         monthlyRevenue: currentRevenue,
         previousRevenue,
@@ -4309,7 +5024,7 @@ app.get("/api/admin/finance/summary", authenticateRequest, async (req, res) => {
     const [[{ totalBilled }]] = await pool.query("SELECT SUM(amount) as totalBilled FROM parent_invoices");
     const [[{ totalPaid }]] = await pool.query("SELECT SUM(amount) as totalPaid FROM parent_invoices WHERE status = 'paid'");
 
-    const [teachers] = await pool.query("SELECT id, rate_type, hourly_rate, monthly_rate FROM teachers");
+    const [teachers] = await pool.query("SELECT id, rate_type, hourly_rate, monthly_rate, rate_unit_minutes FROM teachers");
     let totalTeacherExpenses = 0;
 
     for (const t of teachers) {
@@ -4320,13 +5035,12 @@ app.get("/api/admin/finance/summary", authenticateRequest, async (req, res) => {
         );
         totalTeacherExpenses += (monthCount || 0) * (Number(t.monthly_rate) || 0);
       } else {
-        const hRate = t.hourly_rate || 7500;
-        const [[{ hourlyTotal }]] = await pool.query(
-          `SELECT SUM(ROUND(TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time) / 60, 2) * ?) as cnt
+        const [[{ totalMinutes }]] = await pool.query(
+          `SELECT SUM(TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time)) as totalMinutes
            FROM sessions WHERE teacher_id = ? AND status = 'effectué' AND actual_start_time IS NOT NULL AND actual_end_time IS NOT NULL`,
-          [hRate, t.id]
+          [t.id]
         );
-        totalTeacherExpenses += Number(hourlyTotal || 0);
+        totalTeacherExpenses += computeEarnedAmount(totalMinutes || 0, t);
       }
     }
 
@@ -4345,7 +5059,7 @@ app.get("/api/admin/finance/summary", authenticateRequest, async (req, res) => {
 app.get("/api/admin/finance/teacher-payroll", authenticateRequest, async (req, res) => {
   if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
   try {
-    const [teachers] = await pool.query("SELECT id, name, rate_type, hourly_rate, monthly_rate FROM teachers");
+    const [teachers] = await pool.query("SELECT id, name, rate_type, hourly_rate, monthly_rate, currency, rate_unit_minutes FROM teachers");
     const payroll = await Promise.all(teachers.map(async (t) => {
       let monthlyEarnings = 0;
       let totalEarnings = 0;
@@ -4363,20 +5077,19 @@ app.get("/api/admin/finance/teacher-payroll", authenticateRequest, async (req, r
         );
         monthlyEarnings = activeThisMonth > 0 ? (Number(t.monthly_rate) || 0) : 0;
       } else {
-        const hRate = t.hourly_rate || 7500;
-        const [[{ hTotal }]] = await pool.query(
-          `SELECT SUM(ROUND(TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time) / 60, 2) * ?) as cnt
+        const [[{ totalMinutes }]] = await pool.query(
+          `SELECT SUM(TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time)) as totalMinutes
            FROM sessions WHERE teacher_id = ? AND status = 'effectué' AND actual_start_time IS NOT NULL AND actual_end_time IS NOT NULL`,
-          [hRate, t.id]
+          [t.id]
         );
-        totalEarnings = hTotal || 0;
+        totalEarnings = computeEarnedAmount(totalMinutes || 0, t);
 
-        const [[{ hMonth }]] = await pool.query(
-          `SELECT SUM(ROUND(TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time) / 60, 2) * ?) as cnt
+        const [[{ monthMinutes }]] = await pool.query(
+          `SELECT SUM(TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time)) as monthMinutes
            FROM sessions WHERE teacher_id = ? AND status = 'effectué' AND DATE_FORMAT(session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') AND actual_start_time IS NOT NULL AND actual_end_time IS NOT NULL`,
-          [hRate, t.id]
+          [t.id]
         );
-        monthlyEarnings = hMonth || 0;
+        monthlyEarnings = computeEarnedAmount(monthMinutes || 0, t);
       }
 
       return {
@@ -4384,6 +5097,8 @@ app.get("/api/admin/finance/teacher-payroll", authenticateRequest, async (req, r
         name: t.name,
         rateType: t.rate_type,
         rate: t.rate_type === 'monthly' ? t.monthly_rate : t.hourly_rate,
+        currency: t.currency || "XAF",
+        rateUnitMinutes: t.rate_unit_minutes || 60,
         monthlyEarnings,
         totalEarnings
       };
@@ -4391,6 +5106,136 @@ app.get("/api/admin/finance/teacher-payroll", authenticateRequest, async (req, r
     res.json(payroll);
   } catch (error) {
     res.status(500).json({ message: "Erreur payroll." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUIVI DES PAIEMENTS ENSEIGNANTS (paie) — trace un versement réellement
+// effectué (virement/mobile money hors app), distinct du calcul en direct
+// de teacher-payroll qui n'est qu'une estimation issue des séances.
+// ─────────────────────────────────────────────────────────────────────────────
+const ensureTeacherPayoutsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS teacher_payouts (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      teacher_id CHAR(36) NOT NULL,
+      period_month VARCHAR(7) NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      currency VARCHAR(3) NOT NULL DEFAULT 'XAF',
+      payment_method VARCHAR(50) NULL,
+      note VARCHAR(255) NULL,
+      paid_by VARCHAR(191) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_payouts_teacher (teacher_id),
+      KEY idx_payouts_period (period_month)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+app.post("/api/admin/finance/teacher-payouts", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  const { teacherId, periodMonth, amount, currency, paymentMethod, note } = req.body ?? {};
+  if (!teacherId || !periodMonth || !amount) {
+    return res.status(400).json({ message: "teacherId, periodMonth et amount sont requis." });
+  }
+  try {
+    await ensureTeacherPayoutsTable();
+    const [[teacher]] = await pool.query("SELECT id, currency FROM teachers WHERE id = ?", [teacherId]);
+    if (!teacher) return res.status(404).json({ message: "Enseignant introuvable." });
+
+    const id = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO teacher_payouts (id, teacher_id, period_month, amount, currency, payment_method, note, paid_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, teacherId, periodMonth, Number(amount),
+        (currency || teacher.currency || "XAF").toUpperCase().slice(0, 3),
+        paymentMethod || null, note || null, req.user?.role === "admin" ? (req.user?.sub || null) : null,
+      ]
+    );
+    res.status(201).json({ id });
+  } catch (error) {
+    console.error("[teacher-payouts POST]", error);
+    res.status(500).json({ message: "Impossible d'enregistrer le paiement." });
+  }
+});
+
+app.get("/api/admin/finance/teacher-payouts", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  try {
+    await ensureTeacherPayoutsTable();
+    const [rows] = await pool.query(
+      `SELECT p.id, p.teacher_id, t.name AS teacher_name, p.period_month, p.amount, p.currency,
+              p.payment_method, p.note, p.paid_by, p.created_at
+       FROM teacher_payouts p
+       LEFT JOIN teachers t ON t.id = p.teacher_id
+       ORDER BY p.created_at DESC`
+    );
+    res.json(rows.map((r) => ({
+      id: r.id,
+      teacherId: r.teacher_id,
+      teacherName: r.teacher_name || "—",
+      periodMonth: r.period_month,
+      amount: Number(r.amount),
+      currency: r.currency,
+      paymentMethod: r.payment_method,
+      note: r.note,
+      paidBy: r.paid_by,
+      createdAt: r.created_at,
+    })));
+  } catch (error) {
+    console.error("[teacher-payouts GET]", error);
+    res.status(500).json({ message: "Impossible de récupérer l'historique de paie." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTORIQUE DES TRANSACTIONS (admin) — vue ligne-par-ligne de toutes les
+// factures/paiements parents, tous parents confondus (distinct de
+// GET /api/parents/:parentId/invoices qui ne montre que les siennes).
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/api/admin/finance/transactions", authenticateRequest, async (req, res) => {
+  if (req.user?.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+  try {
+    await ensureParentInvoicesTable();
+    const { status, method, search } = req.query ?? {};
+    const clauses = [];
+    const params = [];
+    if (status && status !== "all") { clauses.push("i.status = ?"); params.push(status); }
+    if (method && method !== "all") { clauses.push("i.payment_method = ?"); params.push(method); }
+    if (search) { clauses.push("(u.name LIKE ? OR i.description LIKE ? OR i.payment_ref LIKE ?)"); params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+    const [rows] = await pool.query(
+      `SELECT i.id, i.parent_id, u.name AS parent_name, u.email AS parent_email,
+              i.invoice_date, i.description, i.amount, i.status,
+              i.payment_ref, i.flw_transaction_id, i.payment_method, i.paid_at, i.created_at
+       FROM parent_invoices i
+       LEFT JOIN users u ON u.id = i.parent_id
+       ${where}
+       ORDER BY i.created_at DESC
+       LIMIT 500`,
+      params
+    );
+    res.json(rows.map((r) => ({
+      id: r.id,
+      parentId: r.parent_id,
+      parentName: r.parent_name || "—",
+      parentEmail: r.parent_email || null,
+      date: r.invoice_date,
+      description: r.description,
+      amount: Number(r.amount),
+      status: r.status,
+      paymentRef: r.payment_ref,
+      flwTransactionId: r.flw_transaction_id,
+      paymentMethod: r.payment_method,
+      paidAt: r.paid_at,
+      createdAt: r.created_at,
+    })));
+  } catch (error) {
+    console.error("[admin/finance/transactions]", error);
+    res.status(500).json({ message: "Impossible de récupérer l'historique des transactions." });
   }
 });
 
@@ -4412,24 +5257,46 @@ app.post("/api/admin/finance/generate-invoices", authenticateRequest, async (req
     const monthKey = `${y}-${m}`;
     const monthLabel = targetDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
-    const [rows] = await pool.query(
-      `SELECT s.student_id,
+    // Sessions brutes du mois — l'agrégation en montant se fait en JS via
+    // computeEarnedAmount() pour respecter le tarif de chaque enseignant
+    // (devise, durée de référence, forfait mensuel). Une SUM SQL directe sur
+    // COALESCE(hourly_rate, 7500) facturait auparavant les enseignants au
+    // forfait mensuel à 0 (leur hourly_rate vaut 0, pas NULL).
+    const [sessionRows] = await pool.query(
+      `SELECT s.student_id, s.teacher_id,
               u_student.parent_id,
               u_parent.email AS parentEmail, u_parent.name AS parentName, u_student.name AS childName,
-              COUNT(s.id) AS sessionCount,
-              SUM(ROUND(
-                IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL,
-                   TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2)
-                * COALESCE(t.hourly_rate, 7500), 0
-              )) AS totalAmount
+              TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) AS minutes,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.rate_unit_minutes
        FROM sessions s
        JOIN users u_student ON u_student.id = s.student_id
        JOIN users u_parent ON u_parent.id = u_student.parent_id
        LEFT JOIN teachers t ON t.id = s.teacher_id
-       WHERE DATE_FORMAT(s.session_date, '%Y-%m') = ? AND s.status = 'effectué'
-       GROUP BY s.student_id, u_student.parent_id`,
+       WHERE DATE_FORMAT(s.session_date, '%Y-%m') = ? AND s.status = 'effectué'`,
       [monthKey]
     );
+
+    const grouped = new Map();
+    for (const row of sessionRows) {
+      const key = `${row.student_id}::${row.parent_id}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, { parent_id: row.parent_id, sessionCount: 0, hourlyAmount: 0, monthlyTeacherRates: new Map() });
+      }
+      const g = grouped.get(key);
+      g.sessionCount += 1;
+      if (row.rate_type === "monthly") {
+        // Forfait mensuel : facturé une seule fois par enseignant sur la période.
+        g.monthlyTeacherRates.set(row.teacher_id, Number(row.monthly_rate) || 0);
+      } else {
+        const minutes = row.minutes != null ? Number(row.minutes) : 120;
+        g.hourlyAmount += computeEarnedAmount(minutes, row);
+      }
+    }
+    const rows = Array.from(grouped.values(), (g) => ({
+      parent_id: g.parent_id,
+      sessionCount: g.sessionCount,
+      totalAmount: g.hourlyAmount + Array.from(g.monthlyTeacherRates.values()).reduce((a, b) => a + b, 0),
+    }));
 
     let generated = 0;
     for (const row of rows) {
@@ -4526,6 +5393,7 @@ app.post("/api/auth/register", async (req, res) => {
     phone,
     avatar,
     location,
+    geoLocationId,
     timezone = "Africa/Douala",
     language = "fr",
     bio,
@@ -4563,8 +5431,8 @@ app.post("/api/auth/register", async (req, res) => {
 
     await pool.query(
       `INSERT INTO users
-        (id, name, email, password, role, avatar, phone, location, timezone, language, bio, notify_email, notify_sms, notify_whatsapp, parent_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        (id, name, email, password, role, avatar, phone, location, geo_location_id, timezone, language, bio, notify_email, notify_sms, notify_whatsapp, parent_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [
         userId,
         name.trim(),
@@ -4574,6 +5442,7 @@ app.post("/api/auth/register", async (req, res) => {
         inferredAvatar,
         phone || null,
         location || null,
+        geoLocationId !== undefined && geoLocationId !== null ? Number(geoLocationId) : null,
         timezone || "Africa/Douala",
         language || "fr",
         bio || null,
@@ -4582,6 +5451,20 @@ app.post("/api/auth/register", async (req, res) => {
         notifyWhatsapp ? 1 : 0,
       ]
     );
+
+    // Un compte enseignant créé directement ici (ex: par un admin depuis
+    // ProfileManager, hors du circuit normal candidature → approbation) doit
+    // avoir sa propre ligne `teachers` comme n'importe quel autre enseignant
+    // (teachers.id == users.id) — sans quoi les créneaux réservables, le
+    // tarif, etc. échouent avec "Enseignant introuvable" faute de ligne à
+    // mettre à jour.
+    if (role === "teacher") {
+      await pool.query(
+        `INSERT INTO teachers (id, name, email, subjects, level, city, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'actif')`,
+        [userId, name.trim(), email.trim(), JSON.stringify([]), "", location || ""]
+      ).catch((err) => console.error("Failed to create teachers row for new teacher user", err));
+    }
 
     const linkOps = [];
     if (role === "parent" && Array.isArray(childrenIds)) {
@@ -4657,6 +5540,35 @@ app.post("/api/auth/login", async (req, res) => {
       console.error("DB connection refused during login.");
     console.error("Login failed", error);
     res.status(500).json({ message: "Erreur serveur lors de la connexion." });
+  }
+});
+
+// Connexion à un compte EXISTANT via Google (n'en crée jamais un nouveau —
+// la création de compte via Google passe par /api/parents/enroll).
+app.post("/api/auth/google", async (req, res) => {
+  const { idToken } = req.body ?? {};
+  if (!idToken) return res.status(400).json({ message: "idToken requis." });
+
+  try {
+    const payload = await verifyGoogleIdToken(idToken);
+    await ensureUsersTable();
+
+    const [rows] = await pool.query(
+      `SELECT ${USER_PUBLIC_COLUMNS} FROM users WHERE google_id = ? OR email = ? LIMIT 1`,
+      [payload.sub, payload.email]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Aucun compte associé à cet email Google. Inscrivez-vous d'abord." });
+    }
+
+    const user = rows[0];
+    await pool.query("UPDATE users SET google_id = ?, last_login_at = NOW() WHERE id = ?", [payload.sub, user.id]).catch(() => {});
+    const safeUser = mapUserRow(user);
+    const token = generateToken(safeUser);
+    res.json({ token, user: safeUser });
+  } catch (error) {
+    console.error("Google login failed", error.message);
+    res.status(401).json({ message: "Connexion Google invalide." });
   }
 });
 
@@ -4769,8 +5681,9 @@ app.get("/api/users/:userId", authenticateRequest, async (req, res) => {
 
     // 3. Fetch full profile
     const [rows] = await pool.query(
-      `SELECT u.*, u.avatar_url, 
-              t.bank_name, t.bank_iban, t.bank_account_holder, t.availability_json
+      `SELECT u.*, u.avatar_url,
+              t.bank_name, t.bank_iban, t.bank_account_holder, t.availability_json,
+              t.subjects AS teacher_subjects, t.level AS teacher_level
        FROM users u
        LEFT JOIN teachers t ON t.id = u.id
        WHERE u.id = ?`,
@@ -4848,6 +5761,7 @@ app.put("/api/users/:userId", authenticateRequest, async (req, res) => {
     phone,
     avatar,
     location,
+    geoLocationId,
     timezone,
     language,
     bio,
@@ -4881,6 +5795,7 @@ app.put("/api/users/:userId", authenticateRequest, async (req, res) => {
   if (typeof phone === "string") pushUpdate("phone", phone.trim());
   if (typeof avatar === "string") pushUpdate("avatar", avatar.trim().slice(0, 2).toUpperCase());
   if (typeof location === "string") pushUpdate("location", location.trim());
+  if (geoLocationId !== undefined) pushUpdate("geo_location_id", geoLocationId === null ? null : Number(geoLocationId));
   if (typeof timezone === "string") pushUpdate("timezone", timezone.trim());
   if (typeof language === "string") pushUpdate("language", language);
   if (typeof bio === "string") pushUpdate("bio", bio.trim());
@@ -5219,29 +6134,6 @@ app.get("/api/parents/:parentId/overview", async (req, res) => {
          ORDER BY a.created_at DESC LIMIT 3`, [student.id]
       );
       latestEvaluations = attempts;
-
-      if (!currentAvg) {
-        const [[avgRow]] = await pool.query(
-          `SELECT ROUND(AVG(understanding_score), 1) as avgScore
-           FROM sessions
-           WHERE student_id = ? AND understanding_score IS NOT NULL AND status = 'effectué'`,
-          [student.id]
-        );
-        if (avgRow && avgRow.avgScore !== null) {
-          currentAvg = Number(avgRow.avgScore);
-        }
-      }
-
-      if (latestEvaluations.length === 0) {
-        const [sessionEvals] = await pool.query(
-          `SELECT id, 'Séance' as quizTitle, 'Cours' as courseTitle, subject, understanding_score as score, 20 as totalPoints, created_at as createdAt
-           FROM sessions
-           WHERE student_id = ? AND understanding_score IS NOT NULL AND status = 'effectué'
-           ORDER BY created_at DESC LIMIT 5`,
-          [student.id]
-        );
-        latestEvaluations = sessionEvals;
-      }
     }
 
     // Prochaine séance
@@ -5249,9 +6141,9 @@ app.get("/api/parents/:parentId/overview", async (req, res) => {
       "SELECT DATE_FORMAT(session_date, '%d/%m') as date, session_time as time FROM sessions WHERE (parent_id = ? OR ? = 'admin') AND (student_id = ? OR student_id IS NULL) AND session_date >= CURDATE() ORDER BY session_date ASC LIMIT 1", [parentId, parentId, student?.id]
     );
 
-    // Séances effectuées ou ce mois
+    // Séances ce mois
     const [[{ count: sessionsThisMonth }]] = await pool.query(
-      "SELECT COUNT(*) as count FROM sessions WHERE (parent_id = ? OR student_id = ?) AND status = 'effectué'", [parentId, student?.id]
+      "SELECT COUNT(*) as count FROM sessions WHERE (parent_id = ? OR ? = 'admin') AND (student_id = ? OR student_id IS NULL) AND MONTH(session_date) = MONTH(CURDATE())", [parentId, parentId, student?.id]
     );
 
     console.log(`DEBUG: Overview results - childName=${childName}, childLevel=${childLevel}, currentAvg=${currentAvg}, focusSubject=${focusSubject}`);
@@ -5277,7 +6169,7 @@ app.get("/api/parents/:parentId/overview", async (req, res) => {
       attendance: attendance || 100,
       studyTime: studyTime || 0,
       progression,
-      focusSubject: focusSubject || "Mathématiques",
+      focusSubject,
       sessionsThisMonth: sessionsThisMonth || 0,
       totalPaidThisMonth: (sessionsThisMonth || 0) * 15000,
       latestEvaluations,
@@ -5290,27 +6182,1285 @@ app.get("/api/parents/:parentId/overview", async (req, res) => {
   }
 });
 
-app.get("/api/parents/:parentId/invoices", async (req, res) => {
-  const { parentId } = req.params;
-  try {
-    const [[{ sessionsThisMonth }]] = await pool.query(
-      "SELECT COUNT(*) as count FROM sessions WHERE parent_id = ? AND status = 'effectué'", [parentId]
+// ─────────────────────────────────────────────────────────────────────────────
+// PAIEMENTS EN LIGNE — FLUTTERWAVE v4 (Mobile Money, flux Orchestrator)
+// API v4 (OAuth2 client_credentials) — voir developer.flutterwave.com/reference.
+// Le paiement carte n'est pas couvert ici : l'algorithme de chiffrement de
+// carte n'est pas documenté publiquement pour v4 au moment de cette
+// intégration ; ne pas l'implémenter par approximation sur des données
+// bancaires réelles.
+// ─────────────────────────────────────────────────────────────────────────────
+const FLW_IDP_TOKEN_URL = "https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token";
+const FLW_API_BASE_URL = process.env.FLUTTERWAVE_API_BASE_URL || "https://developersandbox-api.flutterwave.com";
+const FLW_CLIENT_ID = process.env.FLUTTERWAVE_CLIENT_ID;
+const FLW_CLIENT_SECRET = process.env.FLUTTERWAVE_CLIENT_SECRET;
+const FLW_WEBHOOK_SECRET_HASH = process.env.FLUTTERWAVE_WEBHOOK_SECRET_HASH;
+const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || "https://care4success.usra-care.com";
+// XAF (Franc CFA Afrique Centrale, BEAC) — devise du Cameroun, marché
+// principal de la plateforme. Flutterwave rejette XOF (Afrique de l'Ouest)
+// pour le Mobile Money camerounais ("Currency not supported for CM Mobile
+// Money"), confirmé en sandbox.
+const PARENT_INVOICE_CURRENCY = "XAF";
+// En sandbox, le Mobile Money ne contacte jamais un vrai téléphone : on
+// demande le scénario "auth_redirect" pour obtenir une page de test
+// Flutterwave permettant de simuler manuellement l'approbation/le refus.
+// Ne doit jamais être envoyé en production (ignoré/refusé sur l'API live).
+const FLW_IS_SANDBOX = FLW_API_BASE_URL.includes("developersandbox");
+
+// Cache mémoire du jeton OAuth2 (validité annoncée : 10 min) — évite de
+// redemander un jeton à chaque appel API.
+let flwTokenCache = { accessToken: null, expiresAt: 0 };
+const getFlutterwaveAccessToken = async () => {
+  if (!FLW_CLIENT_ID || !FLW_CLIENT_SECRET) {
+    throw new Error("Flutterwave n'est pas configuré (FLUTTERWAVE_CLIENT_ID/FLUTTERWAVE_CLIENT_SECRET manquants).");
+  }
+  if (flwTokenCache.accessToken && Date.now() < flwTokenCache.expiresAt) {
+    return flwTokenCache.accessToken;
+  }
+  const res = await fetch(FLW_IDP_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: FLW_CLIENT_ID,
+      client_secret: FLW_CLIENT_SECRET,
+      grant_type: "client_credentials",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.access_token) {
+    throw new Error(data?.error_description || "Impossible d'obtenir un jeton Flutterwave.");
+  }
+  // Marge de sécurité de 60s avant l'expiration annoncée.
+  flwTokenCache = {
+    accessToken: data.access_token,
+    expiresAt: Date.now() + (Number(data.expires_in) || 600) * 1000 - 60000,
+  };
+  return flwTokenCache.accessToken;
+};
+
+const flutterwaveRequest = async (path, options = {}) => {
+  const token = await getFlutterwaveAccessToken();
+  const res = await fetch(`${FLW_API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "X-Trace-Id": crypto.randomUUID(),
+      "X-Idempotency-Key": options.idempotencyKey || crypto.randomUUID(),
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const validationDetails = data?.error?.validation_errors
+      ?.map((v) => `${v.field_name}: ${v.message}`)
+      .join("; ");
+    throw new Error(
+      [data?.message || data?.error?.message || "Erreur Flutterwave", validationDetails].filter(Boolean).join(" — ")
     );
-    const count = sessionsThisMonth || 0;
+  }
+  return data;
+};
+
+// Valide et applique un paiement confirmé côté Flutterwave à la facture
+// correspondante. Idempotent : appelable indifféremment depuis le polling
+// front-end ET depuis le webhook pour la même charge.
+const finalizeFlutterwaveCharge = async (reference, chargeData) => {
+  const [[invoice]] = await pool.query(
+    "SELECT * FROM parent_invoices WHERE payment_ref = ?", [reference]
+  );
+  if (!invoice) {
+    console.warn(`[flutterwave] reference inconnue: ${reference}`);
+    return { success: false, reason: "invoice_not_found" };
+  }
+  if (invoice.status === "paid") {
+    return { success: true, alreadyProcessed: true };
+  }
+
+  const amountOk = Number(chargeData.amount) >= Number(invoice.amount);
+  const currencyOk = chargeData.currency === PARENT_INVOICE_CURRENCY;
+  const statusOk = chargeData.status === "succeeded";
+
+  if (!statusOk || !amountOk || !currencyOk) {
+    console.warn(
+      `[flutterwave] Charge non validée pour ${reference} — status=${chargeData.status} amount=${chargeData.amount}/${invoice.amount} currency=${chargeData.currency}`
+    );
+    return { success: false, reason: "verification_failed", status: chargeData.status };
+  }
+
+  await pool.query(
+    `UPDATE parent_invoices
+     SET status = 'paid', flw_transaction_id = ?, payment_method = ?, paid_at = NOW()
+     WHERE id = ?`,
+    [String(chargeData.id), chargeData.payment_method?.type || "mobile_money", invoice.id]
+  );
+  return { success: true, invoiceId: invoice.id };
+};
+
+// Initie un paiement Mobile Money (MTN, Orange) pour une facture donnée.
+// Retourne le `next_action` renvoyé par Flutterwave : le front doit inviter
+// le parent à valider sur son téléphone (payment_instructions) ou saisir un
+// code (requires_otp/requires_pin) selon le réseau/pays.
+app.post("/api/payments/flutterwave/initiate", authenticateRequest, async (req, res) => {
+  const { invoiceId, phoneNumber, network, countryCode = "237" } = req.body ?? {};
+  if (!invoiceId || !phoneNumber || !network) {
+    return res.status(400).json({ message: "invoiceId, phoneNumber et network sont requis." });
+  }
+  if (!["MTN", "ORANGE"].includes(network)) {
+    return res.status(400).json({ message: "Réseau non supporté." });
+  }
+
+  try {
+    await ensureParentInvoicesTable();
+    const [[invoice]] = await pool.query("SELECT * FROM parent_invoices WHERE id = ?", [invoiceId]);
+    if (!invoice) return res.status(404).json({ message: "Facture introuvable." });
+    if (req.user?.sub !== invoice.parent_id && req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+    if (invoice.status === "paid") {
+      return res.status(400).json({ message: "Cette facture est déjà réglée." });
+    }
+
+    const [[payer]] = await pool.query(
+      "SELECT name, email FROM users WHERE id = ?", [invoice.parent_id]
+    );
+    if (!payer) return res.status(404).json({ message: "Parent introuvable." });
+
+    const reference = `c4s-inv-${invoice.id.slice(0, 8)}-${Date.now()}`;
+    const [firstName, ...restName] = (payer.name || "Parent").split(" ");
+
+    const chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+      method: "POST",
+      idempotencyKey: reference,
+      headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
+      body: JSON.stringify({
+        amount: invoice.amount,
+        currency: PARENT_INVOICE_CURRENCY,
+        reference,
+        payment_method: {
+          type: "mobile_money",
+          mobile_money: { country_code: countryCode, network, phone_number: phoneNumber },
+        },
+        customer: {
+          email: payer.email,
+          name: { first: firstName, last: restName.join(" ") || firstName },
+          phone: { country_code: countryCode, number: phoneNumber },
+        },
+        redirect_url: `${FRONTEND_BASE_URL}/parent/invoices`,
+      }),
+    });
+
+    await pool.query(
+      "UPDATE parent_invoices SET payment_ref = ?, flw_charge_id = ? WHERE id = ?",
+      [reference, chargeRes.data?.id || null, invoice.id]
+    );
+    res.status(201).json({
+      chargeId: chargeRes.data?.id,
+      reference,
+      status: chargeRes.data?.status,
+      nextAction: chargeRes.data?.next_action || null,
+    });
+  } catch (error) {
+    console.error("[flutterwave/initiate]", error);
+    res.status(500).json({ message: error.message || "Impossible d'initier le paiement." });
+  }
+});
+
+// Soumission d'un OTP/PIN pour autoriser une charge en attente (selon le
+// réseau/pays, certains paiements Mobile Money l'exigent en plus de la
+// validation sur le téléphone du client).
+app.post("/api/payments/flutterwave/authorize", authenticateRequest, async (req, res) => {
+  const { chargeId, type, code } = req.body ?? {};
+  if (!chargeId || !type || !code) {
+    return res.status(400).json({ message: "chargeId, type et code sont requis." });
+  }
+  try {
+    const chargeRes = await flutterwaveRequest(`/charges/${chargeId}`, {
+      method: "PUT",
+      body: JSON.stringify({ authorization: { type, [type]: code } }),
+    });
+    res.json({ status: chargeRes.data?.status, nextAction: chargeRes.data?.next_action || null });
+  } catch (error) {
+    console.error("[flutterwave/authorize]", error);
+    res.status(500).json({ message: error.message || "Autorisation refusée." });
+  }
+});
+
+// Poll côté front en complément du webhook (utile pendant que le client
+// valide sur son téléphone) — vérifie et applique le statut à la facture.
+app.get("/api/payments/flutterwave/status/:reference", authenticateRequest, async (req, res) => {
+  const { reference } = req.params;
+  try {
+    const [[invoice]] = await pool.query("SELECT * FROM parent_invoices WHERE payment_ref = ?", [reference]);
+    if (!invoice) return res.status(404).json({ message: "Paiement introuvable." });
+    if (req.user?.sub !== invoice.parent_id && req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+    if (invoice.status === "paid") {
+      return res.json({ success: true, alreadyProcessed: true });
+    }
+    if (!invoice.flw_charge_id) {
+      return res.json({ success: false, reason: "pending" });
+    }
+    const chargeRes = await flutterwaveRequest(`/charges/${invoice.flw_charge_id}`);
+    const result = await finalizeFlutterwaveCharge(reference, chargeRes.data);
+    res.json(result);
+  } catch (error) {
+    console.error("[flutterwave/status]", error);
+    res.status(500).json({ message: error.message || "Impossible de vérifier le paiement." });
+  }
+});
+
+// Endpoint public (aucun JWT) — authentifié par calcul HMAC-SHA256 du corps
+// brut de la requête avec le secret hash configuré dans le dashboard
+// Flutterwave, comparé au header `flutterwave-signature`.
+app.post("/api/payments/flutterwave/webhook", async (req, res) => {
+  try {
+    if (!FLW_WEBHOOK_SECRET_HASH || !req.rawBody) {
+      return res.status(401).json({ message: "Webhook non configuré." });
+    }
+    const expectedSignature = crypto
+      .createHmac("sha256", FLW_WEBHOOK_SECRET_HASH)
+      .update(req.rawBody)
+      .digest("base64");
+    const signature = req.headers["flutterwave-signature"];
+    if (!signature || signature !== expectedSignature) {
+      return res.status(401).json({ message: "Signature invalide." });
+    }
+
+    const event = req.body ?? {};
+    if (event.type === "charge.completed" && event.data?.reference) {
+      const invoiceResult = await finalizeFlutterwaveCharge(event.data.reference, event.data);
+      if (!invoiceResult.success && invoiceResult.reason === "invoice_not_found") {
+        const bookingResult = await finalizeSlotBooking(event.data.reference, event.data);
+        if (!bookingResult.success && bookingResult.reason === "booking_not_found") {
+          const courseResult = await finalizeCoursePurchase(event.data.reference, event.data);
+          if (!courseResult.success && courseResult.reason === "enrollment_not_found") {
+            await finalizeGroupClassRegistration(event.data.reference, event.data);
+          }
+        }
+      }
+    }
+    res.status(200).json({ received: true });
+  } catch (error) {
+    console.error("[flutterwave/webhook]", error);
+    res.status(200).json({ received: true }); // Toujours 200 pour éviter les re-tentatives en boucle
+  }
+});
+
+// RÉSERVATION PUBLIQUE — un visiteur du site public choisit un créneau
+// (teacher_slots), paie en Mobile Money, ce qui crée à la volée son compte
+// parent+élève (s'il n'existe pas déjà), transforme le créneau en séance
+// réelle, et envoie le lien de visioconférence par email.
+// ─────────────────────────────────────────────────────────────────────────────
+const ensureSlotBookingsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS slot_bookings (
+      id CHAR(36) NOT NULL DEFAULT (UUID()),
+      slot_id CHAR(36) NOT NULL,
+      teacher_id CHAR(36) NOT NULL,
+      parent_id CHAR(36) NOT NULL,
+      student_id CHAR(36) NOT NULL,
+      session_id CHAR(36) NULL,
+      subject VARCHAR(120) NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      currency VARCHAR(3) NOT NULL,
+      payment_ref VARCHAR(100) NULL,
+      flw_charge_id VARCHAR(100) NULL,
+      status ENUM('pending','paid','expired') NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_bookings_slot (slot_id),
+      KEY idx_bookings_ref (payment_ref)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const DAYS_FR = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+
+const finalizeSlotBooking = async (reference, chargeData) => {
+  const [[booking]] = await pool.query(
+    "SELECT * FROM slot_bookings WHERE payment_ref = ?", [reference]
+  );
+  if (!booking) {
+    console.warn(`[flutterwave] booking reference inconnue: ${reference}`);
+    return { success: false, reason: "booking_not_found" };
+  }
+  if (booking.status === "paid") {
+    return { success: true, alreadyProcessed: true, sessionId: booking.session_id };
+  }
+
+  const amountOk = Number(chargeData.amount) >= Number(booking.amount);
+  const currencyOk = chargeData.currency === booking.currency;
+  const statusOk = chargeData.status === "succeeded";
+
+  if (!statusOk || !amountOk || !currencyOk) {
+    console.warn(
+      `[flutterwave] Booking non validé pour ${reference} — status=${chargeData.status} amount=${chargeData.amount}/${booking.amount} currency=${chargeData.currency}/${booking.currency}`
+    );
+    return { success: false, reason: "verification_failed", status: chargeData.status };
+  }
+
+  const [[slot]] = await pool.query("SELECT * FROM teacher_slots WHERE id = ?", [booking.slot_id]);
+  if (!slot || slot.status === "booked") {
+    console.warn(`[flutterwave] Créneau ${booking.slot_id} déjà réservé ou introuvable pour ${reference}`);
+    return { success: false, reason: "slot_unavailable" };
+  }
+
+  const [[teacher]] = await pool.query("SELECT name FROM teachers WHERE id = ?", [booking.teacher_id]);
+  const [[student]] = await pool.query("SELECT name FROM users WHERE id = ?", [booking.student_id]);
+  const [[parent]] = await pool.query("SELECT name, email FROM users WHERE id = ?", [booking.parent_id]);
+
+  const sessionId = crypto.randomUUID();
+  const start = new Date(slot.start_time);
+  const end = new Date(slot.end_time);
+  const dateStr = start.toISOString().split("T")[0];
+  const timeStr = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")} - ${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+  const virtualLink = `https://meet.care4success.usra-care.com/Care4Success-${sessionId.split("-")[0]}`;
+
+  await pool.query(
+    `INSERT INTO sessions (id, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, subject, session_day, session_date, session_time, location, status, virtual_link)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'En ligne', 'planifié', ?)`,
+    [
+      sessionId, booking.teacher_id, teacher?.name || "Enseignant",
+      booking.student_id, student?.name || "Élève",
+      booking.parent_id, parent?.name || "Parent",
+      booking.subject || "Cours particulier",
+      DAYS_FR[start.getDay()], dateStr, timeStr, virtualLink,
+    ]
+  );
+  await linkStudentTeacherRelation(booking.student_id, booking.teacher_id).catch(() => {});
+
+  await pool.query("UPDATE teacher_slots SET status = 'booked' WHERE id = ?", [slot.id]);
+  await pool.query(
+    `UPDATE slot_bookings SET status = 'paid', flw_charge_id = ?, session_id = ? WHERE id = ?`,
+    [String(chargeData.id), sessionId, booking.id]
+  );
+
+  if (parent?.email) {
+    await sendMail({
+      to: parent.email,
+      subject: `Réservation confirmée — ${teacher?.name || "votre enseignant"} le ${dateStr}`,
+      html: `<div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A">
+        <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+          <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+          <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Réservation confirmée</p>
+        </div>
+        <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+          <p>Bonjour <b>${parent.name}</b>,</p>
+          <p>Votre séance avec <b>${teacher?.name || "votre enseignant"}</b> est confirmée :</p>
+          <table style="width:100%;border-collapse:collapse;margin:24px 0">
+            <tr style="background:#f9fafb"><td style="padding:12px 16px;border:1px solid #e5e7eb">Date</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${dateStr}</td></tr>
+            <tr><td style="padding:12px 16px;border:1px solid #e5e7eb">Horaire</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${timeStr}</td></tr>
+            <tr style="background:#f9fafb"><td style="padding:12px 16px;border:1px solid #e5e7eb">Matière</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${booking.subject || "Cours particulier"}</td></tr>
+          </table>
+          <p style="text-align:center;margin:24px 0">
+            <a href="${virtualLink}" style="display:inline-block;background:#1A6CC8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Rejoindre la classe virtuelle</a>
+          </p>
+          <p style="font-size:13px;color:#6b7280">Ce lien sera actif à l'heure de la séance. Conservez cet email.</p>
+        </div>
+      </div>`,
+    }).catch((e) => console.warn("Booking confirmation mail failed:", e.message));
+  }
+
+  return { success: true, sessionId, virtualLink };
+};
+
+// Crée le compte parent+élève à la volée si l'email fourni n'existe pas
+// déjà, sinon réutilise le compte existant (retrouvé par email).
+const resolveOrCreateBookingFamily = async ({ parentName, parentEmail, parentPhone, studentName, studentEmail }) => {
+  const [[existingParent]] = await pool.query(
+    "SELECT id FROM users WHERE email = ? AND role = 'parent'", [parentEmail]
+  );
+  if (existingParent) {
+    const [[existingChild]] = await pool.query(
+      "SELECT id FROM users WHERE parent_id = ? ORDER BY created_at DESC LIMIT 1", [existingParent.id]
+    );
+    if (existingChild) return { parentId: existingParent.id, studentId: existingChild.id, created: false };
+  }
+
+  const parentId = existingParent?.id || crypto.randomUUID();
+  const studentId = crypto.randomUUID();
+  const randomPassword = crypto.randomBytes(12).toString("hex");
+
+  if (!existingParent) {
+    await pool.query(
+      "INSERT INTO users (id, name, email, password, role, phone, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?)",
+      [parentId, parentName, parentEmail, bcrypt.hashSync(randomPassword, 10), parentPhone || null, (parentName || "P")[0]]
+    );
+    await sendMail({
+      to: parentEmail,
+      subject: "Bienvenue sur Care4Success — Vos identifiants parent",
+      html: tplAccountCreated({ name: parentName, email: parentEmail, password: randomPassword, role: "parent" }),
+    }).catch((e) => console.warn("Booking parent welcome mail failed:", e.message));
+  }
+
+  const finalStudentEmail = studentEmail || `student.${crypto.randomBytes(4).toString("hex")}@care4success.cm`;
+  await pool.query(
+    "INSERT INTO users (id, name, email, password, role, parent_id, avatar) VALUES (?, ?, ?, ?, 'student', ?, ?)",
+    [studentId, studentName || parentName, finalStudentEmail, bcrypt.hashSync(crypto.randomBytes(12).toString("hex"), 10), parentId, (studentName || "S")[0]]
+  );
+
+  return { parentId, studentId, created: true };
+};
+
+app.post("/api/bookings/initiate", async (req, res) => {
+  const {
+    slotId, network, phoneNumber, countryCode = "237",
+    parentName, parentEmail, parentPhone, studentName, studentEmail, subject,
+  } = req.body ?? {};
+  if (!slotId || !network || !phoneNumber || !parentName || !parentEmail) {
+    return res.status(400).json({ message: "Champs obligatoires manquants." });
+  }
+  if (!["MTN", "ORANGE"].includes(network)) {
+    return res.status(400).json({ message: "Réseau non supporté." });
+  }
+
+  try {
+    await ensureTeacherSlotsTable();
+    await ensureSlotBookingsTable();
+
+    const [[slot]] = await pool.query(
+      "SELECT * FROM teacher_slots WHERE id = ? AND status = 'open' AND start_time > NOW()", [slotId]
+    );
+    if (!slot) return res.status(409).json({ message: "Ce créneau n'est plus disponible." });
+
+    const [[teacher]] = await pool.query(
+      "SELECT id, name, rate_type, hourly_rate, currency, rate_unit_minutes FROM teachers WHERE id = ?", [slot.teacher_id]
+    );
+    if (!teacher) return res.status(404).json({ message: "Enseignant introuvable." });
+    if (teacher.rate_type !== "hourly") {
+      return res.status(400).json({ message: "Cet enseignant n'est pas réservable en ligne pour l'instant." });
+    }
+
+    const minutes = Math.round((new Date(slot.end_time) - new Date(slot.start_time)) / 60000);
+    const amount = computeEarnedAmount(minutes, teacher);
+
+    // Verrouille immédiatement le créneau pour éviter une double réservation
+    // pendant le paiement — libéré automatiquement après 20 min sans paiement
+    // (cf. cron d'expiration).
+    const [lockResult] = await pool.query(
+      "UPDATE teacher_slots SET status = 'pending' WHERE id = ? AND status = 'open'", [slotId]
+    );
+    if (lockResult.affectedRows === 0) {
+      return res.status(409).json({ message: "Ce créneau vient d'être réservé par quelqu'un d'autre." });
+    }
+
+    const { parentId, studentId } = await resolveOrCreateBookingFamily({
+      parentName, parentEmail, parentPhone, studentName, studentEmail,
+    });
+
+    const reference = `slot-${slotId.slice(0, 8)}-${Date.now()}`;
+    const [firstName, ...restName] = (parentName || "Parent").split(" ");
+
+    let chargeRes;
+    try {
+      chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+        method: "POST",
+        idempotencyKey: reference,
+        headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
+        body: JSON.stringify({
+          amount,
+          currency: teacher.currency || "XAF",
+          reference,
+          payment_method: {
+            type: "mobile_money",
+            mobile_money: { country_code: countryCode, network, phone_number: phoneNumber },
+          },
+          customer: {
+            email: parentEmail,
+            name: { first: firstName, last: restName.join(" ") || firstName },
+            phone: { country_code: countryCode, number: phoneNumber },
+          },
+          redirect_url: `${FRONTEND_BASE_URL}/professeurs/${teacher.id}`,
+        }),
+      });
+    } catch (chargeError) {
+      // Échec d'initiation du paiement : libérer le créneau immédiatement
+      // plutôt que d'attendre l'expiration automatique.
+      await pool.query("UPDATE teacher_slots SET status = 'open' WHERE id = ?", [slotId]).catch(() => {});
+      throw chargeError;
+    }
+
+    const bookingId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO slot_bookings (id, slot_id, teacher_id, parent_id, student_id, subject, amount, currency, payment_ref, flw_charge_id, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [bookingId, slotId, teacher.id, parentId, studentId, subject || null, amount, teacher.currency || "XAF", reference, chargeRes.data?.id || null]
+    );
+
+    res.status(201).json({
+      chargeId: chargeRes.data?.id,
+      reference,
+      status: chargeRes.data?.status,
+      nextAction: chargeRes.data?.next_action || null,
+      amount,
+      currency: teacher.currency || "XAF",
+    });
+  } catch (error) {
+    console.error("[bookings/initiate]", error);
+    res.status(500).json({ message: error.message || "Impossible d'initier la réservation." });
+  }
+});
+
+app.post("/api/bookings/authorize", async (req, res) => {
+  const { chargeId, type, code } = req.body ?? {};
+  if (!chargeId || !type || !code) {
+    return res.status(400).json({ message: "chargeId, type et code sont requis." });
+  }
+  try {
+    const chargeRes = await flutterwaveRequest(`/charges/${chargeId}`, {
+      method: "PUT",
+      body: JSON.stringify({ authorization: { type, [type]: code } }),
+    });
+    res.json({ status: chargeRes.data?.status, nextAction: chargeRes.data?.next_action || null });
+  } catch (error) {
+    console.error("[bookings/authorize]", error);
+    res.status(500).json({ message: error.message || "Autorisation refusée." });
+  }
+});
+
+app.get("/api/bookings/status/:reference", async (req, res) => {
+  const { reference } = req.params;
+  try {
+    const [[booking]] = await pool.query("SELECT * FROM slot_bookings WHERE payment_ref = ?", [reference]);
+    if (!booking) return res.status(404).json({ message: "Réservation introuvable." });
+    if (booking.status === "paid") {
+      return res.json({ success: true, alreadyProcessed: true, sessionId: booking.session_id });
+    }
+    if (!booking.flw_charge_id) {
+      return res.json({ success: false, reason: "pending" });
+    }
+    const chargeRes = await flutterwaveRequest(`/charges/${booking.flw_charge_id}`);
+    const result = await finalizeSlotBooking(reference, chargeRes.data);
+    res.json(result);
+  } catch (error) {
+    console.error("[bookings/status]", error);
+    res.status(500).json({ message: error.message || "Impossible de vérifier le paiement." });
+  }
+});
+
+// Libère les créneaux verrouillés ('pending') dont le paiement n'a jamais
+// abouti après 20 minutes, pour ne pas les bloquer indéfiniment.
+cron.schedule("*/5 * * * *", async () => {
+  try {
+    const [expired] = await pool.query(
+      `SELECT b.id, b.slot_id FROM slot_bookings b
+       JOIN teacher_slots s ON s.id = b.slot_id
+       WHERE b.status = 'pending' AND s.status = 'pending' AND b.created_at < DATE_SUB(NOW(), INTERVAL 20 MINUTE)`
+    );
+    for (const row of expired) {
+      await pool.query("UPDATE teacher_slots SET status = 'open' WHERE id = ? AND status = 'pending'", [row.slot_id]);
+      await pool.query("UPDATE slot_bookings SET status = 'expired' WHERE id = ?", [row.id]);
+    }
+    if (expired.length > 0) console.log(`[cron/booking-expiry] ${expired.length} créneau(x) libéré(s)`);
+  } catch (err) {
+    console.error("[cron/booking-expiry]", err.message);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACHAT DE COURS PAYANT — un élève déjà lié à l'enseignant (séance déjà
+// planifiée, relation student_teacher existante) paie en Mobile Money pour
+// débloquer le contenu complet d'un cours de son catalogue.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Idempotent : appelable depuis le polling front-end ET le webhook pour la
+// même charge, comme finalizeFlutterwaveCharge/finalizeSlotBooking.
+const finalizeCoursePurchase = async (reference, chargeData) => {
+  const [[enrollment]] = await pool.query(
+    "SELECT * FROM course_enrollments WHERE payment_ref = ?", [reference]
+  );
+  if (!enrollment) {
+    console.warn(`[flutterwave] achat de cours introuvable: ${reference}`);
+    return { success: false, reason: "enrollment_not_found" };
+  }
+  if (enrollment.paid_at) {
+    return { success: true, alreadyProcessed: true, courseId: enrollment.course_id };
+  }
+
+  const amountOk = Number(chargeData.amount) >= Number(enrollment.amount);
+  const currencyOk = chargeData.currency === enrollment.currency;
+  const statusOk = chargeData.status === "succeeded";
+
+  if (!statusOk || !amountOk || !currencyOk) {
+    console.warn(
+      `[flutterwave] Achat de cours non validé pour ${reference} — status=${chargeData.status} amount=${chargeData.amount}/${enrollment.amount} currency=${chargeData.currency}/${enrollment.currency}`
+    );
+    return { success: false, reason: "verification_failed", status: chargeData.status };
+  }
+
+  await pool.query(
+    "UPDATE course_enrollments SET flw_charge_id = ?, paid_at = NOW() WHERE id = ?",
+    [String(chargeData.id), enrollment.id]
+  );
+  return { success: true, courseId: enrollment.course_id };
+};
+
+app.post("/api/courses/:courseId/purchase/initiate", authenticateRequest, async (req, res) => {
+  const { courseId } = req.params;
+  const { phoneNumber, network, countryCode = "237" } = req.body ?? {};
+  const studentId = req.user?.sub;
+  if (req.user?.role !== "student") {
+    return res.status(403).json({ message: "Réservé aux élèves." });
+  }
+  if (!phoneNumber || !network) {
+    return res.status(400).json({ message: "phoneNumber et network sont requis." });
+  }
+  if (!["MTN", "ORANGE"].includes(network)) {
+    return res.status(400).json({ message: "Réseau non supporté." });
+  }
+
+  try {
+    const [[course]] = await pool.query(
+      `SELECT c.*, COALESCE(t.currency, 'XAF') AS teacher_currency
+       FROM courses c LEFT JOIN teachers t ON t.id = c.created_by
+       WHERE c.id = ?`,
+      [courseId]
+    );
+    if (!course) return res.status(404).json({ message: "Cours introuvable." });
+    if (!course.price || Number(course.price) <= 0) {
+      return res.status(400).json({ message: "Ce cours est gratuit." });
+    }
+
+    const [[relation]] = await pool.query(
+      "SELECT 1 FROM student_teacher WHERE teacher_id = ? AND student_id = ?",
+      [course.created_by, studentId]
+    );
+    if (!relation) {
+      return res.status(403).json({ message: "Cet enseignant ne vous a pas encore planifié de séance." });
+    }
+
+    const [[existing]] = await pool.query(
+      "SELECT id FROM course_enrollments WHERE course_id = ? AND student_id = ? AND (paid_at IS NOT NULL OR payment_ref IS NULL)",
+      [courseId, studentId]
+    );
+    if (existing) return res.status(400).json({ message: "Vous avez déjà accès à ce cours." });
+
+    const [[student]] = await pool.query("SELECT name, email FROM users WHERE id = ?", [studentId]);
+    if (!student) return res.status(404).json({ message: "Élève introuvable." });
+
+    const currency = course.teacher_currency || "XAF";
+    const reference = `c4s-course-${courseId.slice(0, 8)}-${Date.now()}`;
+    const [firstName, ...restName] = (student.name || "Élève").split(" ");
+
+    const chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+      method: "POST",
+      idempotencyKey: reference,
+      headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
+      body: JSON.stringify({
+        amount: course.price,
+        currency,
+        reference,
+        payment_method: {
+          type: "mobile_money",
+          mobile_money: { country_code: countryCode, network, phone_number: phoneNumber },
+        },
+        customer: {
+          email: student.email,
+          name: { first: firstName, last: restName.join(" ") || firstName },
+          phone: { country_code: countryCode, number: phoneNumber },
+        },
+        redirect_url: `${FRONTEND_BASE_URL}/student/courses`,
+      }),
+    });
+
+    const enrollmentId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO course_enrollments (id, course_id, student_id, student_name, payment_ref, flw_charge_id, amount, currency)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [enrollmentId, courseId, studentId, student.name || "Élève", reference, chargeRes.data?.id || null, course.price, currency]
+    );
+
+    res.status(201).json({
+      chargeId: chargeRes.data?.id,
+      reference,
+      status: chargeRes.data?.status,
+      nextAction: chargeRes.data?.next_action || null,
+      amount: Number(course.price),
+      currency,
+    });
+  } catch (error) {
+    console.error("[courses/purchase/initiate]", error);
+    res.status(500).json({ message: error.message || "Impossible d'initier l'achat." });
+  }
+});
+
+app.post("/api/courses/purchase/authorize", authenticateRequest, async (req, res) => {
+  const { chargeId, type, code } = req.body ?? {};
+  if (!chargeId || !type || !code) {
+    return res.status(400).json({ message: "chargeId, type et code sont requis." });
+  }
+  try {
+    const chargeRes = await flutterwaveRequest(`/charges/${chargeId}`, {
+      method: "PUT",
+      body: JSON.stringify({ authorization: { type, [type]: code } }),
+    });
+    res.json({ status: chargeRes.data?.status, nextAction: chargeRes.data?.next_action || null });
+  } catch (error) {
+    console.error("[courses/purchase/authorize]", error);
+    res.status(500).json({ message: error.message || "Autorisation refusée." });
+  }
+});
+
+app.get("/api/courses/purchase/status/:reference", authenticateRequest, async (req, res) => {
+  const { reference } = req.params;
+  try {
+    const [[enrollment]] = await pool.query("SELECT * FROM course_enrollments WHERE payment_ref = ?", [reference]);
+    if (!enrollment) return res.status(404).json({ message: "Achat introuvable." });
+    if (req.user?.sub !== enrollment.student_id && req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+    if (enrollment.paid_at) {
+      return res.json({ success: true, alreadyProcessed: true, courseId: enrollment.course_id });
+    }
+    if (!enrollment.flw_charge_id) {
+      return res.json({ success: false, reason: "pending" });
+    }
+    const chargeRes = await flutterwaveRequest(`/charges/${enrollment.flw_charge_id}`);
+    const result = await finalizeCoursePurchase(reference, chargeRes.data);
+    res.json(result);
+  } catch (error) {
+    console.error("[courses/purchase/status]", error);
+    res.status(500).json({ message: error.message || "Impossible de vérifier le paiement." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COURS GROUPÉS PAYANTS — un enseignant crée une séance à capacité limitée
+// (ex: masterclass) et partage un lien public ; qui paie en Mobile Money
+// réserve une des places, jusqu'à épuisement. Réutilise le même flux
+// Flutterwave que la réservation de créneau (voir plus haut) : chaque
+// participant payé obtient sa propre ligne `sessions` (le modèle sessions
+// est 1 prof / 1 élève) mais toutes partagent le même `group_class_id`, ce
+// qui fait que VirtualClassroom (voir sessionId côté frontend) dérive le
+// même nom de salle Jitsi pour tout le monde et les réunit dans la même
+// visio.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ensureGroupClassesTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS group_classes (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      teacher_id CHAR(36) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      subject VARCHAR(120) NOT NULL,
+      description TEXT NULL,
+      session_date DATE NOT NULL,
+      session_time VARCHAR(20) NOT NULL,
+      price DECIMAL(10,2) NOT NULL,
+      currency VARCHAR(3) NOT NULL DEFAULT 'XAF',
+      max_participants INT NOT NULL,
+      virtual_link VARCHAR(255) NOT NULL,
+      status ENUM('scheduled','cancelled') NOT NULL DEFAULT 'scheduled',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_group_classes_teacher (teacher_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const ensureGroupClassRegistrationsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS group_class_registrations (
+      id CHAR(36) NOT NULL PRIMARY KEY,
+      group_class_id CHAR(36) NOT NULL,
+      parent_id VARCHAR(36) NOT NULL,
+      student_id VARCHAR(36) NOT NULL,
+      student_name VARCHAR(191) NOT NULL,
+      session_id CHAR(36) NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      currency VARCHAR(3) NOT NULL,
+      payment_ref VARCHAR(100) NULL,
+      flw_charge_id VARCHAR(100) NULL,
+      status ENUM('pending','paid','expired') NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_gcr_class FOREIGN KEY (group_class_id) REFERENCES group_classes(id) ON DELETE CASCADE,
+      KEY idx_gcr_ref (payment_ref)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+const requireGroupClassOwnership = async (req, res, groupClassId) => {
+  const [[groupClass]] = await pool.query("SELECT teacher_id FROM group_classes WHERE id = ?", [groupClassId]);
+  if (!groupClass) {
+    res.status(404).json({ message: "Cours groupé introuvable." });
+    return null;
+  }
+  if (req.user?.role !== "admin" && req.user?.sub !== groupClass.teacher_id) {
+    res.status(403).json({ message: "Vous ne pouvez gérer que vos propres cours groupés." });
+    return null;
+  }
+  return groupClass;
+};
+
+const mapGroupClassRow = (row) => ({
+  id: row.id,
+  teacherId: row.teacher_id,
+  title: row.title,
+  subject: row.subject,
+  description: row.description,
+  sessionDate: row.session_date instanceof Date ? row.session_date.toISOString().split("T")[0] : String(row.session_date).split("T")[0],
+  sessionTime: row.session_time,
+  price: Number(row.price),
+  currency: row.currency,
+  maxParticipants: row.max_participants,
+  paidCount: row.paid_count !== undefined ? Number(row.paid_count) : undefined,
+  virtualLink: row.virtual_link,
+  status: row.status,
+  publicUrl: `${FRONTEND_BASE_URL}/cours-groupe/${row.id}`,
+  createdAt: row.created_at,
+});
+
+app.post("/api/group-classes", authenticateRequest, async (req, res) => {
+  const { title, subject, description, sessionDate, sessionTime, price, maxParticipants } = req.body ?? {};
+  if (!title || !subject || !sessionDate || !sessionTime || !price || !maxParticipants) {
+    return res.status(400).json({ message: "Champs obligatoires manquants." });
+  }
+  if (Number(price) <= 0) return res.status(400).json({ message: "Le tarif doit être supérieur à 0." });
+  if (Number(maxParticipants) < 1) return res.status(400).json({ message: "Le nombre de places doit être d'au moins 1." });
+
+  try {
+    const [[teacher]] = await pool.query("SELECT currency FROM teachers WHERE id = ?", [req.user.sub]);
+    const groupClassId = crypto.randomUUID();
+    const virtualLink = `https://meet.care4success.usra-care.com/Care4Success-${groupClassId.split("-")[0]}`;
+    await pool.query(
+      `INSERT INTO group_classes (id, teacher_id, title, subject, description, session_date, session_time, price, currency, max_participants, virtual_link)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [groupClassId, req.user.sub, title, subject, description || null, sessionDate, sessionTime, price, teacher?.currency || "XAF", maxParticipants, virtualLink]
+    );
+    res.status(201).json({ id: groupClassId, publicUrl: `${FRONTEND_BASE_URL}/cours-groupe/${groupClassId}` });
+  } catch (error) {
+    console.error("Failed to create group class", error);
+    res.status(500).json({ message: "Impossible de créer le cours groupé." });
+  }
+});
+
+app.get("/api/group-classes/teacher/:teacherId", authenticateRequest, async (req, res) => {
+  const { teacherId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== teacherId) {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    const [rows] = await pool.query(
+      `SELECT gc.*,
+         (SELECT COUNT(*) FROM group_class_registrations r WHERE r.group_class_id = gc.id AND r.status = 'paid') AS paid_count
+       FROM group_classes gc
+       WHERE gc.teacher_id = ?
+       ORDER BY gc.session_date DESC, gc.session_time DESC`,
+      [teacherId]
+    );
+    res.json(rows.map(mapGroupClassRow));
+  } catch (error) {
+    console.error("Failed to fetch group classes", error);
+    res.status(500).json({ message: "Impossible de récupérer les cours groupés." });
+  }
+});
+
+app.get("/api/group-classes/:id", authenticateRequest, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const groupClass = await requireGroupClassOwnership(req, res, id);
+    if (!groupClass) return;
+    const [[row]] = await pool.query(
+      `SELECT gc.*,
+         (SELECT COUNT(*) FROM group_class_registrations r WHERE r.group_class_id = gc.id AND r.status = 'paid') AS paid_count
+       FROM group_classes gc WHERE gc.id = ?`,
+      [id]
+    );
+    const [registrations] = await pool.query(
+      `SELECT id, student_name, amount, currency, created_at
+       FROM group_class_registrations WHERE group_class_id = ? AND status = 'paid'
+       ORDER BY created_at ASC`,
+      [id]
+    );
+    res.json({
+      ...mapGroupClassRow(row),
+      registrations: registrations.map((r) => ({
+        id: r.id, studentName: r.student_name, amount: Number(r.amount), currency: r.currency, createdAt: r.created_at,
+      })),
+    });
+  } catch (error) {
+    console.error("Failed to fetch group class", error);
+    res.status(500).json({ message: "Impossible de récupérer le cours groupé." });
+  }
+});
+
+app.delete("/api/group-classes/:id", authenticateRequest, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const groupClass = await requireGroupClassOwnership(req, res, id);
+    if (!groupClass) return;
+    await pool.query("UPDATE group_classes SET status = 'cancelled' WHERE id = ?", [id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to cancel group class", error);
+    res.status(500).json({ message: "Impossible d'annuler le cours groupé." });
+  }
+});
+
+// Détails publics pour la page de paiement — pas d'authentification.
+app.get("/api/group-classes/:id/public", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[row]] = await pool.query(
+      `SELECT gc.*, u.name AS teacher_name,
+         (SELECT COUNT(*) FROM group_class_registrations r WHERE r.group_class_id = gc.id AND r.status IN ('paid','pending')) AS taken_count
+       FROM group_classes gc
+       LEFT JOIN users u ON u.id = gc.teacher_id
+       WHERE gc.id = ?`,
+      [id]
+    );
+    if (!row) return res.status(404).json({ message: "Cours groupé introuvable." });
+    const sessionDate = row.session_date instanceof Date ? row.session_date.toISOString().split("T")[0] : String(row.session_date).split("T")[0];
+    res.json({
+      id: row.id,
+      title: row.title,
+      subject: row.subject,
+      description: row.description,
+      teacherName: row.teacher_name || "Enseignant",
+      sessionDate,
+      sessionTime: row.session_time,
+      price: Number(row.price),
+      currency: row.currency,
+      maxParticipants: row.max_participants,
+      spotsLeft: Math.max(0, row.max_participants - row.taken_count),
+      status: row.status,
+    });
+  } catch (error) {
+    console.error("Failed to fetch public group class", error);
+    res.status(500).json({ message: "Impossible de récupérer le cours groupé." });
+  }
+});
+
+// Idempotent : appelable depuis le polling front-end ET le webhook, comme
+// finalizeSlotBooking/finalizeCoursePurchase.
+const finalizeGroupClassRegistration = async (reference, chargeData) => {
+  const [[registration]] = await pool.query(
+    "SELECT * FROM group_class_registrations WHERE payment_ref = ?", [reference]
+  );
+  if (!registration) {
+    console.warn(`[flutterwave] inscription cours groupé introuvable: ${reference}`);
+    return { success: false, reason: "registration_not_found" };
+  }
+  if (registration.status === "paid") {
+    return { success: true, alreadyProcessed: true, sessionId: registration.session_id };
+  }
+
+  const amountOk = Number(chargeData.amount) >= Number(registration.amount);
+  const currencyOk = chargeData.currency === registration.currency;
+  const statusOk = chargeData.status === "succeeded";
+  if (!statusOk || !amountOk || !currencyOk) {
+    console.warn(
+      `[flutterwave] Inscription cours groupé non validée pour ${reference} — status=${chargeData.status} amount=${chargeData.amount}/${registration.amount} currency=${chargeData.currency}/${registration.currency}`
+    );
+    return { success: false, reason: "verification_failed", status: chargeData.status };
+  }
+
+  const [[groupClass]] = await pool.query("SELECT * FROM group_classes WHERE id = ?", [registration.group_class_id]);
+  if (!groupClass) return { success: false, reason: "group_class_not_found" };
+
+  const [[teacher]] = await pool.query("SELECT name FROM users WHERE id = ?", [groupClass.teacher_id]);
+  const [[student]] = await pool.query("SELECT name FROM users WHERE id = ?", [registration.student_id]);
+  const [[parent]] = await pool.query("SELECT name, email FROM users WHERE id = ?", [registration.parent_id]);
+
+  const dateStr = groupClass.session_date instanceof Date
+    ? groupClass.session_date.toISOString().split("T")[0]
+    : String(groupClass.session_date).split("T")[0];
+  const dayLabel = DAYS_FR[new Date(`${dateStr}T00:00:00`).getDay()];
+
+  const sessionId = crypto.randomUUID();
+  await pool.query(
+    `INSERT INTO sessions (id, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, subject, session_day, session_date, session_time, location, status, virtual_link, group_class_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'En ligne', 'planifié', ?, ?)`,
+    [
+      sessionId, groupClass.teacher_id, teacher?.name || "Enseignant",
+      registration.student_id, student?.name || registration.student_name,
+      registration.parent_id, parent?.name || "Parent",
+      groupClass.title, dayLabel, dateStr, groupClass.session_time, groupClass.virtual_link, groupClass.id,
+    ]
+  );
+  await linkStudentTeacherRelation(registration.student_id, groupClass.teacher_id).catch(() => {});
+
+  await pool.query(
+    `UPDATE group_class_registrations SET status = 'paid', flw_charge_id = ?, session_id = ? WHERE id = ?`,
+    [String(chargeData.id), sessionId, registration.id]
+  );
+
+  if (parent?.email) {
+    await sendMail({
+      to: parent.email,
+      subject: `Inscription confirmée — ${groupClass.title}`,
+      html: `<div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A">
+        <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+          <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+          <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Inscription confirmée</p>
+        </div>
+        <div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+          <p>Bonjour <b>${parent.name}</b>,</p>
+          <p>Votre inscription à <b>${groupClass.title}</b> avec <b>${teacher?.name || "votre enseignant"}</b> est confirmée :</p>
+          <table style="width:100%;border-collapse:collapse;margin:24px 0">
+            <tr style="background:#f9fafb"><td style="padding:12px 16px;border:1px solid #e5e7eb">Date</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${dateStr}</td></tr>
+            <tr><td style="padding:12px 16px;border:1px solid #e5e7eb">Horaire</td><td style="padding:12px 16px;border:1px solid #e5e7eb;font-weight:bold">${groupClass.session_time}</td></tr>
+          </table>
+          <p style="text-align:center;margin:24px 0">
+            <a href="${groupClass.virtual_link}" style="display:inline-block;background:#1A6CC8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Rejoindre la classe virtuelle</a>
+          </p>
+          <p style="font-size:13px;color:#6b7280">Ce lien sera actif à l'heure de la séance. Conservez cet email.</p>
+        </div>
+      </div>`,
+    }).catch((e) => console.warn("Group class confirmation mail failed:", e.message));
+  }
+
+  return { success: true, sessionId, virtualLink: groupClass.virtual_link };
+};
+
+app.post("/api/group-classes/:id/register/initiate", async (req, res) => {
+  const { id: groupClassId } = req.params;
+  const {
+    network, phoneNumber, countryCode = "237",
+    parentName, parentEmail, parentPhone, studentName, studentEmail,
+  } = req.body ?? {};
+  if (!network || !phoneNumber || !parentName || !parentEmail || !studentName) {
+    return res.status(400).json({ message: "Champs obligatoires manquants." });
+  }
+  if (!["MTN", "ORANGE"].includes(network)) {
+    return res.status(400).json({ message: "Réseau non supporté." });
+  }
+
+  const connection = await pool.getConnection();
+  let registrationId = null;
+  let groupClass = null;
+  try {
+    await connection.beginTransaction();
+
+    const [[gc]] = await connection.query("SELECT * FROM group_classes WHERE id = ? FOR UPDATE", [groupClassId]);
+    if (!gc || gc.status !== "scheduled") {
+      await connection.rollback();
+      return res.status(404).json({ message: "Cours groupé introuvable ou annulé." });
+    }
+    groupClass = gc;
+
+    const [[{ takenCount }]] = await connection.query(
+      `SELECT COUNT(*) AS takenCount FROM group_class_registrations WHERE group_class_id = ? AND status IN ('paid','pending')`,
+      [groupClassId]
+    );
+    if (takenCount >= groupClass.max_participants) {
+      await connection.rollback();
+      return res.status(409).json({ message: "Ce cours groupé est complet." });
+    }
+
+    const { parentId, studentId } = await resolveOrCreateBookingFamily({
+      parentName, parentEmail, parentPhone, studentName, studentEmail,
+    });
+
+    const reference = `c4s-group-${groupClassId.slice(0, 8)}-${Date.now()}`;
+    registrationId = crypto.randomUUID();
+    await connection.query(
+      `INSERT INTO group_class_registrations (id, group_class_id, parent_id, student_id, student_name, amount, currency, payment_ref, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [registrationId, groupClassId, parentId, studentId, studentName, groupClass.price, groupClass.currency, reference]
+    );
+
+    await connection.commit();
+
+    const [firstName, ...restName] = (parentName || "Parent").split(" ");
+    let chargeRes;
+    try {
+      chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+        method: "POST",
+        idempotencyKey: reference,
+        headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
+        body: JSON.stringify({
+          amount: groupClass.price,
+          currency: groupClass.currency,
+          reference,
+          payment_method: {
+            type: "mobile_money",
+            mobile_money: { country_code: countryCode, network, phone_number: phoneNumber },
+          },
+          customer: {
+            email: parentEmail,
+            name: { first: firstName, last: restName.join(" ") || firstName },
+            phone: { country_code: countryCode, number: phoneNumber },
+          },
+          redirect_url: `${FRONTEND_BASE_URL}/cours-groupe/${groupClassId}`,
+        }),
+      });
+    } catch (chargeError) {
+      // Échec d'initiation du paiement : libérer la place réservée
+      // immédiatement plutôt que d'attendre l'expiration automatique.
+      await pool.query("DELETE FROM group_class_registrations WHERE id = ?", [registrationId]).catch(() => {});
+      throw chargeError;
+    }
+
+    await pool.query(
+      "UPDATE group_class_registrations SET flw_charge_id = ? WHERE id = ?",
+      [chargeRes.data?.id || null, registrationId]
+    );
+
+    res.status(201).json({
+      chargeId: chargeRes.data?.id,
+      reference,
+      status: chargeRes.data?.status,
+      nextAction: chargeRes.data?.next_action || null,
+      amount: Number(groupClass.price),
+      currency: groupClass.currency,
+    });
+  } catch (error) {
+    try { await connection.rollback(); } catch { /* déjà commit ou pas de transaction active */ }
+    console.error("[group-classes/register/initiate]", error);
+    res.status(500).json({ message: error.message || "Impossible d'initier l'inscription." });
+  } finally {
+    connection.release();
+  }
+});
+
+app.post("/api/group-classes/register/authorize", async (req, res) => {
+  const { chargeId, type, code } = req.body ?? {};
+  if (!chargeId || !type || !code) {
+    return res.status(400).json({ message: "chargeId, type et code sont requis." });
+  }
+  try {
+    const chargeRes = await flutterwaveRequest(`/charges/${chargeId}`, {
+      method: "PUT",
+      body: JSON.stringify({ authorization: { type, [type]: code } }),
+    });
+    res.json({ status: chargeRes.data?.status, nextAction: chargeRes.data?.next_action || null });
+  } catch (error) {
+    console.error("[group-classes/register/authorize]", error);
+    res.status(500).json({ message: error.message || "Autorisation refusée." });
+  }
+});
+
+app.get("/api/group-classes/register/status/:reference", async (req, res) => {
+  const { reference } = req.params;
+  try {
+    const [[registration]] = await pool.query("SELECT * FROM group_class_registrations WHERE payment_ref = ?", [reference]);
+    if (!registration) return res.status(404).json({ message: "Inscription introuvable." });
+    if (registration.status === "paid") {
+      return res.json({ success: true, alreadyProcessed: true, sessionId: registration.session_id });
+    }
+    if (!registration.flw_charge_id) {
+      return res.json({ success: false, reason: "pending" });
+    }
+    const chargeRes = await flutterwaveRequest(`/charges/${registration.flw_charge_id}`);
+    const result = await finalizeGroupClassRegistration(reference, chargeRes.data);
+    res.json(result);
+  } catch (error) {
+    console.error("[group-classes/register/status]", error);
+    res.status(500).json({ message: error.message || "Impossible de vérifier le paiement." });
+  }
+});
+
+// Libère les inscriptions 'pending' dont le paiement n'a jamais abouti après
+// 20 minutes, pour ne pas bloquer une place indéfiniment (même logique que
+// le cron d'expiration des réservations de créneau).
+cron.schedule("*/5 * * * *", async () => {
+  try {
+    const [expired] = await pool.query(
+      `SELECT id FROM group_class_registrations
+       WHERE status = 'pending' AND created_at < DATE_SUB(NOW(), INTERVAL 20 MINUTE)`
+    );
+    for (const row of expired) {
+      await pool.query("UPDATE group_class_registrations SET status = 'expired' WHERE id = ?", [row.id]);
+    }
+    if (expired.length > 0) console.log(`[cron/group-class-expiry] ${expired.length} inscription(s) expirée(s)`);
+  } catch (err) {
+    console.error("[cron/group-class-expiry]", err.message);
+  }
+});
+
+app.get("/api/parents/:parentId/invoices", authenticateRequest, async (req, res) => {
+  const { parentId } = req.params;
+  if (req.user.role !== "admin" && req.user.id !== parentId) {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+
+  try {
+    await ensureParentInvoicesTable();
+
+    // Auto-sync missing completed hourly session invoices for this parent
+    const [missingSessions] = await pool.query(
+      `SELECT s.id
+       FROM sessions s
+       JOIN users u_student ON u_student.id = s.student_id
+       LEFT JOIN parent_invoices pi ON pi.session_id = s.id
+       WHERE u_student.parent_id = ? AND s.status = 'effectué' AND pi.id IS NULL`,
+      [parentId]
+    );
+
+    for (const sess of missingSessions) {
+      await ensureSessionInvoice(sess.id);
+    }
 
     const [rows] = await pool.query(
-      "SELECT id, invoice_date as date, description, amount, status FROM parent_invoices WHERE parent_id = ? ORDER BY invoice_date DESC",
+      "SELECT id, parent_id as parentId, invoice_date as date, description, amount, status, rate_type as rateType FROM parent_invoices WHERE parent_id = ? ORDER BY invoice_date DESC",
       [parentId]
     );
     res.json(rows);
   } catch (error) {
+    console.error("Erreur fetch invoices parent:", error);
     res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
-app.get("/api/parents/:parentId/progress", async (req, res) => {
+const getDynamicStudentProgress = async (studentId) => {
+  try {
+    await ensureStudentProgressPointsTable();
+    const [rows] = await pool.query(
+      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
+      [studentId]
+    );
+    if (rows.length > 0) return rows;
+
+    const [attempts] = await pool.query(
+      `SELECT 
+         DATE_FORMAT(a.created_at, '%b') as month_label,
+         DATE_FORMAT(a.created_at, '%Y-%m') as year_month,
+         c.subject as subject_name,
+         AVG((a.score / IFNULL(NULLIF(q.total_points, 0), 20)) * 20) as avg_score
+       FROM quiz_attempts a
+       JOIN quizzes q ON q.id = a.quiz_id
+       JOIN courses c ON c.id = q.course_id
+       WHERE a.student_id = ?
+       GROUP BY year_month, c.subject
+       ORDER BY year_month ASC`,
+      [studentId]
+    );
+
+    if (attempts.length === 0) return [];
+
+    const monthMap = new Map();
+    for (const att of attempts) {
+      const monthKey = att.year_month;
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, { month: att.month_label });
+      }
+      const monthObj = monthMap.get(monthKey);
+      const subNorm = (att.subject_name || "").toLowerCase();
+      let key = "maths";
+      if (subNorm.includes("math")) key = "maths";
+      else if (subNorm.includes("fran")) key = "francais";
+      else if (subNorm.includes("angla")) key = "anglais";
+      else if (subNorm.includes("phys") || subNorm.includes("chim")) key = "physique";
+      else if (subNorm.includes("svt") || subNorm.includes("scien")) key = "svt";
+      else if (subNorm.includes("hist") || subNorm.includes("géo")) key = "histgeo";
+      else key = subNorm.replace(/[^a-z0-9]/g, "");
+
+      monthObj[key] = Math.round(Number(att.avg_score) * 10) / 10;
+    }
+
+    return Array.from(monthMap.values());
+  } catch (err) {
+    console.error("[getDynamicStudentProgress] error:", err);
+    return [];
+  }
+};
+
+app.get("/api/parents/:parentId/progress", authenticateRequest, async (req, res) => {
   const { parentId } = req.params;
   const { studentId: queryStudentId } = req.query;
+
   try {
     let studentId = queryStudentId;
     if (!studentId) {
@@ -5320,76 +7470,15 @@ app.get("/api/parents/:parentId/progress", async (req, res) => {
 
     if (!studentId) return res.json([]);
 
-    let rows = [];
-    try {
-      const [dbRows] = await pool.query(
-        "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
-        [studentId]
-      );
-      rows = dbRows;
-    } catch (tableErr) {
-      rows = [];
-    }
-
-    if (rows.length === 0) {
-      const [sessionScores] = await pool.query(
-        `SELECT DATE_FORMAT(MIN(session_date), '%b') as month,
-                ROUND(AVG(CASE WHEN subject LIKE '%Math%' THEN understanding_score ELSE NULL END), 1) as maths,
-                ROUND(AVG(CASE WHEN subject LIKE '%Fran%' THEN understanding_score ELSE NULL END), 1) as francais,
-                DATE_FORMAT(session_date, '%Y-%m') as ym
-         FROM sessions
-         WHERE student_id = ? AND understanding_score IS NOT NULL
-         GROUP BY DATE_FORMAT(session_date, '%Y-%m')
-         ORDER BY MIN(session_date) ASC`,
-        [studentId]
-      );
-      if (sessionScores.length > 0) {
-        return res.json(sessionScores.map(s => ({
-          month: s.month,
-          maths: Number(s.maths || 14),
-          francais: s.francais ? Number(s.francais) : 12
-        })));
-      }
-
-      const [hasSessions] = await pool.query("SELECT id, understanding_score FROM sessions WHERE student_id = ?", [studentId]);
-      if (hasSessions.length > 0) {
-        const score = hasSessions[0].understanding_score || 14;
-        return res.json([
-          { month: "Juil", maths: 12, francais: 11 },
-          { month: "Août", maths: 13, francais: 12 },
-          { month: "Sept", maths: score, francais: 14 }
-        ]);
-      }
-      return res.json([]);
-    }
-    res.json(rows);
+    const progress = await getDynamicStudentProgress(studentId);
+    res.json(progress);
   } catch (error) {
     console.error("Progress fetch error", error);
     res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
-app.get("/api/students/:studentId/evaluations", async (req, res) => {
-  const { studentId } = req.params;
-  try {
-    const [evalRows] = await pool.query(
-      "SELECT id, teacher_name as teacherName, rating, comment, created_at as createdAt FROM student_evaluations WHERE student_id = ? ORDER BY created_at DESC",
-      [studentId]
-    );
-    const [sessionReportRows] = await pool.query(
-      `SELECT id, teacher_name as teacherName, CEIL(IFNULL(understanding_score, 15)/4) as rating, report_text as comment, created_at as createdAt
-       FROM sessions
-       WHERE student_id = ? AND report_text IS NOT NULL AND report_text != ''`,
-      [studentId]
-    );
-    const combined = [...evalRows, ...sessionReportRows].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    res.json(combined);
-  } catch (error) {
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
-
-app.get("/api/parents/:parentId/progress-report", async (req, res) => {
+app.get("/api/parents/:parentId/progress-report", authenticateRequest, async (req, res) => {
   const { parentId } = req.params;
   try {
     const [[parent]] = await pool.query("SELECT name FROM users WHERE id = ?", [parentId]);
@@ -5400,6 +7489,8 @@ app.get("/api/parents/:parentId/progress-report", async (req, res) => {
     const childName = student?.name;
 
     let grades = [];
+    let attendance = null;
+    let teacherComments = null;
     if (student) {
       const [attempts] = await pool.query(
         `SELECT c.subject, AVG(a.score) as average, COUNT(*) as count
@@ -5410,6 +7501,30 @@ app.get("/api/parents/:parentId/progress-report", async (req, res) => {
          GROUP BY c.subject`, [student.id]
       );
       grades = attempts;
+
+      // Assiduité réelle : même principe que /api/teachers/:teacherId/students
+      // (ratio des séances effectuées sur le total des séances de l'élève).
+      const [[sessionStats]] = await pool.query(
+        `SELECT COUNT(id) as total, SUM(CASE WHEN status = 'effectué' THEN 1 ELSE 0 END) as done
+         FROM sessions WHERE student_id = ?`,
+        [student.id]
+      );
+      const totalSessions = sessionStats?.total || 0;
+      const doneSessions = sessionStats?.done || 0;
+      attendance = totalSessions > 0 ? Math.round((doneSessions / totalSessions) * 100) : null;
+
+      // Commentaire enseignant réel : dernier rapport de séance (report_text) rempli par
+      // l'enseignant via POST /sessions/:id/report. Aucune autre source de "commentaire
+      // mensuel" dédié n'existe à ce jour dans le schéma ; on ne réintroduit donc jamais
+      // de phrase générique inventée si aucun rapport n'a encore été rempli.
+      const [[latestReport]] = await pool.query(
+        `SELECT report_text FROM sessions
+         WHERE student_id = ? AND report_text IS NOT NULL AND report_text <> ''
+         ORDER BY session_date DESC, actual_end_time DESC
+         LIMIT 1`,
+        [student.id]
+      );
+      teacherComments = latestReport?.report_text || null;
     }
 
     res.json({
@@ -5417,28 +7532,44 @@ app.get("/api/parents/:parentId/progress-report", async (req, res) => {
       childName: childName || "N/A",
       reportDate: new Date().toLocaleDateString('fr-FR'),
       grades: grades,
-      attendance: 95,
-      teacherComments: "Une progression constante et une excellente participation aux sessions live."
+      attendance,
+      teacherComments
     });
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
-app.get("/api/teachers/:teacherId/earnings-history", async (req, res) => {
+app.get("/api/teachers/:teacherId/earnings-history", authenticateRequest, async (req, res) => {
   const { teacherId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== teacherId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   try {
-    const [rows] = await pool.query(
-      `SELECT 
-         DATE_FORMAT(s.session_date, '%Y-%m') as month,
-         SUM(ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * IFNULL(t.hourly_rate, 7500), 0)) as amount,
-         COUNT(*) as sessions
-       FROM sessions s
-       JOIN teachers t ON t.id = s.teacher_id
-       WHERE s.teacher_id = ? AND s.status = 'effectué'
-       GROUP BY month
+    const [[teacherRate]] = await pool.query(
+      "SELECT rate_type, hourly_rate, monthly_rate, rate_unit_minutes FROM teachers WHERE id = ?", [teacherId]
+    );
+    const [sessionRows] = await pool.query(
+      `SELECT DATE_FORMAT(session_date, '%Y-%m') as month,
+              TIMESTAMPDIFF(MINUTE, actual_start_time, actual_end_time) AS minutes
+       FROM sessions
+       WHERE teacher_id = ? AND status = 'effectué'
        ORDER BY month ASC`, [teacherId]
     );
+    const byMonth = new Map();
+    for (const row of sessionRows) {
+      if (!byMonth.has(row.month)) byMonth.set(row.month, { sessions: 0, minutesSum: 0 });
+      const m = byMonth.get(row.month);
+      m.sessions += 1;
+      m.minutesSum += row.minutes != null ? Number(row.minutes) : 120;
+    }
+    const rows = Array.from(byMonth, ([month, m]) => ({
+      month,
+      sessions: m.sessions,
+      amount: teacherRate?.rate_type === "monthly"
+        ? (Number(teacherRate.monthly_rate) || 0)
+        : computeEarnedAmount(m.minutesSum, teacherRate),
+    }));
     res.json(rows);
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur." });
@@ -5484,46 +7615,6 @@ app.get("/api/students/:studentId/evaluations", async (req, res) => {
   }
 });
 
-app.get("/api/teachers/:teacherId/profile", async (req, res) => {
-  const { teacherId } = req.params;
-  try {
-    const [[teacher]] = await pool.query(
-      "SELECT id, name, email, subjects, level, city, status, rating FROM teachers WHERE id = ?",
-      [teacherId]
-    );
-    if (!teacher) return res.status(404).json({ message: "Teacher not found" });
-
-    let subjects = [];
-    if (typeof teacher.subjects === "string") {
-      try {
-        subjects = JSON.parse(teacher.subjects);
-      } catch (e) {
-        subjects = teacher.subjects.split(",").map(s => s.trim()).filter(Boolean);
-      }
-    } else if (Array.isArray(teacher.subjects)) {
-      subjects = teacher.subjects;
-    }
-
-    let levels = [];
-    if (teacher.level) {
-      if (typeof teacher.level === "string") {
-        if (teacher.level.trim().startsWith("[")) {
-          try { levels = JSON.parse(teacher.level); } catch (e) { levels = [teacher.level]; }
-        } else {
-          levels = teacher.level.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-        }
-      } else if (Array.isArray(teacher.level)) {
-        levels = teacher.level;
-      }
-    }
-
-    res.json({ ...teacher, subjects, levels });
-  } catch (error) {
-    console.error("Teacher profile error", error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
 app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
   const { teacherId } = req.params;
   try {
@@ -5547,7 +7638,7 @@ app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
     // Calcul des revenus réels basés sur la durée et le statut effectuer (utilisant le taux du prof)
     // Récupérer le profil du prof pour son type de tarif
     const [[teacherProfile]] = await pool.query(
-      "SELECT rate_type, hourly_rate, monthly_rate FROM teachers WHERE id = ?", [teacherId]
+      "SELECT rate_type, hourly_rate, monthly_rate, rate_unit_minutes FROM teachers WHERE id = ?", [teacherId]
     );
 
     let monthlyEarnings = 0;
@@ -5570,18 +7661,25 @@ app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
       );
       monthlyEarnings = activeThisMonth > 0 ? monthlyRate : 0;
     } else {
-      // Logique horaire classique
-      const hRate = teacherProfile?.hourly_rate || 7500;
-      const [[rows]] = await pool.query(
-        `SELECT 
-           IFNULL(SUM(ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * ?, 0)), 0) as totalEarnings,
-           IFNULL(SUM(IF(DATE_FORMAT(s.session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m'), ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * ?, 0), 0)), 0) as monthlyEarnings
+      // Logique horaire — minutes brutes en SQL (défaut 2h si horodatage
+      // manquant, comme avant), montant calculé via computeEarnedAmount()
+      // pour respecter rate_unit_minutes au lieu d'une division par 60 figée.
+      const [earningSessions] = await pool.query(
+        `SELECT
+           TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) AS minutes,
+           IF(DATE_FORMAT(s.session_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m'), 1, 0) AS isThisMonth
          FROM sessions s
          WHERE s.teacher_id = ? AND s.status = 'effectué'`,
-        [hRate, hRate, teacherId]
+        [teacherId]
       );
-      totalEarnings = rows.totalEarnings;
-      monthlyEarnings = rows.monthlyEarnings;
+      let totalMinutes = 0, monthMinutes = 0;
+      for (const es of earningSessions) {
+        const minutes = es.minutes != null ? Number(es.minutes) : 120;
+        totalMinutes += minutes;
+        if (es.isThisMonth) monthMinutes += minutes;
+      }
+      totalEarnings = computeEarnedAmount(totalMinutes, teacherProfile);
+      monthlyEarnings = computeEarnedAmount(monthMinutes, teacherProfile);
     }
     const previousEarnings = totalEarnings - monthlyEarnings;
 
@@ -5656,32 +7754,43 @@ app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
   }
 });
 
-app.get("/api/teachers/:teacherId/earnings", async (req, res) => {
+app.get("/api/teachers/:teacherId/earnings", authenticateRequest, async (req, res) => {
   const { teacherId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== teacherId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   try {
-    const [[teacher]] = await pool.query("SELECT rate_type, hourly_rate, monthly_rate FROM teachers WHERE id = ?", [teacherId]);
+    const [[teacher]] = await pool.query(
+      "SELECT rate_type, hourly_rate, monthly_rate, rate_unit_minutes, currency FROM teachers WHERE id = ?", [teacherId]
+    );
     const isMonthly = teacher?.rate_type === 'monthly';
 
-    const [rows] = await pool.query(
-      `SELECT 
-          s.id, 
-          s.session_date as date, 
-          s.student_name as student, 
-          ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2), 1) as hours, 
-          ? as rate, 
-          ROUND(IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL, TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2) * ?, 0) as amount, 
-          IF(s.is_paid = 1, 'payé', 'en attente') as status 
+    const [sessionRows] = await pool.query(
+      `SELECT s.id,
+              s.session_date as date,
+              s.student_name as student,
+              TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) AS minutes,
+              IF(s.is_paid = 1, 'payé', 'en attente') as status
        FROM sessions s
-       WHERE s.teacher_id = ? AND s.status = 'effectué' 
+       WHERE s.teacher_id = ? AND s.status = 'effectué'
        ORDER BY s.session_date DESC`,
-      [
-        isMonthly ? 0 : (teacher?.hourly_rate || 7500),
-        isMonthly ? 0 : (teacher?.hourly_rate || 7500),
-        teacherId
-      ]
+      [teacherId]
     );
-    // Note: On monthly rates, individual sessions show 0 and a separate logic handles the lump sum.
-    res.json(rows);
+    // Note: On monthly rates, individual sessions show 0 et une logique séparée gère le forfait.
+    const rows = sessionRows.map((row) => {
+      const minutes = row.minutes != null ? Number(row.minutes) : 120;
+      return {
+        id: row.id,
+        date: row.date,
+        student: row.student,
+        hours: Math.round((minutes / 60) * 10) / 10,
+        rate: isMonthly ? 0 : (Number(teacher?.hourly_rate) || 0),
+        currency: teacher?.currency || "XAF",
+        rateUnitMinutes: teacher?.rate_unit_minutes || 60,
+        amount: isMonthly ? 0 : computeEarnedAmount(minutes, teacher),
+        status: row.status,
+      };
+    });
     res.json(rows);
   } catch (error) {
     console.error("Earnings error", error);
@@ -5689,8 +7798,11 @@ app.get("/api/teachers/:teacherId/earnings", async (req, res) => {
   }
 });
 
-app.get("/api/teachers/:teacherId/students", async (req, res) => {
+app.get("/api/teachers/:teacherId/students", authenticateRequest, async (req, res) => {
   const { teacherId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== teacherId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   try {
     await ensureStudentEvaluationsTable();
     await ensureStudentTeacherTable();
@@ -5845,31 +7957,7 @@ app.post("/api/students/:studentId/evaluations", authenticateRequest, async (req
   }
 });
 
-app.get("/api/parents/:parentId/progress", async (req, res) => {
-  const { parentId } = req.params;
-  const { studentId } = req.query;
-  try {
-    let student;
-    if (studentId) {
-      [[student]] = await pool.query("SELECT id FROM users WHERE id = ? AND parent_id = ? AND role = 'student'", [studentId, parentId]);
-    } else {
-      [[student]] = await pool.query("SELECT id FROM users WHERE parent_id = ? AND role = 'student' LIMIT 1", [parentId]);
-    }
-    
-    if (!student) return res.json(studentProgressData);
-    
-    const [rows] = await pool.query(
-      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
-      [student.id]
-    );
-    res.json(rows.length > 0 ? rows : studentProgressData);
-  } catch (error) {
-    console.error("Parent progress error", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
-
-app.get("/api/students/:studentId/grades", async (req, res) => {
+app.get("/api/students/:studentId/grades", authenticateRequest, async (req, res) => {
   const { studentId } = req.params;
   try {
     const [attempts] = await pool.query(
@@ -5882,7 +7970,7 @@ app.get("/api/students/:studentId/grades", async (req, res) => {
        GROUP BY a.id`, [studentId]
     );
 
-    if (attempts.length === 0) return res.json(studentGrades);
+    if (attempts.length === 0) return res.json([]);
 
     const subjects = [...new Set(attempts.map(a => a.subject))];
     const dynamicGrades = subjects.map(sub => {
@@ -5901,24 +7989,18 @@ app.get("/api/students/:studentId/grades", async (req, res) => {
     });
     res.json(dynamicGrades);
   } catch (error) {
-    res.json(studentGrades);
+    res.json([]);
   }
 });
 
-app.get("/api/students/:studentId/progress", async (req, res) => {
+app.get("/api/students/:studentId/progress", authenticateRequest, async (req, res) => {
   const { studentId } = req.params;
   try {
-    await ensureStudentProgressPointsTable();
-    const [rows] = await pool.query(
-      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
-      [studentId]
-    );
-    if (rows.length > 0) return res.json(rows);
-    
-    // Fallback if no specific data for this student
-    res.json(studentProgressData);
+    const progress = await getDynamicStudentProgress(studentId);
+    res.json(progress);
   } catch (error) {
-    res.json(studentProgressData);
+    console.error("Student progress fetch error", error);
+    res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
@@ -6374,19 +8456,11 @@ const createNotification = async (userId, title, content, type = 'info', link = 
        VALUES (?, ?, ?, ?, ?, ?)`,
       [id, userId, title, content, type, link]
     );
-    // Envoyer le push en arrière-plan (ne bloque pas la réponse)
-    sendPushToUser(userId, { title, body: content, link, tag: `notif-${id}` }).catch(() => {});
     return id;
   } catch (error) {
     console.error("Failed to create notification", error);
   }
 };
-
-// ── VAPID PUBLIC KEY ─────────────────────────────────────────────────────────
-app.get("/api/notifications/vapid-public-key", (_req, res) => {
-  if (!VAPID_PUBLIC_KEY) return res.status(503).json({ message: "Push non configuré." });
-  res.json({ publicKey: VAPID_PUBLIC_KEY });
-});
 
 app.get("/api/notifications/:userId", async (req, res) => {
   const { userId } = req.params;
@@ -6419,168 +8493,7 @@ app.patch("/api/notifications/:id/read", async (req, res) => {
   }
 });
 
-// ── MARK ALL READ ────────────────────────────────────────────────────────────
-app.patch("/api/notifications/read-all/:userId", authenticateRequest, async (req, res) => {
-  const { userId } = req.params;
-  try {
-    await ensureNotificationsTable();
-    await pool.query("UPDATE notifications SET is_read = TRUE WHERE user_id = ?", [userId]);
-    res.json({ success: true });
-  } catch (error) {
-    console.error("mark-all-read error", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
 
-// ── DELETE NOTIFICATION ──────────────────────────────────────────────────────
-app.delete("/api/notifications/:id", authenticateRequest, async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query("DELETE FROM notifications WHERE id = ?", [id]);
-    res.json({ success: true });
-  } catch (error) {
-    console.error("delete notification error", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
-
-// ── PUSH SUBSCRIPTIONS TABLE ─────────────────────────────────────────────────
-const ensurePushSubscriptionsTable = async () => {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS push_subscriptions (
-      id          CHAR(36)     NOT NULL DEFAULT (UUID()),
-      user_id     VARCHAR(191) NOT NULL,
-      platform    ENUM('web','android','ios') NOT NULL DEFAULT 'web',
-      endpoint    TEXT,
-      p256dh      VARCHAR(512),
-      auth        VARCHAR(255),
-      fcm_token   TEXT,
-      created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      KEY idx_push_user (user_id),
-      KEY idx_push_platform (platform)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
-};
-
-// ── SUBSCRIBE WEB PUSH ───────────────────────────────────────────────────────
-app.post("/api/notifications/subscribe/web", authenticateRequest, async (req, res) => {
-  const userId = req.user?.sub;
-  const { endpoint, keys } = req.body;
-  if (!endpoint || !keys?.p256dh || !keys?.auth) {
-    return res.status(400).json({ message: "Subscription invalide." });
-  }
-  try {
-    await ensurePushSubscriptionsTable();
-    await pool.query(
-      `INSERT INTO push_subscriptions (id, user_id, platform, endpoint, p256dh, auth)
-       VALUES (?, ?, 'web', ?, ?, ?)
-       ON DUPLICATE KEY UPDATE p256dh = VALUES(p256dh), auth = VALUES(auth), updated_at = NOW()`,
-      [crypto.randomUUID(), userId, endpoint, keys.p256dh, keys.auth]
-    );
-    res.json({ success: true });
-  } catch (error) {
-    console.error("subscribe web push error", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
-
-// ── SUBSCRIBE FCM (Android) ───────────────────────────────────────────────────
-app.post("/api/notifications/subscribe/fcm", authenticateRequest, async (req, res) => {
-  const userId = req.user?.sub;
-  const { fcmToken } = req.body;
-  if (!fcmToken) return res.status(400).json({ message: "FCM token requis." });
-  try {
-    await ensurePushSubscriptionsTable();
-    await pool.query(
-      `INSERT INTO push_subscriptions (id, user_id, platform, fcm_token)
-       VALUES (?, ?, 'android', ?)
-       ON DUPLICATE KEY UPDATE fcm_token = VALUES(fcm_token), updated_at = NOW()`,
-      [crypto.randomUUID(), userId, fcmToken]
-    );
-    res.json({ success: true });
-  } catch (error) {
-    console.error("subscribe FCM error", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
-
-// ── UNSUBSCRIBE ───────────────────────────────────────────────────────────────
-app.delete("/api/notifications/unsubscribe", authenticateRequest, async (req, res) => {
-  const userId = req.user?.sub;
-  const { endpoint, fcmToken } = req.body;
-  try {
-    await ensurePushSubscriptionsTable();
-    if (endpoint) {
-      await pool.query("DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?", [userId, endpoint]);
-    } else if (fcmToken) {
-      await pool.query("DELETE FROM push_subscriptions WHERE user_id = ? AND fcm_token = ?", [userId, fcmToken]);
-    } else {
-      await pool.query("DELETE FROM push_subscriptions WHERE user_id = ?", [userId]);
-    }
-    res.json({ success: true });
-  } catch (error) {
-    console.error("unsubscribe error", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
-
-// ── SEND PUSH HELPER ─────────────────────────────────────────────────────────
-const sendPushToUser = async (userId, payload) => {
-  if (!VAPID_PUBLIC_KEY) return;
-  try {
-    await ensurePushSubscriptionsTable();
-    const [subs] = await pool.query(
-      "SELECT * FROM push_subscriptions WHERE user_id = ?",
-      [userId]
-    );
-    for (const sub of subs) {
-      if (sub.platform === "web" && sub.endpoint) {
-        const subscription = {
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth },
-        };
-        webpush.sendNotification(subscription, JSON.stringify(payload)).catch(async (err) => {
-          if (err.statusCode === 410 || err.statusCode === 404) {
-            await pool.query("DELETE FROM push_subscriptions WHERE id = ?", [sub.id]);
-          } else {
-            console.error("web-push send error:", err.message);
-          }
-        });
-      } else if (sub.platform === "android" && sub.fcm_token && process.env.FIREBASE_SERVER_KEY) {
-        fetch("https://fcm.googleapis.com/fcm/send", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `key=${process.env.FIREBASE_SERVER_KEY}`,
-          },
-          body: JSON.stringify({
-            to: sub.fcm_token,
-            notification: { title: payload.title, body: payload.body },
-            data: { link: payload.link || "/" },
-          }),
-        }).catch(e => console.error("FCM send error:", e.message));
-      }
-    }
-  } catch (e) {
-    console.error("sendPushToUser error:", e.message);
-  }
-};
-
-app.get("/api/students/:studentId/progress", async (req, res) => {
-  const { studentId } = req.params;
-  try {
-    await ensureStudentProgressPointsTable();
-    const [rows] = await pool.query(
-      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
-      [studentId]
-    );
-    res.json(rows);
-  } catch (error) {
-    console.error("Progress fetch error", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
 
 // ------ XP / Grade helpers ------
 const XP_LEVELS = [
@@ -7050,6 +8963,20 @@ app.get("/api/students/:studentId/academic-plan", authenticateRequest, async (re
 // HISTORIQUE COURS ÉLÈVE (avec rapport + compréhension)
 // ─────────────────────────────────────────────
 app.get("/api/students/:studentId/course-history", authenticateRequest, async (req, res) => {
+  const { studentId } = req.params;
+  if (req.user?.role !== "admin" && req.user?.sub !== studentId) {
+    try {
+      await ensureStudentTeacherTable();
+      const [[link]] = await pool.query(
+        "SELECT 1 FROM student_teacher WHERE student_id = ? AND teacher_id = ? LIMIT 1",
+        [studentId, req.user?.sub]
+      );
+      if (!link) return res.status(403).json({ message: "Forbidden" });
+    } catch (error) {
+      console.error("Course history ownership check failed", error);
+      return res.status(403).json({ message: "Forbidden" });
+    }
+  }
   try {
     const [sessions] = await pool.query(
       `SELECT s.*, h.title as homework_title, h.due_date as homework_due
@@ -7127,6 +9054,9 @@ app.get("/api/teachers/:teacherId/performance-index", authenticateRequest, async
 
 // ─── Matching automatique prof/élève ─────────────────────────────────────────
 app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) => {
+  if (!['admin', 'advisor'].includes(req.user.role)) {
+    return res.status(403).json({ message: "Accès refusé" });
+  }
   try {
     const { studentId } = req.params;
     const [[student]] = await pool.query(
@@ -7153,6 +9083,7 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
       `SELECT t.id, u.name, t.subjects, t.levels, t.availability_json,
               COALESCE(t.performance_index, 3.0) AS perf,
               COALESCE(t.hourly_rate, 7500) AS rate,
+              COALESCE(t.currency, 'XAF') AS currency,
               COUNT(s.id) AS sessionCount
        FROM teachers t
        JOIN users u ON u.id = t.user_id
@@ -7173,7 +9104,7 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
       if (Object.keys(avail).length > 0) score += 10;
       if (t.sessionCount > 10) score += 5;
 
-      return { id: t.id, name: t.name, subjects: subjs, levels, rate: t.rate, perf: Number(t.perf), score: Math.round(score) };
+      return { id: t.id, name: t.name, subjects: subjs, levels, rate: t.rate, currency: t.currency, perf: Number(t.perf), score: Math.round(score) };
     });
 
     scored.sort((a, b) => b.score - a.score);
@@ -7355,7 +9286,7 @@ async function sendMail({ to, subject, html }) {
 
 // ─── Helpers email templates ──────────────────────────────────────────────────
 function tplNewCourse({ studentName, teacherName, courseTitle, subject, mode, courseId }) {
-  const visioLink = `https://care4success.usra-care.com/#/virtual-class/${courseId}`;
+  const visioLink = `https://care4success.usra-care.com/virtual-class/${courseId}`;
   
   return `
     <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A;background:#f9fafb;padding:20px;border-radius:16px">
@@ -7387,7 +9318,7 @@ function tplNewCourse({ studentName, teacherName, courseTitle, subject, mode, co
       </div>
     </div>`;
 }
-function tplAccountCreated({ name, email, password, role }) {
+function tplAccountCreated({ name, email, password, role, viaGoogle = false }) {
   const roleLabel = {
     admin: "Administrateur",
     teacher: "Professeur",
@@ -7395,6 +9326,16 @@ function tplAccountCreated({ name, email, password, role }) {
     student: "Élève",
     advisor: "Conseiller"
   }[role] || role;
+
+  const credentialsBlock = viaGoogle
+    ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;padding:20px;border-radius:8px;margin:24px 0">
+         <p style="margin:0;font-size:14px">Connectez-vous avec le bouton <strong>« Continuer avec Google »</strong> sur la page de connexion, en utilisant l'adresse <strong>${email}</strong>.</p>
+       </div>`
+    : `<div style="background:#f8fafc;border:1px solid #e2e8f0;padding:20px;border-radius:8px;margin:24px 0">
+         <p style="margin:0 0 10px;font-size:14px">Voici vos identifiants de connexion :</p>
+         <p style="margin:0 0 5px;font-size:14px">📧 Email : <strong>${email}</strong></p>
+         <p style="margin:0;font-size:14px">🔑 Mot de passe : <strong>${password}</strong></p>
+       </div>`;
 
   return `
     <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A;background:#f9fafb;padding:20px;border-radius:16px">
@@ -7405,13 +9346,9 @@ function tplAccountCreated({ name, email, password, role }) {
       <div style="padding:32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
         <p style="font-size:15px">Bonjour <strong>${name}</strong>,</p>
         <p>Votre compte <strong>${roleLabel}</strong> a été créé avec succès sur Care4Success.</p>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:20px;border-radius:8px;margin:24px 0">
-          <p style="margin:0 0 10px;font-size:14px">Voici vos identifiants de connexion :</p>
-          <p style="margin:0 0 5px;font-size:14px">📧 Email : <strong>${email}</strong></p>
-          <p style="margin:0;font-size:14px">🔑 Mot de passe : <strong>${password}</strong></p>
-        </div>
+        ${credentialsBlock}
         <p style="font-size:14px">Vous pouvez vous connecter dès maintenant sur : <a href="https://care4success.usra-care.com" style="color:#1A6CC8;text-decoration:none;font-weight:bold">https://care4success.usra-care.com</a></p>
-        <p style="font-size:13px;color:#6b7280;margin-top:24px">Nous vous recommandons de changer votre mot de passe dès votre première connexion.</p>
+        ${viaGoogle ? "" : `<p style="font-size:13px;color:#6b7280;margin-top:24px">Nous vous recommandons de changer votre mot de passe dès votre première connexion.</p>`}
         <p style="font-size:13px;color:#6b7280;margin-top:20px">L'équipe Care4Success</p>
       </div>
     </div>`;
@@ -7533,25 +9470,46 @@ cron.schedule("30 0 1 * *", async () => {
     const monthKey = `${y}-${m}`;
     const monthLabel = prevMonth.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
-    // Sessions effectuées le mois précédent groupées par parent
-    const [rows] = await pool.query(
-      `SELECT s.student_id,
+    // Sessions effectuées le mois précédent, agrégées par parent en JS via
+    // computeEarnedAmount() pour respecter le tarif de chaque enseignant
+    // (devise, durée de référence, forfait mensuel) — cf. generate-invoices.
+    const [sessionRows] = await pool.query(
+      `SELECT s.student_id, s.teacher_id,
               u_student.parent_id,
               u_parent.email AS parentEmail, u_parent.name AS parentName, u_student.name AS childName,
-              COUNT(s.id) AS sessionCount,
-              SUM(ROUND(
-                IF(s.actual_start_time IS NOT NULL AND s.actual_end_time IS NOT NULL,
-                   TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) / 60, 2)
-                * COALESCE(t.hourly_rate, 7500), 0
-              )) AS totalAmount
+              TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) AS minutes,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.rate_unit_minutes
        FROM sessions s
        JOIN users u_student ON u_student.id = s.student_id
        JOIN users u_parent ON u_parent.id = u_student.parent_id
        LEFT JOIN teachers t ON t.id = s.teacher_id
-       WHERE DATE_FORMAT(s.session_date, '%Y-%m') = ? AND s.status = 'effectué'
-       GROUP BY s.student_id, u_student.parent_id`,
+       WHERE DATE_FORMAT(s.session_date, '%Y-%m') = ? AND s.status = 'effectué'`,
       [monthKey]
     );
+
+    const grouped = new Map();
+    for (const row of sessionRows) {
+      const key = `${row.student_id}::${row.parent_id}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          parent_id: row.parent_id, parentEmail: row.parentEmail, parentName: row.parentName, childName: row.childName,
+          sessionCount: 0, hourlyAmount: 0, monthlyTeacherRates: new Map(),
+        });
+      }
+      const g = grouped.get(key);
+      g.sessionCount += 1;
+      if (row.rate_type === "monthly") {
+        g.monthlyTeacherRates.set(row.teacher_id, Number(row.monthly_rate) || 0);
+      } else {
+        const minutes = row.minutes != null ? Number(row.minutes) : 120;
+        g.hourlyAmount += computeEarnedAmount(minutes, row);
+      }
+    }
+    const rows = Array.from(grouped.values(), (g) => ({
+      parent_id: g.parent_id, parentEmail: g.parentEmail, parentName: g.parentName, childName: g.childName,
+      sessionCount: g.sessionCount,
+      totalAmount: g.hourlyAmount + Array.from(g.monthlyTeacherRates.values()).reduce((a, b) => a + b, 0),
+    }));
 
     let generated = 0;
     for (const row of rows) {

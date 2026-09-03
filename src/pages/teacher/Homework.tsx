@@ -71,12 +71,19 @@ export default function TeacherHomework() {
     const [feedbackText, setFeedbackText] = useState("");
     const [isCorrecting, setIsCorrecting] = useState(false);
 
+    const availableSubjects = useMemo(() => {
+        if (Array.isArray(user?.teacherSubjects) && user.teacherSubjects.length > 0) {
+            return user.teacherSubjects;
+        }
+        return SUBJECTS;
+    }, [user?.teacherSubjects]);
+
     // Formulaire
     const [formStudentId, setFormStudentId] = useState("");
     const [formTitle, setFormTitle] = useState("");
     const [formDesc, setFormDesc] = useState("");
     const [formDue, setFormDue] = useState("");
-    const [formSubject, setFormSubject] = useState(SUBJECTS[0]);
+    const [formSubject, setFormSubject] = useState("");
 
     const { data: homework = [], isLoading } = useQuery({
         queryKey: ["teacherHomework", user?.id],
@@ -364,11 +371,11 @@ export default function TeacherHomework() {
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-[#0D2D5A]">Matière</label>
                                 <select
-                                    value={formSubject}
+                                    value={formSubject || availableSubjects[0]}
                                     onChange={(e) => setFormSubject(e.target.value)}
                                     className="w-full text-sm border border-gray-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-[#1A6CC8]/30 bg-gray-50/50"
                                 >
-                                    {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                         </div>
