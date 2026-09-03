@@ -426,6 +426,12 @@ const ensureSessionsTable = async () => {
       await pool.query("ALTER TABLE sessions ADD COLUMN group_class_id VARCHAR(36) DEFAULT NULL AFTER course_id");
       console.log("Migration: Added group_class_id to sessions table");
     }
+    // Migration: Géolocalisation & Justifications de retard / fin anticipée
+    const [colsSlat] = await pool.query("SHOW COLUMNS FROM sessions LIKE 'start_location_lat'");
+    if (colsSlat.length === 0) {
+      await pool.query("ALTER TABLE sessions ADD COLUMN start_location_lat DOUBLE NULL, ADD COLUMN start_location_lng DOUBLE NULL, ADD COLUMN start_delay_justification TEXT NULL, ADD COLUMN end_location_lat DOUBLE NULL, ADD COLUMN end_location_lng DOUBLE NULL, ADD COLUMN early_end_justification TEXT NULL");
+      console.log("Migration: Added geolocation and justification columns to sessions table");
+    }
     // Fix ENUM status — include all values used by frontend (no duplicates)
     try {
       await pool.query("ALTER TABLE sessions MODIFY COLUMN status ENUM('planifié','à venir','en cours','effectué','annulé','scheduled','in_progress','completed') NOT NULL DEFAULT 'planifié'");
@@ -1816,6 +1822,9 @@ const mapUserRow = (row) => ({
   bankIban: row.bank_iban || null,
   bankAccountHolder: row.bank_account_holder || null,
   availability: parseJson(row.availability_json, []),
+  // Teacher specialties (from teachers table)
+  teacherSubjects: parseJson(row.teacher_subjects, null),
+  teacherLevel: row.teacher_level || null,
 });
 
 const ensureParentChildTable = async () => {
@@ -1858,6 +1867,8 @@ const ensureParentInvoicesTable = async () => {
     ["flw_charge_id",      "ALTER TABLE parent_invoices ADD COLUMN flw_charge_id VARCHAR(100) NULL"],
     ["payment_method",     "ALTER TABLE parent_invoices ADD COLUMN payment_method VARCHAR(50) NULL"],
     ["paid_at",            "ALTER TABLE parent_invoices ADD COLUMN paid_at TIMESTAMP NULL"],
+    ["session_id",          "ALTER TABLE parent_invoices ADD COLUMN session_id VARCHAR(255) NULL"],
+    ["rate_type",           "ALTER TABLE parent_invoices ADD COLUMN rate_type VARCHAR(20) DEFAULT 'hourly'"],
   ];
   for (const [col, sql] of migrations) {
     if (!cols.has(col)) await pool.query(sql).catch(() => {});
@@ -1865,6 +1876,63 @@ const ensureParentInvoicesTable = async () => {
   await pool.query(
     "CREATE UNIQUE INDEX idx_invoices_payment_ref ON parent_invoices (payment_ref)"
   ).catch(() => {});
+};
+
+const ensureSessionInvoice = async (sessionId) => {
+  try {
+    await ensureParentInvoicesTable();
+    const [[session]] = await pool.query(
+      `SELECT s.id, s.session_date, s.subject, s.actual_start_time, s.actual_end_time,
+              s.student_id, s.teacher_id,
+              u_student.name AS studentName, u_student.parent_id,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.rate_unit_minutes
+       FROM sessions s
+       JOIN users u_student ON u_student.id = s.student_id
+       LEFT JOIN teachers t ON t.id = s.teacher_id
+       WHERE s.id = ? AND s.status = 'effectué'`,
+      [sessionId]
+    );
+
+    if (!session || !session.parent_id) return;
+
+    const [[existingInvoice]] = await pool.query(
+      "SELECT id FROM parent_invoices WHERE session_id = ?",
+      [sessionId]
+    );
+    if (existingInvoice) return;
+
+    const isMonthly = session.rate_type === "monthly";
+    if (!isMonthly) {
+      let minutes = 120;
+      if (session.actual_start_time && session.actual_end_time) {
+        minutes = Math.max(1, Math.round((new Date(session.actual_end_time) - new Date(session.actual_start_time)) / (1000 * 60)));
+      }
+      
+      const amount = computeEarnedAmount(minutes, session);
+      if (amount <= 0) return;
+
+      const dateStr = session.session_date
+        ? new Date(session.session_date).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+
+      const invId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO parent_invoices (id, parent_id, session_id, invoice_date, description, amount, status, rate_type)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', 'hourly')`,
+        [
+          invId,
+          session.parent_id,
+          sessionId,
+          dateStr,
+          `Séance ${session.subject || "de cours"} — ${session.studentName} (${minutes} min)`,
+          amount
+        ]
+      );
+      console.log(`[Invoice] Generated hourly session invoice ${invId} for parent ${session.parent_id} (Amount: ${amount} XAF)`);
+    }
+  } catch (err) {
+    console.error("[ensureSessionInvoice] Error generating session invoice", sessionId, err);
+  }
 };
 
 const ensureParentOverviewTable = async () => {
@@ -2892,7 +2960,7 @@ app.get("/api/sessions", async (req, res) => {
 
 
 app.post("/api/sessions", authenticateRequest, async (req, res) => {
-  const { studentIds, studentId, courseId, subject, sessionDate, sessionTime, locationType, location, recurrence, sessionCount } = req.body;
+  const { studentIds, studentId, courseId, subject, sessionDate, sessionTime, sessionEndTime, locationType, location, recurrence, sessionCount } = req.body;
   const teacherId = req.user.sub;
 
   try {
@@ -2901,6 +2969,12 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
 
     const ids = Array.isArray(studentIds) ? studentIds : (studentId ? [studentId] : []);
     if (ids.length === 0) return res.status(400).json({ message: "Au moins un élève est requis." });
+
+    // Format full session time: e.g. "14:00 - 16:00"
+    let formattedTime = sessionTime || "16:00";
+    if (sessionEndTime && sessionTime && !sessionTime.includes("-")) {
+      formattedTime = `${sessionTime} - ${sessionEndTime}`;
+    }
 
     const createdSessions = [];
     const count = recurrence === "weekly" ? Math.min(12, sessionCount || 1) : 1;
@@ -2932,7 +3006,7 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
         await pool.query(
           `INSERT INTO sessions (id, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, subject, session_day, session_date, session_time, location, status, virtual_link, course_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [sessionId, teacherId, teacherName, sId, studentName, parentId, parentName, subject, dayLabel, dateStr, sessionTime, location || (locationType === "online" ? "En ligne" : "Présentiel"), "planifié", virtualLink, courseId || null]
+          [sessionId, teacherId, teacherName, sId, studentName, parentId, parentName, subject, dayLabel, dateStr, formattedTime, location || (locationType === "online" ? "En ligne" : "Présentiel"), "planifié", virtualLink, courseId || null]
         );
         createdSessions.push({ id: sessionId, date: dateStr });
       }
@@ -3016,6 +3090,9 @@ app.patch("/api/sessions/:id/status", authenticateRequest, async (req, res) => {
   if (!status) return res.status(400).json({ message: "Statut requis." });
   try {
     await pool.query("UPDATE sessions SET status = ? WHERE id = ?", [status, id]);
+    if (status === 'effectué') {
+      await ensureSessionInvoice(id);
+    }
     const [rows] = await pool.query("SELECT * FROM sessions WHERE id = ?", [id]);
     res.json(mapSessionRow(rows[0]));
   } catch (error) {
@@ -3026,29 +3103,47 @@ app.patch("/api/sessions/:id/status", authenticateRequest, async (req, res) => {
 
 app.patch("/api/sessions/:id/check-in", authenticateRequest, async (req, res) => {
   const { id } = req.params;
+  const { lat, lng, justification } = req.body ?? {};
   try {
-    const [[sessionRow]] = await pool.query("SELECT teacher_id FROM sessions WHERE id = ?", [id]);
+    const [[sessionRow]] = await pool.query(
+      "SELECT id, teacher_id, teacher_name, student_name, subject, session_date, session_time FROM sessions WHERE id = ?",
+      [id]
+    );
     if (!sessionRow) return res.status(404).json({ message: "Session introuvable." });
     if (sessionRow.teacher_id !== req.user?.sub) {
       return res.status(403).json({ message: "Seul l'enseignant assigné à cette session peut faire le check-in." });
     }
-    await pool.query("UPDATE sessions SET actual_start_time = NOW(), status = 'en cours' WHERE id = ?", [id]);
+
+    const latVal = lat != null ? Number(lat) : null;
+    const lngVal = lng != null ? Number(lng) : null;
+    const justifVal = justification ? String(justification).trim() : null;
+
+    await pool.query(
+      `UPDATE sessions SET 
+         actual_start_time = NOW(), 
+         status = 'en cours',
+         start_location_lat = ?,
+         start_location_lng = ?,
+         start_delay_justification = ?
+       WHERE id = ?`,
+      [latVal, lngVal, justifVal, id]
+    );
+
+    if (justifVal) {
+      const notifId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO notifications (id, user_id, title, message, type, is_read)
+         SELECT ?, id, 'Alerte Retard Séance', ?, 'warning', FALSE
+         FROM users WHERE role = 'admin'`,
+        [
+          notifId,
+          `Retard au démarrage (${sessionRow.subject} - ${sessionRow.teacher_name} avec ${sessionRow.student_name}). Justification : ${justifVal}`
+        ]
+      ).catch(() => {});
+    }
+
     res.json({ success: true });
   } catch (error) {
-    // If 'en cours' is not in ENUM, try to add it then retry
-    if (error.code === 'WARN_DATA_TRUNCATED' || error.errno === 1265) {
-      try {
-        await pool.query(`ALTER TABLE sessions MODIFY COLUMN status ENUM('effectué','à venir','planifié','en cours','scheduled','in_progress','completed') NOT NULL DEFAULT 'planifié'`);
-        await pool.query("UPDATE sessions SET actual_start_time = NOW(), status = 'en cours' WHERE id = ?", [id]);
-        console.warn("Check-in: ENUM migrated and session started for", id);
-        return res.json({ success: true });
-      } catch (migErr) {
-        console.error("Check-in migration failed", migErr.message);
-        // Last resort: use an accepted value close to 'in_progress'
-        await pool.query("UPDATE sessions SET actual_start_time = NOW() WHERE id = ?", [id]);
-        return res.json({ success: true, note: 'status not updated due to schema constraint' });
-      }
-    }
     console.error("Check-in failed", error);
     res.status(500).json({ message: "Erreur lors du check-in." });
   }
@@ -3056,25 +3151,48 @@ app.patch("/api/sessions/:id/check-in", authenticateRequest, async (req, res) =>
 
 app.patch("/api/sessions/:id/check-out", authenticateRequest, async (req, res) => {
   const { id } = req.params;
+  const { lat, lng, justification } = req.body ?? {};
   try {
-    const [[sessionRow]] = await pool.query("SELECT teacher_id FROM sessions WHERE id = ?", [id]);
+    const [[sessionRow]] = await pool.query(
+      "SELECT id, teacher_id, teacher_name, student_name, subject, session_date, session_time FROM sessions WHERE id = ?",
+      [id]
+    );
     if (!sessionRow) return res.status(404).json({ message: "Session introuvable." });
     if (sessionRow.teacher_id !== req.user?.sub) {
       return res.status(403).json({ message: "Seul l'enseignant assigné à cette session peut faire le check-out." });
     }
-    await pool.query("UPDATE sessions SET actual_end_time = NOW(), status = 'effectué' WHERE id = ?", [id]);
+
+    const latVal = lat != null ? Number(lat) : null;
+    const lngVal = lng != null ? Number(lng) : null;
+    const justifVal = justification ? String(justification).trim() : null;
+
+    await pool.query(
+      `UPDATE sessions SET 
+         actual_end_time = NOW(), 
+         status = 'effectué',
+         end_location_lat = ?,
+         end_location_lng = ?,
+         early_end_justification = ?
+       WHERE id = ?`,
+      [latVal, lngVal, justifVal, id]
+    );
+
+    if (justifVal) {
+      const notifId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO notifications (id, user_id, title, message, type, is_read)
+         SELECT ?, id, 'Alerte Fin Anticipée', ?, 'warning', FALSE
+         FROM users WHERE role = 'admin'`,
+        [
+          notifId,
+          `Fin de cours anticipée (${sessionRow.subject} - ${sessionRow.teacher_name} avec ${sessionRow.student_name}). Justification : ${justifVal}`
+        ]
+      ).catch(() => {});
+    }
+
+    await ensureSessionInvoice(id);
     res.json({ success: true });
   } catch (error) {
-    if (error.code === 'WARN_DATA_TRUNCATED' || error.errno === 1265) {
-      try {
-        await pool.query(`ALTER TABLE sessions MODIFY COLUMN status ENUM('effectué','à venir','planifié','en cours','scheduled','in_progress','completed') NOT NULL DEFAULT 'planifié'`);
-        await pool.query("UPDATE sessions SET actual_end_time = NOW(), status = 'effectué' WHERE id = ?", [id]);
-        return res.json({ success: true });
-      } catch (migErr) {
-        await pool.query("UPDATE sessions SET actual_end_time = NOW() WHERE id = ?", [id]);
-        return res.json({ success: true });
-      }
-    }
     console.error("Check-out failed", error);
     res.status(500).json({ message: "Erreur lors du check-out." });
   }
@@ -3109,6 +3227,7 @@ app.post("/api/sessions/:id/report", authenticateRequest, async (req, res) => {
     }
 
     await connection.commit();
+    await ensureSessionInvoice(id);
     res.json({ success: true });
   } catch (error) {
     console.log("DEBUG: Caught error in report route:", error.code, error.message);
@@ -5562,8 +5681,9 @@ app.get("/api/users/:userId", authenticateRequest, async (req, res) => {
 
     // 3. Fetch full profile
     const [rows] = await pool.query(
-      `SELECT u.*, u.avatar_url, 
-              t.bank_name, t.bank_iban, t.bank_account_holder, t.availability_json
+      `SELECT u.*, u.avatar_url,
+              t.bank_name, t.bank_iban, t.bank_account_holder, t.availability_json,
+              t.subjects AS teacher_subjects, t.level AS teacher_level
        FROM users u
        LEFT JOIN teachers t ON t.id = u.id
        WHERE u.id = ?`,
@@ -7250,27 +7370,97 @@ cron.schedule("*/5 * * * *", async () => {
   }
 });
 
-app.get("/api/parents/:parentId/invoices", async (req, res) => {
+app.get("/api/parents/:parentId/invoices", authenticateRequest, async (req, res) => {
   const { parentId } = req.params;
+  if (req.user.role !== "admin" && req.user.id !== parentId) {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+
   try {
-    const [[{ sessionsThisMonth }]] = await pool.query(
-      "SELECT COUNT(*) as count FROM sessions WHERE parent_id = ? AND status = 'effectué'", [parentId]
+    await ensureParentInvoicesTable();
+
+    // Auto-sync missing completed hourly session invoices for this parent
+    const [missingSessions] = await pool.query(
+      `SELECT s.id
+       FROM sessions s
+       JOIN users u_student ON u_student.id = s.student_id
+       LEFT JOIN parent_invoices pi ON pi.session_id = s.id
+       WHERE u_student.parent_id = ? AND s.status = 'effectué' AND pi.id IS NULL`,
+      [parentId]
     );
-    const count = sessionsThisMonth || 0;
+
+    for (const sess of missingSessions) {
+      await ensureSessionInvoice(sess.id);
+    }
 
     const [rows] = await pool.query(
-      "SELECT id, invoice_date as date, description, amount, status FROM parent_invoices WHERE parent_id = ? ORDER BY invoice_date DESC",
+      "SELECT id, parent_id as parentId, invoice_date as date, description, amount, status, rate_type as rateType FROM parent_invoices WHERE parent_id = ? ORDER BY invoice_date DESC",
       [parentId]
     );
     res.json(rows);
   } catch (error) {
+    console.error("Erreur fetch invoices parent:", error);
     res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
-app.get("/api/parents/:parentId/progress", async (req, res) => {
+const getDynamicStudentProgress = async (studentId) => {
+  try {
+    await ensureStudentProgressPointsTable();
+    const [rows] = await pool.query(
+      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
+      [studentId]
+    );
+    if (rows.length > 0) return rows;
+
+    const [attempts] = await pool.query(
+      `SELECT 
+         DATE_FORMAT(a.created_at, '%b') as month_label,
+         DATE_FORMAT(a.created_at, '%Y-%m') as year_month,
+         c.subject as subject_name,
+         AVG((a.score / IFNULL(NULLIF(q.total_points, 0), 20)) * 20) as avg_score
+       FROM quiz_attempts a
+       JOIN quizzes q ON q.id = a.quiz_id
+       JOIN courses c ON c.id = q.course_id
+       WHERE a.student_id = ?
+       GROUP BY year_month, c.subject
+       ORDER BY year_month ASC`,
+      [studentId]
+    );
+
+    if (attempts.length === 0) return [];
+
+    const monthMap = new Map();
+    for (const att of attempts) {
+      const monthKey = att.year_month;
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, { month: att.month_label });
+      }
+      const monthObj = monthMap.get(monthKey);
+      const subNorm = (att.subject_name || "").toLowerCase();
+      let key = "maths";
+      if (subNorm.includes("math")) key = "maths";
+      else if (subNorm.includes("fran")) key = "francais";
+      else if (subNorm.includes("angla")) key = "anglais";
+      else if (subNorm.includes("phys") || subNorm.includes("chim")) key = "physique";
+      else if (subNorm.includes("svt") || subNorm.includes("scien")) key = "svt";
+      else if (subNorm.includes("hist") || subNorm.includes("géo")) key = "histgeo";
+      else key = subNorm.replace(/[^a-z0-9]/g, "");
+
+      monthObj[key] = Math.round(Number(att.avg_score) * 10) / 10;
+    }
+
+    return Array.from(monthMap.values());
+  } catch (err) {
+    console.error("[getDynamicStudentProgress] error:", err);
+    return [];
+  }
+};
+
+app.get("/api/parents/:parentId/progress", authenticateRequest, async (req, res) => {
   const { parentId } = req.params;
   const { studentId: queryStudentId } = req.query;
+
   try {
     let studentId = queryStudentId;
     if (!studentId) {
@@ -7280,22 +7470,15 @@ app.get("/api/parents/:parentId/progress", async (req, res) => {
 
     if (!studentId) return res.json([]);
 
-    const [rows] = await pool.query(
-      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
-      [studentId]
-    );
-
-    if (rows.length === 0) {
-      return res.json([]);
-    }
-    res.json(rows);
+    const progress = await getDynamicStudentProgress(studentId);
+    res.json(progress);
   } catch (error) {
     console.error("Progress fetch error", error);
     res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
-app.get("/api/parents/:parentId/progress-report", async (req, res) => {
+app.get("/api/parents/:parentId/progress-report", authenticateRequest, async (req, res) => {
   const { parentId } = req.params;
   try {
     const [[parent]] = await pool.query("SELECT name FROM users WHERE id = ?", [parentId]);
@@ -7774,31 +7957,7 @@ app.post("/api/students/:studentId/evaluations", authenticateRequest, async (req
   }
 });
 
-app.get("/api/parents/:parentId/progress", async (req, res) => {
-  const { parentId } = req.params;
-  const { studentId } = req.query;
-  try {
-    let student;
-    if (studentId) {
-      [[student]] = await pool.query("SELECT id FROM users WHERE id = ? AND parent_id = ? AND role = 'student'", [studentId, parentId]);
-    } else {
-      [[student]] = await pool.query("SELECT id FROM users WHERE parent_id = ? AND role = 'student' LIMIT 1", [parentId]);
-    }
-    
-    if (!student) return res.json(studentProgressData);
-    
-    const [rows] = await pool.query(
-      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
-      [student.id]
-    );
-    res.json(rows.length > 0 ? rows : studentProgressData);
-  } catch (error) {
-    console.error("Parent progress error", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
-
-app.get("/api/students/:studentId/grades", async (req, res) => {
+app.get("/api/students/:studentId/grades", authenticateRequest, async (req, res) => {
   const { studentId } = req.params;
   try {
     const [attempts] = await pool.query(
@@ -7811,7 +7970,7 @@ app.get("/api/students/:studentId/grades", async (req, res) => {
        GROUP BY a.id`, [studentId]
     );
 
-    if (attempts.length === 0) return res.json(studentGrades);
+    if (attempts.length === 0) return res.json([]);
 
     const subjects = [...new Set(attempts.map(a => a.subject))];
     const dynamicGrades = subjects.map(sub => {
@@ -7830,24 +7989,18 @@ app.get("/api/students/:studentId/grades", async (req, res) => {
     });
     res.json(dynamicGrades);
   } catch (error) {
-    res.json(studentGrades);
+    res.json([]);
   }
 });
 
-app.get("/api/students/:studentId/progress", async (req, res) => {
+app.get("/api/students/:studentId/progress", authenticateRequest, async (req, res) => {
   const { studentId } = req.params;
   try {
-    await ensureStudentProgressPointsTable();
-    const [rows] = await pool.query(
-      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
-      [studentId]
-    );
-    if (rows.length > 0) return res.json(rows);
-    
-    // Fallback if no specific data for this student
-    res.json(studentProgressData);
+    const progress = await getDynamicStudentProgress(studentId);
+    res.json(progress);
   } catch (error) {
-    res.json(studentProgressData);
+    console.error("Student progress fetch error", error);
+    res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
@@ -8340,20 +8493,7 @@ app.patch("/api/notifications/:id/read", async (req, res) => {
   }
 });
 
-app.get("/api/students/:studentId/progress", async (req, res) => {
-  const { studentId } = req.params;
-  try {
-    await ensureStudentProgressPointsTable();
-    const [rows] = await pool.query(
-      "SELECT month_label as month, maths, francais, anglais FROM student_progress_points WHERE student_id = ? ORDER BY month_order ASC",
-      [studentId]
-    );
-    res.json(rows);
-  } catch (error) {
-    console.error("Progress fetch error", error);
-    res.status(500).json({ message: "Erreur serveur." });
-  }
-});
+
 
 // ------ XP / Grade helpers ------
 const XP_LEVELS = [

@@ -47,21 +47,21 @@ const MILESTONES = [
 ];
 
 const AFRICAN_PRESENCE = [
-  { flag: "🇨🇲", name: "Cameroun",        code: "CMR" },
-  { flag: "🇸🇳", name: "Sénégal",         code: "SEN" },
-  { flag: "🇨🇮", name: "Côte d'Ivoire",   code: "CIV" },
-  { flag: "🇬🇦", name: "Gabon",           code: "GAB" },
-  { flag: "🇲🇱", name: "Mali",            code: "MLI" },
-  { flag: "🇧🇫", name: "Burkina Faso",    code: "BFA" },
-  { flag: "🇹🇬", name: "Togo",            code: "TGO" },
-  { flag: "🇧🇯", name: "Bénin",           code: "BEN" },
-  { flag: "🇬🇳", name: "Guinée",          code: "GIN" },
-  { flag: "🇨🇩", name: "RD Congo",        code: "COD" },
-  { flag: "🇲🇬", name: "Madagascar",      code: "MDG" },
-  { flag: "🇨🇫", name: "Centrafrique",    code: "RCA" },
-  { flag: "🇬🇼", name: "Guinée-Bissau",   code: "GNB" },
-  { flag: "🇰🇲", name: "Comores",         code: "COM" },
-  { flag: "🇲🇷", name: "Mauritanie",      code: "MRT" },
+  { iso: "CM", name: "Cameroun" },
+  { iso: "SN", name: "Sénégal" },
+  { iso: "CI", name: "Côte d'Ivoire" },
+  { iso: "GA", name: "Gabon" },
+  { iso: "ML", name: "Mali" },
+  { iso: "BF", name: "Burkina Faso" },
+  { iso: "TG", name: "Togo" },
+  { iso: "BJ", name: "Bénin" },
+  { iso: "GN", name: "Guinée" },
+  { iso: "CD", name: "RD Congo" },
+  { iso: "MG", name: "Madagascar" },
+  { iso: "CF", name: "Centrafrique" },
+  { iso: "GW", name: "Guinée-Bissau" },
+  { iso: "KM", name: "Comores" },
+  { iso: "MR", name: "Mauritanie" },
 ];
 
 export default function About() {
@@ -69,7 +69,9 @@ export default function About() {
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative bg-[#0D2D5A] py-24 overflow-hidden">
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${IMAGES.STUDENTS_STUDYING_8})` }} />
+        <div className="absolute inset-0 bg-[#0D2D5A]/78" />
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#1A6CC8]/20 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
 
@@ -273,12 +275,22 @@ export default function About() {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="grid grid-cols-3 sm:grid-cols-5 gap-4"
+            className="grid grid-cols-3 sm:grid-cols-5 gap-3"
           >
             {AFRICAN_PRESENCE.map(c => (
-              <motion.div key={c.code} variants={staggerItem} className="flex flex-col items-center gap-2 py-4 px-3 rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 transition-colors duration-150 cursor-default">
-                <span className="text-3xl" role="img" aria-label={c.name}>{c.flag}</span>
-                <span className="text-xs font-bold text-white/80">{c.name}</span>
+              <motion.div
+                key={c.iso}
+                variants={staggerItem}
+                className="flex flex-col items-center justify-center gap-2.5 py-5 px-2 rounded-xl bg-white/6 border border-white/10 hover:bg-white/12 hover:border-[#F5A623]/30 transition-all duration-150 cursor-default"
+              >
+                <img
+                  src={`https://flagcdn.com/w40/${c.iso.toLowerCase()}.png`}
+                  srcSet={`https://flagcdn.com/w80/${c.iso.toLowerCase()}.png 2x`}
+                  alt={c.name}
+                  className="w-10 h-6 object-cover rounded shadow-sm"
+                  loading="lazy"
+                />
+                <span className="text-[10px] font-bold text-white/80 text-center leading-tight">{c.name}</span>
               </motion.div>
             ))}
           </motion.div>

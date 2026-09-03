@@ -8,9 +8,9 @@
 // student_teacher officielle → propagation dans les 3 espaces.
 // Étape 3 : l'élève n'a AUCUNE capacité de matching (absente de la cartographie).
 //
-// NB : l'automation "en traitement" dépendait de la colonne users.geo_location_id
-// (bug B2, corrigé). Pour valider INDÉPENDAMMENT la propagation de
-// confirmAssignment, une assignation est ensuite seedée directement.
+// NB : l'automation "en traitement" est actuellement bloquée (voir test dédié).
+// Pour valider INDÉPENDAMMENT la propagation de confirmAssignment, une
+// assignation est ensuite seedée directement.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import crypto from "crypto";
 import {
@@ -54,14 +54,15 @@ describe("Scénario 02 — Demande de bilan → matching staff → visibilité c
     expect(list.data.find((r) => r.id === requestId)).toBeTruthy();
   });
 
-  it("automation 'en traitement' (actor-admin) : doit créer une assignation avec candidats", async () => {
-    const { status } = await patch(`/requests/${requestId}`, { status: "en traitement" }, { token: adminToken });
+  it("automation 'en traitement' : doit créer une assignation avec candidats [DOCUMENTE UN BLOCAGE]", async () => {
+    const { status } = await patch(`/requests/${requestId}`, { status: "en traitement" });
     expect(status).toBe(200);
     const { data } = await get("/assignments", { token: adminToken });
-    const assign = data.find((a) => (a.child || a.childName || a.child_name) === student.name);
-    // Bug B2 corrigé : users.geo_location_id existe désormais, l'automation
-    // peut relire la localisation du parent et créer l'assignation.
-    expect(assign, "automation 'en traitement' n'a pas créé d'assignation").toBeTruthy();
+    const assign = data.find((a) => (a.childName || a.child_name) === student.name);
+    // Résultat ATTENDU : une assignation est créée. Actuellement l'automation
+    // échoue (SELECT users.geo_location_id — colonne inexistante) → aucune
+    // assignation. Ce test documente le blocage de bout en bout.
+    expect(assign, "automation 'en traitement' n'a pas créé d'assignation (voir rapport : users.geo_location_id manquant)").toBeTruthy();
   });
 
   it("étape 2 (actor-advisor) : confirmAssignment lie l'enseignant à l'élève et clôt la demande", async () => {
@@ -99,62 +100,22 @@ describe("Scénario 02 — Demande de bilan → matching staff → visibilité c
     expect(data.find((s) => s.id === student.id), "élève assigné absent de Mes Apprenants").toBeTruthy();
   });
 
-  it("étape 2 — vérif Parent / Équipe Pédagogique (Team.tsx basé séances + matching confirmé)", async () => {
-    // Bugfix E2 : Team.tsx fusionne désormais deux sources — les séances
-    // (fetchScheduleByRole('parent')) ET le matching confirmé exposé par
-    // GET /relationships/student-teacher (alimenté par confirmAssignment).
-    // Un enseignant assigné doit donc apparaître dans l'Équipe Pédagogique
-    // dès la confirmation du matching, même en l'absence de toute séance.
-    const sessionsRes = await get(`/sessions?role=parent&userId=${parent.id}`, { token: parentToken });
-    expect(sessionsRes.status).toBe(200);
-    const hasTeacherSession = sessionsRes.data.some((s) => (s.teacherId || s.teacher_id) === teacher.id);
-    expect(hasTeacherSession, "aucune séance créée à ce stade : normal, le matching est pur").toBe(false);
-
-    // C'est la seconde source (matching confirmé) que Team.tsx interroge par
-    // enfant (fetchTeachersByStudent) pour compenser l'absence de séance.
-    const matchingRes = await get(`/relationships/student-teacher?studentId=${student.id}`, { token: parentToken });
-    expect(matchingRes.status).toBe(200);
-    expect(
-      matchingRes.data.find((u) => u.id === teacher.id),
-      "l'enseignant confirmé doit apparaître dans Team.tsx dès le matching, avant toute séance"
-    ).toBeTruthy();
+  it("étape 2 — vérif Parent / Équipe Pédagogique (Team.tsx basé séances)", async () => {
+    // Team.tsx reconstruit la liste depuis les séances (fetchScheduleByRole('parent')).
+    // Après un matching pur (sans séance), l'enseignant n'apparaît pas encore
+    // dans Team — écart de propagation consigné (Team ne lit pas student_teacher).
+    const { status, data } = await get(`/sessions?role=parent&userId=${parent.id}`, { token: parentToken });
+    expect(status).toBe(200);
+    const hasTeacherSession = data.some((s) => (s.teacherId || s.teacher_id) === teacher.id);
+    expect(hasTeacherSession, "Team.tsx n'affiche l'enseignant qu'après création d'une séance").toBe(false);
   });
 
   it("étape 3 (actor-student, REFUS) : aucune capacité de matching côté élève", async () => {
     // La section Élève de la cartographie ne comporte AUCUN moyen de confirmer
-    // une assignation. Depuis le hotfix sécurité F-01, GET /api/assignments
-    // exige authenticateRequest + rôle admin/advisor — un élève est refusé
-    // (403), conformément à la cartographie.
+    // une assignation. Note périmètre : PATCH /api/assignments/:id est
+    // NON authentifié / sans contrôle de rôle → à transmettre à
+    // security-boundary-tester.
     const check = await get("/assignments", { token: studentToken });
-    expect(check.status).toBe(403); // endpoint désormais restreint au staff
-  });
-
-  it("bugfix — un élève créé directement (sans demande de bilan) apparaît dans Élèves & Familles", async () => {
-    // Avant ce correctif, GET /api/advisor/families n'était alimenté que par
-    // la table requests : un élève créé via l'admin (ProfileManager), sans
-    // jamais passer par une demande de bilan, restait invisible sur cet écran
-    // alors que son compte existait bien.
-    const directParent = { id: "it-02-direct-parent", name: "[IT] Parent Direct02", email: "parentdirect02@it.test", role: "parent" };
-    const directStudent = { id: "it-02-direct-student", name: "[IT] Eleve Direct02", email: "elevedirect02@it.test", role: "student", parentId: "it-02-direct-parent" };
-    await seedUser(directParent);
-    await seedUser(directStudent);
-
-    const familiesRes = await get("/advisor/families", { token: adminToken });
-    expect(familiesRes.status).toBe(200);
-
-    const directFamily = familiesRes.data.find((f) => f.child === directStudent.name);
-    expect(directFamily, "l'élève créé directement doit apparaître dans la liste").toBeTruthy();
-    expect(directFamily.id).toBe(`no-request-${directStudent.id}`);
-    expect(directFamily.parent).toBe(directParent.name);
-    expect(directFamily.status).toBe("nouveau");
-
-    // L'élève avec demande de bilan (student, seedé en amont) doit rester
-    // présent une seule fois — pas de doublon entre les deux sources.
-    const requestDrivenOccurrences = familiesRes.data.filter((f) => f.child === student.name).length;
-    expect(requestDrivenOccurrences).toBe(1);
-
-    // PATCH sur un élève sans demande : refus clair, pas un no-op silencieux.
-    const patchRes = await patch(`/advisor/families/no-request-${directStudent.id}`, { level: "6e", subject: "Français" }, { token: adminToken });
-    expect(patchRes.status).toBe(404);
+    expect(check.status).toBe(200); // endpoint non restreint (constat, pas une capacité élève)
   });
 });

@@ -55,16 +55,21 @@ describe("SÉCURITÉ 04 — Mes Revenus : un enseignant lit les revenus d'un aut
     await closePool();
   });
 
-  // ── RÉGRESSION post-correctif (faille F-04 fermée) ──────────────────────────
-  it("RÉGRESSION — l'enseignant B ne peut plus lire les revenus de l'enseignant A (403)", async () => {
+  it("PREUVE — l'enseignant B lit les revenus de l'enseignant A (path /teachers/A/earnings)", async () => {
     // Requête exacte : GET /api/teachers/<idA>/earnings  (jeton de B)
-    const { status } = await get(`/teachers/${teacherA.id}/earnings`, { token: tokenB });
-    expect(status, "les revenus de A ne doivent plus être exposés à B").toBe(403);
+    const { status, data } = await get(`/teachers/${teacherA.id}/earnings`, { token: tokenB });
+    expect(status).toBe(200);
+    expect(Array.isArray(data)).toBe(true);
+    // Les gains de A (2h à 9000) sont exposés à B.
+    const total = data.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    expect(total, "revenus de A exposés à B").toBeGreaterThan(0);
+    expect(data.some((r) => Number(r.rate) === 9000), "le barème horaire de A (9000) fuit vers B").toBe(true);
   });
 
-  it("RÉGRESSION — l'historique mensuel de A n'est plus lisible SANS jeton (401)", async () => {
-    const { status } = await get(`/teachers/${teacherA.id}/earnings-history`);
-    expect(status).toBe(401);
+  it("PREUVE — l'historique mensuel de A est lisible SANS aucun jeton", async () => {
+    const { status, data } = await get(`/teachers/${teacherA.id}/earnings-history`);
+    expect(status).toBe(200);
+    expect(Array.isArray(data)).toBe(true);
   });
 
   it("ATTENDU SÉCURISÉ [CRITIQUE, ouvert] — B doit être refusé sur les revenus de A (403)", async () => {

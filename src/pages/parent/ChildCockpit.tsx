@@ -253,19 +253,25 @@ export default function ChildCockpit() {
                                 <Button variant="ghost" className="h-6 text-[9px] font-black text-[#1A6CC8] uppercase">Planning</Button>
                             </div>
                             <div className="divide-y divide-slate-50">
-                                {homework.slice(0, 5).map((task: any) => (
-                                    <div key={task.id} className="p-3 flex items-center justify-between gap-4">
-                                        <div className="min-w-0">
-                                            <h4 className="font-bold text-xs truncate uppercase">{task.title}</h4>
-                                            <p className="text-[9px] text-slate-400 mt-0.5 font-bold">Échéance: {task.dueDate}</p>
+                                {homework.slice(0, 5).map((task: any) => {
+                                    const statusLower = (task.status || "").toLowerCase();
+                                    const isGraded = statusLower === "corrigé";
+                                    const isSubmitted = statusLower === "rendu" || statusLower === "completed" || statusLower === "fait";
+                                    const badgeLabel = isGraded ? "CORRIGÉ" : isSubmitted ? "RENDU" : "À FAIRE";
+                                    const badgeStyle = isGraded ? "bg-emerald-500 text-white" : isSubmitted ? "bg-blue-500 text-white" : "bg-slate-200 text-slate-500";
+
+                                    return (
+                                        <div key={task.id} className="p-3 flex items-center justify-between gap-4">
+                                            <div className="min-w-0">
+                                                <h4 className="font-bold text-xs truncate uppercase">{task.title}</h4>
+                                                <p className="text-[9px] text-slate-400 mt-0.5 font-bold">Échéance: {task.dueDate}</p>
+                                            </div>
+                                            <Badge className={`text-[8px] font-black uppercase tracking-widest px-2 h-4 rounded-none ${badgeStyle}`}>
+                                                {badgeLabel}
+                                            </Badge>
                                         </div>
-                                        <Badge className={`text-[8px] font-black uppercase tracking-widest px-2 h-4 rounded-none ${
-                                            task.status === "completed" ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"
-                                        }`}>
-                                            {task.status === "completed" ? "FAIT" : "À FAIRE"}
-                                        </Badge>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>

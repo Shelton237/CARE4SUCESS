@@ -20,20 +20,20 @@ const LEVELS = [
     id: "college",
     label: "Collège",
     grades: "6ème — 3ème",
-    desc: "La phase cruciale avant le BEPC. Méthode de travail, compréhension profonde et préparation aux examens.",
+    desc: "La phase cruciale avant les examens nationaux (BEPC, BFEM, BECE…). Méthode de travail, compréhension profonde et préparation rigoureuse.",
     image: IMAGES.STUDENTS_STUDYING_2,
     subjects: ["Mathématiques", "Français", "Physique-Chimie", "SVT", "Anglais", "Histoire-Géo"],
-    goals: ["Préparer le BEPC avec méthode", "Renforcer les acquis du primaire", "Développer l'autonomie de travail"],
+    goals: ["Préparer le BEPC / BFEM avec méthode", "Renforcer les acquis du primaire", "Développer l'autonomie de travail"],
     accent: "#F5A623",
   },
   {
     id: "lycee",
     label: "Lycée",
     grades: "Seconde — Terminale",
-    desc: "La préparation au BAC exige rigueur et méthode. Révisions ciblées, fiches de synthèse et simulations d'épreuves.",
+    desc: "La préparation aux examens de terminale (BAC, A-Levels selon votre pays) exige rigueur et méthode. Révisions ciblées et simulations d'épreuves.",
     image: IMAGES.STUDENTS_STUDYING_4,
     subjects: ["Mathématiques", "Physique-Chimie", "SVT", "Philosophie", "Économie", "Langues"],
-    goals: ["Viser +4 points au BAC", "Maîtriser la dissertation et le commentaire", "Gérer le stress des épreuves"],
+    goals: ["Viser +4 points au BAC / A-Levels", "Maîtriser la dissertation et le commentaire", "Gérer le stress des épreuves"],
     accent: "#0D2D5A",
   },
   {
@@ -70,7 +70,9 @@ export default function Niveaux() {
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative bg-[#0D2D5A] py-24 overflow-hidden">
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${IMAGES.STUDENTS_STUDYING_3})` }} />
+        <div className="absolute inset-0 bg-[#0D2D5A]/78" />
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#F5A623]/10 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3 pointer-events-none" />
 

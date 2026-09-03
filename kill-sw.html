@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nettoyage du cache...</title>
+</head>
+<body>
+    <h1>Nettoyage du cache en cours...</h1>
+    <script>
+        // Unregister all service workers
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+        
+        // Clear caches API
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names)
+                    caches.delete(name);
+            });
+        }
+        
+        // Clear storage
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Redirect back with cache-busting timestamp
+        setTimeout(() => {
+            window.location.href = '/?refresh=' + new Date().getTime();
+        }, 1000);
+    </script>
+</body>
+</html>

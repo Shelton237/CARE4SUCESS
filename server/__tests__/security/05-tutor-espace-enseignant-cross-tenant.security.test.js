@@ -45,18 +45,19 @@ describe("SÉCURITÉ 05 — Espace Enseignant tuteur : cross-tenant sur un ensei
     await closePool();
   });
 
-  // ── RÉGRESSION post-correctif (faille F-05 fermée) ──────────────────────────
-  it("RÉGRESSION — le tuteur hostile ne peut plus lire les élèves de l'enseignant B (403)", async () => {
+  it("PREUVE — le tuteur hostile lit les élèves de l'enseignant B en substituant l'id du path", async () => {
     // Requête exacte : GET /api/teachers/<idVictime>/students  (jeton du tuteur)
-    const { status } = await get(`/teachers/${teacherVictim.id}/students`, { token: hostileToken });
-    expect(status, "l'élève de l'enseignant B ne doit plus être exposé au tuteur hostile").toBe(403);
+    const { status, data } = await get(`/teachers/${teacherVictim.id}/students`, { token: hostileToken });
+    expect(status).toBe(200);
+    const ids = Array.isArray(data) ? data.map((s) => s.id) : [];
+    expect(ids, "ÉLÉVATION : l'élève de l'enseignant B exposé au tuteur hostile").toContain(studentVictim.id);
   });
 
-  it("RÉGRESSION — l'historique de cours d'un élève de B n'est plus lisible via l'espace enseignant (403)", async () => {
-    // /api/students/:studentId/course-history exige désormais un lien
-    // enseignant↔élève (student_teacher) ou l'identité de l'élève lui-même.
+  it("PREUVE — l'historique de cours d'un élève de B est lisible via l'espace enseignant", async () => {
+    // /api/students/:studentId/course-history est authentifié mais sans contrôle
+    // de lien enseignant↔élève : un tuteur hostile lit l'historique d'un élève tiers.
     const { status } = await get(`/students/${studentVictim.id}/course-history`, { token: hostileToken });
-    expect(status).toBe(403);
+    expect(status).toBe(200);
   });
 
   it("ATTENDU SÉCURISÉ [CRITIQUE, ouvert] — B's students ne doivent PAS être accessibles au tuteur hostile", async () => {

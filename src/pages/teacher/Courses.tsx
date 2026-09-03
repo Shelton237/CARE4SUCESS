@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     BookOpen, Search, Plus, Loader2, FileText, Video, Settings2,
@@ -102,6 +102,32 @@ export default function TeacherCourses() {
     const [expandedLesson, setExpandedLesson] = useState<string | null>(lessons[0]?._tempId ?? null);
     const [saving, setSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+
+    // ─── Filtered Subjects & Levels according to teacher's profile ────────────
+    const availableSubjects = useMemo(() => {
+        let list = SUBJECTS;
+        if (Array.isArray(user?.teacherSubjects) && user.teacherSubjects.length > 0) {
+            list = user.teacherSubjects;
+        }
+        if (form.subject && !list.includes(form.subject)) {
+            return [form.subject, ...list];
+        }
+        return list;
+    }, [user?.teacherSubjects, form.subject]);
+
+    const availableLevels = useMemo(() => {
+        let list = LEVELS;
+        if (user?.teacherLevel) {
+            const parsed = user.teacherLevel.split(",").map(l => l.trim()).filter(Boolean);
+            if (parsed.length > 0) {
+                list = parsed;
+            }
+        }
+        if (form.level && !list.includes(form.level)) {
+            return [form.level, ...list];
+        }
+        return list;
+    }, [user?.teacherLevel, form.level]);
 
     // ─── Mutations ─────────────────────────────────────────────────────────────
     const deleteCourseMutation = useMutation({
@@ -336,7 +362,7 @@ export default function TeacherCourses() {
                                 className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                             >
                                 <option value="">— Choisir —</option>
-                                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
 
@@ -350,7 +376,7 @@ export default function TeacherCourses() {
                                 className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                             >
                                 <option value="">— Choisir —</option>
-                                {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                                {availableLevels.map(l => <option key={l} value={l}>{l}</option>)}
                             </select>
                         </div>
 
@@ -398,7 +424,10 @@ export default function TeacherCourses() {
                             </div>
                         </div>
 
-                        {/* Prix & Durée */}
+
+                        {/* Prix & Durée — uniquement pour les profs indépendants (cours groupés) */}
+                        {user?.role === "tutor" && (
+                        <>
                         <div className="space-y-1.5">
                             <label htmlFor="course-price" className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tarif du cours ({teacherCurrency})</label>
                             <div className="relative">
@@ -428,6 +457,9 @@ export default function TeacherCourses() {
                                 />
                             </div>
                         </div>
+                        </>
+                        )}
+
 
                         {/* Description */}
                         <div className="lg:col-span-2 space-y-1.5">

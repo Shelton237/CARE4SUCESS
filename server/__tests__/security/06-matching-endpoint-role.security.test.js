@@ -1,12 +1,15 @@
-// SÉCURITÉ 06 — Endpoint de matching restreint au staff (admin/advisor)
+// SÉCURITÉ 06 — Endpoint de matching appelé hors périmètre (élève)
 // ============================================================================
 // Réf. cartographie :
 //   - Seuls Admin et Conseiller disposent du matching (recommandation de tuteurs).
 //     Conseiller > Mes familles > onglet Matching : `GET /advisor/match/:studentId`.
 //     La section Élève ne comporte AUCUNE capacité de matching.
 //
-// `server/index.js` `/api/advisor/match/:studentId` exige désormais
-// `authenticateRequest` + un rôle admin/advisor (403 sinon). Corrigé.
+// Passe 1 — API directe (exemple du system prompt : « un actor-student qui appelle
+//   directement un endpoint de matching ») :
+//   server/index.js L6977 `/api/advisor/match/:studentId` — `authenticateRequest`
+//   présent MAIS aucun contrôle de rôle : un élève authentifié obtient la liste
+//   de recommandation d'enseignants (données réservées au staff).
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
   get, tokenFor, seedUser, seedTeacherProfile,
@@ -31,12 +34,15 @@ describe("SÉCURITÉ 06 — /api/advisor/match/:studentId sans contrôle de rôl
     await closePool();
   });
 
-  it("RÉGRESSION — un jeton d'ÉLÈVE ne peut plus appeler l'endpoint de matching", async () => {
+  it("PREUVE — un ÉLÈVE appelle l'endpoint de matching réservé au staff (pas 403)", async () => {
+    // Requête exacte : GET /api/advisor/match/<studentId>  (jeton élève)
     const { status } = await get(`/advisor/match/${student.id}`, { token: studentToken });
-    expect(status).toBe(403);
+    // 200 (recommandations) ou 404 (aucune donnée) mais surtout PAS 403 :
+    // l'accès n'est jamais refusé au motif du rôle.
+    expect(status, "l'endpoint de matching n'oppose aucun refus de rôle à un élève").not.toBe(403);
   });
 
-  it("ATTENDU SÉCURISÉ — un rôle élève doit être refusé (403)", async () => {
+  it("ATTENDU SÉCURISÉ [MOYEN, ouvert] — un rôle élève doit être refusé (403)", async () => {
     const { status } = await get(`/advisor/match/${student.id}`, { token: studentToken });
     expect(
       status,

@@ -1,17 +1,23 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, MessageSquare, ClipboardList, CheckCircle2, AlertCircle, Info, ExternalLink } from "lucide-react";
-import { fetchNotifications, markNotificationAsRead } from "@/api/backoffice";
+import { Bell, MessageSquare, ClipboardList, CheckCircle2, AlertCircle, Info, ExternalLink, CheckCheck, Trash2, BellOff, BellRing } from "lucide-react";
+import {
+    fetchNotifications,
+    markNotificationAsRead,
+    markAllNotificationsRead,
+    deleteNotification,
+} from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     Popover,
     PopoverContent,
-    PopoverTrigger
+    PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const ICON_MAP: Record<string, any> = {
     info: Info,
@@ -34,33 +40,40 @@ export function NotificationCenter() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [isOpen, setIsOpen] = useState(false);
+    const { permission, isSubscribed, isLoading: pushLoading, subscribe, unsubscribe } = usePushNotifications();
 
     const { data: notifications = [] } = useQuery({
         queryKey: ["notifications", user?.id],
         queryFn: () => fetchNotifications(user?.id || ""),
         enabled: !!user?.id,
-        refetchInterval: 30000, // Polling every 30s
+        refetchInterval: 30000,
     });
 
     const markAsReadMutation = useMutation({
         mutationFn: markNotificationAsRead,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["notifications"] });
-        }
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    });
+
+    const markAllReadMutation = useMutation({
+        mutationFn: () => markAllNotificationsRead(user?.id || ""),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: deleteNotification,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
     });
 
     const safeNotifications = Array.isArray(notifications) ? notifications : [];
-    const unreadCount = safeNotifications.filter(n => !n.isRead).length;
+    const unreadCount = safeNotifications.filter((n) => !n.isRead).length;
 
     const handleNotificationClick = (notif: any) => {
-        if (!notif.isRead) {
-            markAsReadMutation.mutate(notif.id);
-        }
-        if (notif.link) {
-            navigate(notif.link);
-        }
+        if (!notif.isRead) markAsReadMutation.mutate(notif.id);
+        if (notif.link) navigate(notif.link);
         setIsOpen(false);
     };
+
+    const showPushBanner = permission !== "unsupported" && permission !== "granted" && permission !== "denied";
 
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -74,17 +87,62 @@ export function NotificationCenter() {
                     )}
                 </Button>
             </PopoverTrigger>
+
             <PopoverContent className="w-80 p-0 rounded-2xl shadow-2xl border-gray-100 overflow-hidden" align="end">
-                <div className="p-4 border-b border-gray-50 bg-white sticky top-0 z-10 flex items-center justify-between">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-50 bg-white sticky top-0 z-10 flex items-center justify-between gap-2">
                     <h3 className="font-bold text-[#0D2D5A] lowercase first-letter:uppercase">Notifications</h3>
-                    {unreadCount > 0 && (
-                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">
-                            {unreadCount} nouvelles
-                        </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                        {/* Toggle push */}
+                        {permission !== "unsupported" && permission !== "denied" && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 rounded-lg text-gray-400 hover:text-[#1A6CC8] hover:bg-blue-50 transition-colors"
+                                title={isSubscribed ? "Désactiver les notifications push" : "Activer les notifications push"}
+                                disabled={pushLoading}
+                                onClick={() => (isSubscribed ? unsubscribe() : subscribe())}
+                            >
+                                {isSubscribed ? <BellOff className="w-3.5 h-3.5" /> : <BellRing className="w-3.5 h-3.5" />}
+                            </Button>
+                        )}
+                        {/* Mark all read */}
+                        {unreadCount > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                                title="Tout marquer comme lu"
+                                disabled={markAllReadMutation.isPending}
+                                onClick={() => markAllReadMutation.mutate()}
+                            >
+                                <CheckCheck className="w-3.5 h-3.5" />
+                            </Button>
+                        )}
+                        {unreadCount > 0 && (
+                            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                {unreadCount} nouvelles
+                            </span>
+                        )}
+                    </div>
                 </div>
 
-                <ScrollArea className="h-[400px]">
+                {/* Push banner */}
+                {showPushBanner && (
+                    <div className="px-4 py-3 bg-[#0D2D5A]/4 border-b border-gray-100 flex items-center gap-3">
+                        <BellRing className="w-4 h-4 text-[#1A6CC8] shrink-0" />
+                        <p className="text-xs text-gray-600 flex-1 leading-snug">Recevez les alertes en temps réel</p>
+                        <button
+                            onClick={() => subscribe()}
+                            disabled={pushLoading}
+                            className="text-[10px] font-bold text-[#1A6CC8] bg-[#1A6CC8]/10 px-2.5 py-1 rounded-lg hover:bg-[#1A6CC8]/20 transition-colors whitespace-nowrap disabled:opacity-50 cursor-pointer"
+                        >
+                            Activer
+                        </button>
+                    </div>
+                )}
+
+                <ScrollArea className="h-[360px]">
                     {safeNotifications.length === 0 ? (
                         <div className="p-12 text-center flex flex-col items-center gap-3">
                             <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
@@ -99,34 +157,45 @@ export function NotificationCenter() {
                                 const colors = COLOR_MAP[notif.type] || COLOR_MAP.info;
 
                                 return (
-                                    <button
+                                    <div
                                         key={notif.id}
-                                        onClick={() => handleNotificationClick(notif)}
-                                        className={`w-full text-left p-4 hover:bg-gray-50 transition-colors flex gap-4 ${!notif.isRead ? "bg-blue-50/20" : ""}`}
+                                        className={`group flex gap-3 p-4 hover:bg-gray-50 transition-colors ${!notif.isRead ? "bg-blue-50/20" : ""}`}
                                     >
-                                        <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${colors}`}>
-                                            <Icon className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1 space-y-1">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <p className={`text-sm font-bold truncate ${!notif.isRead ? "text-[#0D2D5A]" : "text-gray-500"}`}>
-                                                    {notif.title}
+                                        <button
+                                            onClick={() => handleNotificationClick(notif)}
+                                            className="flex gap-3 flex-1 text-left min-w-0"
+                                        >
+                                            <div className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center ${colors}`}>
+                                                <Icon className="w-4.5 h-4.5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0 space-y-0.5">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className={`text-sm font-bold truncate ${!notif.isRead ? "text-[#0D2D5A]" : "text-gray-500"}`}>
+                                                        {notif.title}
+                                                    </p>
+                                                    {!notif.isRead && <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />}
+                                                </div>
+                                                <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                                                    {notif.content}
                                                 </p>
-                                                {!notif.isRead && <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />}
+                                                <div className="flex items-center justify-between pt-0.5">
+                                                    <span className="text-[10px] font-medium text-gray-400">
+                                                        {new Date(notif.createdAt).toLocaleDateString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                                    </span>
+                                                    {notif.link && <ExternalLink className="w-3 h-3 text-gray-300" />}
+                                                </div>
                                             </div>
-                                            <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
-                                                {notif.content}
-                                            </p>
-                                            <div className="flex items-center justify-between pt-1">
-                                                <span className="text-[10px] font-medium text-gray-400">
-                                                    {new Date(notif.createdAt).toLocaleDateString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                                {notif.link && (
-                                                    <ExternalLink className="w-3 h-3 text-gray-300" />
-                                                )}
-                                            </div>
-                                        </div>
-                                    </button>
+                                        </button>
+
+                                        {/* Delete button */}
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(notif.id); }}
+                                            className="self-start mt-1 w-6 h-6 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center shrink-0 cursor-pointer"
+                                            title="Supprimer"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
                                 );
                             })}
                         </div>
@@ -135,12 +204,9 @@ export function NotificationCenter() {
 
                 {safeNotifications.length > 0 && (
                     <div className="p-3 bg-gray-50/50 border-t border-gray-100 text-center">
-                        <Button 
-                            variant="ghost" 
-                            onClick={() => {
-                                navigate("/notifications");
-                                setIsOpen(false);
-                            }}
+                        <Button
+                            variant="ghost"
+                            onClick={() => { navigate("/notifications"); setIsOpen(false); }}
                             className="text-[10px] font-bold text-gray-400 uppercase tracking-widest h-auto p-1 hover:bg-transparent hover:text-blue-500 transition-colors"
                         >
                             Voir tout l'historique

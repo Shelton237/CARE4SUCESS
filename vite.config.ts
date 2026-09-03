@@ -218,10 +218,6 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: './src/test/setup.ts',
       css: true,
-      // server/__tests__/** (intégration et sécurité) ont leurs propres
-      // configs dédiées (vitest.integration.config.ts, vitest.security.config.ts) :
-      // backend Express réel + MySQL de test, incompatibles avec l'environnement jsdom.
-      exclude: ['**/node_modules/**', '**/dist/**', 'server/__tests__/**'],
     },
     server: {
       host: "::",
@@ -243,12 +239,16 @@ export default defineConfig(({ mode }) => {
       mode === 'development' && componentTagger(),
       cdnPrefixImages(),
       VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         registerType: 'autoUpdate',
+        injectRegister: 'auto',
         includeAssets: ['favicon.ico', 'favicon.png', 'favicon.svg'],
         manifest: {
           name: 'Care4Success',
           short_name: 'Care4Success',
-          description: 'Soutien scolaire personnalisé au Cameroun',
+          description: 'Soutien scolaire personnalisé en Afrique',
           theme_color: '#0D2D5A',
           background_color: '#FFFFFF',
           display: 'standalone',
@@ -259,22 +259,9 @@ export default defineConfig(({ mode }) => {
             { src: '/logo/Care 4 Success-logo-Ok_compact.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           ],
         },
-        workbox: {
+        injectManifest: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-          // Sans ça, le service worker intercepte TOUTE requête de navigation
-          // (y compris un <iframe src="..."> ou un lien ouvert dans un nouvel
-          // onglet) et sert index.html en secours — donc un PDF importé dans
-          // le tableau blanc ou ouvert directement affichait la page 404 de
-          // l'app React au lieu du fichier réel.
-          navigateFallbackDenylist: [/^\/uploads\//, /^\/api\//],
-          runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/care4success\.usra-care\.com\/api\/.*/i,
-              handler: 'NetworkFirst',
-              options: { cacheName: 'api-cache', expiration: { maxAgeSeconds: 300 } },
-            },
-          ],
         },
       }),
     ].filter(Boolean),

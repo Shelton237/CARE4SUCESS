@@ -42,18 +42,14 @@ en `beforeAll`/`afterAll` ne supprime que les lignes marquées — aucun TRUNCAT
 
 ## Correspondance fichier → faille
 
-| Fichier | Frontière testée | Endpoint(s) | Statut |
+| Fichier | Frontière testée | Endpoint(s) | Sévérité |
 |---|---|---|---|
-| `01-assignments-confirm-non-authentifie` | confirmAssignment sans auth ni rôle | `PATCH /api/assignments/:id` | ✅ corrigé |
-| `03-virtual-class-checkin-usurpation` | check-in/out usurpable | `PATCH /api/sessions/:id/check-in|check-out` | ✅ corrigé |
-| `04-finance-revenus-fuite` | fuite revenus enseignant | `GET /api/teachers/:id/earnings(-history)` | ✅ corrigé |
-| `05-tutor-espace-enseignant-cross-tenant` | accès cross-tenant élèves d'un tiers | `GET /api/teachers/:id/students` | ✅ corrigé |
+| `01-assignments-confirm-non-authentifie` | confirmAssignment sans auth ni rôle | `PATCH /api/assignments/:id` | CRITIQUE |
+| `02-matching-portefeuille-conseiller` | cloisonnement portefeuille conseiller | `GET /api/advisor/families`, `GET/PATCH /api/assignments/:id` | CRITIQUE (double surface) |
+| `03-virtual-class-checkin-usurpation` | check-in/out usurpable | `PATCH /api/sessions/:id/check-in|check-out` | CRITIQUE |
+| `04-finance-revenus-fuite` | fuite revenus enseignant | `GET /api/teachers/:id/earnings(-history)` | CRITIQUE |
+| `05-tutor-espace-enseignant-cross-tenant` | accès cross-tenant élèves d'un tiers | `GET /api/teachers/:id/students` | CRITIQUE |
+| `06-matching-endpoint-role` | matching sans contrôle de rôle | `GET /api/advisor/match/:studentId` | MOYEN (latent) |
 
 Passe 2 (frontend) : `src/pages/common/VirtualClassroom.security.test.tsx`
 corrèle la faille 03 (l'UI cache les contrôles à un élève → aucune protection réelle).
-
-Deux cas supplémentaires identifiés par la Phase 3 (cloisonnement fin par
-portefeuille conseiller, et un contrôle de rôle additionnel sur un endpoint
-de matching) font l'objet d'un suivi interne séparé — non détaillés ici tant
-qu'ils ne sont pas corrigés, pour ne pas documenter publiquement une
-faille ouverte.

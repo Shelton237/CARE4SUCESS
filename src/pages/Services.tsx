@@ -56,7 +56,7 @@ const SERVICES = [
       "Programme 5 jours intensifs par matière",
       "Bilan de progression remis à la fin du stage",
       "Enseignants spécialisés par niveau et par matière",
-      "Horaires adaptés aux vacances scolaires camerounaises",
+      "Horaires adaptés aux calendriers scolaires locaux de chaque pays",
     ],
     color: "bg-emerald-600",
   },
@@ -98,7 +98,9 @@ export default function Services() {
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative bg-[#0D2D5A] py-24 overflow-hidden">
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${IMAGES.TEACHER_STUDENT_1})` }} />
+        <div className="absolute inset-0 bg-[#0D2D5A]/78" />
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#1A6CC8]/20 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
 

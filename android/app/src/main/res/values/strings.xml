@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Care4Success</string>
+    <string name="title_activity_main">Care4Success</string>
+    <string name="package_name">com.care4success.app</string>
+    <string name="custom_url_scheme">com.care4success.app</string>
+</resources>

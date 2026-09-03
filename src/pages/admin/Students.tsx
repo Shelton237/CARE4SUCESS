@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchAdvisorFamilies, resetUserPassword, updateFamilyDetails } from "@/api/backoffice";
-import { CalendarDays, Loader2, RefreshCw, KeyRound, Edit3, Check } from "lucide-react";
+import { CalendarDays, Loader2, RefreshCw, KeyRound, Edit3, Check, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -129,6 +129,7 @@ export default function AdminStudents() {
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="text-left px-6 py-4 font-semibold text-gray-600">Famille</th>
                 <th className="text-left px-6 py-4 font-semibold text-gray-600">Élève</th>
+                <th className="text-left px-6 py-4 font-semibold text-gray-600">Localisation</th>
                 <th className="text-left px-6 py-4 font-semibold text-gray-600">Niveau</th>
                 <th className="text-left px-6 py-4 font-semibold text-gray-600">Matière</th>
                 <th className="text-left px-6 py-4 font-semibold text-gray-600">Enseignant</th>
@@ -149,6 +150,16 @@ export default function AdminStudents() {
                     </div>
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-700">{family.child}</td>
+                  <td className="px-6 py-4">
+                    {family.location ? (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                        <MapPin className="w-3.5 h-3.5 text-[#1A6CC8] shrink-0" />
+                        <span className="max-w-[160px] truncate" title={family.location}>{family.location}</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <span className="px-2 py-0.5 bg-[#1A6CC8]/10 text-[#1A6CC8] rounded-full text-xs font-bold">{family.level || "—"}</span>
                   </td>
@@ -201,7 +212,7 @@ export default function AdminStudents() {
               ))}
               {families.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={9} className="px-6 py-12 text-center text-sm text-gray-400">
                     Aucune famille n&apos;est encore suivie.
                   </td>
                 </tr>

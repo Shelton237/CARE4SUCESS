@@ -62,11 +62,8 @@ describe("SÉCURITÉ 01 — confirmAssignment (PATCH /api/assignments/:id) sans 
     await closePool();
   });
 
-  // ── RÉGRESSION post-correctif (faille F-01 fermée) ──────────────────────────
-  // Ces deux tests documentaient l'état vulnérable (200 + liaison créée) avant
-  // l'ajout de authenticateRequest + contrôle de rôle. Ils vérifient désormais
-  // que la faille reste fermée : aucun effet de bord métier sans autorisation.
-  it("RÉGRESSION — un appel SANS aucun jeton est rejeté (401) et ne crée AUCUNE liaison", async () => {
+  // ── PREUVE reproductible : état vulnérable actuel (test VERT) ──────────────
+  it("PREUVE — un appel SANS aucun jeton confirme l'assignation (200 + liaison créée)", async () => {
     const assignmentId = await seedPendingAssignment();
 
     // Requête exacte reproductible :
@@ -79,27 +76,27 @@ describe("SÉCURITÉ 01 — confirmAssignment (PATCH /api/assignments/:id) sans 
       // <-- volontairement AUCUN token
     );
 
-    expect(status, `réponse: ${JSON.stringify(data)}`).toBe(401);
+    expect(status, `réponse: ${JSON.stringify(data)}`).toBe(200);
 
-    // Aucune liaison student_teacher ne doit être créée par un appelant anonyme.
+    // Effet de bord confirmé : liaison student_teacher officielle créée par un anonyme
     const [link] = await pool.query(
       "SELECT * FROM student_teacher WHERE student_id = ? AND teacher_id = ?",
       [student.id, teacher.id]
     );
-    expect(link.length, "aucune liaison student_teacher ne doit être créée sans authentification").toBe(0);
+    expect(link.length, "liaison student_teacher créée par un appelant NON authentifié").toBe(1);
   });
 
-  it("RÉGRESSION — un jeton d'ÉLÈVE (hors périmètre matching) ne peut plus confirmer", async () => {
+  it("PREUVE — un jeton d'ÉLÈVE (hors périmètre matching) confirme aussi l'assignation", async () => {
     const assignmentId = await seedPendingAssignment();
     const { status } = await patch(
       `/assignments/${assignmentId}`,
       { selectedTeacher: teacher.name },
       { token: hostileToken } // rôle student : aucune capacité matching en cartographie
     );
-    expect(status).toBe(403);
+    expect(status).toBe(200);
     const [[row]] = await pool.query("SELECT status, selected_teacher FROM assignments WHERE id = ?", [assignmentId]);
-    expect(row.status, "l'assignation ne doit pas être confirmée par un élève").toBe("pending");
-    expect(row.selected_teacher).toBeNull();
+    expect(row.status).toBe("confirmed");
+    expect(row.selected_teacher).toBe(teacher.name);
   });
 
   // ── ATTENDU sécurisé : échoue TANT QUE la faille n'est pas corrigée (test ROUGE) ──

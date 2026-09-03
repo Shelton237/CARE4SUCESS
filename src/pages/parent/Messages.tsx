@@ -44,19 +44,33 @@ export default function ParentMessages() {
         enabled: !!user?.id,
     });
 
-    // DYNAMIQUE : Messages réels
+    useEffect(() => {
+        if (!selectedContact && contacts.length > 0) {
+            setSelectedContact(contacts[0]);
+        }
+    }, [contacts, selectedContact]);
+
+    // DYNAMIQUE : Messages réels pour la conversation sélectionnée
     const { data: messages = [], isLoading: loadingMessages } = useQuery({
-        queryKey: ["messages", selectedContact?.id],
-        queryFn: () => fetchMessages(selectedContact.channels?.id || selectedContact.id),
-        enabled: !!selectedContact,
-        refetchInterval: 5000,
+        queryKey: ["messages", user?.id, selectedContact?.id],
+        queryFn: () => fetchMessages(user!.id, selectedContact!.id),
+        enabled: Boolean(user?.id && selectedContact?.id),
+        refetchInterval: 3000,
     });
+
+    const threadMessages = useMemo(() => {
+        if (!selectedContact || !user) return [];
+        return messages.filter((m: any) =>
+            (m.senderId === user.id && m.receiverId === selectedContact.id) ||
+            (m.receiverId === user.id && m.senderId === selectedContact.id)
+        );
+    }, [messages, selectedContact, user]);
 
     const sendMutation = useMutation({
         mutationFn: sendMessage,
         onSuccess: () => {
             setNewMessage("");
-            queryClient.invalidateQueries({ queryKey: ["messages", selectedContact?.id] });
+            queryClient.invalidateQueries({ queryKey: ["messages", user?.id, selectedContact?.id] });
         }
     });
 
@@ -236,8 +250,10 @@ export default function ParentMessages() {
                                 <div className="space-y-6 max-w-4xl mx-auto">
                                     {loadingMessages ? (
                                         <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-slate-200" /></div>
+                                    ) : threadMessages.length === 0 ? (
+                                        <div className="py-20 text-center text-slate-300 font-bold uppercase text-[10px]">Aucun message dans cette conversation. Écrivez votre premier message !</div>
                                     ) : (
-                                        messages.map((m: any) => {
+                                        threadMessages.map((m: any) => {
                                             const isMe = m.senderId === user?.id;
                                             return (
                                                 <div key={m.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>

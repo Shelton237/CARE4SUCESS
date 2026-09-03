@@ -147,8 +147,12 @@ function CreateGroupClassDialog({ open, onClose, teacherCurrency }: { open: bool
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const [form, setForm] = useState({
-        title: "", subject: "", description: "", sessionDate: "", sessionTime: "", price: "", maxParticipants: "10",
+        title: "", subject: "", description: "", sessionDate: "", sessionTime: "", sessionEndTime: "", price: "", maxParticipants: "10",
     });
+
+    const availableSubjects = Array.isArray(user?.teacherSubjects) && user.teacherSubjects.length > 0
+        ? user.teacherSubjects
+        : SUBJECTS;
 
     const createMutation = useMutation({
         mutationFn: (payload: CreateGroupClassPayload) => createGroupClass(payload),
@@ -157,23 +161,27 @@ function CreateGroupClassDialog({ open, onClose, teacherCurrency }: { open: bool
             toast.success("Cours groupé créé !");
             navigator.clipboard.writeText(data.publicUrl);
             toast.info("Le lien public a été copié dans le presse-papiers.");
-            setForm({ title: "", subject: "", description: "", sessionDate: "", sessionTime: "", price: "", maxParticipants: "10" });
+            setForm({ title: "", subject: "", description: "", sessionDate: "", sessionTime: "", sessionEndTime: "", price: "", maxParticipants: "10" });
             onClose();
         },
         onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Erreur lors de la création."),
     });
 
     const handleSubmit = () => {
-        if (!form.title.trim() || !form.subject || !form.sessionDate || !form.sessionTime || !form.price || !form.maxParticipants) {
-            toast.error("Merci de remplir tous les champs obligatoires.");
+        if (!form.title.trim() || !form.subject || !form.sessionDate || !form.sessionTime || !form.sessionEndTime || !form.price || !form.maxParticipants) {
+            toast.error("Merci de remplir tous les champs obligatoires (heure de début et fin requises).");
             return;
         }
+        const sessionTimeRange = form.sessionEndTime
+            ? `${form.sessionTime} - ${form.sessionEndTime}`
+            : form.sessionTime;
+
         createMutation.mutate({
             title: form.title.trim(),
             subject: form.subject,
             description: form.description.trim() || undefined,
             sessionDate: form.sessionDate,
-            sessionTime: form.sessionTime,
+            sessionTime: sessionTimeRange,
             price: parseFloat(form.price),
             maxParticipants: parseInt(form.maxParticipants, 10),
         });
@@ -199,7 +207,7 @@ function CreateGroupClassDialog({ open, onClose, teacherCurrency }: { open: bool
                                 className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 rounded-md font-bold text-[12px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8]"
                             >
                                 <option value="">— Choisir —</option>
-                                {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
                         <div className="space-y-1.5">
@@ -210,14 +218,22 @@ function CreateGroupClassDialog({ open, onClose, teacherCurrency }: { open: bool
                     <p className="text-[9px] text-slate-400 font-bold leading-relaxed -mt-1.5">
                         Le nombre de places est limité : une fois ce nombre de participants ayant payé atteint, toute nouvelle tentative d'inscription sur le lien public est automatiquement refusée ("Cours complet").
                     </p>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1.5">
                             <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date *</Label>
                             <Input type="date" value={form.sessionDate} onChange={e => setForm(f => ({ ...f, sessionDate: e.target.value }))} />
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Heure *</Label>
-                            <Input type="time" value={form.sessionTime} onChange={e => setForm(f => ({ ...f, sessionTime: e.target.value }))} />
+                            <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Heure début *</Label>
+                            <Input type="time" value={form.sessionTime} onChange={e => setForm(f => ({
+                                ...f,
+                                sessionTime: e.target.value,
+                                sessionEndTime: f.sessionEndTime || e.target.value,
+                            }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Heure fin *</Label>
+                            <Input type="time" value={form.sessionEndTime} min={form.sessionTime} onChange={e => setForm(f => ({ ...f, sessionEndTime: e.target.value }))} />
                         </div>
                     </div>
                     <div className="space-y-1.5">

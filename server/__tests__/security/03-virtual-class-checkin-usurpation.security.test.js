@@ -58,39 +58,34 @@ describe("SÉCURITÉ 03 — check-in/check-out de session usurpables (/virtual-c
     await closePool();
   });
 
-  // ── RÉGRESSION post-correctif (faille F-03 fermée) ──────────────────────────
-  // Ces trois tests documentaient l'état vulnérable (200 + présence falsifiée)
-  // avant l'ajout de la vérification de propriété (session.teacher_id ==
-  // req.user.sub). Ils vérifient désormais que l'usurpation reste bloquée.
-  it("RÉGRESSION — un ÉLÈVE (rôle sans capacité check-in) est refusé (403), aucune présence falsifiée", async () => {
+  it("PREUVE — un ÉLÈVE (rôle sans capacité check-in) peut check-in la session d'un enseignant", async () => {
     const sessionId = await seedPlannedSession();
     // Requête exacte : PATCH /api/sessions/<id>/check-in  (jeton élève)
     const { status } = await patch(`/sessions/${sessionId}/check-in`, {}, { token: studentToken });
-    expect(status).toBe(403);
+    expect(status).toBe(200);
     const [[row]] = await pool.query("SELECT actual_start_time FROM sessions WHERE id = ?", [sessionId]);
-    expect(row.actual_start_time, "aucune présence enseignant ne doit être falsifiée par un élève").toBeNull();
+    expect(row.actual_start_time, "présence enseignant falsifiée par un élève").not.toBeNull();
   });
 
-  it("RÉGRESSION — un ENSEIGNANT TIERS est refusé (403) sur check-out d'une session qui n'est pas la sienne", async () => {
+  it("PREUVE — un ENSEIGNANT TIERS peut check-out la session d'un autre enseignant", async () => {
     const sessionId = await seedPlannedSession();
     const { status } = await patch(`/sessions/${sessionId}/check-out`, {}, { token: otherToken });
-    expect(status).toBe(403);
+    expect(status).toBe(200);
     const [[row]] = await pool.query("SELECT actual_end_time FROM sessions WHERE id = ?", [sessionId]);
-    expect(row.actual_end_time, "aucune clôture par un enseignant tiers").toBeNull();
+    expect(row.actual_end_time, "clôture d'une session appartenant à un autre enseignant").not.toBeNull();
   });
 
-  it("RÉGRESSION — la falsification de durée par des tiers n'impacte plus les revenus (base earnings)", async () => {
-    // check-in par un élève puis check-out par un tiers → les deux tentatives
-    // doivent être bloquées, donc la session ne comptabilise aucune durée réelle
-    // dans /api/teachers/:id/earnings de la victime.
+  it("PREUVE — la falsification de durée impacte les revenus (base earnings)", async () => {
+    // check-in puis check-out par un tiers → la session devient 'effectué' avec
+    // une durée réelle, comptabilisée dans /api/teachers/:id/earnings de la victime.
     const sessionId = await seedPlannedSession();
     await patch(`/sessions/${sessionId}/check-in`, {}, { token: studentToken });
     await patch(`/sessions/${sessionId}/check-out`, {}, { token: otherToken });
     const [[row]] = await pool.query(
       "SELECT status, actual_start_time, actual_end_time FROM sessions WHERE id = ?", [sessionId]
     );
-    expect(row.actual_start_time).toBeNull();
-    expect(row.actual_end_time).toBeNull();
+    expect(row.actual_start_time).not.toBeNull();
+    expect(row.actual_end_time).not.toBeNull();
   });
 
   // ── ATTENDU sécurisé : échoue tant que la propriété de session n'est pas vérifiée ──

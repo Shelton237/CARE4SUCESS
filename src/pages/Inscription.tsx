@@ -1,33 +1,20 @@
 import React, { useState } from "react";
 import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2, CheckCircle2 } from "lucide-react";
+import {
+    User, Mail, Lock, Phone, UserPlus, GraduationCap,
+    CheckCircle, ArrowRight, Loader2, Plus, Trash2, ShieldCheck
+} from "lucide-react";
 import { GeoSelector } from "@/components/GeoSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { ROUTE_PATHS } from "@/lib";
-
-// Décodage local du payload d'un ID token Google, uniquement pour pré-remplir
-// l'affichage — la vérification cryptographique se fait exclusivement côté
-// serveur avant toute création de compte.
-function decodeGoogleIdTokenPayload(idToken: string): { email?: string; name?: string } {
-    try {
-        const [, payload] = idToken.split(".");
-        return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    } catch {
-        return {};
-    }
-}
 
 export default function Inscription() {
     const navigate = useNavigate();
-    const [step, setStep] = useState(0); // Step 0 for role selection
+    const [step, setStep] = useState(0);
     const [userType, setUserType] = useState<"parent" | "student">("parent");
     const [loading, setLoading] = useState(false);
-    const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         parentName: "",
         parentEmail: "",
@@ -44,7 +31,7 @@ export default function Inscription() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleChildChange = (id: number, field: string, value: string) => {
+    const handleChildChange = (id: number, field: string, value: any) => {
         setFormData({
             ...formData,
             children: formData.children.map(child =>
@@ -75,33 +62,15 @@ export default function Inscription() {
     const handleNext = () => setStep(step + 1);
     const handlePrev = () => setStep(step - 1);
 
-    const handleGoogleCredential = (idToken: string) => {
-        const payload = decodeGoogleIdTokenPayload(idToken);
-        setGoogleIdToken(idToken);
-        setFormData(prev => ({
-            ...prev,
-            parentName: payload.name || prev.parentName,
-            parentEmail: payload.email || prev.parentEmail,
-            parentPassword: "",
-        }));
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.children.some(c => !c.email)) {
             alert("Veuillez renseigner l'adresse email de chaque enfant.");
             return;
         }
-        if (!googleIdToken && !formData.parentPassword) {
-            alert("Veuillez saisir un mot de passe ou vous connecter avec Google.");
-            return;
-        }
-
         setLoading(true);
         try {
             const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
-
-            // Format data for backend
             const payload = {
                 parentName: formData.parentName,
                 parentEmail: formData.parentEmail,
@@ -109,7 +78,6 @@ export default function Inscription() {
                 parentPhone: formData.parentPhone,
                 parentLocation: formData.parentLocation || undefined,
                 parentGeoLocationId: formData.parentGeoLocationId ?? undefined,
-                googleIdToken: googleIdToken || undefined,
                 userType,
                 children: formData.children.map(c => ({
                     name: c.name,
@@ -119,15 +87,13 @@ export default function Inscription() {
                     subject: Array.isArray(c.subject) ? c.subject.join(", ") : c.subject
                 }))
             };
-
             const response = await fetch(`${API_BASE_URL}/parents/enroll`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-
             if (response.ok) {
-                setStep(4); // Success step
+                setStep(4);
             } else {
                 const err = await response.json();
                 alert(err.message || "Une erreur est survenue lors de l'enrôlement.");
@@ -140,336 +106,435 @@ export default function Inscription() {
         }
     };
 
+    const STEP_LABELS = userType === "parent"
+        ? ["Compte", "Enfants", "Validation"]
+        : ["Compte", "Scolarité", "Validation"];
+
     return (
-        <div className="min-h-screen pt-24 pb-12 bg-slate-50">
-            <div className="container mx-auto px-4 max-w-2xl">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-[#0D2D5A] mb-2">
-                        {step === 0 ? "Bienvenue sur Care4Success" : userType === "parent" ? "Inscription Parent" : "Inscription Élève"}
-                    </h1>
-                    <p className="text-slate-600">
-                        {step === 0 ? "Choisissez votre profil pour continuer" : "Rejoignez notre communauté éducative."}
-                    </p>
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+            {/* Brand bar */}
+            <div className="bg-[#0D2D5A] px-5 py-3.5 flex items-center gap-3 flex-shrink-0">
+                <div className="w-7 h-7 bg-[#F5A623] flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4 text-[#0D2D5A]" />
                 </div>
+                <span className="text-white font-black text-[11px] tracking-[0.25em] uppercase">Care4Success</span>
+                <div className="ml-auto text-[10px] text-blue-300 font-medium">
+                    Déjà membre ?{" "}
+                    <button onClick={() => navigate("/login")} className="text-[#F5A623] font-bold hover:underline underline-offset-2 cursor-pointer">
+                        Se connecter
+                    </button>
+                </div>
+            </div>
 
-                {/* Progress Bar (visible only after step 0) */}
-                {step > 0 && (
-                    <div className="flex justify-between mb-8 relative">
-                        <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0" />
-                        <div
-                            className="absolute top-1/2 left-0 h-1 bg-[#1A6CC8] -translate-y-1/2 z-0 transition-all duration-500"
-                            style={{ width: `${((step - 1) / 2) * 100}%` }}
-                        />
-                        {[1, 2, 3].map((s) => (
-                            <div
-                                key={s}
-                                className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${step >= s ? "bg-[#1A6CC8] text-white" : "bg-white text-slate-400 border-2 border-slate-200"
-                                    }`}
-                            >
-                                {step > s ? <CheckCircle className="w-6 h-6" /> : s}
-                            </div>
-                        ))}
+            <div className="flex-1 py-8 px-4">
+                <div className="max-w-lg mx-auto">
+                    {/* Title */}
+                    <div className="mb-6">
+                        <h1 className="text-[22px] font-black text-[#0D2D5A] leading-tight">
+                            {step === 0 ? "Créer un compte" : userType === "parent" ? "Inscription Parent" : "Inscription Élève"}
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-1">
+                            {step === 0
+                                ? "Choisissez votre type de compte pour commencer"
+                                : "Rejoignez la communauté Care4Success"}
+                        </p>
                     </div>
-                )}
 
-                <Card className="border-none shadow-xl overflow-hidden">
-                    <CardContent className="pt-8">
-                        {step === 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-                                <div
-                                    onClick={() => { setUserType("parent"); setStep(1); }}
-                                    className="group p-6 border-2 border-slate-100 rounded-2xl hover:border-[#1A6CC8] hover:bg-blue-50/50 cursor-pointer transition-all text-center space-y-4"
-                                >
-                                    <div className="w-16 h-16 bg-[#1A6CC8] text-white rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                                        <User className="w-8 h-8" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-[#0D2D5A]">Je suis un Parent</h3>
-                                        <p className="text-sm text-slate-500 mt-2">Je souhaite inscrire mon enfant pour un suivi personnalisé.</p>
-                                    </div>
-                                </div>
-
-                                <div
-                                    onClick={() => { setUserType("student"); setStep(1); }}
-                                    className="group p-6 border-2 border-slate-100 rounded-2xl hover:border-[#F5A623] hover:bg-orange-50/50 cursor-pointer transition-all text-center space-y-4"
-                                >
-                                    <div className="w-16 h-16 bg-[#F5A623] text-white rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                                        <GraduationCap className="w-8 h-8" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-[#0D2D5A]">Je suis un Élève</h3>
-                                        <p className="text-sm text-slate-500 mt-2">Je m'inscris moi-même pour booster mes résultats scolaires.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 1 && (
-                            <div className="space-y-6">
-                                <h2 className="text-xl font-semibold flex items-center gap-2">
-                                    <User className="text-[#1A6CC8]" /> {userType === "parent" ? "Informations Parent" : "Informations Responsable (Parent/Tuteur)"}
-                                </h2>
-
-                                {!googleIdToken && (
-                                    <>
-                                        <GoogleSignInButton onCredential={handleGoogleCredential} text="signup_with" />
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex-1 h-px bg-slate-200" />
-                                            <span className="text-xs font-semibold text-slate-400 uppercase">ou</span>
-                                            <div className="flex-1 h-px bg-slate-200" />
+                    {/* Progress stepper */}
+                    {step > 0 && step < 4 && (
+                        <div className="flex items-start mb-7">
+                            {STEP_LABELS.map((label, idx) => {
+                                const s = idx + 1;
+                                const active = step === s;
+                                const done = step > s;
+                                return (
+                                    <React.Fragment key={s}>
+                                        <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                                            <div className={`w-7 h-7 flex items-center justify-center text-xs font-black transition-colors ${done ? "bg-[#1A6CC8] text-white" : active ? "bg-[#0D2D5A] text-white" : "bg-slate-200 text-slate-400"}`}>
+                                                {done ? <CheckCircle className="w-3.5 h-3.5" /> : s}
+                                            </div>
+                                            <span className={`text-[9px] font-black uppercase tracking-wider text-center w-14 leading-tight ${active ? "text-[#0D2D5A]" : done ? "text-[#1A6CC8]" : "text-slate-400"}`}>
+                                                {label}
+                                            </span>
                                         </div>
-                                    </>
-                                )}
+                                        {idx < STEP_LABELS.length - 1 && (
+                                            <div className={`h-[2px] flex-1 mt-3.5 mx-1 transition-colors ${done ? "bg-[#1A6CC8]" : "bg-slate-200"}`} />
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </div>
+                    )}
 
-                                {googleIdToken && (
-                                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-                                        <span className="text-sm font-medium text-emerald-700 flex items-center gap-2">
-                                            <CheckCircle2 className="w-4 h-4" /> Connecté avec Google : {formData.parentEmail}
-                                        </span>
+                    {/* Main card */}
+                    <div className="bg-white border-t-[3px] border-[#F5A623] shadow-sm">
+                        <div className="p-6">
+
+                            {/* ── STEP 0 : Sélection du rôle ── */}
+                            {step === 0 && (
+                                <div className="space-y-3">
+                                    <button
+                                        onClick={() => { setUserType("parent"); setStep(1); }}
+                                        className="w-full p-4 border-2 border-slate-100 hover:border-[#1A6CC8] hover:bg-blue-50/30 transition-all text-left group flex items-center gap-4 cursor-pointer"
+                                    >
+                                        <div className="w-10 h-10 bg-[#0D2D5A] flex items-center justify-center flex-shrink-0 group-hover:bg-[#1A6CC8] transition-colors">
+                                            <User className="w-5 h-5 text-[#F5A623]" />
+                                        </div>
+                                        <div className="flex-1 text-left">
+                                            <p className="font-black text-[#0D2D5A] text-sm">Je suis un Parent</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">J'inscris mon enfant pour un suivi personnalisé</p>
+                                        </div>
+                                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#1A6CC8] transition-colors flex-shrink-0" />
+                                    </button>
+
+                                    <button
+                                        onClick={() => { setUserType("student"); setStep(1); }}
+                                        className="w-full p-4 border-2 border-slate-100 hover:border-[#F5A623] hover:bg-orange-50/30 transition-all text-left group flex items-center gap-4 cursor-pointer"
+                                    >
+                                        <div className="w-10 h-10 bg-amber-50 border border-[#F5A623]/30 flex items-center justify-center flex-shrink-0 group-hover:bg-[#F5A623] transition-colors">
+                                            <GraduationCap className="w-5 h-5 text-[#F5A623] group-hover:text-white transition-colors" />
+                                        </div>
+                                        <div className="flex-1 text-left">
+                                            <p className="font-black text-[#0D2D5A] text-sm">Je suis un Élève</p>
+                                            <p className="text-xs text-slate-500 mt-0.5">Je m'inscris pour booster mes résultats scolaires</p>
+                                        </div>
+                                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#F5A623] transition-colors flex-shrink-0" />
+                                    </button>
+
+                                    <div className="flex items-center gap-2 pt-3 border-t border-slate-100 text-[10px] text-slate-400">
+                                        <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
+                                        <span>Inscription gratuite — Aucune carte bancaire requise</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── STEP 1 : Informations du compte ── */}
+                            {step === 1 && (
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            {userType === "parent" ? "Nom complet (Parent / Tuteur)" : "Votre nom complet"}
+                                        </label>
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                                            <Input
+                                                className="pl-9 h-11 rounded-none border-slate-200 focus-visible:ring-[#1A6CC8]"
+                                                name="parentName"
+                                                placeholder={userType === "parent" ? "Ex: Jean Dupont" : "Votre nom complet"}
+                                                value={formData.parentName}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Adresse email</label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                                            <Input
+                                                className="pl-9 h-11 rounded-none border-slate-200 focus-visible:ring-[#1A6CC8]"
+                                                type="email"
+                                                name="parentEmail"
+                                                placeholder="votre@email.com"
+                                                value={formData.parentEmail}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Téléphone</label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                                            <Input
+                                                className="pl-9 h-11 rounded-none border-slate-200 focus-visible:ring-[#1A6CC8]"
+                                                name="parentPhone"
+                                                placeholder="+237 6XX XXX XXX"
+                                                value={formData.parentPhone}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mot de passe</label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                                            <Input
+                                                className="pl-9 h-11 rounded-none border-slate-200 focus-visible:ring-[#1A6CC8]"
+                                                type="password"
+                                                name="parentPassword"
+                                                placeholder="••••••••"
+                                                value={formData.parentPassword}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-slate-400">Minimum 8 caractères recommandés</p>
+                                    </div>
+
+                                    <div className="border-t border-slate-100 pt-4">
+                                        <GeoSelector
+                                            label="Ville / Quartier"
+                                            onChange={(geoId, path) => {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    parentGeoLocationId: geoId,
+                                                    parentLocation: path,
+                                                }));
+                                            }}
+                                            hint="Permet de vous suggérer les enseignants les plus proches de chez vous."
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
                                         <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => { setGoogleIdToken(null); setFormData(prev => ({ ...prev, parentEmail: "" })); }}
+                                            variant="outline"
+                                            className="rounded-none border-slate-200 text-slate-600 hover:bg-slate-50"
+                                            onClick={() => setStep(0)}
                                         >
-                                            Changer
+                                            ← Retour
+                                        </Button>
+                                        <Button
+                                            className="flex-1 bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white rounded-none h-11 font-black text-[10px] tracking-widest uppercase"
+                                            onClick={handleNext}
+                                        >
+                                            {userType === "parent" ? "Mes enfants" : "Ma scolarité"}
+                                            <ArrowRight className="w-4 h-4 ml-2" />
                                         </Button>
                                     </div>
-                                )}
+                                </div>
+                            )}
 
-                                <div className="grid gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Nom complet</label>
-                                        <div className="relative">
-                                            <User className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                            <Input className="pl-10" name="parentName" placeholder={userType === "parent" ? "Ex: Jean Dupont" : "Nom du parent ou tuteur"} value={formData.parentName} onChange={handleChange} />
-                                        </div>
-                                    </div>
-                                    {!googleIdToken && (
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Email de connexion</label>
-                                            <div className="relative">
-                                                <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                                <Input className="pl-10" type="email" name="parentEmail" placeholder="votre@email.com" value={formData.parentEmail} onChange={handleChange} />
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className={googleIdToken ? "" : "grid grid-cols-2 gap-4"}>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Téléphone</label>
-                                            <div className="relative">
-                                                <Phone className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                                <Input className="pl-10" name="parentPhone" placeholder="+237 ..." value={formData.parentPhone} onChange={handleChange} />
-                                            </div>
-                                        </div>
-                                        {!googleIdToken && (
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium">Mot de passe</label>
-                                                <div className="relative">
-                                                    <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                                    <Input className="pl-10" type="password" name="parentPassword" placeholder="••••••••" value={formData.parentPassword} onChange={handleChange} />
-                                                </div>
-                                            </div>
+                            {/* ── STEP 2 : Informations enfants / scolaires ── */}
+                            {step === 2 && (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            {userType === "parent" ? "Informations des enfants" : "Informations scolaires"}
+                                        </p>
+                                        {userType === "parent" && (
+                                            <button
+                                                type="button"
+                                                onClick={addChild}
+                                                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#1A6CC8] hover:text-[#0D2D5A] transition-colors cursor-pointer"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" /> Ajouter
+                                            </button>
                                         )}
                                     </div>
-                                    <GeoSelector
-                                        label="Ville / Quartier"
-                                        onChange={(geoId, path) => {
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                parentGeoLocationId: geoId,
-                                                parentLocation: path,
-                                            }));
-                                        }}
-                                        hint="Permet de vous suggérer les enseignants les plus proches de chez vous."
-                                    />
-                                </div>
-                                <div className="flex gap-4">
-                                    <Button variant="ghost" onClick={() => setStep(0)}>Changer de profil</Button>
-                                    <Button className="flex-1 bg-[#1A6CC8] hover:bg-[#0D2D5A]" onClick={handleNext}>
-                                        {userType === "parent" ? "Continuer vers l'enfant" : "Mes informations scolaires"} <ArrowRight className="w-4 h-4 ml-2" />
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
 
-                        {step === 2 && (
-                            <div className="space-y-6">
-                                <h2 className="text-xl font-bold text-[#0D2D5A] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-2 bg-[#1A6CC8]/10 rounded-lg text-[#1A6CC8]">
-                                            <GraduationCap className="w-5 h-5" />
-                                        </div>
-                                        {userType === "parent" ? "Informations des enfants" : "Informations scolaires"}
-                                    </div>
-                                    {userType === "parent" && (
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            onClick={addChild}
-                                            className="text-xs font-bold border-dashed border-2 border-[#1A6CC8]/50 text-[#1A6CC8] hover:bg-[#1A6CC8]/5"
-                                        >
-                                            <Plus className="w-4 h-4 mr-1" /> Ajouter un enfant
-                                        </Button>
-                                    )}
-                                </h2>
-                                
-                                <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {formData.children.map((child, index) => (
-                                        <div key={child.id} className="p-5 rounded-2xl border-2 border-slate-100 bg-white shadow-sm hover:border-[#1A6CC8]/30 transition-colors space-y-5 relative">
-                                            {userType === "parent" && (
-                                                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                                                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                        <User className="w-3.5 h-3.5" /> Enfant #{index + 1}
-                                                    </span>
-                                                    {formData.children.length > 1 && (
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="sm" 
-                                                            onClick={() => removeChild(child.id)}
-                                                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            )}
-                                            
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-slate-600">{userType === "parent" ? "Nom de l'enfant" : "Mon nom complet"}</label>
-                                                    <div className="relative">
-                                                        <Input 
-                                                            className="h-11 bg-slate-50/50"
-                                                            placeholder={userType === "parent" ? "Ex: Marie Dupont" : "Votre nom complet"} 
-                                                            value={child.name} 
-                                                            onChange={(e) => handleChildChange(child.id, "name", e.target.value)} 
+                                    <div className="space-y-3 max-h-[440px] overflow-y-auto">
+                                        {formData.children.map((child, index) => (
+                                            <div
+                                                key={child.id}
+                                                className="border-l-4 border-[#1A6CC8] bg-slate-50/70 p-4 space-y-3"
+                                            >
+                                                {userType === "parent" && (
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#1A6CC8]">
+                                                            Enfant #{index + 1}
+                                                        </span>
+                                                        {formData.children.length > 1 && (
+                                                            <button
+                                                                onClick={() => removeChild(child.id)}
+                                                                className="p-1 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                            {userType === "parent" ? "Nom de l'enfant" : "Mon nom"}
+                                                        </label>
+                                                        <Input
+                                                            className="h-10 rounded-none bg-white border-slate-200"
+                                                            placeholder={userType === "parent" ? "Marie Dupont" : "Votre nom"}
+                                                            value={child.name}
+                                                            onChange={(e) => handleChildChange(child.id, "name", e.target.value)}
                                                         />
                                                     </div>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-slate-600">Email (Obligatoire)</label>
-                                                    <div className="relative">
-                                                        <Input 
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                            Email <span className="text-red-400">*</span>
+                                                        </label>
+                                                        <Input
+                                                            className="h-10 rounded-none bg-white border-slate-200"
                                                             type="email"
                                                             required
-                                                            className="h-11 bg-slate-50/50"
-                                                            placeholder={userType === "parent" ? "email.enfant@exemple.com" : "votre@email.com"} 
-                                                            value={child.email} 
-                                                            onChange={(e) => handleChildChange(child.id, "email", e.target.value)} 
+                                                            placeholder="email@exemple.com"
+                                                            value={child.email}
+                                                            onChange={(e) => handleChildChange(child.id, "email", e.target.value)}
                                                         />
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-slate-600">Niveau scolaire</label>
-                                                <select
-                                                    className="flex h-11 w-full rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1A6CC8]/50 focus:border-[#1A6CC8] transition-all"
-                                                    value={child.level}
-                                                    onChange={(e) => handleChildChange(child.id, "level", e.target.value)}
-                                                >
-                                                    {ALL_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                                                </select>
-                                            </div>
-                                            
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-600">Matières prioritaires (plusieurs choix possibles)</label>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {ALL_SUBJECTS.map(sub => {
-                                                        const isSelected = Array.isArray(child.subject) && child.subject.includes(sub);
-                                                        return (
-                                                            <button
-                                                                key={sub}
-                                                                type="button"
-                                                                className={`px-3 py-2 text-[11px] font-bold rounded-lg border transition-all ${isSelected ? 'bg-[#1A6CC8] text-white border-[#1A6CC8] shadow-md shadow-[#1A6CC8]/20' : 'bg-white text-slate-600 border-slate-200 hover:border-[#1A6CC8]/50 hover:bg-blue-50'}`}
-                                                                onClick={() => {
-                                                                    const currentSubjects = Array.isArray(child.subject) ? child.subject : [];
-                                                                    const newSubjects = isSelected 
-                                                                        ? currentSubjects.filter(s => s !== sub) 
-                                                                        : [...currentSubjects, sub];
-                                                                    handleChildChange(child.id, "subject", newSubjects);
-                                                                }}
-                                                            >
-                                                                {sub}
-                                                            </button>
-                                                        );
-                                                    })}
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Niveau scolaire</label>
+                                                    <select
+                                                        className="flex h-10 w-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#1A6CC8] focus:border-[#1A6CC8] transition-colors"
+                                                        value={child.level}
+                                                        onChange={(e) => handleChildChange(child.id, "level", e.target.value)}
+                                                    >
+                                                        {ALL_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                                                    </select>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Matières prioritaires</label>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {ALL_SUBJECTS.map(sub => {
+                                                            const isSelected = Array.isArray(child.subject) && child.subject.includes(sub);
+                                                            return (
+                                                                <button
+                                                                    key={sub}
+                                                                    type="button"
+                                                                    className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide border transition-all cursor-pointer ${isSelected
+                                                                        ? "bg-[#1A6CC8] text-white border-[#1A6CC8]"
+                                                                        : "bg-white text-slate-500 border-slate-200 hover:border-[#1A6CC8] hover:text-[#1A6CC8]"}`}
+                                                                    onClick={() => {
+                                                                        const currentSubjects = Array.isArray(child.subject) ? child.subject : [];
+                                                                        const newSubjects = isSelected
+                                                                            ? currentSubjects.filter(s => s !== sub)
+                                                                            : [...currentSubjects, sub];
+                                                                        handleChildChange(child.id, "subject", newSubjects);
+                                                                    }}
+                                                                >
+                                                                    {sub}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="flex gap-4">
-                                    <Button variant="outline" className="w-1/2" onClick={handlePrev}>Retour</Button>
-                                    <Button className="w-1/2 bg-[#1A6CC8] hover:bg-[#0D2D5A]" onClick={handleNext}>Suivant</Button>
-                                </div>
-                            </div>
-                        )}
+                                        ))}
+                                    </div>
 
-                        {step === 3 && (
-                            <div className="space-y-6 text-center">
-                                <div className="p-4 bg-blue-50 rounded-lg text-left text-sm text-blue-800 space-y-2">
-                                    <strong>Résumé :</strong><br />
-                                    <div className="flex justify-between">
-                                        <span>Responsable :</span>
-                                        <span className="font-bold">{formData.parentName}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Contact :</span>
-                                        <span className="font-bold">{formData.parentPhone}</span>
-                                    </div>
-                                    <div className="pt-2 border-t border-blue-100">
-                                        <span className="font-bold">{formData.children.length} Enfant(s) inscrit(s) :</span>
-                                        <ul className="mt-2 space-y-1 pl-4 list-disc">
-                                            {formData.children.map((c, i) => (
-                                                <li key={i}>{c.name} ({c.level}) - {c.subject}</li>
-                                            ))}
-                                        </ul>
+                                    <div className="flex gap-3 pt-2">
+                                        <Button
+                                            variant="outline"
+                                            className="rounded-none border-slate-200"
+                                            onClick={handlePrev}
+                                        >
+                                            ← Retour
+                                        </Button>
+                                        <Button
+                                            className="flex-1 bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white rounded-none h-11 font-black text-[10px] tracking-widest uppercase"
+                                            onClick={handleNext}
+                                        >
+                                            Suivant <ArrowRight className="w-4 h-4 ml-2" />
+                                        </Button>
                                     </div>
                                 </div>
-                                <div className="space-y-4">
-                                    <label className="text-sm font-medium text-slate-500">Mode de paiement préféré</label>
-                                    <div className="flex justify-center gap-4">
-                                        <div className="p-4 border rounded-lg cursor-pointer hover:border-[#1A6CC8] transition-colors bg-white">
-                                            <img src="https://upload.wikimedia.org/wikipedia/commons/9/93/Orange-logo.svg" alt="Orange" className="w-12 h-12 object-contain" />
-                                        </div>
-                                        <div className="p-4 border rounded-lg cursor-pointer hover:border-[#1A6CC8] transition-colors bg-white">
-                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/MTN_Logo.svg/1024px-MTN_Logo.svg.png" alt="MTN" className="w-12 h-12 object-contain" />
+                            )}
+
+                            {/* ── STEP 3 : Confirmation ── */}
+                            {step === 3 && (
+                                <div className="space-y-5">
+                                    <div className="bg-[#0D2D5A]/5 border border-[#0D2D5A]/10 p-4 space-y-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-[#0D2D5A]">Récapitulatif</p>
+                                        <div className="space-y-0">
+                                            <div className="flex justify-between items-center py-2 border-b border-[#0D2D5A]/10">
+                                                <span className="text-xs text-slate-500">Responsable</span>
+                                                <span className="text-xs font-bold text-[#0D2D5A]">{formData.parentName}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-2 border-b border-[#0D2D5A]/10">
+                                                <span className="text-xs text-slate-500">Téléphone</span>
+                                                <span className="text-xs font-bold text-[#0D2D5A]">{formData.parentPhone}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-2 border-b border-[#0D2D5A]/10">
+                                                <span className="text-xs text-slate-500">Email</span>
+                                                <span className="text-xs font-bold text-[#0D2D5A] truncate max-w-[180px]">{formData.parentEmail}</span>
+                                            </div>
+                                            <div className="pt-2">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                    {formData.children.length} Enfant{formData.children.length > 1 ? "s" : ""} inscrit{formData.children.length > 1 ? "s" : ""}
+                                                </span>
+                                                <ul className="mt-2 space-y-1">
+                                                    {formData.children.map((c, i) => (
+                                                        <li key={i} className="text-xs text-slate-600 flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 bg-[#1A6CC8] flex-shrink-0" />
+                                                            <span>{c.name || `Enfant ${i + 1}`} — <span className="text-slate-400">{c.level}</span></span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
-                                    <p className="text-xs text-slate-400 italic">Un conseiller Care4Success vous contactera pour valider votre dossier.</p>
+
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mode de paiement préféré</p>
+                                        <div className="flex gap-3">
+                                            <div className="flex-1 p-3 border border-slate-200 hover:border-[#F5A623] cursor-pointer transition-colors flex items-center justify-center h-14">
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/9/93/Orange-logo.svg" alt="Orange Money" className="h-7 w-auto object-contain" />
+                                            </div>
+                                            <div className="flex-1 p-3 border border-slate-200 hover:border-[#F5A623] cursor-pointer transition-colors flex items-center justify-center h-14">
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/MTN_Logo.svg/1024px-MTN_Logo.svg.png" alt="MTN Mobile Money" className="h-7 w-auto object-contain" />
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 leading-relaxed">
+                                            Un conseiller Care4Success vous contactera pour finaliser votre dossier d'inscription.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <Button
+                                            variant="outline"
+                                            className="rounded-none border-slate-200"
+                                            onClick={handlePrev}
+                                            disabled={loading}
+                                        >
+                                            ← Retour
+                                        </Button>
+                                        <Button
+                                            className="flex-1 bg-[#F5A623] hover:bg-[#d48c1f] text-[#0D2D5A] rounded-none h-11 font-black text-[10px] tracking-widest uppercase"
+                                            onClick={handleSubmit}
+                                            disabled={loading}
+                                        >
+                                            {loading
+                                                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Envoi…</>
+                                                : <><UserPlus className="w-4 h-4 mr-2" /> Confirmer l'inscription</>
+                                            }
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-4">
-                                    <Button variant="outline" className="w-1/2" onClick={handlePrev} disabled={loading}>Retour</Button>
+                            )}
+
+                            {/* ── STEP 4 : Succès ── */}
+                            {step === 4 && (
+                                <div className="text-center py-6 space-y-5">
+                                    <div className="w-14 h-14 bg-[#0D2D5A] flex items-center justify-center mx-auto">
+                                        <CheckCircle className="w-7 h-7 text-[#F5A623]" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h2 className="text-xl font-black text-[#0D2D5A]">Félicitations !</h2>
+                                        <p className="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
+                                            Votre compte {userType === "parent" ? "parent" : "élève"} a bien été créé. Un conseiller vous appellera au{" "}
+                                            <strong className="text-[#0D2D5A]">{formData.parentPhone}</strong> pour finaliser votre accompagnement.
+                                        </p>
+                                    </div>
                                     <Button
-                                        className="w-1/2 bg-[#F5A623] hover:bg-[#d48c1f] text-white"
-                                        onClick={handleSubmit}
-                                        disabled={loading}
+                                        className="bg-[#0D2D5A] hover:bg-[#1A6CC8] text-white rounded-none font-black text-[10px] tracking-widest uppercase px-8 h-11"
+                                        onClick={() => navigate("/login")}
                                     >
-                                        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                                        Confirmer l'inscription
+                                        Se connecter <ArrowRight className="w-4 h-4 ml-2" />
                                     </Button>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
+                    </div>
 
-                        {step === 4 && (
-                            <div className="text-center py-8 space-y-6 animate-in fade-in zoom-in duration-500">
-                                <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                                    <CheckCircle className="w-12 h-12" />
-                                </div>
-                                <h2 className="text-2xl font-bold text-[#0D2D5A]">Félicitations !</h2>
-                                <p className="text-slate-600">
-                                    Votre compte {userType === "parent" ? "parent" : "élève"} a été créé avec succès. Un conseiller va vous appeler sur le <strong>{formData.parentPhone}</strong> pour finaliser votre accompagnement.
-                                </p>
-                                <Button className="bg-[#1A6CC8]" onClick={() => navigate("/login")}>
-                                    Se connecter maintenant
-                                </Button>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                    {/* Trust footer */}
+                    {step < 4 && (
+                        <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-slate-400">
+                            <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>Vos données sont protégées et ne sont jamais partagées avec des tiers</span>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

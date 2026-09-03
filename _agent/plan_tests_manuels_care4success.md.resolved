@@ -1,0 +1,96 @@
+# 📋 Plan de Tests Manuels — Care4Success
+**URL :** https://care4success.usra-care.com/  
+**Connexion Admin :** `admin@care4success.cm` / `admin`
+
+---
+
+## 🔑 Comptes à Créer
+
+| Rôle | Nom suggéré | Email | Mot de passe |
+|---|---|---|---|
+| **Super Admin** | *(déjà existant)* | `admin@care4success.cm` | `admin` |
+| **Professeur** | Saturin Penlap | `penlapsaturin@gmail.com` | `prof2024` |
+| **Parent** | Lesatur Tech | `lesaturtech@yahoo.com` | `parent2024` |
+| **Élève 1** | Élève Tech Satur | `techsatur@gmail.com` | `eleve2024` |
+| **Élève 2** | Élève Lesatur | `lesaturtech@gmail.com` | `eleve2024` |
+| **Conseiller** | Tech Shelton | `techshelton@gmail.com` | `conseil2024` |
+
+---
+
+## 🧪 SCÉNARIO 1 — Création du Professeur & Validation
+
+### Étape 1.1 — Inscription du Professeur
+> **Connexion :** Déconnecter l'admin. Aller sur la page **Inscription/Candidature Prof**.
+
+1. [ ] Aller sur https://care4success.usra-care.com/#/apply (ou lien candidature)
+2. [ ] Remplir le formulaire :
+   - **Nom complet :** Saturin Penlap
+   - **Email :** `penlapsaturin@gmail.com`
+   - **Téléphone :** *(au choix)*
+   - **Matières :** Mathématiques, Physique
+   - **Années d'expérience :** 5
+   - **Disponibilités :** Lundi, Mercredi, Vendredi
+   - **Motivation :** `Je suis passionné par la transmission du savoir et je souhaite accompagner les élèves dans leur réussite scolaire.`
+3. [ ] Soumettre le formulaire
+4. [ ] ✅ **Vérifier :** Un message de confirmation s'affiche
+
+### Étape 1.2 — Validation par l'Admin
+> **Connexion :** `admin@care4success.cm` / `admin`
+
+1. [ ] Aller dans **"Candidatures profs"** (menu Admin)
+2. [ ] Trouver la candidature de **Saturin Penlap**
+3. [ ] Cliquer sur **"Réviser"**
+4. [ ] Choisir le type de contrat : **Forfait mensuel**
+5. [ ] Saisir le montant (ex : `50 000 FCFA`)
+6. [ ] Cliquer **"Approuver"**
+7. [ ] ✅ **Vérifier :** Statut passe à **"Approuvé"**
+8. [ ] ✅ **Vérifier :** Un email est envoyé à `penlapsaturin@gmail.com` avec ses identifiants
+
+---
+
+## 🧪 SCÉNARIO 2 — Création du Parent & des Élèves
+
+### Étape 2.1 — Créer le compte Parent
+1. [ ] Aller dans **"Profils utilisateurs"** (ou Gestion des comptes)
+2. [ ] Créer le compte pour **Lesatur Tech** (`lesaturtech@yahoo.com`)
+3. [ ] ✅ **Vérifier :** Le compte parent est actif
+
+### Étape 2.2 — Créer les Élèves
+1. [ ] Créer **Élève Tech Satur** (`techsatur@gmail.com`) et le lier au parent.
+2. [ ] Créer **Élève Lesatur** (`lesaturtech@gmail.com`) et le lier au parent.
+3. [ ] ✅ **Vérifier :** Les 2 élèves apparaissent dans le profil du parent.
+
+---
+
+## 🧪 SCÉNARIO 3 — Matching Professeur ↔ Élèves
+
+> **Connexion :** `admin@care4success.cm` / `admin`
+
+1. [ ] Aller dans **"Gestion des élèves"** ou **"Relations"** (Élèves & Familles)
+2. [ ] Sélectionner l'élève **Élève Tech Satur** (`techsatur@gmail.com`)
+3. [ ] Associer le professeur : **Saturin Penlap** (`penlapsaturin@gmail.com`)
+4. [ ] Répéter pour l'élève **Élève Lesatur** (`lesaturtech@gmail.com`)
+5. [ ] ✅ **Vérifier :** Les 2 élèves apparaissent dans le tableau de bord du professeur
+
+---
+
+## 🧪 SCÉNARIO 4 — Le Professeur Crée un Cours & Jitsi
+
+1. [ ] Se connecter en tant que **Saturin Penlap**
+2. [ ] Créer un cours en ligne (Mode Jitsi)
+3. [ ] ✅ **Vérifier :** Le lien Jitsi est généré.
+
+---
+
+## ✅ Récapitulatif des Points de Validation
+
+| # | Test | Attendu | Résultat |
+|---|---|---|---|
+| 1 | Inscription prof | Formulaire soumis avec succès | ⬜ |
+| 2 | Validation admin du prof | Statut "Approuvé" + email envoyé | ⬜ |
+| 3 | Matching prof ↔ élèves | Élèves visibles chez le prof | ⬜ |
+| 4 | Dashboard Parent | Les 2 enfants sont visibles | ⬜ |
+
+---
+
+*Document mis à jour le 14 mai 2026 — Care4Success*

@@ -41,14 +41,14 @@ export function Layout({ children }: LayoutProps) {
         <div className="container mx-auto px-6 flex items-center justify-between h-full">
           <div className="flex items-center gap-2 text-[11px] text-white/80">
             <MapPin className="w-3 h-3 text-[#F5A623] shrink-0" />
-            <span>15 centres au Cameroun</span>
+            <span>Présents dans 15 pays africains</span>
             <span className="opacity-30 mx-2">·</span>
             <a href="tel:+237675252048" className="flex items-center gap-1 hover:text-[#F5A623] transition-colors font-semibold">
               <Phone className="w-3 h-3" />+237 675 252 048
             </a>
             <span className="opacity-30 mx-2">·</span>
-            <a href="mailto:contact@care4success.cm" className="hover:text-[#F5A623] transition-colors">
-              contact@care4success.cm
+            <a href="mailto:contact@usra-care.com" className="hover:text-[#F5A623] transition-colors">
+              contact@usra-care.com
             </a>
           </div>
           <div className="flex items-center gap-4 text-[11px]">
@@ -264,15 +264,15 @@ export function Layout({ children }: LayoutProps) {
                 </li>
                 <li className="flex items-start gap-2.5">
                   <Mail className="w-3.5 h-3.5 mt-0.5 text-[#F5A623] shrink-0" />
-                  <a href="mailto:contact@care4success.cm" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
-                    contact@care4success.cm
+                  <a href="mailto:contact@usra-care.com" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
+                    contact@usra-care.com
                   </a>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <MapPin className="w-3.5 h-3.5 mt-0.5 text-[#F5A623] shrink-0" />
                   <div className="text-sm text-blue-200/70">
                     <p className="font-semibold text-white">Douala 5ᵉ, Makepe Bloc L</p>
-                    <p>Cameroun</p>
+                    <p>Cameroun · Réseau panafricain</p>
                   </div>
                 </li>
               </ul>
@@ -285,9 +285,9 @@ export function Layout({ children }: LayoutProps) {
           <div className="border-t border-white/8 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
             <p className="text-xs text-blue-300/50">© 2026 Care4Success. Tous droits réservés.</p>
             <div className="flex gap-6 text-xs text-blue-300/50">
-              {["Mentions légales", "Confidentialité", "CGV"].map(item => (
-                <a key={item} href="#" className="hover:text-[#F5A623] transition-colors">{item}</a>
-              ))}
+              <a href="#" className="hover:text-[#F5A623] transition-colors">Mentions légales</a>
+              <NavLink to={ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE} className="hover:text-[#F5A623] transition-colors">Confidentialité</NavLink>
+              <a href="#" className="hover:text-[#F5A623] transition-colors">CGV</a>
             </div>
           </div>
         </div>

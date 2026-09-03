@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
+import { IMAGES } from "@/assets/images";
 
 const PLANS = [
   {
@@ -118,6 +119,10 @@ const FAQ = [
     q: "Y a-t-il un engagement de durée ?",
     a: "Aucun. Vous pouvez arrêter à tout moment, sans préavis ni pénalité.",
   },
+  {
+    q: "Je suis dans un pays hors zone FCFA, quel tarif s'applique ?",
+    a: "Nos tarifs de référence sont en FCFA pour la zone CFA (Cameroun, Sénégal, Côte d'Ivoire, Gabon, etc.). Pour Madagascar, les Comores, la Guinée ou tout autre pays, nos conseillers établissent un équivalent en ariary, franc guinéen ou en USD. Contactez-nous pour un devis adapté à votre pays.",
+  },
 ];
 
 export default function Pricing() {
@@ -125,7 +130,9 @@ export default function Pricing() {
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative bg-[#0D2D5A] py-24 overflow-hidden">
+      <section className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${IMAGES.ONLINE_LEARNING_1})` }} />
+        <div className="absolute inset-0 bg-[#0D2D5A]/78" />
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
         <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-[#F5A623]/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -137,7 +144,7 @@ export default function Pricing() {
               <span className="text-[#F5A623]">sans mauvaise surprise</span>
             </h1>
             <p className="text-blue-200 text-lg max-w-xl mx-auto mb-6">
-              Tarifs au tarif horaire net. Aucun frais d'inscription. Annulation libre. Résultats garantis.
+              Tarifs de référence en FCFA (zone CFA). Équivalents disponibles pour tous nos 15 pays. Aucun frais d'inscription. Annulation libre.
             </p>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/30 text-[#F5A623] text-sm font-bold">
               <Star className="w-4 h-4" /> +4 pts garantis en 6 mois — ou remboursé
