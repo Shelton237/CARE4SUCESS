@@ -487,6 +487,7 @@ export interface TeacherSlotManage {
     startTime: string;
     endTime: string;
     status: "open" | "booked" | "cancelled";
+    posterUrl: string | null;
 }
 
 export const fetchTeacherSlotsManage = (teacherId: string) =>
@@ -500,6 +501,18 @@ export const createTeacherSlot = (teacherId: string, payload: { startTime: strin
 
 export const deleteTeacherSlot = (teacherId: string, slotId: string) =>
     request<{ success: boolean }>(`/teachers/${teacherId}/slots/${slotId}`, { method: "DELETE" });
+
+export const uploadSlotPoster = (teacherId: string, slotId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("poster", file);
+    return request<{ posterUrl: string }>(`/teachers/${teacherId}/slots/${slotId}/poster`, {
+        method: "POST",
+        body: formData,
+    });
+};
+
+export const deleteSlotPoster = (teacherId: string, slotId: string) =>
+    request<{ success: boolean }>(`/teachers/${teacherId}/slots/${slotId}/poster`, { method: "DELETE" });
 
 export const fetchTeacherContacts = (teacherId: string) =>
     request<any[]>(`/teachers/${teacherId}/contacts`);

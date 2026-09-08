@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     fetchScheduleByRole, sessionCheckIn, sessionCheckOut, fetchTeacherStudents, createSession, fetchCourses,
-    fetchTeacherSlotsManage, createTeacherSlot, deleteTeacherSlot,
+    fetchTeacherSlotsManage, createTeacherSlot, deleteTeacherSlot, uploadSlotPoster, deleteSlotPoster,
 } from "@/api/backoffice";
-import type { CreateSessionPayload } from "@/api/backoffice";
+import type { CreateSessionPayload, TeacherSlotManage } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
-import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi, Trash2 } from "lucide-react";
+import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi, Trash2, Image, X } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -933,6 +933,9 @@ function TeacherSlotsManager({ teacherId }: { teacherId: string }) {
         .filter(s => new Date(s.startTime) > new Date())
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
+    const [posterSlot, setPosterSlot] = useState<TeacherSlotManage | null>(null);
+    const [posterUploading, setPosterUploading] = useState(false);
+
     const STATUS_LABEL: Record<string, string> = { open: "Disponible", booked: "Réservé", cancelled: "Annulé" };
     const STATUS_STYLE: Record<string, string> = {
         open: "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -941,6 +944,7 @@ function TeacherSlotsManager({ teacherId }: { teacherId: string }) {
     };
 
     return (
+        <>
         <div className="border border-slate-200 bg-white">
             <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between">
                 <div>
@@ -995,36 +999,192 @@ function TeacherSlotsManager({ teacherId }: { teacherId: string }) {
                 ) : (
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {upcomingSlots.map(slot => (
-                            <div key={slot.id} className="p-2.5 border border-slate-100 flex items-center justify-between gap-2">
-                                <div>
-                                    <p className="text-[10px] font-black text-[#0D2D5A]">
-                                        {new Date(slot.startTime).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
-                                    </p>
-                                    <p className="text-[9px] text-slate-500 flex items-center gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        {new Date(slot.startTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                                        {" – "}
-                                        {new Date(slot.endTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                                    </p>
-                                    <span className={`inline-block mt-1 text-[8px] font-black px-1.5 py-0.5 rounded-full border uppercase ${STATUS_STYLE[slot.status]}`}>
-                                        {STATUS_LABEL[slot.status]}
-                                    </span>
+                            <div key={slot.id} className="p-2.5 border border-slate-100 flex flex-col gap-2">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-black text-[#0D2D5A]">
+                                            {new Date(slot.startTime).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                                        </p>
+                                        <p className="text-[9px] text-slate-500 flex items-center gap-1">
+                                            <Clock className="w-3 h-3" />
+                                            {new Date(slot.startTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                            {" – "}
+                                            {new Date(slot.endTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                        </p>
+                                        {slot.subject && <p className="text-[9px] text-[#1A6CC8] font-bold mt-0.5 truncate">{slot.subject}</p>}
+                                        <span className={`inline-block mt-1 text-[8px] font-black px-1.5 py-0.5 rounded-full border uppercase ${STATUS_STYLE[slot.status]}`}>
+                                            {STATUS_LABEL[slot.status]}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                        {slot.status === "open" && (
+                                            <button
+                                                onClick={() => deleteMutation.mutate(slot.id)}
+                                                className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                                                title="Supprimer"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                                {slot.status === "open" && (
-                                    <button
-                                        onClick={() => deleteMutation.mutate(slot.id)}
-                                        className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
-                                        title="Supprimer"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                )}
+
+                                {/* Zone affiche */}
+                                <div className="border-t border-slate-100 pt-2">
+                                    {slot.posterUrl ? (
+                                        <div className="flex items-center gap-2">
+                                            <img
+                                                src={slot.posterUrl}
+                                                alt="Affiche"
+                                                className="w-12 h-12 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                                onClick={() => window.open(slot.posterUrl!, "_blank")}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[9px] font-black text-[#0D2D5A] uppercase">Affiche</p>
+                                                <button
+                                                    className="text-[9px] text-red-400 hover:text-red-600 font-bold mt-0.5"
+                                                    onClick={() => setPosterSlot(slot)}
+                                                >
+                                                    Changer / Supprimer
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => setPosterSlot(slot)}
+                                            className="w-full flex items-center gap-1.5 text-[9px] font-black text-slate-400 hover:text-[#1A6CC8] transition-colors uppercase"
+                                        >
+                                            <Image className="w-3 h-3" /> Ajouter une affiche
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
         </div>
+
+        {/* ===== DIALOG AFFICHE DE CRÉNEAU ===== */}
+        {posterSlot && (
+            <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                onClick={(e) => { if (e.target === e.currentTarget) setPosterSlot(null); }}
+            >
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
+                    <button
+                        onClick={() => setPosterSlot(null)}
+                        className="absolute top-4 right-4 text-slate-400 hover:text-slate-700"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+
+                    <div className="flex items-center gap-2 mb-1">
+                        <Image className="w-5 h-5 text-[#1A6CC8]" />
+                        <h3 className="text-sm font-black text-[#0D2D5A]">Affiche du créneau</h3>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mb-4">
+                        {new Date(posterSlot.startTime).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
+                        {" — "}
+                        {new Date(posterSlot.startTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                        {" – "}
+                        {new Date(posterSlot.endTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+
+                    {posterSlot.posterUrl ? (
+                        <div className="space-y-3">
+                            <img
+                                src={posterSlot.posterUrl}
+                                alt="Affiche actuelle"
+                                className="w-full rounded-xl object-cover max-h-64 border border-slate-200"
+                            />
+                            <div className="flex gap-2">
+                                <label className="flex-1">
+                                    <span className="block w-full text-center text-[10px] font-black uppercase py-2 px-3 rounded-lg bg-[#1A6CC8] text-white cursor-pointer hover:bg-[#0D2D5A] transition-colors">
+                                        {posterUploading ? "Upload..." : "Changer l'affiche"}
+                                    </span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        disabled={posterUploading}
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            setPosterUploading(true);
+                                            try {
+                                                await uploadSlotPoster(teacherId, posterSlot.id, file);
+                                                toast.success("Affiche mise à jour !");
+                                                queryClient.invalidateQueries({ queryKey: ["teacherSlotsManage", teacherId] });
+                                                setPosterSlot(null);
+                                            } catch (err: any) {
+                                                toast.error(err.message || "Erreur lors de l'upload.");
+                                            } finally {
+                                                setPosterUploading(false);
+                                            }
+                                        }}
+                                    />
+                                </label>
+                                <button
+                                    className="flex-1 text-[10px] font-black uppercase py-2 px-3 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                                    disabled={posterUploading}
+                                    onClick={async () => {
+                                        setPosterUploading(true);
+                                        try {
+                                            await deleteSlotPoster(teacherId, posterSlot.id);
+                                            toast.success("Affiche supprimée.");
+                                            queryClient.invalidateQueries({ queryKey: ["teacherSlotsManage", teacherId] });
+                                            setPosterSlot(null);
+                                        } catch (err: any) {
+                                            toast.error(err.message || "Erreur lors de la suppression.");
+                                        } finally {
+                                            setPosterUploading(false);
+                                        }
+                                    }}
+                                >
+                                    Supprimer
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
+                                <Image className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                                <p className="text-[10px] text-slate-400 font-semibold">Aucune affiche pour ce créneau</p>
+                                <p className="text-[9px] text-slate-300 mt-1">Formats acceptés : JPG, PNG, WebP — max 10 Mo</p>
+                            </div>
+                            <label className="block">
+                                <span className="block w-full text-center text-[10px] font-black uppercase py-2.5 px-4 rounded-lg bg-[#1A6CC8] text-white cursor-pointer hover:bg-[#0D2D5A] transition-colors">
+                                    {posterUploading ? "Upload en cours..." : "📎 Choisir une image"}
+                                </span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={posterUploading}
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        setPosterUploading(true);
+                                        try {
+                                            await uploadSlotPoster(teacherId, posterSlot.id, file);
+                                            toast.success("Affiche ajoutée avec succès !");
+                                            queryClient.invalidateQueries({ queryKey: ["teacherSlotsManage", teacherId] });
+                                            setPosterSlot(null);
+                                        } catch (err: any) {
+                                            toast.error(err.message || "Erreur lors de l'upload.");
+                                        } finally {
+                                            setPosterUploading(false);
+                                        }
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
+        </>
     );
 }
 

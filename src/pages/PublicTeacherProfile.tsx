@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
     Star, MapPin, Calendar, Clock, ArrowLeft, ArrowRight,
-    Loader2, CheckCircle2, GraduationCap, Users,
+    Loader2, CheckCircle2, GraduationCap, Users, X,
 } from "lucide-react";
 import {
     fetchPublicTeacherProfile,
@@ -31,6 +31,14 @@ type BookingStep = "form" | "otp" | "waiting" | "redirect" | "success";
 export default function PublicTeacherProfile() {
     const { id } = useParams<{ id: string }>();
     const [selectedSlot, setSelectedSlot] = useState<TeacherSlot | null>(null);
+    const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+    // Fermer la lightbox avec la touche Escape
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxUrl(null); };
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
+    }, []);
 
     const { data: teacher, isLoading, isError } = useQuery({
         queryKey: ["public-teacher", id],
@@ -135,6 +143,18 @@ export default function PublicTeacherProfile() {
                                                     : "border-gray-100 hover:border-[#1A6CC8]/40"
                                             }`}
                                         >
+                                            {slot.posterUrl && (
+                                                <div
+                                                    className="mb-3 -mx-0 overflow-hidden rounded-lg cursor-zoom-in"
+                                                    onClick={(e) => { e.stopPropagation(); setLightboxUrl(slot.posterUrl!); }}
+                                                >
+                                                    <img
+                                                        src={slot.posterUrl}
+                                                        alt="Affiche du cours"
+                                                        className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300"
+                                                    />
+                                                </div>
+                                            )}
                                             <p className="text-sm font-bold text-[#0D2D5A] capitalize">{formatSlotDate(slot.startTime)}</p>
                                             <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                                                 <Clock className="w-3.5 h-3.5" /> {formatSlotTime(slot.startTime)} – {formatSlotTime(slot.endTime)}
@@ -158,6 +178,29 @@ export default function PublicTeacherProfile() {
                     </div>
                 </div>
             </section>
+
+            {/* ===== LIGHTBOX AFFICHE ===== */}
+            {lightboxUrl && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                    onClick={() => setLightboxUrl(null)}
+                >
+                    <button
+                        className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/30 rounded-full p-2"
+                        onClick={() => setLightboxUrl(null)}
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+                    <motion.img
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        src={lightboxUrl}
+                        alt="Affiche du cours"
+                        className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
         </div>
     );
 }

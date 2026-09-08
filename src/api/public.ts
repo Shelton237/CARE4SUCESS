@@ -46,6 +46,7 @@ export interface TeacherSlot {
     startTime: string;
     endTime: string;
     status: "open" | "booked" | "cancelled";
+    posterUrl: string | null;
 }
 
 export interface PublicTeacherProfile extends PublicTeacher {

@@ -2151,6 +2151,7 @@ const ensureTeacherSlotsTable = async () => {
       start_time DATETIME NOT NULL,
       end_time DATETIME NOT NULL,
       status ENUM('open','booked','cancelled') NOT NULL DEFAULT 'open',
+      poster_url VARCHAR(500) NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
       KEY idx_slots_teacher (teacher_id),
@@ -2158,6 +2159,10 @@ const ensureTeacherSlotsTable = async () => {
       KEY idx_slots_start (start_time)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  // Migration safe pour les tables existantes en production
+  try {
+    await pool.query(`ALTER TABLE teacher_slots ADD COLUMN IF NOT EXISTS poster_url VARCHAR(500) NULL`);
+  } catch (_) { /* colonne déjà présente — ignoré */ }
 };
 
 const mapSlotRow = (row) => ({
@@ -2167,6 +2172,7 @@ const mapSlotRow = (row) => ({
   startTime: row.start_time,
   endTime: row.end_time,
   status: row.status,
+  posterUrl: row.poster_url || null,
 });
 
 app.post("/api/teachers/:teacherId/slots", authenticateRequest, async (req, res) => {
@@ -2256,6 +2262,48 @@ app.delete("/api/teachers/:teacherId/slots/:slotId", authenticateRequest, async 
   } catch (error) {
     console.error("[teacher_slots DELETE]", error);
     res.status(500).json({ message: "Impossible de supprimer le créneau." });
+  }
+});
+
+// Upload d'une affiche (image) pour un créneau précis.
+app.post("/api/teachers/:teacherId/slots/:slotId/poster", authenticateRequest, upload.single("poster"), async (req, res) => {
+  const { teacherId, slotId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  if (!req.file) {
+    return res.status(400).json({ message: "Aucun fichier reçu." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [[slot]] = await pool.query("SELECT id FROM teacher_slots WHERE id = ? AND teacher_id = ?", [slotId, teacherId]);
+    if (!slot) return res.status(404).json({ message: "Créneau introuvable." });
+    const protocol = req.protocol;
+    const host = req.get("host");
+    const posterUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+    await pool.query("UPDATE teacher_slots SET poster_url = ? WHERE id = ?", [posterUrl, slotId]);
+    res.json({ posterUrl });
+  } catch (error) {
+    console.error("[slot_poster POST]", error);
+    res.status(500).json({ message: "Impossible d'enregistrer l'affiche." });
+  }
+});
+
+// Suppression de l'affiche d'un créneau.
+app.delete("/api/teachers/:teacherId/slots/:slotId/poster", authenticateRequest, async (req, res) => {
+  const { teacherId, slotId } = req.params;
+  if (req.user?.sub !== teacherId && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  try {
+    await ensureTeacherSlotsTable();
+    const [[slot]] = await pool.query("SELECT id FROM teacher_slots WHERE id = ? AND teacher_id = ?", [slotId, teacherId]);
+    if (!slot) return res.status(404).json({ message: "Créneau introuvable." });
+    await pool.query("UPDATE teacher_slots SET poster_url = NULL WHERE id = ?", [slotId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[slot_poster DELETE]", error);
+    res.status(500).json({ message: "Impossible de supprimer l'affiche." });
   }
 });
 
