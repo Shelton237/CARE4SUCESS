@@ -55,7 +55,10 @@ export default function AdminTeachers() {
     const { data: teachers = [], isLoading } = useQuery<Teacher[]>({
         queryKey: ["teachers"],
         queryFn: async () => {
-            const res = await fetch(`${API_BASE_URL}/teachers`);
+            const token = localStorage.getItem("c4s_token");
+            const res = await fetch(`${API_BASE_URL}/teachers`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
             if (!res.ok) throw new Error("Erreur de récupération des professeurs");
             const data = await res.json();
             console.log("Teachers Data Debug:", data);

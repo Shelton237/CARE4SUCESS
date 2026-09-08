@@ -182,7 +182,11 @@ function ResourceCard({ r, onDelete, isOwner }: { r: any; onDelete?: () => void;
     const colorClass = TYPE_COLORS[r.type] || "text-gray-500 bg-gray-50";
 
     const handleOpen = async () => {
-        await fetch(`${API}/resources/${r.id}/download`, { method: "PATCH" }).catch(() => {});
+        const token = localStorage.getItem("c4s_token");
+        await fetch(`${API}/resources/${r.id}/download`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
         window.open(r.file_url, "_blank");
     };
 

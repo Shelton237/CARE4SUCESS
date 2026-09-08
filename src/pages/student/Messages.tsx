@@ -47,7 +47,7 @@ const getFullAttachmentUrl = (url: string) => {
 const DEFAULT_CONTACTS: { id: string, name: string, role: string, avatar: string, color: string }[] = [];
 
 export default function StudentMessages() {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const queryClient = useQueryClient();
     const location = useLocation();
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -83,7 +83,9 @@ export default function StudentMessages() {
     const { data: messages = [], isLoading } = useQuery<Message[]>({
         queryKey: ["messages", userId],
         queryFn: async () => {
-            const res = await fetch(`${API_BASE_URL}/messages/${userId}`);
+            const res = await fetch(`${API_BASE_URL}/messages/${userId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
             if (!res.ok) throw new Error("Erreur serveur");
             return res.json();
         },
@@ -95,7 +97,7 @@ export default function StudentMessages() {
         mutationFn: async (payload: Partial<Message>) => {
             const res = await fetch(`${API_BASE_URL}/messages`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(payload),
             });
             if (!res.ok) throw new Error("Erreur d'envoi");
@@ -135,7 +137,10 @@ export default function StudentMessages() {
     // 3. Mark as Read (Mutation)
     const markAsReadMutation = useMutation({
         mutationFn: async (messageId: string) => {
-            await fetch(`${API_BASE_URL}/messages/${messageId}/read`, { method: "PATCH" });
+            await fetch(`${API_BASE_URL}/messages/${messageId}/read`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${token}` },
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["messages", userId] });

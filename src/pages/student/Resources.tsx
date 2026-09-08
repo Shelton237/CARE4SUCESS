@@ -38,7 +38,10 @@ export default function StudentResources() {
     );
 
     const handleOpen = async (r: any) => {
-        await fetch(`${API}/resources/${r.id}/download`, { method: "PATCH" }).catch(() => {});
+        await fetch(`${API}/resources/${r.id}/download`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
         window.open(r.file_url, "_blank");
     };
 

@@ -15,6 +15,7 @@ import {
 import { fetchChildrenByParent } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 export default function ParentChildren() {

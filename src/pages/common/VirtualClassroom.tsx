@@ -163,7 +163,7 @@ function extractYouTubeId(url: string): string | null {
 
 export default function VirtualClassroom() {
     const { sessionId } = useParams();
-    const { user, logout } = useAuth();
+    const { user, logout, token } = useAuth();
     const navigate = useNavigate();
     const jitsiContainerRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(true);
@@ -322,7 +322,7 @@ export default function VirtualClassroom() {
         try {
             await fetch(`${import.meta.env.VITE_API_URL || "/api"}/sessions/${sessionId}/sync`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(payload),
             });
             setLastSaved(new Date());
@@ -331,7 +331,7 @@ export default function VirtualClassroom() {
         } finally {
             setIsSaving(false);
         }
-    }, [sessionId]);
+    }, [sessionId, token]);
 
     // Debounced sync for text-based fields
     const timerRef = useRef<any>(null);

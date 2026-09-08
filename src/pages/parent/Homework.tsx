@@ -15,6 +15,7 @@ import {
     LayoutDashboard,
     Library,
     UserCircle,
+    FileText,
 } from "lucide-react";
 import { fetchHomework, fetchLessonResources, fetchChildrenByParent } from "@/api/backoffice";
 import { FilePreview } from "@/components/ui/FilePreview";
