@@ -124,12 +124,7 @@ describe("Parent > Devoirs", () => {
     await waitFor(() => expect(screen.getByText(/Erreur de chargement des données/i)).toBeInTheDocument());
   });
 
-  it("écart applicatif détecté : l'ouverture du détail d'un devoir plante (FileText non importé dans Homework.tsx)", async () => {
-    // Bug pré-existant dans src/pages/parent/Homework.tsx : le composant lucide-react
-    // `FileText` est utilisé (accordéon d'un devoir, icône des ressources PDF) sans être
-    // importé, ce qui déclenche une ReferenceError au premier rendu qui l'atteint.
-    // Cet agent n'a pas le droit de corriger le code applicatif (fichiers de test
-    // uniquement) : ce test documente le comportement réel plutôt que de le contourner.
+  it("détail d'un devoir : l'ouverture de l'accordéon affiche les consignes et l'appréciation", async () => {
     class LocalErrorBoundary extends React.Component<{ children: React.ReactNode }, { message: string | null }> {
       state = { message: null as string | null };
       static getDerivedStateFromError(error: Error) {
@@ -158,12 +153,12 @@ describe("Parent > Devoirs", () => {
     await waitFor(() => expect(screen.getByText("Exercices de conjugaison")).toBeInTheDocument());
     await user.click(screen.getByText("Exercices de conjugaison"));
 
-    await waitFor(() => expect(screen.getByTestId("crash")).toBeInTheDocument());
-    expect(screen.getByTestId("crash").textContent).toContain("FileText is not defined");
+    await waitFor(() => expect(screen.getByText(/Consignes & Appréciation/i)).toBeInTheDocument());
+    expect(screen.queryByTestId("crash")).not.toBeInTheDocument();
     consoleErrorSpy.mockRestore();
   });
 
-  it("écart applicatif détecté : une ressource de type PDF dans « Fiches & Supports » plante pour la même raison", async () => {
+  it("onglet « Fiches & Supports » : une ressource de type PDF s'affiche avec son titre", async () => {
     vi.spyOn(backoffice, "fetchLessonResources").mockResolvedValue([
       { id: "r2", title: "Fiche PDF", subject: "Maths", teacherName: "M. Kouassi", fileType: "pdf", fileUrl: "/f2.pdf", studentId: "child-1" },
     ] as any);
@@ -196,8 +191,8 @@ describe("Parent > Devoirs", () => {
     await waitFor(() => expect(screen.getByText("Exercices de conjugaison")).toBeInTheDocument());
     await user.click(screen.getByText("Fiches & Supports"));
 
-    await waitFor(() => expect(screen.getByTestId("crash")).toBeInTheDocument());
-    expect(screen.getByTestId("crash").textContent).toContain("FileText is not defined");
+    await waitFor(() => expect(screen.getByText("Fiche PDF")).toBeInTheDocument());
+    expect(screen.queryByTestId("crash")).not.toBeInTheDocument();
     consoleErrorSpy.mockRestore();
   });
 });
