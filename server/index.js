@@ -80,6 +80,74 @@ const authenticateRequest = (req, res, next) => {
   }
 };
 
+// À chaîner après authenticateRequest : repose sur req.user posé par le jeton.
+const requireRole = (...roles) => (req, res, next) => {
+  if (!req.user || !roles.includes(req.user.role)) {
+    return res.status(403).json({ message: "Accès refusé." });
+  }
+  next();
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANTI-IDOR — un jeton valide ne suffit pas sur les routes paramétrées par un
+// UUID : il faut aussi un lien réel entre l'utilisateur et la ressource visée.
+// staffRoles = admin + advisor, conformément aux contrôles déjà en place.
+// ─────────────────────────────────────────────────────────────────────────────
+const staffRoles = ["admin", "advisor"];
+
+// Rôles autorisés à consulter le dossier scolaire d'un élève sans en être le
+// parent : AcademicFile envoie le sentinel "admin" pour ces profils.
+const academicFileRoles = ["admin", "advisor", "teacher", "tutor"];
+
+// Certaines tables sont créées au démarrage : une table absente ne doit pas
+// faire tomber la requête en 500, elle réduit simplement les liens possibles.
+const hasLink = async (sql, params) => {
+  try {
+    const [rows] = await pool.query(sql, params);
+    return rows.length > 0;
+  } catch (error) {
+    console.warn("[ownership] lien non vérifiable :", error.message);
+    return false;
+  }
+};
+
+const requireStudentAccess = (param = "studentId") => async (req, res, next) => {
+  const studentId = req.params[param];
+  const { sub, role } = req.user ?? {};
+  if (staffRoles.includes(role) || sub === studentId) return next();
+
+  const linked =
+    (await hasLink("SELECT child_id FROM parent_child WHERE parent_id = ? AND child_id = ? LIMIT 1", [sub, studentId])) ||
+    (await hasLink("SELECT id FROM users WHERE id = ? AND parent_id = ? LIMIT 1", [studentId, sub])) ||
+    (await hasLink("SELECT id FROM sessions WHERE teacher_id = ? AND student_id = ? LIMIT 1", [sub, studentId]));
+
+  if (!linked) return res.status(403).json({ message: "Accès refusé." });
+  next();
+};
+
+const requireParentAccess = (param = "parentId") => async (req, res, next) => {
+  const parentId = req.params[param];
+  const { sub, role } = req.user ?? {};
+  if (staffRoles.includes(role) || sub === parentId) return next();
+
+  // Sentinel déjà utilisé par le serveur et par AcademicFile : "admin" signifie
+  // « aucune portée parent précise », réservé au personnel encadrant.
+  if (parentId === "admin" && academicFileRoles.includes(role)) return next();
+
+  const linked = await hasLink(
+    "SELECT id FROM sessions WHERE teacher_id = ? AND parent_id = ? LIMIT 1",
+    [sub, parentId]
+  );
+  if (!linked) return res.status(403).json({ message: "Accès refusé." });
+  next();
+};
+
+const requireSelfOrAdmin = (param = "userId") => (req, res, next) => {
+  const { sub, role } = req.user ?? {};
+  if (role === "admin" || sub === req.params[param]) return next();
+  return res.status(403).json({ message: "Accès refusé." });
+};
+
 const formatDate = (value) => {
   if (!value) return value;
   try {
@@ -2473,7 +2541,7 @@ app.get("/api/requests", authenticateRequest, async (_req, res) => {
   }
 });
 
-app.post("/api/requests", async (req, res) => {
+app.post("/api/requests", authenticateRequest, async (req, res) => {
   const { parentName, childName, level, subject, phone, location } = req.body ?? {};
   if (!parentName || !childName || !phone) {
     return res.status(400).json({ message: "Champs obligatoires manquants (parent, enfant, téléphone)." });
@@ -2942,7 +3010,7 @@ const roleColumn = {
   student: "student_id",
 };
 
-app.get("/api/sessions", async (req, res) => {
+app.get("/api/sessions", authenticateRequest, async (req, res) => {
   const { role, userId } = req.query;
   if (!role || !userId || !(role in roleColumn)) {
     return res.status(400).json({ message: "role et userId sont requis." });
@@ -3029,10 +3097,20 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
   }
 });
 
-app.patch("/api/sessions/:id/sync", async (req, res) => {
+app.patch("/api/sessions/:id/sync", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   const { notes, whiteboardData, whiteboardItems, codeData } = req.body ?? {};
   try {
+    const [[session]] = await pool.query(
+      "SELECT teacher_id, student_id, parent_id FROM sessions WHERE id = ?",
+      [id]
+    );
+    if (!session) return res.status(404).json({ message: "Séance introuvable." });
+    const { sub, role } = req.user ?? {};
+    if (role !== "admin" && ![session.teacher_id, session.student_id, session.parent_id].includes(sub)) {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+
     const updates = [];
     const params = [];
     if (notes !== undefined) { updates.push("notes = ?"); params.push(notes); }
@@ -3055,7 +3133,7 @@ app.patch("/api/sessions/:id/sync", async (req, res) => {
 // entre le meme enseignant et le meme eleve qui contient reellement quelque
 // chose — pour proposer de reprendre le fil d'une seance a l'autre plutot
 // que de repartir d'une page blanche a chaque fois.
-app.get("/api/sessions/:id/previous-workspace", async (req, res) => {
+app.get("/api/sessions/:id/previous-workspace", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   try {
     const [[current]] = await pool.query(
@@ -3506,7 +3584,7 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
   }
 });
 
-app.get("/api/teacher-applications", async (req, res) => {
+app.get("/api/teacher-applications", authenticateRequest, requireRole("admin", "tutor"), async (req, res) => {
   const { status } = req.query;
   const statusFilter = typeof status === "string" ? status : undefined;
   const filters = [];
@@ -3539,7 +3617,7 @@ app.get("/api/teacher-applications", async (req, res) => {
   }
 });
 
-app.patch("/api/teacher-applications/:id", async (req, res) => {
+app.patch("/api/teacher-applications/:id", authenticateRequest, requireRole("admin", "tutor"), async (req, res) => {
   const { id } = req.params;
   const { status, reviewNotes, reviewerName, reviewerRole, rateType, negotiatedRate, currency, rateUnitMinutes } = req.body ?? {};
 
@@ -3719,7 +3797,7 @@ app.patch("/api/teacher-applications/:id", async (req, res) => {
   }
 });
 
-app.get("/api/teachers", async (req, res) => {
+app.get("/api/teachers", authenticateRequest, async (req, res) => {
   try {
     await ensureTeachersTable();
     const [rows] = await pool.query(
@@ -3738,7 +3816,7 @@ app.get("/api/teachers", async (req, res) => {
   }
 });
 
-app.post("/api/teachers", async (req, res) => {
+app.post("/api/teachers", authenticateRequest, requireRole("admin"), async (req, res) => {
   const { name, email, subject, level, city } = req.body ?? {};
 
   if (!name || !email) {
@@ -3806,7 +3884,7 @@ app.patch("/api/admin/teachers/:id", authenticateRequest, async (req, res) => {
     res.status(500).json({ message: "Impossible de mettre à jour le profil enseignant." });
   }
 });
-app.patch("/api/teachers/:id/status", async (req, res) => {
+app.patch("/api/teachers/:id/status", authenticateRequest, requireRole("admin"), async (req, res) => {
   const { id } = req.params;
   const { status } = req.body ?? {};
 
@@ -3837,7 +3915,7 @@ app.patch("/api/teachers/:id/status", async (req, res) => {
   }
 });
 
-app.post("/api/teacher-feedback", async (req, res) => {
+app.post("/api/teacher-feedback", authenticateRequest, async (req, res) => {
   const {
     teacherId,
     teacherName,
@@ -3877,7 +3955,7 @@ app.post("/api/teacher-feedback", async (req, res) => {
   }
 });
 
-app.get("/api/teachers/:teacherId/feedback", async (req, res) => {
+app.get("/api/teachers/:teacherId/feedback", authenticateRequest, async (req, res) => {
   const { teacherId } = req.params;
   if (!teacherId) {
     return res.status(400).json({ message: "teacherId requis." });
@@ -3897,7 +3975,7 @@ app.get("/api/teachers/:teacherId/feedback", async (req, res) => {
   }
 });
 
-app.get("/api/teacher-ratings", async (_req, res) => {
+app.get("/api/teacher-ratings", authenticateRequest, async (_req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT
@@ -4285,7 +4363,7 @@ app.post("/api/quizzes/:quizId/questions", authenticateRequest, async (req, res)
   }
 });
 
-app.get("/api/quizzes/:quizId", async (req, res) => {
+app.get("/api/quizzes/:quizId", authenticateRequest, async (req, res) => {
   const { quizId } = req.params;
   const includeCorrect = req.query.includeCorrect === "true";
   try {
@@ -4345,7 +4423,7 @@ app.post("/api/courses/:courseId/enrollments", authenticateRequest, async (req, 
   }
 });
 
-app.get("/api/users/:userId/course-bookmarks", async (req, res) => {
+app.get("/api/users/:userId/course-bookmarks", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { userId } = req.params;
   try {
     const [rows] = await pool.query(
@@ -4359,7 +4437,7 @@ app.get("/api/users/:userId/course-bookmarks", async (req, res) => {
   }
 });
 
-app.post("/api/users/:userId/course-bookmarks/:courseId", async (req, res) => {
+app.post("/api/users/:userId/course-bookmarks/:courseId", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { userId, courseId } = req.params;
   try {
     await pool.query(
@@ -4373,7 +4451,7 @@ app.post("/api/users/:userId/course-bookmarks/:courseId", async (req, res) => {
   }
 });
 
-app.delete("/api/users/:userId/course-bookmarks/:courseId", async (req, res) => {
+app.delete("/api/users/:userId/course-bookmarks/:courseId", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { userId, courseId } = req.params;
   try {
     await pool.query(
@@ -4387,7 +4465,7 @@ app.delete("/api/users/:userId/course-bookmarks/:courseId", async (req, res) => 
   }
 });
 
-app.post("/api/users/:userId/courses/:courseId/progress", async (req, res) => {
+app.post("/api/users/:userId/courses/:courseId/progress", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { userId, courseId } = req.params;
   const { lessonId, completed } = req.body ?? {};
   try {
@@ -4422,7 +4500,7 @@ app.post("/api/users/:userId/courses/:courseId/progress", async (req, res) => {
   }
 });
 
-app.get("/api/users/:userId/active-course", async (req, res) => {
+app.get("/api/users/:userId/active-course", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { userId } = req.params;
   try {
     const [rows] = await pool.query(
@@ -4451,7 +4529,7 @@ app.get("/api/users/:userId/active-course", async (req, res) => {
   }
 });
 
-app.post("/api/quizzes/:quizId/attempts", async (req, res) => {
+app.post("/api/quizzes/:quizId/attempts", authenticateRequest, async (req, res) => {
   const { quizId } = req.params;
   const { studentId, studentName, answers } = req.body ?? {};
   if (!studentId || !studentName || !Array.isArray(answers) || answers.length === 0) {
@@ -4513,7 +4591,7 @@ app.post("/api/quizzes/:quizId/attempts", async (req, res) => {
   }
 });
 
-app.get("/api/quizzes/:quizId/attempts", async (req, res) => {
+app.get("/api/quizzes/:quizId/attempts", authenticateRequest, async (req, res) => {
   const { quizId } = req.params;
   try {
     const [rows] = await pool.query(
@@ -4530,7 +4608,7 @@ app.get("/api/quizzes/:quizId/attempts", async (req, res) => {
   }
 });
 
-app.get("/api/students/:studentId/quiz-attempts", async (req, res) => {
+app.get("/api/students/:studentId/quiz-attempts", authenticateRequest, requireStudentAccess(), async (req, res) => {
   const { studentId } = req.params;
   try {
     const [rows] = await pool.query(
@@ -4555,7 +4633,7 @@ app.get("/api/students/:studentId/quiz-attempts", async (req, res) => {
 // Routes parent/student simplifiées gérées plus loin
 
 
-app.get("/api/platform-settings", async (_req, res) => {
+app.get("/api/platform-settings", authenticateRequest, requireRole("admin"), async (_req, res) => {
   try {
     const settings = await getPlatformSettings();
     res.json(settings);
@@ -4669,7 +4747,7 @@ app.post("/api/messages/upload", authenticateRequest, upload.single("attachment"
   }
 });
 
-app.get("/api/teachers/:teacherId/contacts", async (req, res) => {
+app.get("/api/teachers/:teacherId/contacts", authenticateRequest, requireSelfOrAdmin("teacherId"), async (req, res) => {
   const { teacherId } = req.params;
   try {
     const [students] = await pool.query(
@@ -4698,7 +4776,7 @@ app.get("/api/teachers/:teacherId/contacts", async (req, res) => {
   }
 });
 
-app.get("/api/parents/:parentId/contacts", async (req, res) => {
+app.get("/api/parents/:parentId/contacts", authenticateRequest, requireSelfOrAdmin("parentId"), async (req, res) => {
   const { parentId } = req.params;
   try {
     // Teachers assigned to parent's children
@@ -4868,7 +4946,7 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
   }
 });
 
-app.patch("/api/advisor/families/:id", async (req, res) => {
+app.patch("/api/advisor/families/:id", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
   const { id } = req.params;
   const { level, subject } = req.body;
 
@@ -6106,7 +6184,7 @@ const studentGrades = [
   }
 ];
 
-app.get("/api/parents/:parentId/overview", async (req, res) => {
+app.get("/api/parents/:parentId/overview", authenticateRequest, requireParentAccess(), async (req, res) => {
   const { parentId } = req.params;
   const { studentId } = req.query;
   console.log(`DEBUG: Parent overview requested for parentId=${parentId}, studentId=${studentId}`);
@@ -7595,7 +7673,7 @@ app.get("/api/teachers/:teacherId/earnings-history", authenticateRequest, async 
 app.get("/api/students/:studentId/overview", async (req, res) => { ... });
 */
 
-app.get("/api/students/:studentId/quiz-attempts", async (req, res) => {
+app.get("/api/students/:studentId/quiz-attempts", authenticateRequest, requireStudentAccess(), async (req, res) => {
   const { studentId } = req.params;
   try {
     const [rows] = await pool.query(
@@ -7616,7 +7694,7 @@ app.get("/api/students/:studentId/quiz-attempts", async (req, res) => {
 app.get("/api/students/:studentId/homework", async (req, res) => { ... });
 */
 
-app.get("/api/students/:studentId/evaluations", async (req, res) => {
+app.get("/api/students/:studentId/evaluations", authenticateRequest, requireStudentAccess(), async (req, res) => {
   const { studentId } = req.params;
   try {
     const [rows] = await pool.query(
@@ -7629,7 +7707,7 @@ app.get("/api/students/:studentId/evaluations", async (req, res) => {
   }
 });
 
-app.get("/api/teachers/:teacherId/dashboard", async (req, res) => {
+app.get("/api/teachers/:teacherId/dashboard", authenticateRequest, requireSelfOrAdmin("teacherId"), async (req, res) => {
   const { teacherId } = req.params;
   try {
     const [[{ activeStudents }]] = await pool.query(
@@ -8018,7 +8096,7 @@ app.get("/api/students/:studentId/progress", authenticateRequest, async (req, re
   }
 });
 
-app.get("/api/students/:studentId/sessions", async (req, res) => {
+app.get("/api/students/:studentId/sessions", authenticateRequest, requireStudentAccess(), async (req, res) => {
   const { studentId } = req.params;
   try {
     await ensureSessionsTable();
@@ -8032,7 +8110,7 @@ app.get("/api/students/:studentId/sessions", async (req, res) => {
   }
 });
 
-app.post("/api/grade-disputes", async (req, res) => {
+app.post("/api/grade-disputes", authenticateRequest, async (req, res) => {
   const { studentId, sessionId, reason } = req.body;
   if (!studentId || !sessionId || !reason) {
     return res.status(400).json({ message: " studentId, sessionId et reason sont requis." });
@@ -8051,7 +8129,7 @@ app.post("/api/grade-disputes", async (req, res) => {
   }
 });
 
-app.get("/api/students/:studentId/homework", async (req, res) => {
+app.get("/api/students/:studentId/homework", authenticateRequest, requireStudentAccess(), async (req, res) => {
   const { studentId } = req.params;
   try {
     const [rows] = await pool.query(
@@ -8064,7 +8142,7 @@ app.get("/api/students/:studentId/homework", async (req, res) => {
   }
 });
 
-app.get("/api/advisors/:advisorId/dashboard", async (req, res) => {
+app.get("/api/advisors/:advisorId/dashboard", authenticateRequest, requireSelfOrAdmin("advisorId"), async (req, res) => {
   const { advisorId } = req.params;
   try {
     const [[{ assignedFamilies }]] = await pool.query(
@@ -8111,7 +8189,7 @@ app.get("/api/advisors/:advisorId/dashboard", async (req, res) => {
   }
 });
 
-app.get("/api/advisors/:advisorId/appointments", async (req, res) => {
+app.get("/api/advisors/:advisorId/appointments", authenticateRequest, requireSelfOrAdmin("advisorId"), async (req, res) => {
   const { advisorId } = req.params;
   try {
     await ensureAdvisorAppointmentsTable();
@@ -8126,7 +8204,7 @@ app.get("/api/advisors/:advisorId/appointments", async (req, res) => {
   }
 });
 
-app.post("/api/advisors/:advisorId/appointments", async (req, res) => {
+app.post("/api/advisors/:advisorId/appointments", authenticateRequest, requireSelfOrAdmin("advisorId"), async (req, res) => {
   const { advisorId } = req.params;
   const { family, type, date, time } = req.body;
   if (!family || !type || !date || !time) {
@@ -8153,7 +8231,7 @@ app.post("/api/advisors/:advisorId/appointments", async (req, res) => {
 
 // --- DEVOIRS & FICHES ---
 
-app.get("/api/homework/:role/:userId", async (req, res) => {
+app.get("/api/homework/:role/:userId", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { role, userId } = req.params;
   try {
     await ensureHomeworkTable();
@@ -8263,11 +8341,18 @@ app.post("/api/homework", authenticateRequest, async (req, res) => {
   }
 });
 
-app.patch("/api/homework/:id", async (req, res) => {
+app.patch("/api/homework/:id", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   const { status, submissionUrl, feedback } = req.body;
   try {
     await ensureHomeworkTable();
+    const [[target]] = await pool.query("SELECT teacher_id, student_id FROM homework WHERE id = ?", [id]);
+    if (!target) return res.status(404).json({ message: "Devoir introuvable." });
+    const { sub, role } = req.user ?? {};
+    if (role !== "admin" && sub !== target.teacher_id && sub !== target.student_id) {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+
     const updates = [];
     const params = [];
     if (status) { updates.push("status = ?"); params.push(status); }
@@ -8309,7 +8394,7 @@ app.patch("/api/homework/:id", async (req, res) => {
   }
 });
 
-app.post("/api/homework/:id/upload", upload.single("file"), async (req, res) => {
+app.post("/api/homework/:id/upload", authenticateRequest, upload.single("file"), async (req, res) => {
   const { id } = req.params;
   
   if (!req.file) {
@@ -8318,7 +8403,14 @@ app.post("/api/homework/:id/upload", upload.single("file"), async (req, res) => 
 
   try {
     await ensureHomeworkTable();
-    
+
+    const [[target]] = await pool.query("SELECT teacher_id, student_id FROM homework WHERE id = ?", [id]);
+    if (!target) return res.status(404).json({ message: "Devoir introuvable." });
+    const { sub, role } = req.user ?? {};
+    if (role !== "admin" && sub !== target.teacher_id && sub !== target.student_id) {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
+
     const protocol = req.protocol;
     const host = req.get('host');
     const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
@@ -8355,7 +8447,7 @@ app.post("/api/homework/:id/upload", upload.single("file"), async (req, res) => 
   }
 });
 
-app.get("/api/lesson-resources/:role/:userId", async (req, res) => {
+app.get("/api/lesson-resources/:role/:userId", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { role, userId } = req.params;
   try {
     await ensureLessonResourcesTable();
@@ -8396,10 +8488,13 @@ app.get("/api/lesson-resources/:role/:userId", async (req, res) => {
   }
 });
 
-app.post("/api/lesson-resources", async (req, res) => {
+app.post("/api/lesson-resources", authenticateRequest, async (req, res) => {
   const { teacherId, studentId, title, fileUrl, fileType, subject } = req.body;
   if (!teacherId || !title || !fileUrl || !subject) {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
+  }
+  if (req.user?.role !== "admin" && req.user?.sub !== teacherId) {
+    return res.status(403).json({ message: "Accès refusé." });
   }
   try {
     await ensureLessonResourcesTable();
@@ -8417,10 +8512,15 @@ app.post("/api/lesson-resources", async (req, res) => {
   }
 });
 
-app.delete("/api/lesson-resources/:id", async (req, res) => {
+app.delete("/api/lesson-resources/:id", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   try {
     await ensureLessonResourcesTable();
+    const [[resource]] = await pool.query("SELECT teacher_id FROM lesson_resources WHERE id = ?", [id]);
+    if (!resource) return res.status(404).json({ message: "Ressource introuvable." });
+    if (req.user?.role !== "admin" && req.user?.sub !== resource.teacher_id) {
+      return res.status(403).json({ message: "Accès refusé." });
+    }
     await pool.query("DELETE FROM lesson_resources WHERE id = ?", [id]);
     res.json({ success: true });
   } catch (error) {
@@ -8476,7 +8576,7 @@ const createNotification = async (userId, title, content, type = 'info', link = 
   }
 };
 
-app.get("/api/notifications/:userId", async (req, res) => {
+app.get("/api/notifications/:userId", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { userId } = req.params;
   try {
     await ensureNotificationsTable();
@@ -8495,11 +8595,11 @@ app.get("/api/notifications/:userId", async (req, res) => {
   }
 });
 
-app.patch("/api/notifications/:id/read", async (req, res) => {
+app.patch("/api/notifications/:id/read", authenticateRequest, async (req, res) => {
   const { id } = req.params;
   try {
     await ensureNotificationsTable();
-    await pool.query("UPDATE notifications SET is_read = TRUE WHERE id = ?", [id]);
+    await pool.query("UPDATE notifications SET is_read = TRUE WHERE id = ? AND user_id = ?", [id, req.user?.sub]);
     res.json({ success: true });
   } catch (error) {
     console.error("Failed to mark notification as read", error);
@@ -8533,7 +8633,7 @@ const getGradeInfo = (xp) => {
   return { grade: current.grade, gradeColor: current.color, nextGrade: next?.grade || null, progressToNext, nextXP: next?.minXP || null };
 };
 
-app.get("/api/students/:studentId/overview", async (req, res) => {
+app.get("/api/students/:studentId/overview", authenticateRequest, requireStudentAccess(), async (req, res) => {
   const { studentId } = req.params;
   try {
     // Base overview (avg, level, teacher)
@@ -9204,7 +9304,7 @@ app.delete("/api/resources/:id", authenticateRequest, async (req, res) => {
   }
 });
 
-app.patch("/api/resources/:id/download", async (req, res) => {
+app.patch("/api/resources/:id/download", authenticateRequest, async (req, res) => {
   await pool.query(`UPDATE resources SET downloads = downloads + 1 WHERE id = ?`, [req.params.id]).catch(() => {});
   res.json({ ok: true });
 });
