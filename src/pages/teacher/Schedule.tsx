@@ -7,7 +7,7 @@ import {
 } from "@/api/backoffice";
 import type { CreateSessionPayload, TeacherSlotManage } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
-import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi, Trash2, Image, X } from "lucide-react";
+import { CalendarDays, MapPin, RefreshCw, FileText, Clock, Play, Square, Video, Globe, BookOpen, Star, Send, Plus, Home, Wifi, Trash2, Image, X, Copy } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -450,13 +450,30 @@ export default function TeacherSchedule() {
                                         </Button>
                                     )}
                                     {s.virtualLink && (s.status === 'planifié' || s.status === 'à venir' || s.status === 'en cours' || s.status === 'scheduled' || s.status === 'in_progress') && (
-                                        <Button 
-                                            size="sm" 
-                                            onClick={() => navigate(`/virtual-class/${s.id}`)}
-                                            className="h-6 text-[9px] bg-purple-600 hover:bg-purple-700 gap-1 px-2 rounded-none shadow-none text-white font-black uppercase"
-                                        >
-                                            <Video className="w-3 h-3" /> Rejoindre
-                                        </Button>
+                                        <>
+                                            <Button
+                                                size="sm"
+                                                onClick={() => navigate(`/virtual-class/${s.id}`)}
+                                                className="h-6 text-[9px] bg-purple-600 hover:bg-purple-700 gap-1 px-2 rounded-none shadow-none text-white font-black uppercase"
+                                            >
+                                                <Video className="w-3 h-3" /> Rejoindre
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={async () => {
+                                                    try {
+                                                        await navigator.clipboard.writeText(s.virtualLink);
+                                                        toast.success("Lien de la salle copié !");
+                                                    } catch {
+                                                        toast.error("Impossible de copier le lien.");
+                                                    }
+                                                }}
+                                                className="h-6 text-[9px] gap-1 px-2 rounded-none shadow-none font-black uppercase border-purple-200 text-purple-600 bg-purple-50/50 hover:bg-purple-100"
+                                            >
+                                                <Copy className="w-3 h-3" /> Copier le lien
+                                            </Button>
+                                        </>
                                     )}
                                     {(s.status === 'completed' || s.status === 'effectué') && s.notes && (
                                         <Button size="sm" variant="outline" onClick={() => setViewedNote(s)} className="h-6 text-[9px] gap-1 border-emerald-200 text-emerald-700 bg-emerald-50/50 px-2 rounded-none shadow-none font-black uppercase">
