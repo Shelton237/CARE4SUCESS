@@ -463,7 +463,7 @@ export default function TeacherSchedule() {
                                                 variant="outline"
                                                 onClick={async () => {
                                                     try {
-                                                        await navigator.clipboard.writeText(s.virtualLink);
+                                                        await navigator.clipboard.writeText(`${window.location.origin}/virtual-class/${s.id}`);
                                                         toast.success("Lien de la salle copié !");
                                                     } catch {
                                                         toast.error("Impossible de copier le lien.");
