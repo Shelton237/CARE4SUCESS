@@ -181,6 +181,32 @@ export const fetchScheduleByRole = (role: ScheduleRole, userId: string) => {
 export const fetchPublicSession = (sessionId: string) =>
     request<ScheduleSession>(`/sessions/${sessionId}/public`);
 
+export interface SessionParticipant {
+    id: string;
+    userId: string | null;
+    displayName: string | null;
+    role: string | null;
+    joinedAt: string;
+    leftAt: string | null;
+    isGuest: boolean;
+}
+
+// Journal de présence de la classe virtuelle : qui a rejoint l'appel, avec
+// ou sans compte, pour pouvoir répondre après coup à "était-il connecté ?".
+export const logSessionParticipantJoin = (sessionId: string, displayName?: string) =>
+    request<{ id: string }>(`/sessions/${sessionId}/participants`, {
+        method: "POST",
+        body: JSON.stringify({ displayName }),
+    });
+
+export const logSessionParticipantLeave = (sessionId: string, participantId: string) =>
+    request<{ success: boolean }>(`/sessions/${sessionId}/participants/${participantId}`, {
+        method: "PATCH",
+    });
+
+export const fetchSessionParticipants = (sessionId: string) =>
+    request<SessionParticipant[]>(`/sessions/${sessionId}/participants`);
+
 export const fetchParentOverview = (parentId: string, studentId?: string) => {
     const params = studentId ? `?studentId=${studentId}` : "";
     return request<ParentOverview>(`/parents/${parentId}/overview${params}`);

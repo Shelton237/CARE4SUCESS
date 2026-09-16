@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { fetchScheduleByRole, fetchPublicSession, fetchCourseDetails, uploadMessageAttachment, fetchPreviousWorkspace } from "@/api/backoffice";
+import { fetchScheduleByRole, fetchPublicSession, fetchCourseDetails, uploadMessageAttachment, fetchPreviousWorkspace, logSessionParticipantJoin, logSessionParticipantLeave, fetchSessionParticipants } from "@/api/backoffice";
 import { jsPDF } from "jspdf";
 import katex from "katex";
 import "katex/dist/katex.min.css";
@@ -255,6 +255,14 @@ export default function VirtualClassroom() {
         queryFn: () => fetchPreviousWorkspace(sessionId!),
         enabled: Boolean(sessionId),
         staleTime: Infinity,
+    });
+
+    // Qui a rejoint l'appel, avec ou sans compte — affiché uniquement en
+    // mode consultation (séance terminée), pour ne pas polluer le direct.
+    const { data: participants = [] } = useQuery({
+        queryKey: ["session-participants", sessionId],
+        queryFn: () => fetchSessionParticipants(sessionId!),
+        enabled: Boolean(sessionId) && isCompleted,
     });
 
     const isCurrentWorkspaceEmpty = useMemo(() => {
@@ -742,6 +750,7 @@ export default function VirtualClassroom() {
     // Jitsi Init — loads script dynamically then initializes, with timeout fallback
     const jitsiApiRef = useRef<any>(null);
     const hasJoinedRef = useRef(false);
+    const participantIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (isCompleted) { setLoading(false); return; }
@@ -786,10 +795,19 @@ export default function VirtualClassroom() {
                 if (user?.role === 'teacher' && !currentSessionRef.current?.actualStartTime) {
                     checkInMutation.mutate(sessionId);
                 }
+                // Journal de présence : indépendant du check-in enseignant, pour
+                // savoir après coup qui était là et s'il était connecté ou invité.
+                logSessionParticipantJoin(sessionId!, user?.name)
+                    .then((r) => { participantIdRef.current = r.id; })
+                    .catch(() => {});
             });
 
             api.addEventListener('videoConferenceLeft', () => {
                 if (!hasJoinedRef.current) return; // Don't handle if we never joined
+                if (participantIdRef.current && sessionId) {
+                    logSessionParticipantLeave(sessionId, participantIdRef.current).catch(() => {});
+                    participantIdRef.current = null;
+                }
                 // Ne PAS clôturer automatiquement ici : cet événement se déclenche
                 // aussi sur une simple coupure réseau/mise en veille (mobile),
                 // pas seulement quand l'enseignant quitte vraiment le cours — ça
@@ -808,6 +826,10 @@ export default function VirtualClassroom() {
         if (window.JitsiMeetExternalAPI) {
             initJitsi();
             return () => {
+                if (participantIdRef.current && sessionId) {
+                    logSessionParticipantLeave(sessionId, participantIdRef.current).catch(() => {});
+                    participantIdRef.current = null;
+                }
                 if (jitsiApiRef.current) {
                     try { jitsiApiRef.current.dispose(); } catch { /* dispose failure on unmount is non-critical, ignore */ }
                     jitsiApiRef.current = null;
@@ -841,6 +863,10 @@ export default function VirtualClassroom() {
 
         return () => {
             clearInterval(timer);
+            if (participantIdRef.current && sessionId) {
+                logSessionParticipantLeave(sessionId, participantIdRef.current).catch(() => {});
+                participantIdRef.current = null;
+            }
             if (jitsiApiRef.current) {
                 try { jitsiApiRef.current.dispose(); } catch { /* dispose failure on unmount is non-critical, ignore */ }
                 jitsiApiRef.current = null;
@@ -907,6 +933,27 @@ export default function VirtualClassroom() {
                             </div>
                             <p className="text-white/70 font-black text-[10px] uppercase tracking-widest text-center max-w-xs px-4">Séance terminée</p>
                             <p className="text-white/30 text-[9px] text-center max-w-xs px-4 mt-1">Consultez les notes, le tableau et le code ci-contre.</p>
+                            {participants.length > 0 && (
+                                <div className="mt-6 w-full max-w-xs px-4 space-y-1.5">
+                                    <p className="text-white/30 text-[8px] font-black uppercase tracking-widest mb-2">Participants à l'appel</p>
+                                    {participants.map((p) => (
+                                        <div key={p.id} className="flex items-center justify-between gap-2 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <span className="text-white/80 text-[10px] font-bold truncate">{p.displayName || "Invité"}</span>
+                                                <span className={cn(
+                                                    "text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full shrink-0",
+                                                    p.isGuest ? "bg-orange-500/20 text-orange-300" : "bg-emerald-500/20 text-emerald-300"
+                                                )}>
+                                                    {p.isGuest ? "Invité" : "Compte"}
+                                                </span>
+                                            </div>
+                                            <span className="text-white/30 text-[8px] shrink-0">
+                                                {new Date(p.joinedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ) : (loading || error) && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#0D2D5A]">

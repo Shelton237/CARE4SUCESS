@@ -541,6 +541,26 @@ const ensureSessionsTable = async () => {
   }
 };
 
+// Journal de présence : qui a rejoint l'appel vidéo d'une séance, avec ou
+// sans compte, et quand — indépendant du check-in/check-out enseignant
+// (qui ne sert qu'au calcul de paie). Permet de répondre après coup à
+// "l'élève était-il connecté avec son compte ou en invité ?".
+const ensureSessionParticipantsTable = async () => {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS session_participants (
+      id CHAR(36) NOT NULL,
+      session_id CHAR(36) NOT NULL,
+      user_id VARCHAR(36) NULL,
+      display_name VARCHAR(191) NULL,
+      role VARCHAR(20) NULL,
+      joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      left_at TIMESTAMP NULL,
+      PRIMARY KEY (id),
+      KEY idx_session_participants_session (session_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+};
+
 const ensureMessagesTable = async () => {
   await pool.query(
     `CREATE TABLE IF NOT EXISTS messages (
@@ -3222,6 +3242,72 @@ app.patch("/api/sessions/:id/sync", optionalAuth, async (req, res) => {
   } catch (error) {
     console.error("Failed to sync session data", error);
     res.status(500).json({ message: "Impossible de synchroniser les données." });
+  }
+});
+
+// Journal de présence — ouvert à tous (élève, parent, enseignant, invité
+// sans compte via le lien partagé) : on enregistre qui rejoint l'appel et
+// avec quelle identité, sans jamais bloquer l'accès à la salle pour ça.
+app.post("/api/sessions/:id/participants", optionalAuth, async (req, res) => {
+  const { id } = req.params;
+  const { displayName } = req.body ?? {};
+  try {
+    await ensureSessionParticipantsTable();
+    const participantId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO session_participants (id, session_id, user_id, display_name, role, joined_at)
+       VALUES (?, ?, ?, ?, ?, NOW())`,
+      [
+        participantId,
+        id,
+        req.user?.sub || null,
+        (displayName ? String(displayName).trim().slice(0, 191) : null) || null,
+        req.user?.role || null,
+      ]
+    );
+    res.status(201).json({ id: participantId });
+  } catch (error) {
+    console.error("Failed to log participant join", error);
+    res.status(500).json({ message: "Impossible d'enregistrer la présence." });
+  }
+});
+
+app.patch("/api/sessions/:id/participants/:participantId", optionalAuth, async (req, res) => {
+  const { participantId } = req.params;
+  try {
+    await ensureSessionParticipantsTable();
+    await pool.query(
+      "UPDATE session_participants SET left_at = NOW() WHERE id = ? AND left_at IS NULL",
+      [participantId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to log participant leave", error);
+    res.status(500).json({ message: "Impossible d'enregistrer le départ." });
+  }
+});
+
+app.get("/api/sessions/:id/participants", optionalAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureSessionParticipantsTable();
+    const [rows] = await pool.query(
+      `SELECT id, user_id, display_name, role, joined_at, left_at
+       FROM session_participants WHERE session_id = ? ORDER BY joined_at ASC`,
+      [id]
+    );
+    res.json(rows.map((r) => ({
+      id: r.id,
+      userId: r.user_id,
+      displayName: r.display_name,
+      role: r.role,
+      joinedAt: r.joined_at,
+      leftAt: r.left_at,
+      isGuest: !r.user_id,
+    })));
+  } catch (error) {
+    console.error("Failed to fetch participants", error);
+    res.status(500).json({ message: "Impossible de récupérer les participants." });
   }
 });
 
