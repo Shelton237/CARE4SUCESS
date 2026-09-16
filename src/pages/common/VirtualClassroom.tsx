@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { fetchScheduleByRole, fetchCourseDetails, uploadMessageAttachment, fetchPreviousWorkspace } from "@/api/backoffice";
+import { fetchScheduleByRole, fetchPublicSession, fetchCourseDetails, uploadMessageAttachment, fetchPreviousWorkspace } from "@/api/backoffice";
 import { jsPDF } from "jspdf";
 import katex from "katex";
 import "katex/dist/katex.min.css";
@@ -220,9 +220,14 @@ export default function VirtualClassroom() {
 
     // Query Data
     const { data: schedule, refetch: refetchSession } = useQuery({
-        queryKey: ["session-details", sessionId],
-        queryFn: () => fetchScheduleByRole(user?.role as any, user?.id as any),
-        enabled: Boolean(sessionId && user),
+        queryKey: ["session-details", sessionId, user?.id ?? "guest"],
+        queryFn: async () => {
+            if (user) return fetchScheduleByRole(user.role as any, user.id as any);
+            // Invité sans compte : accès via le lien partagé uniquement.
+            const session = await fetchPublicSession(sessionId!);
+            return session ? [session] : [];
+        },
+        enabled: Boolean(sessionId),
         refetchInterval: 5000, // Poll every 5s for collaboration
     });
 
@@ -322,7 +327,10 @@ export default function VirtualClassroom() {
         try {
             await fetch(`${import.meta.env.VITE_API_URL || "/api"}/sessions/${sessionId}/sync`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
                 body: JSON.stringify(payload),
             });
             setLastSaved(new Date());
@@ -378,6 +386,10 @@ export default function VirtualClassroom() {
     const handleUploadError = (err: unknown, fallbackMessage: string) => {
         const message = err instanceof Error ? err.message : "";
         if (message === "Authentification invalide." || message === "Jeton d'authentification manquant.") {
+            if (!user) {
+                toast.error("L'ajout d'images/PDF n'est pas disponible en tant qu'invité.");
+                return;
+            }
             toast.error("Votre session a expiré. Merci de vous reconnecter.");
             logout();
             navigate("/login");
@@ -716,7 +728,7 @@ export default function VirtualClassroom() {
     const hasJoinedRef = useRef(false);
 
     useEffect(() => {
-        if (!sessionId || !user || !jitsiContainerRef.current) return;
+        if (!sessionId || !jitsiContainerRef.current) return;
         if (jitsiApiRef.current) return;
 
         const initJitsi = () => {
@@ -729,7 +741,7 @@ export default function VirtualClassroom() {
                 width: "100%",
                 height: "100%",
                 parentNode: jitsiContainerRef.current,
-                userInfo: { displayName: user.name, email: user.email },
+                userInfo: user ? { displayName: user.name, email: user.email } : undefined,
                 interfaceConfigOverwrite: {
                     TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview', 'fullscreen', 'participants-pane']
                 },
@@ -750,7 +762,7 @@ export default function VirtualClassroom() {
 
             api.addEventListener('videoConferenceJoined', () => {
                 hasJoinedRef.current = true;
-                if (user.role === 'teacher' && !currentSessionRef.current?.actualStartTime) {
+                if (user?.role === 'teacher' && !currentSessionRef.current?.actualStartTime) {
                     checkInMutation.mutate(sessionId);
                 }
             });
@@ -758,7 +770,7 @@ export default function VirtualClassroom() {
             api.addEventListener('videoConferenceLeft', () => {
                 if (!hasJoinedRef.current) return; // Don't handle if we never joined
                 
-                if (user.role === 'teacher' && !currentSessionRef.current?.actualEndTime) {
+                if (user?.role === 'teacher' && !currentSessionRef.current?.actualEndTime) {
                     checkOutMutation.mutate(sessionId);
                 } else {
                     navigate(-1);
@@ -825,7 +837,7 @@ export default function VirtualClassroom() {
                     </div>
                     <div className="hidden sm:block">
                         <h1 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">{currentSession?.subject || "Session Live"}</h1>
-                        <p className="text-blue-300/40 text-[8px] font-bold uppercase tracking-widest">{user?.name}</p>
+                        <p className="text-blue-300/40 text-[8px] font-bold uppercase tracking-widest">{user?.name || "Invité"}</p>
                     </div>
                     <div className="sm:hidden">
                         <h1 className="text-white font-black text-[9px] uppercase tracking-tight truncate max-w-[100px]">{currentSession?.subject}</h1>

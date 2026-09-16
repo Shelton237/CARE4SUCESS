@@ -118,14 +118,10 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/virtual-class/:sessionId"
-                element={
-                  <ProtectedRoute>
-                    <VirtualClassroom />
-                  </ProtectedRoute>
-                }
-              />
+              {/* Pas de ProtectedRoute : accessible sans compte via le lien
+                  partagé "Copier le lien" (le sessionId sert d'unique clé
+                  d'accès, comme un lien Google Meet). */}
+              <Route path="/virtual-class/:sessionId" element={<VirtualClassroom />} />
               <Route
                 path="/account"
                 element={

@@ -176,6 +176,11 @@ export const fetchScheduleByRole = (role: ScheduleRole, userId: string) => {
     return request<ScheduleSession[]>(`/sessions?${params.toString()}`);
 };
 
+// Accès sans compte à une séance via son UUID, pour les invités qui rejoignent
+// une classe virtuelle depuis un lien partagé.
+export const fetchPublicSession = (sessionId: string) =>
+    request<ScheduleSession>(`/sessions/${sessionId}/public`);
+
 export const fetchParentOverview = (parentId: string, studentId?: string) => {
     const params = studentId ? `?studentId=${studentId}` : "";
     return request<ParentOverview>(`/parents/${parentId}/overview${params}`);

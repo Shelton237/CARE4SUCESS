@@ -80,6 +80,24 @@ const authenticateRequest = (req, res, next) => {
   }
 };
 
+// Comme authenticateRequest, mais n'exige pas de jeton : utilisé sur les
+// routes accessibles via un lien de classe virtuelle partagé (invité sans
+// compte). Si un jeton valide est fourni, req.user est quand même posé.
+const optionalAuth = (req, res, next) => {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : null;
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+  } catch {
+    req.user = null;
+  }
+  next();
+};
+
 // À chaîner après authenticateRequest : repose sur req.user posé par le jeton.
 const requireRole = (...roles) => (req, res, next) => {
   if (!req.user || !roles.includes(req.user.role)) {
@@ -3086,6 +3104,27 @@ app.get("/api/sessions", authenticateRequest, async (req, res) => {
 });
 
 
+// Accès à une séance sans compte, uniquement via son UUID (connu seulement
+// par les détenteurs du lien "Copier le lien" de la classe virtuelle) — le
+// même modèle d'accès qu'un lien de partage Google Docs/Meet.
+app.get("/api/sessions/:id/public", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureSessionsTable();
+    const [[row]] = await pool.query(
+      `SELECT id, session_day, session_date, session_time, subject, location, status, teacher_id, teacher_name, student_id, student_name, parent_id, parent_name, virtual_link, notes, whiteboard_data, whiteboard_items, code_data, actual_start_time, actual_end_time, report_text, understanding_score, is_paid, lesson_id, course_id, group_class_id
+       FROM sessions
+       WHERE id = ?`,
+      [id]
+    );
+    if (!row) return res.status(404).json({ message: "Séance introuvable." });
+    res.json(mapSessionRow(row));
+  } catch (error) {
+    console.error("Failed to fetch public session", error);
+    res.status(500).json({ message: "Impossible de récupérer la séance." });
+  }
+});
+
 app.post("/api/sessions", authenticateRequest, async (req, res) => {
   const { studentIds, studentId, courseId, subject, sessionDate, sessionTime, sessionEndTime, locationType, location, recurrence, sessionCount } = req.body;
   const teacherId = req.user.sub;
@@ -3145,7 +3184,7 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
   }
 });
 
-app.patch("/api/sessions/:id/sync", authenticateRequest, async (req, res) => {
+app.patch("/api/sessions/:id/sync", optionalAuth, async (req, res) => {
   const { id } = req.params;
   const { notes, whiteboardData, whiteboardItems, codeData } = req.body ?? {};
   try {
@@ -3154,9 +3193,15 @@ app.patch("/api/sessions/:id/sync", authenticateRequest, async (req, res) => {
       [id]
     );
     if (!session) return res.status(404).json({ message: "Séance introuvable." });
-    const { sub, role } = req.user ?? {};
-    if (role !== "admin" && ![session.teacher_id, session.student_id, session.parent_id].includes(sub)) {
-      return res.status(403).json({ message: "Accès refusé." });
+    // Un visiteur sans compte (req.user absent) n'a pu arriver ici qu'en
+    // connaissant l'UUID de la séance via le lien partagé — accès autorisé
+    // au même titre qu'un participant. Un utilisateur connecté reste, lui,
+    // soumis au contrôle d'appartenance habituel.
+    if (req.user) {
+      const { sub, role } = req.user;
+      if (role !== "admin" && ![session.teacher_id, session.student_id, session.parent_id].includes(sub)) {
+        return res.status(403).json({ message: "Accès refusé." });
+      }
     }
 
     const updates = [];
