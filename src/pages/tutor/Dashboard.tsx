@@ -54,7 +54,7 @@ export default function TutorDashboard() {
                     Tableau de bord Tuteur
                 </h1>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                    Bienvenue, {user?.name} — Évaluation & qualification des enseignants
+                    Bienvenue, {user?.name} · Évaluation & qualification des enseignants
                 </p>
             </div>
 

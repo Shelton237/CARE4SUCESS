@@ -28,7 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
 const SUBJECTS = ["Mathématiques", "Français", "Anglais", "Histoire-Géo", "Sciences", "Physique", "Informatique", "Autre"];
 
 const parseHomeworkDate = (dateStr: string) => {
-    if (!dateStr) return { day: "—", month: "—", full: "—" };
+    if (!dateStr) return { day: "-", month: "-", full: "-" };
     if (dateStr.includes("/")) {
         const [day, m] = dateStr.split("/");
         const months: Record<string, string> = {
@@ -57,7 +57,7 @@ const parseHomeworkDate = (dateStr: string) => {
             };
         }
     } catch { /* invalid date, fall through to the default placeholder below */ }
-    return { day: "—", month: "—", full: dateStr };
+    return { day: "-", month: "-", full: dateStr };
 };
 
 export default function TeacherHomework() {

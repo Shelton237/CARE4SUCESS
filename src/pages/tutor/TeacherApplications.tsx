@@ -179,7 +179,7 @@ export default function TutorTeacherApplications() {
                                     <div>
                                         <div className="text-[12px] font-black text-[#0D2D5A]">{a.full_name}</div>
                                         <div className="text-[10px] font-bold text-slate-400 mt-0.5">
-                                            {(a.subjects || []).slice(0, 3).join(" · ")} — {a.experience_years} ans
+                                            {(a.subjects || []).slice(0, 3).join(" · ")} · {a.experience_years} ans
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">

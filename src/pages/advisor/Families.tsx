@@ -424,7 +424,7 @@ export default function AdvisorFamilies() {
                                         {diagnostic && (diagnostic as any).id ? (
                                             <div className="space-y-2">
                                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                                                    Dernier diagnostic — {new Date((diagnostic as any).created_at).toLocaleDateString("fr-FR")}
+                                                    Dernier diagnostic : {new Date((diagnostic as any).created_at).toLocaleDateString("fr-FR")}
                                                 </p>
                                                 {Object.entries((diagnostic as any).scores || {}).map(([subj, score]: any) => (
                                                     <div key={subj}>

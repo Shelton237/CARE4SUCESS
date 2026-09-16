@@ -77,7 +77,7 @@ export default function StudentHistory() {
                                         <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold">
                                             <Clock className="w-3 h-3" />
                                             {new Date(session.startTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                                            {" — "}
+                                            {" - "}
                                             {new Date(session.endTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                                         </div>
                                     )}

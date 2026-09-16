@@ -147,7 +147,7 @@ export default function ParentInvoices() {
         doc.setTextColor(160, 160, 180);
         doc.setFontSize(7);
         doc.setFont("helvetica", "normal");
-        doc.text("Care4Success — Plateforme d'accompagnement éducatif | care4success.usra-care.com", W / 2, 280, { align: "center" });
+        doc.text("Care4Success · Plateforme d'accompagnement éducatif | care4success.usra-care.com", W / 2, 280, { align: "center" });
         doc.save(`facture-care4success-${inv.id.slice(0, 8)}.pdf`);
     };
 
@@ -372,7 +372,7 @@ function PaymentDialog({
                 const result = await checkFlutterwavePaymentStatus(reference);
                 if (result.success) {
                     if (pollTimer.current) clearInterval(pollTimer.current);
-                    toast.success("Paiement confirmé — merci !");
+                    toast.success("Paiement confirmé, merci !");
                     onSuccess();
                     handleClose();
                     return;
@@ -437,7 +437,7 @@ function PaymentDialog({
                 <DialogHeader>
                     <DialogTitle>Payer par Mobile Money</DialogTitle>
                     <DialogDescription>
-                        {invoice.description} — {formatMoney(invoice.amount, "XAF")}
+                        {invoice.description} · {formatMoney(invoice.amount, "XAF")}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -502,7 +502,7 @@ function PaymentDialog({
                 {step === "redirect" && testRedirectUrl && (
                     <div className="flex flex-col items-center gap-4 py-6 text-center">
                         <p className="text-sm text-slate-600">
-                            Environnement de test — cliquez ci-dessous pour ouvrir la page de simulation Flutterwave et valider (ou refuser) le paiement.
+                            Environnement de test : cliquez ci-dessous pour ouvrir la page de simulation Flutterwave et valider (ou refuser) le paiement.
                         </p>
                         <Button
                             className="w-full"

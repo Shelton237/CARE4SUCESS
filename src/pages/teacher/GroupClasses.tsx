@@ -206,7 +206,7 @@ function CreateGroupClassDialog({ open, onClose, teacherCurrency }: { open: bool
                                 onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
                                 className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 rounded-md font-bold text-[12px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8]"
                             >
-                                <option value="">— Choisir —</option>
+                                <option value="">Choisir</option>
                                 {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>

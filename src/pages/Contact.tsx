@@ -24,7 +24,7 @@ const CONTACT_METHODS = [
     title: "Bureau principal",
     value: "Douala 5ᵉ, Makepe Bloc L",
     href: "#centres",
-    note: "Réseau panafricain — 15 pays",
+    note: "Réseau panafricain · 15 pays",
   },
   {
     icon: Clock,
@@ -44,22 +44,22 @@ const GUARANTEES = [
 
 const CENTERS = [
   {
-    name: "Bureau Régional — Cameroun",
+    name: "Bureau Régional · Cameroun",
     address: "Arrondissement Douala 5ᵉ, Makepe Bloc L, Douala",
     phone: "+237 675 252 048",
     email: "contact@usra-care.com",
     badge: "Siège Cameroun",
   },
   {
-    name: "Siège Social Principal — Madagascar",
+    name: "Siège Social Principal · Madagascar",
     address: "LOT 230 Ankadivory Talatamaty-Ambohidratrimo, Antananarivo 101",
     phone: "+261 038 262 0250",
     email: "contact@usra-care.com",
     badge: "Siège Afrique",
   },
   {
-    name: "Bureau Régional — Côte d'Ivoire",
-    address: "Koumassi, Immeuble Coulibaly Seydou, Lot 5303 — Îlot 218, Abidjan",
+    name: "Bureau Régional · Côte d'Ivoire",
+    address: "Koumassi, Immeuble Coulibaly Seydou, Lot 5303, Îlot 218, Abidjan",
     phone: null,
     email: "contact@usra-care.com",
     badge: "Antenne Abidjan",

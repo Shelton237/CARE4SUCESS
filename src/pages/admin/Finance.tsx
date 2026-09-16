@@ -103,7 +103,7 @@ export default function AdminFinance() {
     const marginPercent = summary.totalBilled > 0 ? (summary.margin / summary.totalBilled) * 100 : 0;
     const marginHealthLabel =
         summary.margin < 0
-            ? "Déficit détecté — les dépenses dépassent les revenus encaissés."
+            ? "Déficit détecté : les dépenses dépassent les revenus encaissés."
             : marginPercent < 20
             ? "Marge faible, à surveiller."
             : marginPercent < 40

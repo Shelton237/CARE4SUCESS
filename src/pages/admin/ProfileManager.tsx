@@ -656,7 +656,7 @@ export default function ProfileManager() {
                   <div>
                     <Label htmlFor="create-password">Mot de passe *</Label>
                     <Input id="create-password" type="password" value={createForm.password} onChange={e => handleCreateChange("password", e.target.value)} placeholder="Min. 8 caractères" required minLength={8} className="mt-1.5" aria-describedby="create-password-hint" />
-                    <p id="create-password-hint" className="text-xs text-muted-foreground mt-1">Min. 8 caractères — à communiquer à l'utilisateur.</p>
+                    <p id="create-password-hint" className="text-xs text-muted-foreground mt-1">Min. 8 caractères, à communiquer à l'utilisateur.</p>
                   </div>
                   <div>
                     <Label htmlFor="create-avatar">Initiales</Label>

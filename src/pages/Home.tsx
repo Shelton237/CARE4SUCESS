@@ -30,7 +30,7 @@ const WHY_CARDS = [
   {
     icon: CreditCard,
     title: "Paiement sécurisé",
-    desc: "Réglez vos séances en Mobile Money (MTN, Orange) — confirmation immédiate après paiement.",
+    desc: "Réglez vos séances en Mobile Money (MTN, Orange), confirmation immédiate après paiement.",
   },
   {
     icon: ClipboardCheck,
@@ -307,7 +307,7 @@ export default function Home() {
               ))}
             </div>
             <span className="text-white font-bold text-sm">4,4/5</span>
-            <span className="text-blue-300 text-xs">— note vérifiée</span>
+            <span className="text-blue-300 text-xs">· note vérifiée</span>
             <span className="text-blue-300 text-xs">•</span>
             <span className="text-blue-300 text-xs">100 000+ familles</span>
           </motion.div>
@@ -557,7 +557,7 @@ export default function Home() {
         <div className="container mx-auto px-6">
           <div className="text-center max-w-xl mx-auto mb-12">
             <h2 className="text-2xl md:text-3xl font-black text-[#0D2D5A] mb-2">Un champ large de connaissances à votre portée</h2>
-            <p className="text-sm text-gray-500">Demandez la matière de votre choix — nous mettons en relation dans les meilleurs délais.</p>
+            <p className="text-sm text-gray-500">Demandez la matière de votre choix, nous mettons en relation dans les meilleurs délais.</p>
           </div>
 
           <motion.div
@@ -669,7 +669,7 @@ export default function Home() {
                   id="download-apk-btn"
                   className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#1A6CC8] text-white font-bold text-sm shadow-md hover:bg-[#0D2D5A] transition-colors"
                 >
-                  <Download className="w-4 h-4" /> Télécharger l'APK — gratuit
+                  <Download className="w-4 h-4" /> Télécharger l'APK · gratuit
                 </a>
               </div>
             </motion.div>

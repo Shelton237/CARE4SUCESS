@@ -9,7 +9,7 @@ const LEVELS = [
   {
     id: "primaire",
     label: "Primaire",
-    grades: "SIL — CM2",
+    grades: "SIL à CM2",
     desc: "Poser des bases solides en français, mathématiques et éveil. Un accompagnement doux, ludique et encourageant.",
     image: IMAGES.STUDENTS_STUDYING_1,
     subjects: ["Français", "Mathématiques", "Anglais", "Éveil scientifique", "Expression orale"],
@@ -19,7 +19,7 @@ const LEVELS = [
   {
     id: "college",
     label: "Collège",
-    grades: "6ème — 3ème",
+    grades: "6ème à 3ème",
     desc: "La phase cruciale avant les examens nationaux (BEPC, BFEM, BECE…). Méthode de travail, compréhension profonde et préparation rigoureuse.",
     image: IMAGES.STUDENTS_STUDYING_2,
     subjects: ["Mathématiques", "Français", "Physique-Chimie", "SVT", "Anglais", "Histoire-Géo"],
@@ -29,7 +29,7 @@ const LEVELS = [
   {
     id: "lycee",
     label: "Lycée",
-    grades: "Seconde — Terminale",
+    grades: "Seconde à Terminale",
     desc: "La préparation aux examens de terminale (BAC, A-Levels selon votre pays) exige rigueur et méthode. Révisions ciblées et simulations d'épreuves.",
     image: IMAGES.STUDENTS_STUDYING_4,
     subjects: ["Mathématiques", "Physique-Chimie", "SVT", "Philosophie", "Économie", "Langues"],
@@ -80,7 +80,7 @@ export default function Niveaux() {
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={springPresets.gentle} className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-4">Niveaux scolaires</p>
             <h1 className="text-4xl md:text-5xl font-black text-white leading-tight mb-5">
-              Du primaire au supérieur —<br />
+              Du primaire au supérieur,<br />
               <span className="text-[#F5A623]">chaque étape accompagnée</span>
             </h1>
             <p className="text-blue-200 text-lg leading-relaxed max-w-xl mb-8">
@@ -136,7 +136,7 @@ export default function Niveaux() {
                 {/* Contenu */}
                 <div className="flex-1 p-7">
                   <div className="mb-1" style={{ width: 32, height: 3, backgroundColor: lvl.accent, borderRadius: 2 }} />
-                  <h3 className="font-black text-[#0D2D5A] text-lg mb-2">{lvl.label} — {lvl.grades}</h3>
+                  <h3 className="font-black text-[#0D2D5A] text-lg mb-2">{lvl.label} · {lvl.grades}</h3>
                   <p className="text-gray-500 text-sm leading-relaxed mb-5">{lvl.desc}</p>
 
                   <div className="grid sm:grid-cols-2 gap-5">

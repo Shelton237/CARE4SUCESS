@@ -78,7 +78,7 @@ export default function Landing() {
             Votre enfant mérite<br />le meilleur <span className="text-[#F5A623]">accompagnement</span>
           </h1>
           <p className="text-blue-100 text-lg mb-10 max-w-xl mx-auto">
-            Des tuteurs qualifiés, un suivi personnalisé, des résultats mesurables — du CP au Bac et au-delà.
+            Des tuteurs qualifiés, un suivi personnalisé, des résultats mesurables, du CP au Bac et au-delà.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a href="#bilan" className="h-12 px-8 bg-[#F5A623] hover:bg-[#e09520] text-white font-black rounded-xl flex items-center justify-center gap-2 transition-colors">
@@ -215,7 +215,7 @@ export default function Landing() {
           <img src="/logo/Care 4 Success-logo-Ok_compact.png" className="h-8 w-8 object-contain" alt="" />
           <span className="font-black text-lg">Care<span className="text-[#F5A623]">4</span>Success</span>
         </div>
-        <p className="text-blue-200/50 text-xs">© {new Date().getFullYear()} Care4Success — Douala · Yaoundé · En ligne</p>
+        <p className="text-blue-200/50 text-xs">© {new Date().getFullYear()} Care4Success · Douala · Yaoundé · En ligne</p>
       </footer>
     </div>
   );

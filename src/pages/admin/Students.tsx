@@ -157,18 +157,18 @@ export default function AdminStudents() {
                         <span className="max-w-[160px] truncate" title={family.location}>{family.location}</span>
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-400">—</span>
+                      <span className="text-xs text-gray-400">-</span>
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-2 py-0.5 bg-[#1A6CC8]/10 text-[#1A6CC8] rounded-full text-xs font-bold">{family.level || "—"}</span>
+                    <span className="px-2 py-0.5 bg-[#1A6CC8]/10 text-[#1A6CC8] rounded-full text-xs font-bold">{family.level || "-"}</span>
                   </td>
                   <td className="px-6 py-4 text-gray-600">
                     <div className="max-w-[200px] truncate" title={family.subject}>
-                      {family.subject || "—"}
+                      {family.subject || "-"}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-gray-700 font-medium">{family.teacher || "—"}</td>
+                  <td className="px-6 py-4 text-gray-700 font-medium">{family.teacher || "-"}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-gray-600 text-xs">
                       <CalendarDays className="w-3.5 h-3.5 text-[#F5A623]" />

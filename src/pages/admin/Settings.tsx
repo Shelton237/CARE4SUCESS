@@ -649,7 +649,7 @@ export default function AdminSettings() {
                             <div className="flex items-center gap-2 px-3 py-2 bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-lg">
                                 <Settings2 className="w-4 h-4 text-[#22c55e]" />
                                 <span className="text-xs text-[#22c55e] font-medium">
-                                    Aucune intrusion détectée — Système OK
+                                    Aucune intrusion détectée · Système OK
                                 </span>
                             </div>
                         </div>

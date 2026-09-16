@@ -158,7 +158,7 @@ export function GeoSelector({ label, required, value, onChange, suggestedByEmail
                                         </option>
                                     ))}
                                     {enabled && (
-                                        <option value="__suggest__">— {lvlLabel} introuvable ? Suggérer</option>
+                                        <option value="__suggest__">+ {lvlLabel} introuvable ? Suggérer</option>
                                     )}
                                 </select>
                             </div>

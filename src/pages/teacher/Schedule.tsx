@@ -417,7 +417,7 @@ export default function TeacherSchedule() {
                             <div className="flex-1 min-w-0">
                                 <div className="font-black text-[#0D2D5A] text-[10px] uppercase tracking-tight flex items-center gap-2">
                                     {s.subject}
-                                    <span className="text-[9px] font-bold text-slate-400 normal-case">— {s.student}</span>
+                                    <span className="text-[9px] font-bold text-slate-400 normal-case">· {s.student}</span>
                                 </div>
                                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                                     <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase">
@@ -545,7 +545,7 @@ export default function TeacherSchedule() {
                                     onChange={e => setForm(f => ({ ...f, subject: e.target.value, courseId: "" }))}
                                     className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm"
                                 >
-                                    <option value="">— Matière —</option>
+                                    <option value="">Matière</option>
                                     {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
@@ -557,7 +557,7 @@ export default function TeacherSchedule() {
                                     disabled={!form.subject}
                                     className="w-full h-11 bg-gray-50 rounded-xl px-4 border border-gray-200 font-medium text-[#0D2D5A] outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 focus:border-[#1A6CC8] transition-all text-sm disabled:opacity-50"
                                 >
-                                    <option value="">— Aucun cours —</option>
+                                    <option value="">Aucun cours</option>
                                     {filteredCourses.map((c: any) => (
                                         <option key={c.id} value={c.id}>{c.title}</option>
                                     ))}
@@ -755,7 +755,7 @@ export default function TeacherSchedule() {
                             <BookOpen className="w-5 h-5 text-[#1A6CC8]" /> Clôture Pédagogique
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Cours de <strong>{closingSession?.subject}</strong> — {closingSession?.student} — {closingSession?.date}
+                            Cours de <strong>{closingSession?.subject}</strong> · {closingSession?.student} · {closingSession?.date}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -929,7 +929,7 @@ function TeacherSlotsManager({ teacherId }: { teacherId: string }) {
             subject: subject || undefined,
         }),
         onSuccess: () => {
-            toast.success("Créneau ajouté — visible sur votre page publique.");
+            toast.success("Créneau ajouté, visible sur votre page publique.");
             queryClient.invalidateQueries({ queryKey: ["teacherSlotsManage", teacherId] });
             setShowAdd(false);
             setDate(""); setSubject("");
@@ -1102,7 +1102,7 @@ function TeacherSlotsManager({ teacherId }: { teacherId: string }) {
                     </div>
                     <p className="text-[10px] text-slate-400 mb-4">
                         {new Date(posterSlot.startTime).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
-                        {" — "}
+                        {" · "}
                         {new Date(posterSlot.startTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                         {" – "}
                         {new Date(posterSlot.endTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
@@ -1168,7 +1168,7 @@ function TeacherSlotsManager({ teacherId }: { teacherId: string }) {
                             <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
                                 <Image className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                                 <p className="text-[10px] text-slate-400 font-semibold">Aucune affiche pour ce créneau</p>
-                                <p className="text-[9px] text-slate-300 mt-1">Formats acceptés : JPG, PNG, WebP — max 10 Mo</p>
+                                <p className="text-[9px] text-slate-300 mt-1">Formats acceptés : JPG, PNG, WebP · max 10 Mo</p>
                             </div>
                             <label className="block">
                                 <span className="block w-full text-center text-[10px] font-black uppercase py-2.5 px-4 rounded-lg bg-[#1A6CC8] text-white cursor-pointer hover:bg-[#0D2D5A] transition-colors">

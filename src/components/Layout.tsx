@@ -199,7 +199,7 @@ export function Layout({ children }: LayoutProps) {
                 {[1,2,3,4].map(i => <Star key={i} className="w-4 h-4 fill-[#F5A623] text-[#F5A623]" />)}
                 <Star className="w-4 h-4 fill-white/10 text-white/20" />
                 <span className="text-white font-bold text-sm ml-1">4,4/5</span>
-                <span className="text-blue-300/60 text-xs ml-1">— note vérifiée</span>
+                <span className="text-blue-300/60 text-xs ml-1">· note vérifiée</span>
               </div>
               <div className="flex gap-2">
                 {[

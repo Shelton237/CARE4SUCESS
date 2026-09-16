@@ -112,7 +112,7 @@ export default function Services() {
               <span className="text-[#F5A623]">pour chaque profil</span>
             </h1>
             <p className="text-blue-200 text-lg leading-relaxed max-w-xl mb-8">
-              Cours à domicile, en ligne, stages intensifs ou prépa examens — choisissez la formule adaptée à l'objectif de votre enfant.
+              Cours à domicile, en ligne, stages intensifs ou prépa examens : choisissez la formule adaptée à l'objectif de votre enfant.
             </p>
             <div className="flex flex-wrap gap-3">
               <NavLink to="/inscription" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-bold text-sm hover:bg-white transition-all duration-200 shadow-lg cursor-pointer">

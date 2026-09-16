@@ -159,7 +159,7 @@ export default function About() {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0D2D5A]/60 to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3">
                   <p className="text-white text-sm font-bold">+4 points de moyenne garantis</p>
-                  <p className="text-[#F5A623] text-xs font-semibold">En 6 mois — ou remboursé</p>
+                  <p className="text-[#F5A623] text-xs font-semibold">En 6 mois, ou remboursé</p>
                 </div>
               </div>
             </motion.div>

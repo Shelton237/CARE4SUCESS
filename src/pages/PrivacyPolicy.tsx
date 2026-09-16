@@ -129,7 +129,7 @@ export default function PrivacyPolicy() {
       <Section title="13. Contact">
         <p>Pour toute question relative à cette politique ou au traitement de vos données personnelles :</p>
         <div className="mt-3 bg-slate-50 border border-slate-200 p-4 space-y-1">
-          <p><strong>Care4Success — Euréka</strong></p>
+          <p><strong>Care4Success · Euréka</strong></p>
           <p>E-mail : <a href="mailto:privacy@care4success.cm" className="text-[#1A6CC8] font-semibold">privacy@care4success.cm</a></p>
           <p>Site web : <a href="https://care4success.usra-care.com" className="text-[#1A6CC8] font-semibold" target="_blank" rel="noreferrer">care4success.usra-care.com</a></p>
         </div>

@@ -407,12 +407,12 @@ export default function AdminTeachers() {
                                             {(typeof t.subjects === "string" ? t.subjects.split(", ") : t.subjects).map((s, idx) => (
                                                 <span key={idx} className="bg-blue-50 px-2 py-0.5 rounded text-blue-700 text-[10px] font-semibold">{s}</span>
                                             ))}
-                                            {(!t.subjects || t.subjects.length === 0) && "—"}
+                                            {(!t.subjects || t.subjects.length === 0) && "-"}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-gray-500 text-xs">
                                         <div className="flex flex-wrap gap-1">
-                                            {String(t.levels || t.level || "—").split(',').filter(Boolean).map((lvl, idx) => (
+                                            {String(t.levels || t.level || "-").split(',').filter(Boolean).map((lvl, idx) => (
                                                 <span key={idx} className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{lvl.trim()}</span>
                                             ))}
                                             {(!t.levels && !t.level) && <span className="text-gray-400 italic">Non défini</span>}

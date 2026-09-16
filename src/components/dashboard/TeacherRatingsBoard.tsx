@@ -79,7 +79,7 @@ export function TeacherRatingsBoard({
                                         {rating.averageRating.toFixed(1)}/5
                                     </div>
                                     <div className="text-[8px] font-bold text-slate-300 uppercase tracking-tighter">
-                                        Mis à jour le {rating.lastReviewAt ? new Date(rating.lastReviewAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase() : "—"}
+                                        Mis à jour le {rating.lastReviewAt ? new Date(rating.lastReviewAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase() : "-"}
                                     </div>
                                 </div>
                             </button>

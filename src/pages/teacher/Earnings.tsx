@@ -92,7 +92,7 @@ export default function TeacherEarnings() {
                                 label: "Tarif",
                                 value: transactions[0]
                                     ? formatMoney(transactions[0].rate, transactions[0].currency)
-                                    : "—",
+                                    : "-",
                                 sub: transactions[0]?.rateUnitMinutes ? `/ ${transactions[0].rateUnitMinutes} min` : "/ séance",
                                 icon: DollarSign,
                             },

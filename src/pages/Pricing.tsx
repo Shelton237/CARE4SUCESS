@@ -147,7 +147,7 @@ export default function Pricing() {
               Tarifs de référence en FCFA (zone CFA). Équivalents disponibles pour tous nos 15 pays. Aucun frais d'inscription. Annulation libre.
             </p>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/30 text-[#F5A623] text-sm font-bold">
-              <Star className="w-4 h-4" /> +4 pts garantis en 6 mois — ou remboursé
+              <Star className="w-4 h-4" /> +4 pts garantis en 6 mois, ou remboursé
             </div>
           </motion.div>
         </div>

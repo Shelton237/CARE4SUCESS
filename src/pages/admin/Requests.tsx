@@ -106,7 +106,7 @@ export default function AdminRequests() {
                     <p className="text-xs uppercase tracking-[4px] text-gray-400 font-black mb-1">CRM • Pipeline</p>
                     <h1 className="text-2xl font-black text-[#0D2D5A]">Demandes de bilan</h1>
                     <p className="text-gray-500 text-sm mt-1">
-                        Suivi du pipeline commercial — de la demande initiale à l'affectation du tuteur
+                        Suivi du pipeline commercial, de la demande initiale à l'affectation du tuteur
                     </p>
                 </div>
                 <Button
@@ -130,7 +130,7 @@ export default function AdminRequests() {
                             <Icon className={`w-5 h-5 ${color}`} />
                         </div>
                         <div>
-                            <p className={`text-2xl font-black ${color}`}>{isLoading ? "—" : value}</p>
+                            <p className={`text-2xl font-black ${color}`}>{isLoading ? "…" : value}</p>
                             <p className="text-xs text-gray-500 font-semibold">{label}</p>
                         </div>
                     </div>

@@ -160,7 +160,7 @@ export default function AdminGeography() {
                 <ul className="space-y-1 text-xs text-blue-700 list-disc list-inside">
                     <li>Hiérarchie : <strong>Pays → Région → Département → Arrondissement → Quartier</strong></li>
                     <li>Les enseignants et parents sélectionnent leur zone via des listes déroulantes.</li>
-                    <li>Si une zone est introuvable, l'utilisateur peut la suggérer — elle apparaît ici en attente.</li>
+                    <li>Si une zone est introuvable, l'utilisateur peut la suggérer : elle apparaît ici en attente.</li>
                     <li>Une fois validée, elle est disponible pour tous les utilisateurs de la plateforme.</li>
                     <li>Le matching calcule un score de proximité : même quartier = 5, même arrondissement = 4, même département = 3, même région = 2, même pays = 1.</li>
                 </ul>

@@ -285,7 +285,7 @@ export default function Recrutement() {
                             >
                                 <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] text-sm font-bold mb-6">
                                     <Megaphone className="w-4 h-4" />
-                                    Espace Recrutement — Care4Success
+                                    Espace Recrutement · Care4Success
                                 </span>
                                 <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6">
                                     Transmettez votre{" "}
@@ -301,7 +301,7 @@ export default function Recrutement() {
                                 </h1>
                                 <p className="text-lg md:text-xl text-blue-100 leading-relaxed mb-8 max-w-lg">
                                     Rejoignez le réseau d'enseignants N°1 en Afrique francophone. Flexibilité, rémunération attractive et
-                                    impact éducatif réel — le tout depuis votre téléphone.
+                                    impact éducatif réel, le tout depuis votre téléphone.
                                 </p>
 
                                 <div className="flex flex-wrap gap-4">

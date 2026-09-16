@@ -506,7 +506,7 @@ function CourseViewer({ courseId, onClose }: { courseId: string | null; onClose:
                                         {activeLesson.locked ? (
                                             <div className="flex flex-col items-center gap-3 py-16 text-center text-gray-400">
                                                 <Lock className="w-10 h-10 opacity-30" />
-                                                <p className="font-bold">Contenu verrouillé — achetez ce cours pour y accéder.</p>
+                                                <p className="font-bold">Contenu verrouillé : achetez ce cours pour y accéder.</p>
                                             </div>
                                         ) : (
                                             <>
@@ -750,7 +750,7 @@ function CoursePurchaseDialog({
 
                 {step === "redirect" && testRedirectUrl && (
                     <div className="flex flex-col items-center gap-3 py-4 text-center">
-                        <p className="text-xs text-gray-500">Environnement de test — validez le paiement sur la page Flutterwave.</p>
+                        <p className="text-xs text-gray-500">Environnement de test : validez le paiement sur la page Flutterwave.</p>
                         <Button className="w-full" onClick={() => window.open(testRedirectUrl, "_blank", "noopener,noreferrer")}>
                             Ouvrir la page de test Flutterwave
                         </Button>

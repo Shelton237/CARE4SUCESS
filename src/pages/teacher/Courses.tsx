@@ -361,7 +361,7 @@ export default function TeacherCourses() {
                                 onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
                                 className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                             >
-                                <option value="">— Choisir —</option>
+                                <option value="">Choisir</option>
                                 {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
@@ -375,7 +375,7 @@ export default function TeacherCourses() {
                                 onChange={e => setForm(f => ({ ...f, level: e.target.value }))}
                                 className="w-full h-10 bg-slate-50/50 px-3 border border-slate-200 font-bold text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-colors duration-200"
                             >
-                                <option value="">— Choisir —</option>
+                                <option value="">Choisir</option>
                                 {availableLevels.map(l => <option key={l} value={l}>{l}</option>)}
                             </select>
                         </div>
@@ -590,7 +590,7 @@ export default function TeacherCourses() {
                                                                 ? "bg-[#F5A623]/10 text-[#F5A623] border-[#F5A623]/30"
                                                                 : "bg-emerald-50 text-emerald-600 border-emerald-200"
                                                         )}
-                                                        title={video.isPaid ? "Vidéo payante — cliquer pour rendre gratuite" : "Vidéo gratuite — cliquer pour rendre payante"}
+                                                        title={video.isPaid ? "Vidéo payante : cliquer pour rendre gratuite" : "Vidéo gratuite : cliquer pour rendre payante"}
                                                     >
                                                         {video.isPaid ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
                                                         {video.isPaid ? "Payant" : "Gratuit"}

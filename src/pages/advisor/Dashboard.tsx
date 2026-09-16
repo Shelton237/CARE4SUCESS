@@ -52,7 +52,7 @@ export default function AdvisorDashboard() {
                 <h1 className="text-2xl font-bold text-[#0D2D5A]">
                     Bonjour, {user?.name?.split(" ").pop()} 👋
                 </h1>
-                <p className="text-gray-500 text-sm mt-1">Tableau de bord conseiller pédagogique — Mars 2026</p>
+                <p className="text-gray-500 text-sm mt-1">Tableau de bord conseiller pédagogique · Mars 2026</p>
             </div>
 
             {/* KPIs */}
@@ -105,7 +105,7 @@ export default function AdvisorDashboard() {
             <div className="grid lg:grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* Mes familles récentes */}
                 <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
-                    <h2 className="text-base font-bold text-[#0D2D5A] mb-4">Mes familles — aperçu</h2>
+                    <h2 className="text-base font-bold text-[#0D2D5A] mb-4">Mes familles · aperçu</h2>
                     <div className="space-y-3">
                         {families.length === 0 ? (
                             <p className="text-xs text-gray-400 italic py-4 text-center">Aucune famille assignée.</p>

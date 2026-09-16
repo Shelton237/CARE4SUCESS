@@ -51,7 +51,7 @@ function parseRobustDate(dateStr: any): Date | null {
 
 function formatRobustDate(dateStr: any, options?: Intl.DateTimeFormatOptions): string {
     const d = parseRobustDate(dateStr);
-    if (!d) return "—";
+    if (!d) return "-";
     return d.toLocaleDateString("fr-FR", options || { day: "2-digit", month: "short", year: "numeric" });
 }
 
@@ -202,7 +202,7 @@ export default function AcademicFile({ studentId: propStudentId, parentId }: Aca
                         </div>
                         {studentId && (
                             <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">
-                                Niveau: {overview?.childLevel || "Non défini"} · Matière : {overview?.focusSubject || "—"}
+                                Niveau: {overview?.childLevel || "Non défini"} · Matière : {overview?.focusSubject || "-"}
                             </p>
                         )}
                     </div>
@@ -498,10 +498,10 @@ export default function AcademicFile({ studentId: propStudentId, parentId }: Aca
                                                     <td className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase">{displayDate}</td>
                                                     <td className="px-6 py-4">
                                                         <div className="text-[11px] font-black text-[#0D2D5A] uppercase">{s.subject}</div>
-                                                        <div className="text-[10px] text-slate-400 font-bold">{s.teacher || s.teacherName || "—"}</div>
+                                                        <div className="text-[10px] text-slate-400 font-bold">{s.teacher || s.teacherName || "-"}</div>
                                                     </td>
                                                     <td className="px-6 py-4 text-center text-[11px] font-black text-[#1A6CC8]">
-                                                        {s.time || s.session_time || "—"}
+                                                        {s.time || s.session_time || "-"}
                                                     </td>
                                                     <td className="px-6 py-4 text-[11px] text-slate-500 italic">
                                                         {s.notes || s.reportText || "Aucune observation"}

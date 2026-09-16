@@ -974,7 +974,7 @@ export default function VirtualClassroom() {
                                         <History className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                                         <div className="flex-1">
                                             <p className="text-[11px] font-black text-[#0D2D5A]">Reprendre le cours précédent ?</p>
-                                            <p className="text-[10px] text-slate-500 mt-0.5">Séance du {previousWorkspace?.sessionDate} — notes et ressources disponibles pour continuer.</p>
+                                            <p className="text-[10px] text-slate-500 mt-0.5">Séance du {previousWorkspace?.sessionDate} : notes et ressources disponibles pour continuer.</p>
                                             <div className="flex gap-2 mt-2">
                                                 <Button size="sm" onClick={handleResumePreviousSession} className="h-7 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-700">
                                                     Reprendre

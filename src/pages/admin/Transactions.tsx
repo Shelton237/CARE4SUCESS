@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatMoney } from "@/lib/money";
 
 const formatDate = (value: string | null) => {
-    if (!value) return "—";
+    if (!value) return "-";
     const date = new Date(value);
     return Number.isNaN(date.getTime())
         ? value
@@ -161,7 +161,7 @@ export default function AdminTransactions() {
                                                     <TableCell className="text-[11px] text-slate-500 max-w-[220px] truncate">{t.description}</TableCell>
                                                     <TableCell>
                                                         <span className="text-[10px] font-bold text-slate-500 uppercase">
-                                                            {t.paymentMethod ? (METHOD_LABELS[t.paymentMethod] || t.paymentMethod) : "—"}
+                                                            {t.paymentMethod ? (METHOD_LABELS[t.paymentMethod] || t.paymentMethod) : "-"}
                                                         </span>
                                                     </TableCell>
                                                     <TableCell className="text-[10px] font-bold text-slate-500 uppercase">
@@ -207,7 +207,7 @@ export default function AdminTransactions() {
                                     {payouts.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={6} className="text-center py-10 text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                                                Aucun versement enregistré — utilisez « Marquer comme payé » depuis Finance & Paie
+                                                Aucun versement enregistré, utilisez « Marquer comme payé » depuis Finance & Paie
                                             </TableCell>
                                         </TableRow>
                                     ) : (
@@ -215,8 +215,8 @@ export default function AdminTransactions() {
                                             <TableRow key={p.id} className="hover:bg-slate-50/30 border-slate-50">
                                                 <TableCell className="pl-6 py-3 font-bold text-[12px] text-[#0D2D5A]">{p.teacherName}</TableCell>
                                                 <TableCell className="text-[11px] text-slate-500">{p.periodMonth}</TableCell>
-                                                <TableCell className="text-[10px] font-bold text-slate-500 uppercase">{p.paymentMethod || "—"}</TableCell>
-                                                <TableCell className="text-[11px] text-slate-400 max-w-[200px] truncate">{p.note || "—"}</TableCell>
+                                                <TableCell className="text-[10px] font-bold text-slate-500 uppercase">{p.paymentMethod || "-"}</TableCell>
+                                                <TableCell className="text-[11px] text-slate-400 max-w-[200px] truncate">{p.note || "-"}</TableCell>
                                                 <TableCell className="text-[10px] font-bold text-slate-500 uppercase">{formatDate(p.createdAt)}</TableCell>
                                                 <TableCell className="text-right pr-6 font-black text-[13px] text-[#0D2D5A]">
                                                     {formatMoney(p.amount, p.currency)}

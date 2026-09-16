@@ -199,7 +199,7 @@ export default function ParentHomework() {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-0.5">
                                                 <h4 className="font-black text-[#0D2D5A] text-[11px] uppercase truncate">{hw.title}</h4>
-                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">— {hw.dueDate}</span>
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">· {hw.dueDate}</span>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <span className="flex items-center gap-1 text-[9px] text-[#1A6CC8] font-black uppercase tracking-tight">
