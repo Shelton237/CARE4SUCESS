@@ -3193,15 +3193,13 @@ app.patch("/api/sessions/:id/sync", optionalAuth, async (req, res) => {
       [id]
     );
     if (!session) return res.status(404).json({ message: "Séance introuvable." });
-    // Un visiteur sans compte (req.user absent) n'a pu arriver ici qu'en
-    // connaissant l'UUID de la séance via le lien partagé — accès autorisé
-    // au même titre qu'un participant. Un utilisateur connecté reste, lui,
-    // soumis au contrôle d'appartenance habituel.
-    if (req.user) {
-      const { sub, role } = req.user;
-      if (role !== "admin" && ![session.teacher_id, session.student_id, session.parent_id].includes(sub)) {
-        return res.status(403).json({ message: "Accès refusé." });
-      }
+    // Seul l'enseignant titulaire de la séance (ou un admin) peut modifier
+    // Notes/Board/Code — élève, parent et invité restent en lecture seule
+    // (ils continuent de voir le contenu via GET, juste plus l'écrire ici).
+    const { sub, role } = req.user ?? {};
+    const isTeacherOwner = role === "admin" || (role === "teacher" && sub === session.teacher_id);
+    if (!isTeacherOwner) {
+      return res.status(403).json({ message: "Seul l'enseignant peut modifier cet espace." });
     }
 
     const updates = [];

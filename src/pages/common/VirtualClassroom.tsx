@@ -233,6 +233,12 @@ export default function VirtualClassroom() {
 
     const currentSession = schedule?.find(s => s.id === sessionId);
 
+    // Seul l'enseignant titulaire de la séance (ou un admin) peut modifier
+    // Notes/Board/Code — élève, parent et invité restent en lecture seule.
+    const canEdit = Boolean(
+        user && (user.role === "admin" || (user.role === "teacher" && user.id === currentSession?.teacherId))
+    );
+
     // Continuité entre séances : propose de reprendre le contenu de la
     // dernière séance (même prof + élève) si la séance courante est encore vierge.
     const [previousBannerDismissed, setPreviousBannerDismissed] = useState(false);
@@ -251,7 +257,7 @@ export default function VirtualClassroom() {
         return notesEmpty && whiteboardItemsEmpty && canvasEmpty && codeEmpty;
     }, [currentSession]);
 
-    const showResumeBanner = !previousBannerDismissed && isCurrentWorkspaceEmpty && Boolean(previousWorkspace);
+    const showResumeBanner = canEdit && !previousBannerDismissed && isCurrentWorkspaceEmpty && Boolean(previousWorkspace);
 
     const handleResumePreviousSession = () => {
         if (!previousWorkspace) return;
@@ -344,6 +350,7 @@ export default function VirtualClassroom() {
     // Debounced sync for text-based fields
     const timerRef = useRef<any>(null);
     const handleWorkspaceUpdate = (type: 'notes' | 'code' | 'whiteboard' | 'whiteboardItems', value: any) => {
+        if (!canEdit) return;
         isEditingRef.current = true;
         if (type === 'code') setCode(value);
         if (type === 'whiteboardItems') setWhiteboardItems(value);
@@ -637,6 +644,7 @@ export default function VirtualClassroom() {
     };
 
     const startDrawing = (e: any) => {
+        if (!canEdit) return;
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
         if (!canvas || !ctx) return;
@@ -1002,6 +1010,7 @@ export default function VirtualClassroom() {
                                         </div>
                                     </div>
                                 )}
+                                {canEdit && (
                                 <div className="flex items-center flex-wrap gap-y-1 gap-x-1 mb-3 pb-3 border-b border-slate-100">
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('bold')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Gras"><Bold className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('italic')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Italique"><Italic className="w-3.5 h-3.5" /></button>
@@ -1026,9 +1035,10 @@ export default function VirtualClassroom() {
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesHistory('redo')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Rétablir"><Redo2 className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={applyNotesClearFormat} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Effacer la mise en forme"><RemoveFormatting className="w-3.5 h-3.5" /></button>
                                 </div>
+                                )}
                                 <div
                                     ref={notesRef}
-                                    contentEditable
+                                    contentEditable={canEdit}
                                     suppressContentEditableWarning
                                     spellCheck
                                     lang="fr"
@@ -1042,6 +1052,7 @@ export default function VirtualClassroom() {
 
                         {/* Whiteboard View */}
                         <div className={cn("flex-1 flex flex-col p-4 md:p-6 gap-4", activeTab !== 'whiteboard' && "hidden")}>
+                            {canEdit && (
                             <div className="flex flex-col gap-2">
                                 {/* Rangée 1 : outils de dessin + historique */}
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1113,8 +1124,9 @@ export default function VirtualClassroom() {
                                     </div>
                                 </div>
                             </div>
+                            )}
 
-                            {showYoutubeInput && (
+                            {canEdit && showYoutubeInput && (
                                 <div className="flex flex-col gap-2">
                                     <div className="flex gap-2">
                                         <Input
@@ -1174,6 +1186,7 @@ export default function VirtualClassroom() {
                                                     allowFullScreen
                                                 />
                                             )}
+                                            {canEdit && (
                                             <button
                                                 onClick={() => handleRemoveWhiteboardItem(item.id)}
                                                 className="absolute top-1 right-1 p-1 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
@@ -1181,6 +1194,7 @@ export default function VirtualClassroom() {
                                             >
                                                 <Trash2 className="w-3 h-3" />
                                             </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -1197,7 +1211,11 @@ export default function VirtualClassroom() {
                                     ref={canvasRef}
                                     width={1200}
                                     height={1600}
-                                    className={cn("w-full h-full", tool === 'text' ? "cursor-text" : "cursor-crosshair")}
+                                    className={cn(
+                                        "w-full h-full",
+                                        !canEdit ? "cursor-default" : tool === 'text' ? "cursor-text" : "cursor-crosshair"
+                                    )}
+                                    style={!canEdit ? { pointerEvents: "none" } : undefined}
                                     onMouseDown={startDrawing}
                                     onMouseUp={stopDrawing}
                                     onMouseMove={draw}
@@ -1216,9 +1234,10 @@ export default function VirtualClassroom() {
                                     <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Sandbox.js</span>
                                 </div>
                                 <textarea
-                                    className="flex-1 w-full bg-transparent text-blue-200 font-mono text-[10px] md:text-xs p-4 md:p-8 focus:outline-none resize-none"
+                                    className="flex-1 w-full bg-transparent text-blue-200 font-mono text-[10px] md:text-xs p-4 md:p-8 focus:outline-none resize-none disabled:opacity-70"
                                     value={code}
                                     onChange={(e) => handleWorkspaceUpdate('code', e.target.value)}
+                                    readOnly={!canEdit}
                                     spellCheck={false}
                                 />
                             </div>
