@@ -18,6 +18,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
+import DOMPurify from "dompurify";
+
+// Les Notes Live sont un éditeur contentEditable : un champ "vide" y est
+// souvent enregistré comme "<br>" ou une balise sans texte, pas comme une
+// chaîne vraiment vide. On extrait donc le texte réel une fois les balises
+// retirées, aussi bien pour savoir s'il y a un compte-rendu que pour
+// l'export PDF (jsPDF n'interprète pas le HTML).
+const stripNotesHtml = (notes?: string | null): string =>
+    (notes || "").replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
 
 export default function StudentSchedule() {
     const { user } = useAuth();
@@ -88,7 +97,7 @@ export default function StudentSchedule() {
             doc.setFont("helvetica", "normal");
             doc.setTextColor(50, 50, 50);
             
-            const notes = viewingSummary.notes || "Aucun compte-rendu disponible.";
+            const notes = stripNotesHtml(viewingSummary.notes) || "Aucun compte-rendu disponible.";
             const splitContent = doc.splitTextToSize(notes, 170);
             doc.text(splitContent, margin, cursorY);
             
@@ -225,8 +234,10 @@ export default function StudentSchedule() {
                                     <Star className="w-4 h-4 text-orange-400 fill-current" />
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Compte-rendu pédagogique</span>
                                 </div>
-                                <div className="bg-gray-50 rounded-2xl p-4 md:p-6 border border-gray-100 text-sm text-[#0D2D5A] leading-relaxed font-medium whitespace-pre-line min-h-[120px]">
-                                    {viewingSummary.notes || "Le professeur n'a pas encore rédigé le compte-rendu pour cette session. Revenez d'ici peu pour consulter les points abordés et les conseils d'étude."}
+                                <div className="bg-gray-50 rounded-2xl p-4 md:p-6 border border-gray-100 text-sm text-[#0D2D5A] leading-relaxed font-medium min-h-[120px] prose prose-sm max-w-none">
+                                    {stripNotesHtml(viewingSummary.notes)
+                                        ? <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewingSummary.notes) }} />
+                                        : "Le professeur n'a pas encore rédigé le compte-rendu pour cette session. Revenez d'ici peu pour consulter les points abordés et les conseils d'étude."}
                                 </div>
                             </div>
 

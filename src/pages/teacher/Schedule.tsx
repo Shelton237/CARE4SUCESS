@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import DOMPurify from "dompurify";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -52,6 +53,15 @@ const COMPREHENSION_LABELS: Record<number, string> = {
     3: "😐 Moyen",
     4: "🙂 Bien compris",
     5: "🌟 Excellent",
+};
+
+// Les Notes Live sont un éditeur contentEditable : un champ "vide" y est
+// souvent enregistré comme "<br>" ou une balise sans texte, pas comme une
+// chaîne vraiment vide. On vérifie donc le texte réel une fois les balises
+// retirées avant de considérer qu'il y a un bilan à afficher.
+const hasMeaningfulNotes = (notes?: string | null): boolean => {
+    if (!notes) return false;
+    return notes.replace(/<[^>]*>/g, "").trim().length > 0;
 };
 
 const defaultForm = (): CreateSessionPayload => ({
@@ -475,7 +485,7 @@ export default function TeacherSchedule() {
                                             </Button>
                                         </>
                                     )}
-                                    {(s.status === 'completed' || s.status === 'effectué') && s.notes && (
+                                    {(s.status === 'completed' || s.status === 'effectué') && hasMeaningfulNotes(s.notes) && (
                                         <Button size="sm" variant="outline" onClick={() => setViewedNote(s)} className="h-6 text-[9px] gap-1 border-emerald-200 text-emerald-700 bg-emerald-50/50 px-2 rounded-none shadow-none font-black uppercase">
                                             <FileText className="w-3 h-3" /> Bilan
                                         </Button>
@@ -737,9 +747,10 @@ export default function TeacherSchedule() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed italic">
-                            "{viewedNote?.notes}"
-                        </div>
+                        <div
+                            className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewedNote?.notes || "") }}
+                        />
                     </div>
                     <div className="mt-6">
                         <Button onClick={() => setViewedNote(null)} className="w-full bg-[#1A6CC8]">Fermer</Button>

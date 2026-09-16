@@ -15,8 +15,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import DOMPurify from "dompurify";
 
 const WEEK_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+
+// Les Notes Live sont un éditeur contentEditable : un champ "vide" y est
+// souvent enregistré comme "<br>" ou une balise sans texte, pas comme une
+// chaîne vraiment vide. On vérifie donc le texte réel une fois les balises
+// retirées avant de considérer qu'il y a un bilan à afficher.
+const hasMeaningfulNotes = (notes?: string | null): boolean => {
+    if (!notes) return false;
+    return notes.replace(/<[^>]*>/g, "").trim().length > 0;
+};
 
 const STATUS_COLORS: Record<SessionStatus, string> = {
     "effectué": "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -165,7 +175,7 @@ export default function ParentSchedule() {
                                     <div className="text-[11px] font-black text-[#0D2D5A] leading-tight uppercase truncate">{s.subject}</div>
                                     <div className="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{s.student}</div>
 
-                                    {s.status === 'effectué' && s.notes && (
+                                    {s.status === 'effectué' && hasMeaningfulNotes(s.notes) && (
                                         <Button
                                             size="sm"
                                             variant="ghost"
@@ -227,7 +237,7 @@ export default function ParentSchedule() {
                             <div className="text-right flex flex-col items-end gap-1.5">
                                 <div className="text-[11px] font-black text-[#0D2D5A]">{s.time}</div>
                                 <div className="flex items-center gap-2">
-                                    {s.status === 'effectué' && s.notes && (
+                                    {s.status === 'effectué' && hasMeaningfulNotes(s.notes) && (
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -323,9 +333,10 @@ export default function ParentSchedule() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="mt-4 p-4 bg-slate-50/50 border border-slate-100 rounded-none relative">
-                        <div className="text-xs text-[#0D2D5A] whitespace-pre-wrap leading-relaxed font-medium italic">
-                            "{viewedNote?.notes}"
-                        </div>
+                        <div
+                            className="text-xs text-[#0D2D5A] leading-relaxed font-medium prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewedNote?.notes || "") }}
+                        />
                     </div>
                     <div className="mt-4 flex items-center justify-between text-[9px] font-black uppercase text-slate-400 tracking-widest">
                         <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3" /> {viewedNote?.teacher}</span>
