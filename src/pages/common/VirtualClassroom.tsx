@@ -781,12 +781,13 @@ export default function VirtualClassroom() {
 
             api.addEventListener('videoConferenceLeft', () => {
                 if (!hasJoinedRef.current) return; // Don't handle if we never joined
-                
-                if (user?.role === 'teacher' && !currentSessionRef.current?.actualEndTime) {
-                    checkOutMutation.mutate(sessionId);
-                } else {
-                    navigate(-1);
-                }
+                // Ne PAS clôturer automatiquement ici : cet événement se déclenche
+                // aussi sur une simple coupure réseau/mise en veille (mobile),
+                // pas seulement quand l'enseignant quitte vraiment le cours — ça
+                // figeait la séance sur quelques minutes alors que le cours
+                // continuait après reconnexion. Seul le bouton "Terminer" clôture
+                // désormais la séance (checkOutMutation plus bas dans le footer).
+                navigate(-1);
             });
 
             api.addEventListener('error', (err: any) => {
