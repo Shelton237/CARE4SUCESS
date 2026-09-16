@@ -743,7 +743,11 @@ export default function VirtualClassroom() {
                 parentNode: jitsiContainerRef.current,
                 userInfo: user ? { displayName: user.name, email: user.email } : undefined,
                 interfaceConfigOverwrite: {
-                    TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview', 'fullscreen', 'participants-pane']
+                    TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview', 'fullscreen', 'participants-pane'],
+                    // Le serveur Jitsi a MOBILE_APP_PROMO=true par défaut, qui bloque
+                    // les navigateurs mobiles derrière un écran "installez l'appli" —
+                    // on le désactive pour permettre de rejoindre depuis le navigateur.
+                    MOBILE_APP_PROMO: false,
                 },
                 configOverwrite: {
                     disableDeepLinking: true,
