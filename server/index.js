@@ -8043,6 +8043,7 @@ app.get("/api/teachers/:teacherId/earnings", authenticateRequest, async (req, re
       `SELECT s.id,
               s.session_date as date,
               s.student_name as student,
+              s.subject as subject,
               TIMESTAMPDIFF(MINUTE, s.actual_start_time, s.actual_end_time) AS minutes,
               IF(s.is_paid = 1, 'payé', 'en attente') as status
        FROM sessions s
@@ -8057,6 +8058,7 @@ app.get("/api/teachers/:teacherId/earnings", authenticateRequest, async (req, re
         id: row.id,
         date: row.date,
         student: row.student,
+        subject: row.subject,
         hours: Math.round((minutes / 60) * 10) / 10,
         rate: isMonthly ? 0 : (Number(teacher?.hourly_rate) || 0),
         currency: teacher?.currency || "XAF",
