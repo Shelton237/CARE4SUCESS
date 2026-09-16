@@ -235,9 +235,17 @@ export default function VirtualClassroom() {
 
     // Seul l'enseignant titulaire de la séance (ou un admin) peut modifier
     // Notes/Board/Code — élève, parent et invité restent en lecture seule.
+    const isCompleted = (currentSession?.status as string) === "completed" || currentSession?.status === "effectué";
     const canEdit = Boolean(
+        !isCompleted &&
         user && (user.role === "admin" || (user.role === "teacher" && user.id === currentSession?.teacherId))
     );
+
+    // Séance terminée : pas d'appel vidéo à rejoindre, on ouvre directement
+    // sur les Notes plutôt que sur un onglet "video" vide (par défaut sur mobile).
+    useEffect(() => {
+        if (isCompleted) setActiveTab(t => (t === "video" ? "notes" : t));
+    }, [isCompleted]);
 
     // Continuité entre séances : propose de reprendre le contenu de la
     // dernière séance (même prof + élève) si la séance courante est encore vierge.
@@ -736,6 +744,7 @@ export default function VirtualClassroom() {
     const hasJoinedRef = useRef(false);
 
     useEffect(() => {
+        if (isCompleted) { setLoading(false); return; }
         if (!sessionId || !jitsiContainerRef.current) return;
         if (jitsiApiRef.current) return;
 
@@ -838,7 +847,7 @@ export default function VirtualClassroom() {
             }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sessionId, user?.id]);
+    }, [sessionId, user?.id, isCompleted]);
 
     return (
         <div className="fixed inset-0 z-50 bg-[#0D2D5A] flex flex-col h-screen w-screen overflow-hidden text-slate-900">
@@ -891,7 +900,15 @@ export default function VirtualClassroom() {
                     "flex-1 bg-slate-950 relative overflow-hidden transition-all duration-300",
                     activeTab !== 'video' && "hidden md:block"
                 )}>
-                    {(loading || error) && (
+                    {isCompleted ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#0D2D5A]">
+                            <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mb-4">
+                                <FileText className="w-6 h-6 text-white/40" />
+                            </div>
+                            <p className="text-white/70 font-black text-[10px] uppercase tracking-widest text-center max-w-xs px-4">Séance terminée</p>
+                            <p className="text-white/30 text-[9px] text-center max-w-xs px-4 mt-1">Consultez les notes, le tableau et le code ci-contre.</p>
+                        </div>
+                    ) : (loading || error) && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#0D2D5A]">
                             {error ? (
                                 <>
@@ -1278,7 +1295,8 @@ export default function VirtualClassroom() {
 
             {/* Mobile Bottom Navigation */}
             <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-100 flex items-center justify-around z-[80] px-2 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-                <button 
+                {!isCompleted && (
+                <button
                     onClick={() => { setActiveTab('video'); setShowSidebar(false); }}
                     className={cn(
                         "flex flex-col items-center gap-1 transition-all flex-1 py-2",
@@ -1288,6 +1306,7 @@ export default function VirtualClassroom() {
                     <Video className="w-5 h-5" />
                     <span className="text-[8px] font-black uppercase tracking-tighter">Visio</span>
                 </button>
+                )}
                 <button 
                     onClick={() => { setActiveTab('notes'); setShowSidebar(true); }}
                     className={cn(

@@ -3189,7 +3189,7 @@ app.patch("/api/sessions/:id/sync", optionalAuth, async (req, res) => {
   const { notes, whiteboardData, whiteboardItems, codeData } = req.body ?? {};
   try {
     const [[session]] = await pool.query(
-      "SELECT teacher_id, student_id, parent_id FROM sessions WHERE id = ?",
+      "SELECT teacher_id, student_id, parent_id, status FROM sessions WHERE id = ?",
       [id]
     );
     if (!session) return res.status(404).json({ message: "Séance introuvable." });
@@ -3200,6 +3200,11 @@ app.patch("/api/sessions/:id/sync", optionalAuth, async (req, res) => {
     const isTeacherOwner = role === "admin" || (role === "teacher" && sub === session.teacher_id);
     if (!isTeacherOwner) {
       return res.status(403).json({ message: "Seul l'enseignant peut modifier cet espace." });
+    }
+    // Une séance terminée passe en consultation seule pour tout le monde,
+    // enseignant inclus — l'espace de travail est figé une fois le cours clos.
+    if (session.status === "effectué" || session.status === "completed") {
+      return res.status(403).json({ message: "Cette séance est terminée, l'espace est en lecture seule." });
     }
 
     const updates = [];

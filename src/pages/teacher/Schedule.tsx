@@ -64,6 +64,17 @@ const hasMeaningfulNotes = (notes?: string | null): boolean => {
     return notes.replace(/<[^>]*>/g, "").trim().length > 0;
 };
 
+// Une séance terminée mérite un bouton "Revoir" dès qu'il reste quelque
+// chose à consulter : notes, tableau blanc (dessin ou ressources importées)
+// ou code — pas seulement quand les notes sont renseignées.
+const hasReviewableContent = (s: any): boolean => {
+    if (hasMeaningfulNotes(s?.notes)) return true;
+    if (s?.whiteboardData) return true;
+    if (Array.isArray(s?.whiteboardItems) && s.whiteboardItems.length > 0) return true;
+    if (s?.codeData && s.codeData.trim() !== "" && s.codeData !== "// Saisissez votre code ici...") return true;
+    return false;
+};
+
 const defaultForm = (): CreateSessionPayload => ({
     studentIds: [],
     subject: "",
@@ -484,6 +495,11 @@ export default function TeacherSchedule() {
                                                 <Copy className="w-3 h-3" /> Copier le lien
                                             </Button>
                                         </>
+                                    )}
+                                    {(s.status === 'completed' || s.status === 'effectué') && hasReviewableContent(s) && (
+                                        <Button size="sm" variant="outline" onClick={() => navigate(`/virtual-class/${s.id}`)} className="h-6 text-[9px] gap-1 border-purple-200 text-purple-600 bg-purple-50/50 px-2 rounded-none shadow-none font-black uppercase">
+                                            <Video className="w-3 h-3" /> Revoir
+                                        </Button>
                                     )}
                                     {(s.status === 'completed' || s.status === 'effectué') && hasMeaningfulNotes(s.notes) && (
                                         <Button size="sm" variant="outline" onClick={() => setViewedNote(s)} className="h-6 text-[9px] gap-1 border-emerald-200 text-emerald-700 bg-emerald-50/50 px-2 rounded-none shadow-none font-black uppercase">
