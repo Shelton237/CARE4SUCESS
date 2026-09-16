@@ -790,14 +790,20 @@ export default function VirtualClassroom() {
             jitsiApiRef.current = api;
             setLoading(false);
 
-            api.addEventListener('videoConferenceJoined', () => {
+            api.addEventListener('videoConferenceJoined', (event: any) => {
                 hasJoinedRef.current = true;
                 if (user?.role === 'teacher' && !currentSessionRef.current?.actualStartTime) {
                     checkInMutation.mutate(sessionId);
                 }
                 // Journal de présence : indépendant du check-in enseignant, pour
                 // savoir après coup qui était là et s'il était connecté ou invité.
-                logSessionParticipantJoin(sessionId!, user?.name)
+                // Un invité sans compte tape son nom dans l'écran de pré-connexion
+                // de Jitsi lui-même (pas dans notre appli) — on récupère donc le
+                // displayName renvoyé par l'événement Jitsi en priorité, qui reflète
+                // ce que la personne a réellement saisi ; user?.name ne sert que de
+                // repli pour les comptes connectés si l'événement ne le fournit pas.
+                const joinedDisplayName = event?.displayName || user?.name;
+                logSessionParticipantJoin(sessionId!, joinedDisplayName)
                     .then((r) => { participantIdRef.current = r.id; })
                     .catch(() => {});
             });
