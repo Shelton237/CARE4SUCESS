@@ -1,193 +1,244 @@
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import {
-  GraduationCap, Shield, Star, Users, Wallet,
-  CheckCircle, ArrowRight, Clock, BookOpen,
-} from "lucide-react";
-import { TeacherApplicationForm } from "@/components/TeacherApplicationForm";
-import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
+import { CheckCircle2, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { submitTeacherApplication } from "@/api/backoffice";
+import { springPresets } from "@/lib/motion";
 
-const BENEFITS = [
-  {
-    icon: Wallet,
-    title: "Rémunération attractive",
-    desc: "Tarifs compétitifs, paiement ponctuel sous 72h après chaque mission, primes qualité trimestrielles.",
-  },
-  {
-    icon: Shield,
-    title: "Missions sécurisées",
-    desc: "Familles vérifiées, contrats clairs, planification assurée par nos conseillers. Vous n'avez qu'à enseigner.",
-  },
-  {
-    icon: BookOpen,
-    title: "Développement professionnel",
-    desc: "Ressources pédagogiques, formations internes, observations de cours et coaching par des experts.",
-  },
-  {
-    icon: Star,
-    title: "Reconnaissance",
-    desc: "Évaluations transparentes des familles, badging de progression et accès aux missions premium.",
-  },
-  {
-    icon: Clock,
-    title: "Flexibilité totale",
-    desc: "Vous choisissez vos créneaux, vos matières, votre mode (domicile ou en ligne). Zero contrainte horaire.",
-  },
-  {
-    icon: Users,
-    title: "Communauté active",
-    desc: "Rejoignez 500+ enseignants, participez aux ateliers mensuels, partagez bonnes pratiques et ressources.",
-  },
+const VERTICALES = [
+  { value: "langues-competences", label: "Langues et compétences" },
+  { value: "soutien-scolaire", label: "Soutien scolaire" },
 ];
 
-const STEPS = [
-  { n: "01", title: "Candidature en ligne", desc: "Remplissez le formulaire ci-dessous en 10 minutes. Décrivez votre parcours, vos matières et vos disponibilités." },
-  { n: "02", title: "Examen du dossier", desc: "Notre équipe RH lit chaque candidature sous 48h. Bac+3 minimum, expérience pédagogique vérifiée." },
-  { n: "03", title: "Entretien pédagogique", desc: "Entretien vidéo de 30 minutes avec un responsable pédagogique pour évaluer votre méthode d'enseignement." },
-  { n: "04", title: "Intégration & 1re mission", desc: "Onboarding complet, accès à la plateforme, et votre première mission assignée sous 7 jours." },
-];
+const PAYS = ["Cameroun", "Madagascar"];
 
-const FIGURES = [
-  { value: "500+",  label: "enseignants actifs" },
-  { value: "15",    label: "pays couverts" },
-  { value: "72h",   label: "délai de paiement" },
-  { value: "4,9/5", label: "satisfaction profs" },
+const ADVANTAGES = [
+  { title: "Fixez votre tarif", desc: "vous décidez du prix de vos sessions en Langues et Compétences." },
+  { title: "Choisissez votre format", desc: "en ligne, présentiel ou hybride. Vous enseignez comme vous voulez." },
+  { title: "Zéro frais d'inscription", desc: "Care4Success se rémunère sur une commission à la session." },
+  { title: "Visibilité garantie", desc: "votre profil est promu sur le site, l'app et nos réseaux sociaux." },
+  { title: "Paiement sécurisé", desc: "les apprenants paient via C4S, vous recevez votre dû automatiquement." },
 ];
 
 export default function DevenirProfesseur() {
+  const { toast } = useToast();
+  const [completed, setCompleted] = useState(false);
+
+  const [prenom, setPrenom] = useState("");
+  const [nom, setNom] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [verticale, setVerticale] = useState("");
+  const [specialite, setSpecialite] = useState("");
+  const [pays, setPays] = useState("");
+  const [availability, setAvailability] = useState("");
+  const [motivation, setMotivation] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: submitTeacherApplication,
+    onSuccess: () => {
+      setCompleted(true);
+      toast({
+        title: "Candidature envoyée",
+        description: "Notre équipe vous contacte sous 48h.",
+      });
+      setPrenom(""); setNom(""); setEmail(""); setPhone("");
+      setVerticale(""); setSpecialite(""); setPays("");
+      setAvailability(""); setMotivation("");
+      setTimeout(() => setCompleted(false), 3500);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erreur lors de l'envoi",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const verticaleLabel = VERTICALES.find(v => v.value === verticale)?.label ?? "";
+    const formData = new window.FormData();
+    formData.append("fullName", `${prenom} ${nom}`.trim());
+    formData.append("email", email);
+    formData.append("phone", phone);
+    formData.append("subjects", specialite);
+    formData.append("availability", availability);
+    formData.append("city", pays);
+    formData.append(
+      "motivation",
+      verticaleLabel ? `Verticale souhaitée : ${verticaleLabel}. ${motivation}` : motivation
+    );
+    mutation.mutate(formData as any);
+  };
+
   return (
-    <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+      <section className="py-20 md:py-28">
+        <div className="container mx-auto px-6 max-w-6xl">
 
-      {/* ── HERO ── */}
-      <section className="relative bg-[#0D2D5A] py-24 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#F5A623]/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
-
-        <div className="container mx-auto px-6 max-w-5xl relative z-10">
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={springPresets.gentle} className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-4">Rejoindre le réseau</p>
-            <h1 className="text-4xl md:text-5xl font-black text-white leading-tight mb-5">
-              Enseignez avec Care4Success.<br />
-              <span className="text-[#F5A623]">Révélez votre expertise.</span>
+          {/* ── En-tête ── */}
+          <div className="max-w-2xl mb-12">
+            <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Devenir coach</p>
+            <h1
+              className="text-3xl md:text-4xl font-bold text-[#0D2D5A] leading-tight mb-4"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              Vous avez l'expertise. Nous avons les apprenants.
             </h1>
-            <p className="text-blue-200 text-lg leading-relaxed max-w-xl mb-8">
-              Intégrez un réseau de 500+ enseignants qualifiés. Missions sécurisées, rémunération attractive, flexibilité totale.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <a href="#candidature" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-bold text-sm hover:bg-white transition-all duration-200 shadow-lg cursor-pointer">
-                <GraduationCap className="w-4 h-4" /> Postuler maintenant
-              </a>
-              <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-sm font-medium">
-                <CheckCircle className="w-4 h-4 text-[#F5A623]" /> 1 candidat sur 10 retenu
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── CHIFFRES ── */}
-      <section className="bg-white border-b border-gray-100">
-        <div className="container mx-auto px-6 max-w-5xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-            {FIGURES.map(({ value, label }) => (
-              <div key={label} className="text-center py-8 px-6">
-                <p className="text-3xl font-black text-[#0D2D5A] font-mono">{value}</p>
-                <p className="text-xs text-gray-500 mt-1 font-medium">{label}</p>
-              </div>
-            ))}
+            <p className="text-gray-500">Deux façons de coacher avec Care4Success.</p>
           </div>
-        </div>
-      </section>
 
-      {/* ── AVANTAGES ── */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-6 max-w-5xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={springPresets.gentle}
-            className="text-center mb-12"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-3">Pourquoi nous rejoindre</p>
-            <h2 className="text-3xl md:text-4xl font-black text-[#0D2D5A]">Ce que vous gagnez</h2>
-          </motion.div>
+          {/* ── 2 cartes verticales ── */}
+          <div className="grid sm:grid-cols-2 gap-5 mb-14 max-w-3xl">
+            <div className="bg-gradient-to-br from-amber-50 to-[#F4F2ED] border border-amber-100 rounded-2xl p-6">
+              <h3 className="font-bold text-[#0D2D5A] mb-2">Langues et compétences</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Marketplace : vous fixez votre prix, vous gérez vos disponibilités, vous choisissez vos élèves. Liberté totale.
+              </p>
+            </div>
+            <div className="bg-gradient-to-br from-teal-50 to-[#F4F2ED] border border-teal-100 rounded-2xl p-6">
+              <h3 className="font-bold text-[#0D2D5A] mb-2">Soutien scolaire</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Missions assignées : C4S vous attribue des élèves après validation par nos superviseurs. Accompagnement structuré, stabilité.
+              </p>
+            </div>
+          </div>
 
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"
-          >
-            {BENEFITS.map(({ icon: Icon, title, desc }) => (
-              <motion.div key={title} variants={staggerItem} className="bg-white rounded-2xl border border-gray-100 p-6 hover:border-[#1A6CC8]/20 hover:shadow-md transition-all duration-200">
-                <div className="w-10 h-10 rounded-xl bg-[#0D2D5A] flex items-center justify-center mb-4">
-                  <Icon className="w-5 h-5 text-[#F5A623]" />
-                </div>
-                <h3 className="font-black text-[#0D2D5A] mb-2">{title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+          {/* ── Avantages + Formulaire ── */}
+          <div className="grid lg:grid-cols-2 gap-12">
+            <div>
+              <h2 className="font-bold text-[#0D2D5A] text-lg mb-5">Vos avantages</h2>
+              <ul className="space-y-4">
+                {ADVANTAGES.map(a => (
+                  <li key={a.title} className="flex items-start gap-3">
+                    <span className="w-5 h-5 rounded-md bg-[#0F9B8E] flex items-center justify-center shrink-0 mt-0.5">
+                      <CheckCircle className="w-3.5 h-3.5 text-white" />
+                    </span>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      <span className="font-bold text-[#0D2D5A]">{a.title}</span> : {a.desc}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-      {/* ── PROCESSUS ── */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-6 max-w-5xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={springPresets.gentle}
-            className="text-center mb-12"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-3">Notre processus</p>
-            <h2 className="text-3xl md:text-4xl font-black text-[#0D2D5A]">Comment ça marche</h2>
-          </motion.div>
+            <div>
+              {completed ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={springPresets.gentle}
+                  className="bg-white rounded-2xl p-10 text-center shadow-sm"
+                >
+                  <CheckCircle2 className="w-12 h-12 mx-auto text-[#0F9B8E] mb-4" />
+                  <h3 className="text-xl font-bold text-[#0D2D5A] mb-2">Merci pour votre candidature !</h3>
+                  <p className="text-gray-500 text-sm">Notre équipe vous contacte sous 48h.</p>
+                </motion.div>
+              ) : (
+                <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-8 shadow-sm space-y-5">
+                  <div>
+                    <h2 className="font-bold text-[#0D2D5A] text-lg">Candidatez maintenant</h2>
+                    <p className="text-sm text-gray-500">Notre équipe vous contacte sous 48h.</p>
+                  </div>
 
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
-          >
-            {STEPS.map(({ n, title, desc }) => (
-              <motion.div key={n} variants={staggerItem}>
-                <div className="text-5xl font-black font-mono text-[#0D2D5A]/5 leading-none mb-3">{n}</div>
-                <div className="w-8 h-1 bg-[#F5A623] rounded-full mb-3" />
-                <h3 className="font-black text-[#0D2D5A] mb-2 text-sm">{title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="prenom">Prénom</Label>
+                      <Input id="prenom" placeholder="Prénom" value={prenom} onChange={e => setPrenom(e.target.value)} required />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="nom">Nom</Label>
+                      <Input id="nom" placeholder="Nom" value={nom} onChange={e => setNom(e.target.value)} required />
+                    </div>
+                  </div>
 
-      {/* ── FORMULAIRE ── */}
-      <section id="candidature" className="py-20 bg-gray-50">
-        <div className="container mx-auto px-6 max-w-3xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={springPresets.gentle}
-            className="text-center mb-10"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-3">Rejoindre le réseau</p>
-            <h2 className="text-3xl font-black text-[#0D2D5A] mb-3">Déposez votre candidature</h2>
-            <p className="text-gray-500 text-sm">Notre équipe examine chaque dossier et vous répond sous 48 heures.</p>
-          </motion.div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" placeholder="votre@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                  </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ ...springPresets.gentle, delay: 0.1 }}
-          >
-            <TeacherApplicationForm />
-          </motion.div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone">Téléphone</Label>
+                    <Input id="phone" placeholder="+237 6XX XXX XXX" value={phone} onChange={e => setPhone(e.target.value)} required />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Verticale souhaitée</Label>
+                    <Select value={verticale} onValueChange={setVerticale}>
+                      <SelectTrigger><SelectValue placeholder="Choisissez..." /></SelectTrigger>
+                      <SelectContent>
+                        {VERTICALES.map(v => (
+                          <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="specialite">Votre spécialité</Label>
+                    <Input
+                      id="specialite"
+                      placeholder="Ex : Anglais, Maths, Excel..."
+                      value={specialite}
+                      onChange={e => setSpecialite(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Pays</Label>
+                    <Select value={pays} onValueChange={setPays}>
+                      <SelectTrigger><SelectValue placeholder="Choisissez..." /></SelectTrigger>
+                      <SelectContent>
+                        {PAYS.map(p => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="availability">Vos disponibilités</Label>
+                    <Input
+                      id="availability"
+                      placeholder="Ex : Soirs 17h-21h et week-ends"
+                      value={availability}
+                      onChange={e => setAvailability(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="motivation">Expérience et motivation</Label>
+                    <Textarea
+                      id="motivation"
+                      rows={4}
+                      placeholder="Décrivez votre parcours d'enseignement..."
+                      value={motivation}
+                      onChange={e => setMotivation(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={mutation.isPending}
+                    className="w-full bg-[#0D2D5A] hover:bg-[#0B2545] text-white h-12 text-base font-bold"
+                  >
+                    {mutation.isPending ? "Envoi en cours..." : "Envoyer ma candidature →"}
+                  </Button>
+                </form>
+              )}
+            </div>
+          </div>
         </div>
       </section>
     </div>
