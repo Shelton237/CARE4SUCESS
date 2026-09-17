@@ -183,7 +183,7 @@ export function Layout({ children }: LayoutProps) {
       <main className="flex-1">{children}</main>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-[#0D2D5A] text-white">
+      <footer className="bg-[#0D2D5A] text-white" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
         <div className="h-1 bg-[#F5A623]" />
         <div className="container mx-auto px-6 pt-14 pb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
