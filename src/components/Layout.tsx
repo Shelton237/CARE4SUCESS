@@ -215,8 +215,8 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Parents */}
             <div>
-              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Parents</h3>
-              <ul className="space-y-2.5">
+              <h3 className="text-sm font-black text-[#F5A623] mb-5 uppercase tracking-[0.2em]">Parents</h3>
+              <ul className="space-y-3.5">
                 {[
                   { label: "Évaluation gratuite", to: ROUTE_PATHS.CONTACT },
                   { label: "Espace parents", to: "/inscription" },
@@ -224,7 +224,7 @@ export function Layout({ children }: LayoutProps) {
                   { label: "Tarifs scolaire", to: ROUTE_PATHS.TARIFS },
                 ].map(item => (
                   <li key={item.label}>
-                    <NavLink to={item.to} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
+                    <NavLink to={item.to} className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">
                       {item.label}
                     </NavLink>
                   </li>
@@ -234,8 +234,8 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Apprenants */}
             <div>
-              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Apprenants</h3>
-              <ul className="space-y-2.5">
+              <h3 className="text-sm font-black text-[#F5A623] mb-5 uppercase tracking-[0.2em]">Apprenants</h3>
+              <ul className="space-y-3.5">
                 {[
                   { label: "Cours de langues", to: ROUTE_PATHS.PROFESSEURS },
                   { label: "Compétences pro", to: "#" },
@@ -243,7 +243,7 @@ export function Layout({ children }: LayoutProps) {
                   { label: "Tarifs langues", to: ROUTE_PATHS.TARIFS },
                 ].map(item => (
                   <li key={item.label}>
-                    <NavLink to={item.to} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
+                    <NavLink to={item.to} className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">
                       {item.label}
                     </NavLink>
                   </li>
@@ -253,21 +253,21 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Coachs */}
             <div>
-              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Coachs</h3>
-              <ul className="space-y-2.5">
+              <h3 className="text-sm font-black text-[#F5A623] mb-5 uppercase tracking-[0.2em]">Coachs</h3>
+              <ul className="space-y-3.5">
                 <li>
-                  <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
+                  <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">
                     Devenir coach
                   </NavLink>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">Nos critères</a>
+                  <a href="#" className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">Nos critères</a>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">FAQ coachs</a>
+                  <a href="#" className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">FAQ coachs</a>
                 </li>
                 <li>
-                  <a href="mailto:contact@care4success.com" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
+                  <a href="mailto:contact@care4success.com" className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">
                     contact@care4success.com
                   </a>
                 </li>
