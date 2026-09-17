@@ -272,7 +272,7 @@ export function Layout({ children }: LayoutProps) {
           </div>
 
           <div className="border-t border-white/8 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
-            <p className="text-xs text-blue-300/50">© 2026 Care4Success — USRA-CARE</p>
+            <p className="text-xs text-blue-300/50">© 2026 Care4Success · USRA-CARE</p>
             <div className="flex gap-6 text-xs text-blue-300/50">
               <a href="#" className="hover:text-[#F5A623] transition-colors">CGU</a>
               <NavLink to={ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE} className="hover:text-[#F5A623] transition-colors">Confidentialité</NavLink>
