@@ -197,15 +197,21 @@ export function Layout({ children }: LayoutProps) {
               <div className="flex flex-wrap items-center gap-2">
                 {[
                   { label: "Orange Money", logo: "/payment-icons/orange-money.png" },
-                  { label: "MTN MoMo" },
-                  { label: "MVola" },
+                  { label: "MTN MoMo", logo: "/payment-icons/mtn-momo.png", bare: true },
+                  { label: "MVola", logo: "/payment-icons/mvola.png", bare: true },
                   { label: "Visa" },
                   { label: "Mastercard" },
-                ].map(({ label, logo }) => (
+                ].map(({ label, logo, bare }) => (
                   logo ? (
-                    <span key={label} className="bg-white rounded-md px-2.5 py-1.5 flex items-center">
-                      <img src={logo} alt={label} className="h-4 w-auto object-contain" />
-                    </span>
+                    bare ? (
+                      <span key={label} className="rounded-md overflow-hidden flex items-center h-7">
+                        <img src={logo} alt={label} className="h-full w-auto object-cover" />
+                      </span>
+                    ) : (
+                      <span key={label} className="bg-white rounded-md px-2.5 py-1.5 flex items-center">
+                        <img src={logo} alt={label} className="h-4 w-auto object-contain" />
+                      </span>
+                    )
                   ) : (
                     <span key={label} className="text-xs text-blue-200/70 border border-white/15 rounded-md px-2.5 py-1">
                       {label}
