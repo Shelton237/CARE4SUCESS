@@ -6,6 +6,7 @@ import {
   ArrowRight, Users, ShieldCheck, Wallet, CreditCard, ClipboardCheck,
   BadgeCheck, CalendarCheck, BookOpen, ChevronDown, ChevronLeft, ChevronRight,
   Smartphone, Download, GraduationCap, CheckCircle, Star, Monitor, MapPin,
+  Globe, Briefcase,
 } from "lucide-react";
 import { fetchPublicTeachers } from "@/api/public";
 import { ALL_SUBJECTS } from "@/lib/education";
@@ -283,6 +284,89 @@ export default function Home() {
           <svg viewBox="0 0 1440 120" className="w-full block" preserveAspectRatio="none">
             <path d="M0,120 L0,60 C360,120 1080,0 1440,60 L1440,120 Z" fill="oklch(0.99 0.003 230)" />
           </svg>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
+          §1bis — NOS UNIVERS
+          3 cartes objectif : Soutien scolaire / Langues / Compétences
+          ══════════════════════════════════════════════════════ */}
+      <section className="py-20 md:py-28 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="max-w-xl mb-14">
+            <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Nos univers</p>
+            <h2
+              className="text-3xl md:text-4xl font-bold text-[#0D2D5A] mb-3"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              Quel est votre objectif ?
+            </h2>
+            <p className="text-gray-500">Chaque univers a son approche. Choisissez le vôtre.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                icon: GraduationCap,
+                color: "#0F9B8E",
+                bgFrom: "from-teal-50",
+                title: "Soutien scolaire",
+                desc: "Nous trouvons le coach parfait pour votre enfant. Évaluation, matching, suivi en temps réel, facturation transparente.",
+                tags: ["BAC / Brevet", "IB", "Système US", "Britannique"],
+                link: { label: "Évaluation gratuite", to: ROUTE_PATHS.CONTACT },
+              },
+              {
+                icon: Globe,
+                color: "#F5A623",
+                bgFrom: "from-amber-50",
+                title: "Langues",
+                desc: "Choisissez votre coach, comparez les prix, réservez et commencez aujourd'hui. En ligne, présentiel ou hybride.",
+                tags: ["Anglais", "Français", "Espagnol", "+5 langues"],
+                link: { label: "Voir les coachs disponibles", to: ROUTE_PATHS.PROFESSEURS },
+              },
+              {
+                icon: Briefcase,
+                color: "#E2574C",
+                bgFrom: "from-red-50",
+                title: "Compétences et carrière",
+                desc: "Formations pro, conférences payantes, certifications, par des experts reconnus. Visio sécurisée incluse.",
+                tags: ["Excel / Data", "Management", "Prépa concours"],
+                link: { label: "Me prévenir du lancement", to: "#" },
+              },
+            ].map(card => (
+              <div
+                key={card.title}
+                className={`bg-gradient-to-b ${card.bgFrom} to-white rounded-2xl border border-gray-100 p-8`}
+              >
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
+                  style={{ backgroundColor: card.color }}
+                >
+                  <card.icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-[#0D2D5A] mb-3">{card.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed mb-5">{card.desc}</p>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {card.tags.map(tag => (
+                    <span
+                      key={tag}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-full"
+                      style={{ backgroundColor: `${card.color}1A`, color: card.color }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <NavLink
+                  to={card.link.to}
+                  className="inline-flex items-center gap-1.5 text-sm font-bold hover:gap-2.5 transition-all duration-200"
+                  style={{ color: card.color }}
+                >
+                  {card.link.label} <ArrowRight className="w-3.5 h-3.5" />
+                </NavLink>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
