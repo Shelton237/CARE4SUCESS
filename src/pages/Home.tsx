@@ -266,12 +266,12 @@ export default function Home() {
                 ].map(stat => (
                   <div key={stat.label}>
                     <p
-                      className="text-[#F5A623] text-3xl font-bold leading-none"
+                      className="text-[#F5A623] text-5xl font-bold leading-none"
                       style={{ fontFamily: "'Playfair Display', serif" }}
                     >
                       {stat.value}
                     </p>
-                    <p className="text-blue-300 text-sm mt-2">{stat.label}</p>
+                    <p className="text-blue-200 text-base mt-3">{stat.label}</p>
                   </div>
                 ))}
               </motion.div>
