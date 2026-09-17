@@ -186,86 +186,112 @@ export default function Home() {
           Fond uni marine, titre serif, badge de localisation, stats
           ══════════════════════════════════════════════════════ */}
       <section className="relative bg-[#0D2D5A] overflow-hidden">
-        <div className="relative z-10 px-8 md:px-14 lg:px-20 pt-28 pb-40 md:pt-36 md:pb-48 max-w-3xl">
+        <div className="container mx-auto px-6 pt-24 pb-36 md:pt-28 md:pb-44 relative z-10">
+          <div className="flex flex-col md:flex-row items-center gap-12 lg:gap-16">
 
-          {/* Badge localisation */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 border border-white/15 rounded-full px-4 py-2 text-sm text-blue-200 mb-8"
-          >
-            <MapPin className="w-4 h-4 text-blue-300" />
-            Disponible au Cameroun et à Madagascar
-          </motion.div>
+            {/* ── Colonne texte ── */}
+            <div className="flex-1 w-full max-w-xl">
 
-          {/* Titre */}
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springPresets.gentle, delay: 0.1 }}
-            className="font-bold text-white leading-[1.05] text-[clamp(2.5rem,5.5vw,4rem)]"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
-            Every genius needs{" "}
-            <span className="italic text-[#F5A623]">a coach</span>
-          </motion.h1>
+              {/* Badge localisation */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="inline-flex items-center gap-2 border border-white/15 rounded-full px-4 py-2 text-sm text-blue-200 mb-8"
+              >
+                <MapPin className="w-4 h-4 text-blue-300" />
+                Disponible au Cameroun et à Madagascar
+              </motion.div>
 
-          {/* Sous-titre */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springPresets.gentle, delay: 0.2 }}
-            className="text-blue-200 text-lg leading-relaxed max-w-xl mt-6 mb-10"
-          >
-            Soutien scolaire. Langues. Compétences pro. Le bon coach, à côté de chez vous ou en ligne.
-          </motion.p>
+              {/* Titre */}
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...springPresets.gentle, delay: 0.1 }}
+                className="font-bold text-white leading-[1.05] text-[clamp(2.5rem,5vw,3.75rem)]"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Every genius needs{" "}
+                <span className="italic text-[#F5A623]">a coach</span>
+              </motion.h1>
 
-          {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springPresets.gentle, delay: 0.3 }}
-            className="flex flex-wrap gap-4 mb-16"
-          >
-            <NavLink
-              to={ROUTE_PATHS.PROFESSEURS}
-              id="hero-cta-primary"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-[#F5A623] text-[#0D2D5A] font-bold hover:bg-[#e09520] transition-colors duration-200"
-            >
-              Trouver mon coach <ArrowRight className="w-4 h-4" />
-            </NavLink>
-            <a
-              href="#"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-white/5 border border-white/15 text-white font-bold hover:bg-white/10 transition-colors duration-200"
-            >
-              Comment ça marche
-            </a>
-          </motion.div>
+              {/* Sous-titre */}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...springPresets.gentle, delay: 0.2 }}
+                className="text-blue-200 text-lg leading-relaxed mt-6 mb-10"
+              >
+                Soutien scolaire. Langues. Compétences pro. Le bon coach, à côté de chez vous ou en ligne.
+              </motion.p>
 
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springPresets.gentle, delay: 0.4 }}
-            className="flex flex-wrap gap-10"
-          >
-            {[
-              { value: "4", label: "systèmes scolaires couverts" },
-              { value: "8+", label: "langues enseignées" },
-              { value: "2", label: "pays actifs" },
-            ].map(stat => (
-              <div key={stat.label}>
-                <p
-                  className="text-[#F5A623] text-3xl font-bold leading-none"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
+              {/* CTAs */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...springPresets.gentle, delay: 0.3 }}
+                className="flex flex-wrap gap-4 mb-16"
+              >
+                <NavLink
+                  to={ROUTE_PATHS.PROFESSEURS}
+                  id="hero-cta-primary"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-[#F5A623] text-[#0D2D5A] font-bold hover:bg-[#e09520] transition-colors duration-200"
                 >
-                  {stat.value}
-                </p>
-                <p className="text-blue-300 text-sm mt-2">{stat.label}</p>
+                  Trouver mon coach <ArrowRight className="w-4 h-4" />
+                </NavLink>
+                <a
+                  href="#"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-white/5 border border-white/15 text-white font-bold hover:bg-white/10 transition-colors duration-200"
+                >
+                  Comment ça marche
+                </a>
+              </motion.div>
+
+              {/* Stats */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...springPresets.gentle, delay: 0.4 }}
+                className="flex flex-wrap gap-10"
+              >
+                {[
+                  { value: "4", label: "systèmes scolaires couverts" },
+                  { value: "8+", label: "langues enseignées" },
+                  { value: "2", label: "pays actifs" },
+                ].map(stat => (
+                  <div key={stat.label}>
+                    <p
+                      className="text-[#F5A623] text-3xl font-bold leading-none"
+                      style={{ fontFamily: "'Playfair Display', serif" }}
+                    >
+                      {stat.value}
+                    </p>
+                    <p className="text-blue-300 text-sm mt-2">{stat.label}</p>
+                  </div>
+                ))}
+              </motion.div>
+            </div>
+
+            {/* ── Colonne visuelle ── */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ ...springPresets.gentle, delay: 0.25 }}
+              className="hidden md:block relative flex-1 w-full max-w-md shrink-0"
+            >
+              {/* Cadre décoratif */}
+              <div className="absolute -z-10 top-6 -right-6 w-full h-full rounded-3xl border border-[#F5A623]/20" />
+              <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl">
+                <img src={IMAGES.TEACHER_STUDENT_1} alt="Coach et apprenant" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0D2D5A]/70 via-[#0D2D5A]/10 to-transparent" />
+                {/* Badge flottant */}
+                <div className="absolute bottom-5 left-5 right-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4">
+                  <p className="text-white text-sm font-bold">500+ coachs qualifiés</p>
+                  <p className="text-blue-200 text-xs mt-0.5">Vérifiés et sélectionnés par notre équipe</p>
+                </div>
               </div>
-            ))}
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
 
         {/* Vague de bas de section */}
