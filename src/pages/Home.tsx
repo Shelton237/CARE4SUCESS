@@ -742,6 +742,29 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ══════════════════════════════════════════════════════
+          §9 — CTA FINAL
+          ══════════════════════════════════════════════════════ */}
+      <section className="py-20 bg-[#0D2D5A]">
+        <div className="container mx-auto px-6 text-center">
+          <h2
+            className="text-3xl md:text-4xl font-bold text-white mb-4"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Prêt à atteindre votre objectif ?
+          </h2>
+          <p className="text-blue-200 max-w-lg mx-auto mb-8">
+            Le bon coach est à quelques clics. Scolaire, langues ou compétences, à vous de jouer.
+          </p>
+          <NavLink
+            to={ROUTE_PATHS.PROFESSEURS}
+            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-[#F5A623] text-[#0D2D5A] font-bold hover:bg-[#e09520] transition-colors duration-200"
+          >
+            Trouver mon coach <ArrowRight className="w-4 h-4" />
+          </NavLink>
+        </div>
+      </section>
+
     </div>
   );
 }
