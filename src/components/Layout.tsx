@@ -11,7 +11,6 @@ interface LayoutProps {
 const NAV_MAIN = [
   { to: ROUTE_PATHS.HOME,               label: "Accueil" },
   { to: ROUTE_PATHS.PROFESSEURS,         label: "Trouver un coach" },
-  { to: ROUTE_PATHS.PROFESSEURS,         label: "Nos coachs" },
   { to: "#",                             label: "Comment ça marche" },
   { to: "#",                             label: "Parents" },
   { to: ROUTE_PATHS.DEVENIR_PROFESSEUR,  label: "Devenir coach" },
