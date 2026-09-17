@@ -190,13 +190,11 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Marque */}
             <div>
-              <span className="inline-flex bg-white rounded-xl px-4 py-2.5 mb-3">
-                <img
-                  src="https://care4success.usra-care.com/logo/Care%204%20Success-logo-Ok_compact.png"
-                  alt="Care4Success"
-                  className="h-12 w-auto object-contain"
-                />
-              </span>
+              <img
+                src="/logo/care4success-long-white.png"
+                alt="Care4Success"
+                className="h-10 w-auto object-contain mb-3"
+              />
               <p className="text-sm text-blue-200/80 leading-relaxed mb-5 max-w-xs">
                 Every genius needs a coach. Plateforme de coaching panafricaine par USRA-CARE.
               </p>
