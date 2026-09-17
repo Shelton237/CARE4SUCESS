@@ -56,10 +56,10 @@ export function Layout({ children }: LayoutProps) {
                   key={link.label}
                   to={link.to}
                   className={({ isActive }) =>
-                    `px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all duration-150 ${
+                    `px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors duration-150 ${
                       isActive && link.to !== "#"
-                        ? "bg-white text-[#0D2D5A] shadow-sm"
-                        : "text-[#0D2D5A]/70 hover:text-[#0D2D5A] hover:bg-white/60"
+                        ? "text-[#0D2D5A]"
+                        : "text-[#0D2D5A]/70 hover:text-[#0D2D5A]"
                     }`
                   }
                 >
