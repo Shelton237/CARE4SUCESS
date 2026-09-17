@@ -13,7 +13,7 @@ import { ROUTE_PATHS } from "@/lib/index";
 /* ─── COMPOSANT PRINCIPAL ─────────────────────── */
 export default function Home() {
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+    <div className="min-h-screen overflow-x-hidden bg-white" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════════════════════════════════════════════════
           §1 — HERO
