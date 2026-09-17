@@ -6,7 +6,7 @@ import {
   ArrowRight, Users, ShieldCheck, Wallet, CreditCard, ClipboardCheck,
   BadgeCheck, CalendarCheck, BookOpen, ChevronDown, ChevronLeft, ChevronRight,
   Smartphone, Download, GraduationCap, CheckCircle, Star, Monitor, MapPin,
-  Globe, Briefcase,
+  Globe, Briefcase, Eye, Shield,
 } from "lucide-react";
 import { fetchPublicTeachers } from "@/api/public";
 import { ALL_SUBJECTS } from "@/lib/education";
@@ -16,29 +16,6 @@ import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { ROUTE_PATHS } from "@/lib/index";
 
 /* ─── DONNÉES ────────────────────────────────── */
-
-const WHY_CARDS = [
-  {
-    icon: ShieldCheck,
-    title: "Profils vérifiés",
-    desc: "Chaque enseignant est examiné et validé par notre équipe avant d'apparaître sur la plateforme.",
-  },
-  {
-    icon: Wallet,
-    title: "Prix transparent",
-    desc: "Le tarif de chaque enseignant est affiché clairement dès sa fiche, sans frais cachés.",
-  },
-  {
-    icon: CreditCard,
-    title: "Paiement sécurisé",
-    desc: "Réglez vos séances en Mobile Money (MTN, Orange), confirmation immédiate après paiement.",
-  },
-  {
-    icon: ClipboardCheck,
-    title: "Suivi personnalisé",
-    desc: "Un conseiller pédagogique vous accompagne du premier contact jusqu'au suivi des progrès.",
-  },
-];
 
 const HOW_IT_WORKS = [
   {
@@ -373,11 +350,16 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════
           §2 — POURQUOI CARE4SUCCESS
           ══════════════════════════════════════════════════════ */}
-      <section className="py-20 bg-white">
+      <section className="py-20 md:py-28 bg-[#F4F2ED]">
         <div className="container mx-auto px-6">
-          <div className="text-center max-w-xl mx-auto mb-14">
-            <h2 className="text-2xl md:text-3xl font-black text-[#0D2D5A] mb-2">Pourquoi apprendre avec Care4Success ?</h2>
-            <p className="text-sm text-gray-500">Renforcez vos connaissances grâce à des enseignants vérifiés et un service transparent.</p>
+          <div className="max-w-xl mb-14">
+            <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Pourquoi Care4Success</p>
+            <h2
+              className="text-3xl md:text-4xl font-bold text-[#0D2D5A]"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              Ce qui nous rend différents
+            </h2>
           </div>
 
           <motion.div
@@ -387,25 +369,44 @@ export default function Home() {
             viewport={{ once: true }}
             className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
           >
-            {WHY_CARDS.map(({ icon: Icon, title, desc }) => (
-              <motion.div key={title} variants={staggerItem} className="text-center px-4">
-                <div className="w-14 h-14 rounded-2xl bg-[#1A6CC8]/10 flex items-center justify-center mx-auto mb-4">
-                  <Icon className="w-6 h-6 text-[#1A6CC8]" />
+            {[
+              {
+                icon: CheckCircle,
+                color: "#0F9B8E",
+                title: "Coachs vérifiés",
+                desc: "Chaque coach passe 5 étapes de validation. Diplômes, expertise, pédagogie : nous vérifions tout avant qu'un coach donne son premier cours.",
+              },
+              {
+                icon: Eye,
+                color: "#F5A623",
+                title: "Suivi transparent",
+                desc: "Parents : vous voyez tout. Heure d'arrivée du coach, contenu du cours, devoirs laissés, progression, en temps réel depuis votre espace.",
+              },
+              {
+                icon: CreditCard,
+                color: "#0D2D5A",
+                title: "Paiement sécurisé",
+                desc: "Orange Money, MTN MoMo, MVola, Visa, Mastercard. Vos paiements sont protégés, votre coach est payé automatiquement.",
+              },
+              {
+                icon: Shield,
+                color: "#E2574C",
+                title: "Zéro frais d'inscription",
+                desc: "Pas d'abonnement, pas de frais cachés. Vous ne payez que les cours. Évaluation scolaire et première session de langue gratuites.",
+              },
+            ].map(card => (
+              <motion.div key={card.title} variants={staggerItem} className="bg-white rounded-2xl border border-gray-100 p-6">
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-5"
+                  style={{ backgroundColor: card.color }}
+                >
+                  <card.icon className="w-5 h-5 text-white" />
                 </div>
-                <p className="font-black text-[#0D2D5A] text-sm mb-1.5">{title}</p>
-                <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
+                <p className="font-bold text-[#0D2D5A] text-base mb-2">{card.title}</p>
+                <p className="text-sm text-gray-500 leading-relaxed">{card.desc}</p>
               </motion.div>
             ))}
           </motion.div>
-
-          <div className="text-center mt-12">
-            <NavLink
-              to={ROUTE_PATHS.PROFESSEURS}
-              className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#1A6CC8] text-white font-bold text-sm hover:bg-[#0D2D5A] transition-colors shadow-md"
-            >
-              Trouver un professeur <ArrowRight className="w-4 h-4" />
-            </NavLink>
-          </div>
         </div>
       </section>
 
