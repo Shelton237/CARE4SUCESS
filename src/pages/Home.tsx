@@ -466,6 +466,73 @@ export default function Home() {
       )}
 
       {/* ══════════════════════════════════════════════════════
+          §3bis — ILS TÉMOIGNENT
+          ══════════════════════════════════════════════════════ */}
+      <section className="py-20 md:py-28 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="max-w-xl mb-14">
+            <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Ils témoignent</p>
+            <h2
+              className="text-3xl md:text-4xl font-bold text-[#0D2D5A]"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              Ce que disent nos premiers utilisateurs
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                stars: 5,
+                quote: "Mon fils avait 8/20 en maths en début d'année. En 3 mois avec son coach, il est passé à 14. Le suivi en temps réel m'a permis de voir exactement ce qui se passait à chaque session.",
+                initials: "MR",
+                color: "#0F9B8E",
+                name: "Marie R.",
+                role: "Parent d'un élève en 3ème · Antananarivo",
+              },
+              {
+                stars: 5,
+                quote: "J'enseignais sur Preply depuis 2 ans. Care4Success me donne la même liberté de fixer mes prix, mais avec des étudiants locaux qui veulent du présentiel. C'est exactement ce qui manquait.",
+                initials: "AK",
+                color: "#F5A623",
+                name: "Aminata K.",
+                role: "Coach d'anglais · Douala",
+              },
+              {
+                stars: 4,
+                quote: "Je cherchais un cours d'anglais pour préparer mon IELTS. J'ai trouvé un coach spécialisé en 5 minutes, réservé ma première session le soir même. Simple et efficace.",
+                initials: "PD",
+                color: "#E2574C",
+                name: "Patrick D.",
+                role: "Apprenant anglais · Yaoundé",
+              },
+            ].map(t => (
+              <div key={t.name} className="bg-[#F4F2ED] rounded-2xl p-6">
+                <div className="flex gap-0.5 mb-4">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <Star key={i} className={`w-4 h-4 ${i <= t.stars ? "fill-[#F5A623] text-[#F5A623]" : "fill-transparent text-gray-300"}`} />
+                  ))}
+                </div>
+                <p className="text-sm text-gray-700 italic leading-relaxed mb-6">{t.quote}</p>
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    style={{ backgroundColor: t.color }}
+                  >
+                    {t.initials}
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-[#0D2D5A]">{t.name}</p>
+                    <p className="text-xs text-gray-500">{t.role}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════
           §4 — COMMENT ÇA MARCHE (parcours en 4 étapes, photos reliées)
           ══════════════════════════════════════════════════════ */}
       <section className="py-20 bg-white overflow-hidden">
