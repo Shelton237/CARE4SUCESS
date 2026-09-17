@@ -194,27 +194,21 @@ export function Layout({ children }: LayoutProps) {
               <p className="text-sm text-blue-200/80 leading-relaxed mb-5 max-w-xs">
                 Every genius needs a coach. Plateforme de coaching panafricaine par USRA-CARE.
               </p>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-3">
                 {[
-                  { label: "Orange Money", logo: "/payment-icons/orange-money.png" },
-                  { label: "MTN MoMo", logo: "/payment-icons/mtn-momo.png", bare: true },
-                  { label: "MVola", logo: "/payment-icons/mvola.png", bare: true },
-                  { label: "Visa", logo: "/payment-icons/visa.svg" },
+                  { label: "Orange Money", logo: "/payment-icons/orange-money.png", onWhite: true },
+                  { label: "MTN MoMo", logo: "/payment-icons/mtn-momo.png" },
+                  { label: "MVola", logo: "/payment-icons/mvola.png" },
+                  { label: "Visa", logo: "/payment-icons/visa.svg", onWhite: true },
                   { label: "Mastercard", logo: "/payment-icons/mastercard.png" },
-                ].map(({ label, logo, bare }) => (
-                  logo ? (
-                    bare ? (
-                      <span key={label} className="rounded-md overflow-hidden flex items-center h-7">
-                        <img src={logo} alt={label} className="h-full w-auto object-cover" />
-                      </span>
-                    ) : (
-                      <span key={label} className="bg-white rounded-md px-2.5 py-1.5 flex items-center">
-                        <img src={logo} alt={label} className="h-4 w-auto object-contain" />
-                      </span>
-                    )
+                ].map(({ label, logo, onWhite }) => (
+                  onWhite ? (
+                    <span key={label} className="bg-white rounded-full h-9 px-3.5 flex items-center">
+                      <img src={logo} alt={label} className="h-5 w-auto object-contain" />
+                    </span>
                   ) : (
-                    <span key={label} className="text-xs text-blue-200/70 border border-white/15 rounded-md px-2.5 py-1">
-                      {label}
+                    <span key={label} className="h-9 flex items-center">
+                      <img src={logo} alt={label} className="h-9 w-auto object-contain" />
                     </span>
                   )
                 ))}
