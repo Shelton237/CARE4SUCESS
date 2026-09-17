@@ -745,7 +745,7 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════
           §9 — CTA FINAL
           ══════════════════════════════════════════════════════ */}
-      <section className="py-20 bg-[#0D2D5A]">
+      <section className="py-20 bg-[#0B2545]">
         <div className="container mx-auto px-6 text-center">
           <h2
             className="text-3xl md:text-4xl font-bold text-white mb-4"
