@@ -5,7 +5,7 @@ import { NavLink } from "react-router-dom";
 import {
   ArrowRight, Users, ShieldCheck, Wallet, CreditCard, ClipboardCheck,
   BadgeCheck, CalendarCheck, BookOpen, ChevronDown, ChevronLeft, ChevronRight,
-  Smartphone, Download, GraduationCap, CheckCircle, Star, Monitor,
+  Smartphone, Download, GraduationCap, CheckCircle, Star, Monitor, MapPin,
 } from "lucide-react";
 import { fetchPublicTeachers } from "@/api/public";
 import { ALL_SUBJECTS } from "@/lib/education";
@@ -182,203 +182,96 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-white" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════════════════════════════════════════════════
-          §1 — HERO ÉDITORIAL
-          Composition asymétrique magazine : texte gauche / images droite
+          §1 — HERO
+          Fond uni marine, titre serif, badge de localisation, stats
           ══════════════════════════════════════════════════════ */}
-      <section className="relative bg-[#0D2D5A] overflow-hidden min-h-[92vh] flex items-stretch">
+      <section className="relative bg-[#0D2D5A] overflow-hidden">
+        <div className="relative z-10 px-8 md:px-14 lg:px-20 pt-28 pb-40 md:pt-36 md:pb-48 max-w-3xl">
 
-        {/* Photo de fond */}
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${HERO_IMAGES.home})` }}
-        />
-        {/* Voile de lisibilité — assombrit la photo pour garder le texte blanc lisible */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0D2D5A]/95 via-[#0D2D5A]/88 to-[#0D2D5A]/70" />
-
-        {/* Fond : grille de points décoratives */}
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }}
-        />
-
-        {/* Orbe bleu clair */}
-        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-[#1A6CC8]/20 blur-3xl pointer-events-none" />
-
-        {/* ── Colonne texte ─────────────── */}
-        <div className="relative z-10 flex flex-col justify-center px-8 md:px-14 lg:px-20 py-24 w-full md:max-w-[55%]">
-
-          {/* Numéro éditorial discret */}
-          <motion.p
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-[#F5A623]/50 text-xs font-mono tracking-[0.4em] uppercase mb-6 flex items-center gap-3"
-          >
-            <span className="inline-block w-8 h-px bg-[#F5A623]/40" />
-            N°1 du soutien scolaire africain
-          </motion.p>
-
-          {/* Titre éditorial */}
+          {/* Badge localisation */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 border border-white/15 rounded-full px-4 py-2 text-sm text-blue-200 mb-8"
+          >
+            <MapPin className="w-4 h-4 text-blue-300" />
+            Disponible au Cameroun et à Madagascar
+          </motion.div>
+
+          {/* Titre */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springPresets.gentle, delay: 0.1 }}
+            className="font-bold text-white leading-[1.05] text-[clamp(2.5rem,5.5vw,4rem)]"
+            style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            <h1 className="font-black text-white leading-[0.92] tracking-tighter">
-              <span className="block text-[clamp(3.5rem,7vw,6.5rem)] uppercase">La réussite</span>
-              <span className="block text-[clamp(3.5rem,7vw,6.5rem)] uppercase text-[#F5A623]">scolaire,</span>
-              <span className="block text-[clamp(2.2rem,4.5vw,4rem)] uppercase text-white/60 font-light tracking-wide mt-1">
-                notre engagement
-              </span>
-            </h1>
-
-            {/* Ligne-accent or */}
-            <div className="flex items-center gap-4 mt-7 mb-7">
-              <div className="h-0.5 w-16 bg-[#F5A623]" />
-              <div className="h-0.5 w-4 bg-[#F5A623]/40" />
-              <div className="h-0.5 w-2 bg-[#F5A623]/20" />
-            </div>
-          </motion.div>
+            Every genius needs{" "}
+            <span className="italic text-[#F5A623]">a coach</span>
+          </motion.h1>
 
           {/* Sous-titre */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springPresets.gentle, delay: 0.2 }}
-            className="text-blue-200 text-lg leading-relaxed max-w-md mb-8"
+            className="text-blue-200 text-lg leading-relaxed max-w-xl mt-6 mb-10"
           >
-            Cours particuliers à domicile, en ligne ou en centre.
-            Sans engagement.{" "}
-            <span className="text-white font-bold">Résultats garantis ou remboursé.</span>
+            Soutien scolaire. Langues. Compétences pro. Le bon coach, à côté de chez vous ou en ligne.
           </motion.p>
-
-          {/* Checklist */}
-          <motion.ul
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springPresets.gentle, delay: 0.28 }}
-            className="flex flex-col gap-2.5 mb-10"
-          >
-            {["Enseignant trouvé en 4 jours chrono", "Bac+3 minimum • 1 prof retenu sur 10", "+4 points de moyenne garantis"].map((item) => (
-              <li key={item} className="flex items-center gap-3">
-                <CheckCircle className="w-4 h-4 text-[#F5A623] shrink-0" />
-                <span className="text-blue-100 text-sm font-medium">{item}</span>
-              </li>
-            ))}
-          </motion.ul>
 
           {/* CTAs */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springPresets.gentle, delay: 0.35 }}
-            className="flex flex-wrap gap-4"
+            transition={{ ...springPresets.gentle, delay: 0.3 }}
+            className="flex flex-wrap gap-4 mb-16"
           >
             <NavLink
-              to="/inscription"
-              id="hero-cta-signup"
-              className="group relative inline-flex items-center gap-2 px-10 py-4 rounded-full bg-[#1A6CC8] text-white font-black text-lg overflow-hidden shadow-2xl shadow-[#1A6CC8]/30 hover:shadow-[#1A6CC8]/50 transition-all duration-300 hover:scale-105"
-            >
-              <span className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 skew-x-12" />
-              <span className="relative">S'inscrire maintenant</span>
-              <GraduationCap className="relative w-6 h-6 group-hover:rotate-12 transition-transform" />
-            </NavLink>
-
-            <NavLink
-              to={ROUTE_PATHS.CONTACT}
+              to={ROUTE_PATHS.PROFESSEURS}
               id="hero-cta-primary"
-              className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#F5A623] text-[#0D2D5A] font-black text-base overflow-hidden shadow-xl shadow-[#F5A623]/20 hover:shadow-[#F5A623]/40 transition-shadow duration-300"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-[#F5A623] text-[#0D2D5A] font-bold hover:bg-[#e09520] transition-colors duration-200"
             >
-              <span className="relative">Bilan gratuit</span>
-              <ArrowRight className="relative w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              Trouver mon coach <ArrowRight className="w-4 h-4" />
             </NavLink>
-          </motion.div>
-
-          {/* Trust mini */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="flex items-center gap-4 mt-10 pt-8 border-t border-white/10"
-          >
-            <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map(i => (
-                <Star key={i} className={`w-4 h-4 ${i <= 4 ? "fill-[#F5A623] text-[#F5A623]" : "fill-white/20 text-white/20"}`} />
-              ))}
-            </div>
-            <span className="text-white font-bold text-sm">4,4/5</span>
-            <span className="text-blue-300 text-xs">· note vérifiée</span>
-            <span className="text-blue-300 text-xs">•</span>
-            <span className="text-blue-300 text-xs">100 000+ familles</span>
-          </motion.div>
-        </div>
-
-        {/* ── Colonne images mosaïque ─────────────── */}
-        <div className="hidden md:flex flex-1 relative overflow-hidden items-center justify-center p-8 gap-4 min-h-full">
-
-          {/* Cadre décoratif or en arrière-plan */}
-          <div className="absolute top-16 right-16 w-72 h-72 border border-[#F5A623]/20 rounded-2xl rotate-6 pointer-events-none" />
-          <div className="absolute top-12 right-12 w-72 h-72 border border-[#1A6CC8]/20 rounded-2xl rotate-3 pointer-events-none" />
-
-          {/* Image principale */}
-          <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ ...springPresets.gentle, delay: 0.2 }}
-            className="relative w-[52%] aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl shrink-0"
-          >
-            <img src={IMAGES.TEACHER_STUDENT_1} alt="Cours particuliers" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0D2D5A]/60 to-transparent" />
-            {/* Badge flottant */}
-            <div className="absolute bottom-5 left-5 right-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3">
-              <p className="text-white text-xs font-bold">Cours particuliers à domicile</p>
-              <p className="text-[#F5A623] text-xs font-mono">Dès 9 000 FCFA / heure</p>
-            </div>
-          </motion.div>
-
-          {/* Colonne d'images secondaires */}
-          <div className="flex flex-col gap-4 flex-1">
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ ...springPresets.gentle, delay: 0.3 }}
-              className="relative aspect-square rounded-2xl overflow-hidden shadow-xl"
+            <a
+              href="#"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-white/5 border border-white/15 text-white font-bold hover:bg-white/10 transition-colors duration-200"
             >
-              <img src={IMAGES.STUDENTS_STUDYING_1} alt="Élèves" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-[#1A6CC8]/30" />
-            </motion.div>
+              Comment ça marche
+            </a>
+          </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ ...springPresets.gentle, delay: 0.4 }}
-              className="relative aspect-video rounded-2xl overflow-hidden shadow-xl"
-            >
-              <img src={IMAGES.ONLINE_LEARNING_1} alt="Cours en ligne" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-[#0D2D5A]/40" />
-              <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                <Monitor className="w-4 h-4 text-[#F5A623]" />
-                <span className="text-white text-xs font-bold">Cours en ligne</span>
+          {/* Stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...springPresets.gentle, delay: 0.4 }}
+            className="flex flex-wrap gap-10"
+          >
+            {[
+              { value: "4", label: "systèmes scolaires couverts" },
+              { value: "8+", label: "langues enseignées" },
+              { value: "2", label: "pays actifs" },
+            ].map(stat => (
+              <div key={stat.label}>
+                <p
+                  className="text-[#F5A623] text-3xl font-bold leading-none"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  {stat.value}
+                </p>
+                <p className="text-blue-300 text-sm mt-2">{stat.label}</p>
               </div>
-            </motion.div>
-
-            {/* Stat box flottante */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ ...springPresets.snappy, delay: 0.5 }}
-              className="bg-[#F5A623] rounded-2xl p-4 shadow-xl"
-            >
-              <p className="text-[#0D2D5A] text-3xl font-black font-mono leading-none">500+</p>
-              <p className="text-[#0D2D5A]/70 text-xs font-bold mt-1 uppercase tracking-wide">Enseignants qualifiés</p>
-            </motion.div>
-          </div>
+            ))}
+          </motion.div>
         </div>
 
-        {/* Coupure diagonale bas */}
-        <div className="absolute bottom-0 left-0 right-0 z-20">
-          <svg viewBox="0 0 1440 80" className="w-full block" preserveAspectRatio="none">
-            <polygon points="0,80 1440,0 1440,80" fill="oklch(0.99 0.003 230)" />
+        {/* Vague de bas de section */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 leading-[0]">
+          <svg viewBox="0 0 1440 120" className="w-full block" preserveAspectRatio="none">
+            <path d="M0,120 L0,60 C360,120 1080,0 1440,60 L1440,120 Z" fill="oklch(0.99 0.003 230)" />
           </svg>
         </div>
       </section>
