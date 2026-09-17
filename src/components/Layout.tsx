@@ -193,7 +193,7 @@ export function Layout({ children }: LayoutProps) {
               <img
                 src="/logo/care4success-long-white.png"
                 alt="Care4Success"
-                className="h-10 w-auto object-contain mb-3"
+                className="h-16 w-auto object-contain mb-3"
               />
               <p className="text-sm text-blue-200/80 leading-relaxed mb-5 max-w-xs">
                 Every genius needs a coach. Plateforme de coaching panafricaine par USRA-CARE.
