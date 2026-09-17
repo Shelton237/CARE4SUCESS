@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
-  Menu, X, Phone, Mail, MapPin, ArrowRight,
-  Star, LogIn, UserPlus, GraduationCap
+  Menu, X, Phone, MapPin, ArrowRight,
+  LogIn, UserPlus, GraduationCap
 } from "lucide-react";
-import { SiFacebook, SiInstagram, SiLinkedin } from "react-icons/si";
 import { ROUTE_PATHS } from "@/lib/index";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -187,63 +186,35 @@ export function Layout({ children }: LayoutProps) {
       <footer className="bg-[#0D2D5A] text-white">
         <div className="h-1 bg-[#F5A623]" />
         <div className="container mx-auto px-6 pt-14 pb-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
 
             {/* Marque */}
-            <div className="lg:col-span-2">
-              <img src="/logo/Care 4 Success-logo-Ok_compact.png" alt="Care4Success" className="h-12 w-auto object-contain brightness-0 invert mb-4" />
+            <div>
+              <h3 className="text-xl font-black text-white mb-3">Care4Success</h3>
               <p className="text-sm text-blue-200/80 leading-relaxed mb-5 max-w-xs">
-                Votre partenaire de réussite scolaire en Afrique francophone. 10 ans d'expérience, 500+ enseignants qualifiés.
+                Every genius needs a coach. Plateforme de coaching panafricaine par USRA-CARE.
               </p>
-              <div className="flex items-center gap-1.5 mb-5">
-                {[1,2,3,4].map(i => <Star key={i} className="w-4 h-4 fill-[#F5A623] text-[#F5A623]" />)}
-                <Star className="w-4 h-4 fill-white/10 text-white/20" />
-                <span className="text-white font-bold text-sm ml-1">4,4/5</span>
-                <span className="text-blue-300/60 text-xs ml-1">· note vérifiée</span>
-              </div>
-              <div className="flex gap-2">
-                {[
-                  { href: "https://facebook.com", Icon: SiFacebook, label: "Facebook" },
-                  { href: "https://linkedin.com", Icon: SiLinkedin, label: "LinkedIn" },
-                  { href: "https://instagram.com", Icon: SiInstagram, label: "Instagram" },
-                ].map(({ href, Icon, label }) => (
-                  <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}
-                    className="w-8 h-8 rounded-lg bg-white/8 hover:bg-[#F5A623] hover:text-[#0D2D5A] flex items-center justify-center transition-all duration-200 cursor-pointer">
-                    <Icon className="w-3.5 h-3.5" />
-                  </a>
+              <div className="flex flex-wrap gap-2">
+                {["Orange Money", "MTN MoMo", "MVola", "Visa", "Mastercard"].map(method => (
+                  <span key={method} className="text-xs text-blue-200/70 border border-white/15 rounded-md px-2.5 py-1">
+                    {method}
+                  </span>
                 ))}
               </div>
             </div>
 
-            {/* Services */}
+            {/* Parents */}
             <div>
-              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Services</h3>
-              <ul className="space-y-2.5">
-                {["Cours à domicile", "Cours en ligne", "Stages vacances", "Prépa BEPC & BAC", "Formation adultes"].map(item => (
-                  <li key={item}>
-                    <NavLink to={ROUTE_PATHS.SERVICES} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors flex items-center gap-2 group">
-                      <span className="w-1 h-1 rounded-full bg-[#F5A623]/30 group-hover:bg-[#F5A623] transition-colors shrink-0" />
-                      {item}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Liens utiles */}
-            <div>
-              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Liens utiles</h3>
+              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Parents</h3>
               <ul className="space-y-2.5">
                 {[
-                  { label: "Niveaux scolaires", to: ROUTE_PATHS.NIVEAUX },
-                  { label: "Nos professeurs", to: ROUTE_PATHS.PROFESSEURS },
-                  { label: "Tarifs", to: ROUTE_PATHS.TARIFS },
-                  { label: "À propos", to: ROUTE_PATHS.A_PROPOS },
-                  { label: "Devenir enseignant", to: ROUTE_PATHS.DEVENIR_PROFESSEUR },
+                  { label: "Évaluation gratuite", to: ROUTE_PATHS.CONTACT },
+                  { label: "Espace parents", to: "/inscription" },
+                  { label: "Comment ça marche", to: "#" },
+                  { label: "Tarifs scolaire", to: ROUTE_PATHS.TARIFS },
                 ].map(item => (
                   <li key={item.label}>
-                    <NavLink to={item.to} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors flex items-center gap-2 group">
-                      <span className="w-1 h-1 rounded-full bg-[#F5A623]/30 group-hover:bg-[#F5A623] transition-colors shrink-0" />
+                    <NavLink to={item.to} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
                       {item.label}
                     </NavLink>
                   </li>
@@ -251,43 +222,55 @@ export function Layout({ children }: LayoutProps) {
               </ul>
             </div>
 
-            {/* Contact */}
+            {/* Apprenants */}
             <div>
-              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Contact</h3>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-2.5">
-                  <Phone className="w-3.5 h-3.5 mt-0.5 text-[#F5A623] shrink-0" />
-                  <div>
-                    <p className="text-sm font-bold text-white">+237 675 252 048</p>
-                    <p className="text-xs text-blue-300/60">Lun–Sam 8h–18h</p>
-                  </div>
+              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Apprenants</h3>
+              <ul className="space-y-2.5">
+                {[
+                  { label: "Cours de langues", to: ROUTE_PATHS.PROFESSEURS },
+                  { label: "Compétences pro", to: "#" },
+                  { label: "Nos coachs", to: ROUTE_PATHS.PROFESSEURS },
+                  { label: "Tarifs langues", to: ROUTE_PATHS.TARIFS },
+                ].map(item => (
+                  <li key={item.label}>
+                    <NavLink to={item.to} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
+                      {item.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Coachs */}
+            <div>
+              <h3 className="text-[10px] font-black text-[#F5A623] mb-4 uppercase tracking-[0.25em]">Coachs</h3>
+              <ul className="space-y-2.5">
+                <li>
+                  <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
+                    Devenir coach
+                  </NavLink>
                 </li>
-                <li className="flex items-start gap-2.5">
-                  <Mail className="w-3.5 h-3.5 mt-0.5 text-[#F5A623] shrink-0" />
-                  <a href="mailto:contact@usra-care.com" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
-                    contact@usra-care.com
+                <li>
+                  <a href="#" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">Nos critères</a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">FAQ coachs</a>
+                </li>
+                <li>
+                  <a href="mailto:contact@care4success.com" className="text-sm text-blue-200/70 hover:text-[#F5A623] transition-colors">
+                    contact@care4success.com
                   </a>
                 </li>
-                <li className="flex items-start gap-2.5">
-                  <MapPin className="w-3.5 h-3.5 mt-0.5 text-[#F5A623] shrink-0" />
-                  <div className="text-sm text-blue-200/70">
-                    <p className="font-semibold text-white">Douala 5ᵉ, Makepe Bloc L</p>
-                    <p>Cameroun · Réseau panafricain</p>
-                  </div>
-                </li>
               </ul>
-              <NavLink to={ROUTE_PATHS.CONTACT} className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#F5A623] hover:text-white transition-colors group cursor-pointer">
-                Nous contacter <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-              </NavLink>
             </div>
           </div>
 
           <div className="border-t border-white/8 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
-            <p className="text-xs text-blue-300/50">© 2026 Care4Success. Tous droits réservés.</p>
+            <p className="text-xs text-blue-300/50">© 2026 Care4Success — USRA-CARE</p>
             <div className="flex gap-6 text-xs text-blue-300/50">
-              <a href="#" className="hover:text-[#F5A623] transition-colors">Mentions légales</a>
+              <a href="#" className="hover:text-[#F5A623] transition-colors">CGU</a>
               <NavLink to={ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE} className="hover:text-[#F5A623] transition-colors">Confidentialité</NavLink>
-              <a href="#" className="hover:text-[#F5A623] transition-colors">CGV</a>
+              <a href="#" className="hover:text-[#F5A623] transition-colors">Remboursements</a>
             </div>
           </div>
         </div>
