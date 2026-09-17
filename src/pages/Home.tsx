@@ -186,11 +186,16 @@ export default function Home() {
           Fond uni marine, titre serif, badge de localisation, stats
           ══════════════════════════════════════════════════════ */}
       <section className="relative bg-[#0D2D5A] overflow-hidden">
-        <div className="container mx-auto px-6 pt-24 pb-36 md:pt-28 md:pb-44 relative z-10">
-          <div className="flex flex-col md:flex-row items-center gap-12 lg:gap-16">
+        {/* Photo de fond */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${IMAGES.TEACHER_STUDENT_1})` }}
+        />
+        {/* Voile de lisibilité */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0D2D5A]/97 via-[#0D2D5A]/92 to-[#0D2D5A]/60" />
 
-            {/* ── Colonne texte ── */}
-            <div className="flex-1 w-full max-w-xl">
+        <div className="container mx-auto px-6 pt-24 pb-36 md:pt-28 md:pb-44 relative z-10">
+          <div className="w-full max-w-xl">
 
               {/* Badge localisation */}
               <motion.div
@@ -270,27 +275,6 @@ export default function Home() {
                   </div>
                 ))}
               </motion.div>
-            </div>
-
-            {/* ── Colonne visuelle ── */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ ...springPresets.gentle, delay: 0.25 }}
-              className="hidden md:block relative flex-1 w-full max-w-md shrink-0"
-            >
-              {/* Cadre décoratif */}
-              <div className="absolute -z-10 top-6 -right-6 w-full h-full rounded-3xl border border-[#F5A623]/20" />
-              <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl">
-                <img src={IMAGES.TEACHER_STUDENT_1} alt="Coach et apprenant" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0D2D5A]/70 via-[#0D2D5A]/10 to-transparent" />
-                {/* Badge flottant */}
-                <div className="absolute bottom-5 left-5 right-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4">
-                  <p className="text-white text-sm font-bold">500+ coachs qualifiés</p>
-                  <p className="text-blue-200 text-xs mt-0.5">Vérifiés et sélectionnés par notre équipe</p>
-                </div>
-              </div>
-            </motion.div>
           </div>
         </div>
 
