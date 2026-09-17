@@ -291,7 +291,7 @@ export default function Home() {
           §1bis — NOS UNIVERS
           3 cartes objectif : Soutien scolaire / Langues / Compétences
           ══════════════════════════════════════════════════════ */}
-      <section className="py-20 md:py-28 bg-white">
+      <section className="py-20 md:py-28 bg-background">
         <div className="container mx-auto px-6">
           <div className="max-w-xl mb-14">
             <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Nos univers</p>
