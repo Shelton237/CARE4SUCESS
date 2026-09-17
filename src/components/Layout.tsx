@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import {
-  Menu, X, Phone, MapPin, ArrowRight,
-  LogIn, UserPlus, GraduationCap
-} from "lucide-react";
+import { Menu, X, ArrowRight } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -12,12 +9,15 @@ interface LayoutProps {
 }
 
 const NAV_MAIN = [
-  { to: ROUTE_PATHS.SERVICES,    label: "Services" },
-  { to: ROUTE_PATHS.NIVEAUX,     label: "Niveaux" },
-  { to: ROUTE_PATHS.PROFESSEURS, label: "Professeurs" },
-  { to: ROUTE_PATHS.TARIFS,      label: "Tarifs" },
-  { to: ROUTE_PATHS.A_PROPOS,    label: "À propos" },
-  { to: ROUTE_PATHS.CONTACT,     label: "Contact" },
+  { to: ROUTE_PATHS.HOME,               label: "Accueil" },
+  { to: ROUTE_PATHS.PROFESSEURS,         label: "Trouver un coach" },
+  { to: ROUTE_PATHS.PROFESSEURS,         label: "Nos coachs" },
+  { to: "#",                             label: "Comment ça marche" },
+  { to: "#",                             label: "Parents" },
+  { to: ROUTE_PATHS.DEVENIR_PROFESSEUR,  label: "Devenir coach" },
+  { to: ROUTE_PATHS.TARIFS,              label: "Tarifs" },
+  { to: ROUTE_PATHS.A_PROPOS,            label: "À propos" },
+  { to: "#",                             label: "FAQ" },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -35,64 +35,32 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
-      {/* ── TOP BAR ── */}
-      <div className={`bg-[#0D2D5A] text-white hidden lg:block transition-all duration-300 overflow-hidden ${scrolled ? "h-0 opacity-0" : "h-10 opacity-100"}`}>
-        <div className="container mx-auto px-6 flex items-center justify-between h-full">
-          <div className="flex items-center gap-2 text-[11px] text-white/80">
-            <MapPin className="w-3 h-3 text-[#F5A623] shrink-0" />
-            <span>Présents dans 15 pays africains</span>
-            <span className="opacity-30 mx-2">·</span>
-            <a href="tel:+237675252048" className="flex items-center gap-1 hover:text-[#F5A623] transition-colors font-semibold">
-              <Phone className="w-3 h-3" />+237 675 252 048
-            </a>
-            <span className="opacity-30 mx-2">·</span>
-            <a href="mailto:contact@usra-care.com" className="hover:text-[#F5A623] transition-colors">
-              contact@usra-care.com
-            </a>
-          </div>
-          <div className="flex items-center gap-4 text-[11px]">
-            <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} className="text-[#F5A623] font-bold hover:text-white transition-colors flex items-center gap-1">
-              <GraduationCap className="w-3 h-3" /> Devenir enseignant
-            </NavLink>
-            <NavLink to="/login" className="text-white/70 font-medium hover:text-white transition-colors flex items-center gap-1">
-              <LogIn className="w-3 h-3" /> Connexion
-            </NavLink>
-          </div>
-        </div>
-      </div>
-
-      {/* ── NAVBAR PRINCIPALE ── */}
-      <header className={`sticky top-0 w-full z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-white shadow-lg shadow-[#0D2D5A]/8 border-b border-gray-100"
-          : "bg-white border-b border-gray-100"
+      {/* ── NAVBAR ── */}
+      <header className={`sticky top-0 w-full z-50 transition-all duration-300 bg-[#F4F2ED] ${
+        scrolled ? "shadow-lg shadow-[#0D2D5A]/8" : ""
       }`}>
         <div className="container mx-auto px-6">
-          <div className="flex items-center justify-between h-16 md:h-18">
+          <div className="flex items-center justify-between h-16">
 
             {/* Logo */}
-            <NavLink to={ROUTE_PATHS.HOME} className="flex items-center shrink-0">
-              <picture>
-                <source media="(min-width: 640px)" srcSet="/logo/Care 4 Success-logo-Ok_large.png" />
-                <img
-                  src="/logo/Care 4 Success-logo-Ok_compact.png"
-                  alt="Care4Success"
-                  className="h-12 md:h-14 w-auto object-contain"
-                />
-              </picture>
+            <NavLink to={ROUTE_PATHS.HOME} className="flex items-center gap-2 shrink-0">
+              <span className="w-9 h-9 rounded-lg bg-[#F5A623] text-[#0D2D5A] font-black text-xs flex items-center justify-center shrink-0">
+                C4S
+              </span>
+              <span className="font-black text-[#0D2D5A] text-lg whitespace-nowrap">Care4Success</span>
             </NavLink>
 
             {/* Nav desktop */}
-            <nav className="hidden lg:flex items-center gap-1 ml-8">
+            <nav className="hidden lg:flex items-center gap-0.5 ml-6">
               {NAV_MAIN.map(link => (
                 <NavLink
-                  key={link.to}
+                  key={link.label}
                   to={link.to}
                   className={({ isActive }) =>
-                    `px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${
-                      isActive
-                        ? "text-[#1A6CC8] bg-[#1A6CC8]/8"
-                        : "text-[#0D2D5A]/80 hover:text-[#1A6CC8] hover:bg-[#0D2D5A]/5"
+                    `px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all duration-150 ${
+                      isActive && link.to !== "#"
+                        ? "bg-white text-[#0D2D5A] shadow-sm"
+                        : "text-[#0D2D5A]/70 hover:text-[#0D2D5A] hover:bg-white/60"
                     }`
                   }
                 >
@@ -101,32 +69,20 @@ export function Layout({ children }: LayoutProps) {
               ))}
             </nav>
 
-            {/* CTAs desktop */}
-            <div className="hidden lg:flex items-center gap-3 ml-auto pl-6">
+            {/* CTA desktop */}
+            <div className="hidden lg:flex items-center ml-6">
               <NavLink
-                to="/login"
-                className="h-9 px-4 rounded-lg border border-[#0D2D5A]/20 text-[#0D2D5A] text-sm font-semibold hover:border-[#1A6CC8] hover:text-[#1A6CC8] transition-all duration-150 flex items-center gap-1.5"
+                to={ROUTE_PATHS.PROFESSEURS}
+                className="h-10 px-5 rounded-lg bg-[#F5A623] text-[#0D2D5A] text-sm font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center shadow-sm"
               >
-                <LogIn className="w-3.5 h-3.5" /> Connexion
-              </NavLink>
-              <NavLink
-                to="/inscription"
-                className="h-9 px-4 rounded-lg bg-[#1A6CC8] text-white text-sm font-bold hover:bg-[#0D2D5A] transition-all duration-150 flex items-center gap-1.5 shadow-sm"
-              >
-                <UserPlus className="w-3.5 h-3.5" /> S'inscrire
-              </NavLink>
-              <NavLink
-                to={ROUTE_PATHS.CONTACT}
-                className="h-9 px-4 rounded-lg bg-[#F5A623] text-[#0D2D5A] text-sm font-bold hover:bg-[#e09520] transition-all duration-150 flex items-center gap-1.5 shadow-sm"
-              >
-                Bilan gratuit <ArrowRight className="w-3.5 h-3.5" />
+                Trouver mon coach
               </NavLink>
             </div>
 
             {/* Burger mobile */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="lg:hidden p-2 rounded-lg text-[#0D2D5A] hover:bg-gray-100 transition-colors ml-auto cursor-pointer"
+              className="lg:hidden p-2 rounded-lg text-[#0D2D5A] hover:bg-white/60 transition-colors ml-auto cursor-pointer"
               aria-label="Menu"
             >
               {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -142,35 +98,26 @@ export function Layout({ children }: LayoutProps) {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="lg:hidden border-t border-gray-100 bg-white"
+              className="lg:hidden border-t border-[#0D2D5A]/10 bg-[#F4F2ED]"
             >
               <nav className="container mx-auto px-4 py-4 space-y-1">
                 {NAV_MAIN.map(link => (
                   <NavLink
-                    key={link.to}
+                    key={link.label}
                     to={link.to}
                     onClick={close}
                     className={({ isActive }) =>
                       `block px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                        isActive ? "bg-[#0D2D5A] text-white" : "text-[#0D2D5A] hover:bg-gray-50"
+                        isActive && link.to !== "#" ? "bg-[#0D2D5A] text-white" : "text-[#0D2D5A] hover:bg-white/60"
                       }`
                     }
                   >
                     {link.label}
                   </NavLink>
                 ))}
-                <div className="pt-3 border-t border-gray-100 space-y-2">
-                  <NavLink to="/login" onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold border-2 border-[#1A6CC8] text-[#1A6CC8] hover:bg-[#1A6CC8] hover:text-white transition-colors cursor-pointer">
-                    <LogIn className="w-4 h-4" /> Connexion
-                  </NavLink>
-                  <NavLink to="/inscription" onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-[#1A6CC8] text-white hover:bg-[#0D2D5A] transition-colors cursor-pointer">
-                    <UserPlus className="w-4 h-4" /> S'inscrire
-                  </NavLink>
-                  <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold border-2 border-[#F5A623] text-[#F5A623] hover:bg-[#F5A623] hover:text-[#0D2D5A] transition-colors cursor-pointer">
-                    <GraduationCap className="w-4 h-4" /> Devenir enseignant
-                  </NavLink>
-                  <NavLink to={ROUTE_PATHS.CONTACT} onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-[#F5A623] text-[#0D2D5A] hover:bg-[#e09520] transition-colors cursor-pointer">
-                    Bilan gratuit <ArrowRight className="w-4 h-4" />
+                <div className="pt-3 border-t border-[#0D2D5A]/10">
+                  <NavLink to={ROUTE_PATHS.PROFESSEURS} onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-[#F5A623] text-[#0D2D5A] hover:bg-[#e09520] transition-colors cursor-pointer">
+                    Trouver mon coach <ArrowRight className="w-4 h-4" />
                   </NavLink>
                 </div>
               </nav>
