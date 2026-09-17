@@ -40,14 +40,15 @@ export function Layout({ children }: LayoutProps) {
         scrolled ? "shadow-lg shadow-[#0D2D5A]/8" : ""
       }`}>
         <div className="container mx-auto px-6">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-20">
 
             {/* Logo */}
-            <NavLink to={ROUTE_PATHS.HOME} className="flex items-center gap-2 shrink-0">
-              <span className="w-9 h-9 rounded-lg bg-[#F5A623] text-[#0D2D5A] font-black text-xs flex items-center justify-center shrink-0">
-                C4S
-              </span>
-              <span className="font-black text-[#0D2D5A] text-lg whitespace-nowrap">Care4Success</span>
+            <NavLink to={ROUTE_PATHS.HOME} className="flex items-center shrink-0">
+              <img
+                src="/logo/Care 4 Success-logo-Ok_compact.png"
+                alt="Care4Success"
+                className="h-14 w-auto object-contain"
+              />
             </NavLink>
 
             {/* Nav desktop */}
