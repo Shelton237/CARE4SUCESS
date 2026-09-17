@@ -199,8 +199,8 @@ export function Layout({ children }: LayoutProps) {
                   { label: "Orange Money", logo: "/payment-icons/orange-money.png" },
                   { label: "MTN MoMo", logo: "/payment-icons/mtn-momo.png", bare: true },
                   { label: "MVola", logo: "/payment-icons/mvola.png", bare: true },
-                  { label: "Visa" },
-                  { label: "Mastercard" },
+                  { label: "Visa", logo: "/payment-icons/visa.svg" },
+                  { label: "Mastercard", logo: "/payment-icons/mastercard.png" },
                 ].map(({ label, logo, bare }) => (
                   logo ? (
                     bare ? (
