@@ -24,7 +24,7 @@ const NAV_MAIN = [
 const BREADCRUMB_LABELS: Record<string, string> = {
   [ROUTE_PATHS.SERVICES]: "Services",
   [ROUTE_PATHS.NIVEAUX]: "Niveaux",
-  [ROUTE_PATHS.PROFESSEURS]: "Professeurs",
+  [ROUTE_PATHS.PROFESSEURS]: "Trouver un coach",
   [ROUTE_PATHS.DEVENIR_PROFESSEUR]: "Devenir coach",
   [ROUTE_PATHS.COMMENT_CA_MARCHE]: "Comment ça marche",
   "/recrutement": "Devenir coach",
@@ -40,7 +40,7 @@ function getBreadcrumbTrail(pathname: string): { label: string; to?: string }[] 
 
   if (pathname.startsWith("/professeurs/")) {
     return [
-      { label: "Professeurs", to: ROUTE_PATHS.PROFESSEURS },
+      { label: "Trouver un coach", to: ROUTE_PATHS.PROFESSEURS },
       { label: "Profil du coach" },
     ];
   }
