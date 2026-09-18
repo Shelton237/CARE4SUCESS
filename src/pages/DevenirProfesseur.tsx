@@ -35,9 +35,7 @@ export default function DevenirProfesseur() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [verticale, setVerticale] = useState("");
-  const [specialite, setSpecialite] = useState("");
   const [pays, setPays] = useState("");
-  const [availability, setAvailability] = useState("");
   const [motivation, setMotivation] = useState("");
 
   const mutation = useMutation({
@@ -49,8 +47,7 @@ export default function DevenirProfesseur() {
         description: "Notre équipe vous contacte sous 48h.",
       });
       setPrenom(""); setNom(""); setEmail(""); setPhone("");
-      setVerticale(""); setSpecialite(""); setPays("");
-      setAvailability(""); setMotivation("");
+      setVerticale(""); setPays(""); setMotivation("");
       setTimeout(() => setCompleted(false), 3500);
     },
     onError: (error: Error) => {
@@ -64,18 +61,23 @@ export default function DevenirProfesseur() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const verticaleLabel = VERTICALES.find(v => v.value === verticale)?.label ?? "";
+    if (!verticale) {
+      toast({
+        title: "Verticale requise",
+        description: "Merci de choisir la verticale souhaitée avant d'envoyer votre candidature.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const verticaleLabel = VERTICALES.find(v => v.value === verticale)?.label ?? "Non précisée";
     const formData = new window.FormData();
     formData.append("fullName", `${prenom} ${nom}`.trim());
     formData.append("email", email);
     formData.append("phone", phone);
-    formData.append("subjects", specialite);
-    formData.append("availability", availability);
+    formData.append("subjects", verticaleLabel);
+    formData.append("availability", "À confirmer avec le coach");
     formData.append("city", pays);
-    formData.append(
-      "motivation",
-      verticaleLabel ? `Verticale souhaitée : ${verticaleLabel}. ${motivation}` : motivation
-    );
+    formData.append("motivation", `Verticale souhaitée : ${verticaleLabel}. ${motivation}`);
     mutation.mutate(formData as any);
   };
 
@@ -183,17 +185,6 @@ export default function DevenirProfesseur() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="specialite">Votre spécialité</Label>
-                    <Input
-                      id="specialite"
-                      placeholder="Ex : Anglais, Maths, Excel..."
-                      value={specialite}
-                      onChange={e => setSpecialite(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
                     <Label>Pays</Label>
                     <Select value={pays} onValueChange={setPays}>
                       <SelectTrigger><SelectValue placeholder="Choisissez..." /></SelectTrigger>
@@ -203,17 +194,6 @@ export default function DevenirProfesseur() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="availability">Vos disponibilités</Label>
-                    <Input
-                      id="availability"
-                      placeholder="Ex : Soirs 17h-21h et week-ends"
-                      value={availability}
-                      onChange={e => setAvailability(e.target.value)}
-                      required
-                    />
                   </div>
 
                   <div className="space-y-1.5">
