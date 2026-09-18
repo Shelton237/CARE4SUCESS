@@ -1,9 +1,7 @@
-import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { ArrowRight, GraduationCap, Globe, Briefcase } from "lucide-react";
 import { IMAGES } from "@/assets/images";
 import { ROUTE_PATHS } from "@/lib/index";
-import { springPresets } from "@/lib/motion";
 import { Breadcrumb } from "@/components/Layout";
 
 const OBJECTIVE_CARDS = [
@@ -35,23 +33,26 @@ export default function Professeurs() {
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${IMAGES.TEACHER_STUDENT_3})` }} />
-        <div className="absolute inset-0 bg-[#0D2D5A]/78" />
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#1A6CC8]/20 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
-
-        <div className="container mx-auto px-6 max-w-5xl relative z-10">
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={springPresets.gentle} className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-4">Nos coachs</p>
-            <h1 className="text-4xl md:text-5xl font-black text-white leading-tight mb-5">
-              500+ coachs<br />
-              <span className="text-[#F5A623]">rigoureusement sélectionnés</span>
-            </h1>
-            <p className="text-blue-200 text-lg leading-relaxed max-w-xl mb-8">
-              Bac+3 minimum. Entretien pédagogique. Références vérifiées. 1 candidat sur 10 retenu. Sélectionnés à travers 15 pays africains.
-            </p>
-          </motion.div>
+      <section className="relative overflow-hidden bg-[#0B2545]">
+        <div className="absolute inset-0">
+          <img
+            src={IMAGES.TEACHER_STUDENT_3}
+            alt="Coachs Care4Success"
+            className="w-full h-full object-cover opacity-70 mix-blend-overlay"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/80 to-[#0B2545]/50" />
+        </div>
+        <div className="container mx-auto px-6 max-w-4xl relative z-10 py-5 md:py-6 text-center">
+          <p className="text-[#F5A623] text-xs font-bold uppercase tracking-[0.2em] mb-4">Nos coachs</p>
+          <h1
+            className="text-4xl md:text-5xl font-bold text-white leading-tight mb-6"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            500+ coachs <span className="text-[#F5A623]">rigoureusement sélectionnés</span>
+          </h1>
+          <p className="text-blue-200 text-xl max-w-2xl mx-auto leading-relaxed">
+            Bac+3 minimum. Entretien pédagogique. Références vérifiées. 1 candidat sur 10 retenu.
+          </p>
         </div>
       </section>
 
