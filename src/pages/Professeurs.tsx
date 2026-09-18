@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { NavLink, useSearchParams } from "react-router-dom";
-import { Search, Star, ArrowRight, GraduationCap, BookOpen, Award, Users, Filter, MapPin, Loader2 } from "lucide-react";
+import { Search, Star, ArrowRight, GraduationCap, BookOpen, Award, Users, Filter, MapPin, Loader2, Globe, Briefcase } from "lucide-react";
 import { fetchPublicTeachers, type PublicTeacher } from "@/api/public";
 import { formatMoney } from "@/lib/money";
 import { IMAGES } from "@/assets/images";
@@ -17,6 +17,34 @@ const STATS = [
   { value: "Bac+3", label: "minimum requis",      icon: GraduationCap },
   { value: "1/10",  label: "candidats retenus",   icon: Award },
   { value: "4,4/5", label: "note moyenne",        icon: Star },
+];
+
+type ObjectiveCard =
+  | { icon: typeof GraduationCap; color: string; title: string; desc: string; cta: string; action: "link"; to: string }
+  | { icon: typeof GraduationCap; color: string; title: string; desc: string; cta: string; action: "filter"; category: string };
+
+const OBJECTIVE_CARDS: ObjectiveCard[] = [
+  {
+    icon: GraduationCap, color: "#0F9B8E",
+    title: "Mon enfant a besoin d'un coach scolaire",
+    desc: "Nous évaluons son niveau, trouvons le coach idéal et vous suivez sa progression en temps réel.",
+    cta: "Évaluation gratuite",
+    action: "link", to: ROUTE_PATHS.CONTACT,
+  },
+  {
+    icon: Globe, color: "#F5A623",
+    title: "Je veux apprendre une langue",
+    desc: "Choisissez votre coach, comparez les prix et les avis, réservez votre première session.",
+    cta: "Voir les coachs",
+    action: "filter", category: "langues",
+  },
+  {
+    icon: Briefcase, color: "#E2574C",
+    title: "Je veux développer une compétence pro",
+    desc: "Formations, conférences, certifications — par des experts. Lancement bientôt.",
+    cta: "Me prévenir",
+    action: "link", to: "#",
+  },
 ];
 
 export default function Professeurs() {
@@ -94,8 +122,50 @@ export default function Professeurs() {
         </div>
       </section>
 
+      {/* ── QUEL EST VOTRE OBJECTIF ── */}
+      <section className="py-16 bg-[#0D2D5A]">
+        <div className="container mx-auto px-6 max-w-5xl text-center mb-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
+            Quel est votre objectif ?
+          </h2>
+          <p className="text-blue-200 mt-2">Choisissez votre univers pour commencer.</p>
+        </div>
+        <div className="container mx-auto px-6 max-w-5xl grid md:grid-cols-3 gap-6">
+          {OBJECTIVE_CARDS.map(card => {
+            const body = (
+              <>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{ backgroundColor: card.color }}>
+                  <card.icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-[#0D2D5A] mb-2">{card.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed mb-5">{card.desc}</p>
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: card.color }}>
+                  {card.cta} <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </>
+            );
+            return card.action === "link" ? (
+              <NavLink key={card.title} to={card.to} className="bg-white rounded-2xl p-7 hover:shadow-xl transition-shadow duration-200 cursor-pointer">
+                {body}
+              </NavLink>
+            ) : (
+              <button
+                key={card.title}
+                onClick={() => {
+                  setCategory(card.category);
+                  document.getElementById("annuaire")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="bg-white rounded-2xl p-7 text-left hover:shadow-xl transition-shadow duration-200 cursor-pointer"
+              >
+                {body}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {/* ── FILTRES + GRILLE ── */}
-      <section className="py-16 bg-gray-50">
+      <section id="annuaire" className="py-16 bg-gray-50 scroll-mt-20">
         <div className="container mx-auto px-6 max-w-6xl">
 
           {/* Catégories */}
