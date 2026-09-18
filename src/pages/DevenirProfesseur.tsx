@@ -92,9 +92,9 @@ export default function DevenirProfesseur() {
           <img
             src={IMAGES.TEACHER_STUDENT_2}
             alt="Coach Care4Success"
-            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+            className="w-full h-full object-cover opacity-70 mix-blend-overlay"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/95 to-[#0B2545]/70" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/80 to-[#0B2545]/50" />
         </div>
         <div className="container mx-auto px-6 max-w-4xl relative z-10 py-5 md:py-6 text-center">
           <p className="text-[#F5A623] text-xs font-bold uppercase tracking-[0.2em] mb-4">Devenir coach</p>
