@@ -6,6 +6,7 @@ import { fetchPublicTeachers, type PublicTeacher } from "@/api/public";
 import { formatMoney } from "@/lib/money";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb } from "@/components/Layout";
+import { IMAGES } from "@/assets/images";
 
 // Les langues réellement proposées aujourd'hui sur la plateforme — limité
 // aux valeurs présentes dans la taxonomie des matières (src/lib/education.ts),
@@ -59,8 +60,16 @@ export default function CoursDeLangues() {
     <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HEADER ── */}
-      <section className="bg-[#0B2545] py-14">
-        <div className="container mx-auto px-6 max-w-5xl">
+      <section className="relative overflow-hidden bg-[#0B2545] py-14">
+        <div className="absolute inset-0">
+          <img
+            src={IMAGES.STUDENTS_STUDYING_5}
+            alt="Cours de langues"
+            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/90 to-[#0B2545]/60" />
+        </div>
+        <div className="container mx-auto px-6 max-w-5xl relative z-10">
           <h1 className="text-4xl font-bold text-white mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>
             Cours de langues
           </h1>
