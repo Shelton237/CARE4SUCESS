@@ -78,12 +78,12 @@ export default function Home() {
                 >
                   Trouver mon coach <ArrowRight className="w-4 h-4" />
                 </NavLink>
-                <a
-                  href="#"
+                <NavLink
+                  to={ROUTE_PATHS.COMMENT_CA_MARCHE}
                   className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-white/5 border border-white/15 text-white font-bold hover:bg-white/10 transition-colors duration-200"
                 >
                   Comment ça marche
-                </a>
+                </NavLink>
               </motion.div>
 
               {/* Stats */}

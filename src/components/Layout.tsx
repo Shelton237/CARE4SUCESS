@@ -10,7 +10,7 @@ interface LayoutProps {
 
 const NAV_MAIN = [
   { to: ROUTE_PATHS.HOME,               label: "Accueil" },
-  { to: "#",                             label: "Comment ça marche" },
+  { to: ROUTE_PATHS.COMMENT_CA_MARCHE,   label: "Comment ça marche" },
   { to: "#",                             label: "Parents" },
   { to: ROUTE_PATHS.DEVENIR_PROFESSEUR,  label: "Devenir coach" },
   { to: ROUTE_PATHS.TARIFS,              label: "Tarifs" },
@@ -166,7 +166,7 @@ export function Layout({ children }: LayoutProps) {
                 {[
                   { label: "Évaluation gratuite", to: ROUTE_PATHS.CONTACT },
                   { label: "Espace parents", to: "/inscription" },
-                  { label: "Comment ça marche", to: "#" },
+                  { label: "Comment ça marche", to: ROUTE_PATHS.COMMENT_CA_MARCHE },
                   { label: "Tarifs scolaire", to: ROUTE_PATHS.TARIFS },
                 ].map(item => (
                   <li key={item.label}>
