@@ -61,14 +61,14 @@ function Breadcrumb() {
 
   return (
     <div className="bg-[#F4F2ED] border-t border-[#0D2D5A]/5">
-      <div className="container mx-auto px-6 py-3">
-        <nav aria-label="Fil d'Ariane" className="flex items-center flex-wrap gap-1.5 text-xs font-semibold text-[#0D2D5A]/60">
-          <NavLink to={ROUTE_PATHS.HOME} className="flex items-center gap-1 hover:text-[#0D2D5A] transition-colors">
-            <HomeIcon className="w-3.5 h-3.5" /> Accueil
+      <div className="container mx-auto px-6 max-w-5xl py-4">
+        <nav aria-label="Fil d'Ariane" className="flex items-center flex-wrap gap-2 text-sm font-semibold text-[#0D2D5A]/60">
+          <NavLink to={ROUTE_PATHS.HOME} className="flex items-center gap-1.5 hover:text-[#0D2D5A] transition-colors">
+            <HomeIcon className="w-4 h-4" /> Accueil
           </NavLink>
           {trail.map((item, i) => (
-            <span key={item.label} className="flex items-center gap-1.5">
-              <ChevronRight className="w-3 h-3 text-[#0D2D5A]/30" />
+            <span key={item.label} className="flex items-center gap-2">
+              <ChevronRight className="w-3.5 h-3.5 text-[#0D2D5A]/30" />
               {item.to ? (
                 <NavLink to={item.to} className="hover:text-[#0D2D5A] transition-colors">
                   {item.label}
