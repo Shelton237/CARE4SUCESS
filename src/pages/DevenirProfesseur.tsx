@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { submitTeacherApplication } from "@/api/backoffice";
 import { springPresets } from "@/lib/motion";
+import { IMAGES } from "@/assets/images";
 
 const VERTICALES = [
   { value: "langues-competences", label: "Langues et compétences" },
@@ -83,20 +84,33 @@ export default function DevenirProfesseur() {
 
   return (
     <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+
+      {/* ── HERO ── */}
+      <section className="relative overflow-hidden bg-[#0B2545]">
+        <div className="absolute inset-0">
+          <img
+            src={IMAGES.TEACHER_STUDENT_2}
+            alt="Coach Care4Success"
+            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/95 to-[#0B2545]/70" />
+        </div>
+        <div className="container mx-auto px-6 max-w-4xl relative z-10 py-20 md:py-28 text-center">
+          <p className="text-[#F5A623] text-xs font-bold uppercase tracking-[0.2em] mb-4">Devenir coach</p>
+          <h1
+            className="text-4xl md:text-5xl font-bold text-white leading-tight mb-6"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Vous avez <span className="text-[#F5A623]">l'expertise</span>. Nous avons les apprenants.
+          </h1>
+          <p className="text-blue-200 text-xl max-w-2xl mx-auto leading-relaxed">
+            Deux façons de coacher avec Care4Success.
+          </p>
+        </div>
+      </section>
+
       <section className="py-20 md:py-28">
         <div className="container mx-auto px-6 max-w-6xl">
-
-          {/* ── En-tête ── */}
-          <div className="max-w-2xl mb-12">
-            <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Devenir coach</p>
-            <h1
-              className="text-3xl md:text-4xl font-bold text-[#0D2D5A] leading-tight mb-4"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              Vous avez l'expertise. Nous avons les apprenants.
-            </h1>
-            <p className="text-gray-500">Deux façons de coacher avec Care4Success.</p>
-          </div>
 
           {/* ── 2 cartes verticales ── */}
           <div className="grid sm:grid-cols-2 gap-5 mb-14 max-w-3xl">

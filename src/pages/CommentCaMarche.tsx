@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
+import { IMAGES } from "@/assets/images";
 
 const PARCOURS = {
   langues: {
@@ -32,19 +33,33 @@ export default function CommentCaMarche() {
 
   return (
     <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
+
+      {/* ── HERO ── */}
+      <section className="relative overflow-hidden bg-[#0B2545]">
+        <div className="absolute inset-0">
+          <img
+            src={IMAGES.TEACHER_STUDENT_3}
+            alt="Coach et apprenant"
+            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/95 to-[#0B2545]/70" />
+        </div>
+        <div className="container mx-auto px-6 max-w-4xl relative z-10 py-20 md:py-28 text-center">
+          <p className="text-[#F5A623] text-xs font-bold uppercase tracking-[0.2em] mb-4">Comment ça marche</p>
+          <h1
+            className="text-4xl md:text-5xl font-bold text-white leading-tight mb-6"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Deux parcours, un même <span className="text-[#F5A623]">objectif</span> : progresser
+          </h1>
+          <p className="text-blue-200 text-xl max-w-2xl mx-auto leading-relaxed">
+            Le fonctionnement dépend de votre besoin. Choisissez votre parcours.
+          </p>
+        </div>
+      </section>
+
       <section className="py-20 md:py-28">
         <div className="container mx-auto px-6 max-w-5xl">
-
-          <div className="max-w-2xl mb-10">
-            <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Comment ça marche</p>
-            <h1
-              className="text-3xl md:text-4xl font-bold text-[#0D2D5A] leading-tight mb-4"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              Deux parcours, un même objectif : progresser
-            </h1>
-            <p className="text-gray-500">Le fonctionnement dépend de votre besoin. Choisissez votre parcours.</p>
-          </div>
 
           {/* Tabs */}
           <div className="inline-flex bg-white rounded-xl p-1 mb-10 border border-gray-100">
