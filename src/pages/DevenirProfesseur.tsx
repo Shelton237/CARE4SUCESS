@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { submitTeacherApplication } from "@/api/backoffice";
 import { springPresets } from "@/lib/motion";
 import { IMAGES } from "@/assets/images";
+import { Breadcrumb } from "@/components/Layout";
 
 const VERTICALES = [
   { value: "langues-competences", label: "Langues et compétences" },
@@ -108,6 +109,8 @@ export default function DevenirProfesseur() {
           </p>
         </div>
       </section>
+
+      <Breadcrumb />
 
       <section className="py-20 md:py-28">
         <div className="container mx-auto px-6 max-w-6xl">

@@ -54,7 +54,22 @@ function getBreadcrumbTrail(pathname: string): { label: string; to?: string }[] 
   return [{ label: "Page introuvable" }];
 }
 
-function Breadcrumb() {
+// Pages avec un hero photo : elles importent Breadcrumb et le placent
+// elles-mêmes juste en dessous de leur section hero, donc le rendu global
+// de Layout est sauté sur ces routes pour ne pas le dupliquer au-dessus du hero.
+const SELF_RENDERED_BREADCRUMB_ROUTES = new Set<string>([
+  ROUTE_PATHS.SERVICES,
+  ROUTE_PATHS.NIVEAUX,
+  ROUTE_PATHS.PROFESSEURS,
+  ROUTE_PATHS.DEVENIR_PROFESSEUR,
+  "/recrutement",
+  ROUTE_PATHS.COMMENT_CA_MARCHE,
+  ROUTE_PATHS.CONTACT,
+  ROUTE_PATHS.A_PROPOS,
+  ROUTE_PATHS.TARIFS,
+]);
+
+export function Breadcrumb() {
   const { pathname } = useLocation();
   const trail = getBreadcrumbTrail(pathname);
   if (trail.length === 0) return null;
@@ -87,6 +102,7 @@ function Breadcrumb() {
 export function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled,   setScrolled]   = useState(false);
+  const { pathname } = useLocation();
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 20);
@@ -191,7 +207,7 @@ export function Layout({ children }: LayoutProps) {
         </AnimatePresence>
       </header>
 
-      <Breadcrumb />
+      {!SELF_RENDERED_BREADCRUMB_ROUTES.has(pathname) && <Breadcrumb />}
 
       {/* MAIN */}
       <main className="flex-1">{children}</main>

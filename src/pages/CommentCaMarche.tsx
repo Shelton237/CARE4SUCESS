@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { IMAGES } from "@/assets/images";
+import { Breadcrumb } from "@/components/Layout";
 
 const PARCOURS = {
   langues: {
@@ -57,6 +58,8 @@ export default function CommentCaMarche() {
           </p>
         </div>
       </section>
+
+      <Breadcrumb />
 
       <section className="py-20 md:py-28">
         <div className="container mx-auto px-6 max-w-5xl">

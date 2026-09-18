@@ -7,6 +7,7 @@ import {
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { IMAGES } from "@/assets/images";
+import { Breadcrumb } from "@/components/Layout";
 
 const SERVICES = [
   {
@@ -125,6 +126,8 @@ export default function Services() {
           </motion.div>
         </div>
       </section>
+
+      <Breadcrumb />
 
       {/* ── TRUST BAR ── */}
       <section className="bg-white border-b border-gray-100">

@@ -7,6 +7,7 @@ import {
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { IMAGES } from "@/assets/images";
+import { Breadcrumb } from "@/components/Layout";
 
 const STATS = [
   { value: "10 ans",  label: "d'expérience",           icon: Award },
@@ -101,6 +102,8 @@ export default function About() {
           </motion.div>
         </div>
       </section>
+
+      <Breadcrumb />
 
       {/* ── STATS ── */}
       <section className="bg-white border-b border-gray-100">

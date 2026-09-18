@@ -3,6 +3,7 @@ import { Phone, Mail, MapPin, Clock, CheckCircle, ArrowRight } from "lucide-reac
 import { ContactForm } from "@/components/ContactForm";
 import { IMAGES } from "@/assets/images";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
+import { Breadcrumb } from "@/components/Layout";
 
 const CONTACT_METHODS = [
   {
@@ -98,6 +99,8 @@ export default function Contact() {
           </motion.div>
         </div>
       </section>
+
+      <Breadcrumb />
 
       {/* ── FORMULAIRE + CONTACTS ── */}
       <section className="py-20 bg-gray-50">

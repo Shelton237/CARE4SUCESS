@@ -7,6 +7,7 @@ import { IMAGES } from "@/assets/images";
 import { ALL_SUBJECTS } from "@/lib/education";
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
+import { Breadcrumb } from "@/components/Layout";
 
 const LEVEL_CATEGORIES = ["Primaire", "Collège", "Lycée", "Supérieur", "Adultes"];
 const LEVEL_KEYS: Record<string, string> = {
@@ -68,6 +69,8 @@ export default function Professeurs() {
           </motion.div>
         </div>
       </section>
+
+      <Breadcrumb />
 
       {/* ── STATS ── */}
       <section className="bg-white border-b border-gray-100">

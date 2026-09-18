@@ -7,6 +7,7 @@ import {
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { IMAGES } from "@/assets/images";
+import { Breadcrumb } from "@/components/Layout";
 
 const PLANS = [
   {
@@ -152,6 +153,8 @@ export default function Pricing() {
           </motion.div>
         </div>
       </section>
+
+      <Breadcrumb />
 
       {/* ── PLANS ── */}
       <section className="py-20 bg-gray-50">
