@@ -37,6 +37,10 @@ export interface PublicTeacher {
     country: string | null;
     regionId: number | null;
     region: string | null;
+    /** Présentation publique, à remplir par le coach — vide au départ. */
+    bio: string | null;
+    specialties: string[];
+    formats: string[];
 }
 
 export interface TeacherSlot {
@@ -49,8 +53,18 @@ export interface TeacherSlot {
     posterUrl: string | null;
 }
 
+export interface TeacherReview {
+    reviewerName: string;
+    reviewerType: "parent" | "student" | "advisor";
+    rating: number;
+    comment: string;
+    date: string;
+}
+
 export interface PublicTeacherProfile extends PublicTeacher {
     slots: TeacherSlot[];
+    reviews: TeacherReview[];
+    reviewsCount: number;
 }
 
 export const fetchPublicTeachers = () => publicRequest<PublicTeacher[]>("/public/teachers");

@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    Star, MapPin, Calendar, Clock, ArrowLeft, ArrowRight,
-    Loader2, CheckCircle2, GraduationCap, Users, X, BookOpen,
+    Star, Calendar, Clock, ArrowLeft, ArrowRight,
+    Loader2, CheckCircle2, GraduationCap, X, BookOpen,
     CreditCard, Phone, Mail, User, ChevronRight, Sparkles,
 } from "lucide-react";
 import {
@@ -30,7 +30,7 @@ const formatSlotTime = (value: string) =>
 
 type BookingStep = "form" | "otp" | "waiting" | "redirect" | "success";
 
-// â”€â”€â”€ Slot Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Slot Card ──────────────────────────────────────────────────────────────
 function SlotCard({
     slot,
     selected,
@@ -87,11 +87,11 @@ function SlotCard({
                 </p>
                 <p className="text-xs text-gray-500 flex items-center gap-1 mt-1.5">
                     <Clock className="w-3.5 h-3.5 text-[#1A6CC8]" />
-                    {formatSlotTime(slot.startTime)} â€“ {formatSlotTime(slot.endTime)}
+                    {formatSlotTime(slot.startTime)} – {formatSlotTime(slot.endTime)}
                 </p>
                 <div className={`mt-3 flex items-center justify-between transition-colors ${selected ? "text-[#1A6CC8]" : "text-gray-300 group-hover:text-[#1A6CC8]/60"}`}>
                     <span className="text-[10px] font-bold uppercase tracking-wider">
-                        {selected ? "SÃ©lectionnÃ© âœ“" : "Choisir ce crÃ©neau"}
+                        {selected ? "Sélectionné ✓" : "Choisir ce créneau"}
                     </span>
                     <ChevronRight className="w-3.5 h-3.5" />
                 </div>
@@ -100,7 +100,7 @@ function SlotCard({
     );
 }
 
-// â”€â”€â”€ Booking Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Booking Panel ──────────────────────────────────────────────────────────
 function BookingPanel({
     teacherName,
     slot,
@@ -140,11 +140,11 @@ function BookingPanel({
                     return;
                 }
             } catch {
-                // erreur transitoire â€” on continue de sonder
+                // erreur transitoire — on continue de sonder
             }
             if (pollAttempts.current >= 20) {
                 if (pollTimer.current) clearInterval(pollTimer.current);
-                setError("Paiement non confirmÃ© aprÃ¨s plusieurs minutes. VÃ©rifiez votre tÃ©lÃ©phone ou rÃ©essayez.");
+                setError("Paiement non confirmé après plusieurs minutes. Vérifiez votre téléphone ou réessayez.");
                 setStep("form");
             }
         }, 4000);
@@ -186,7 +186,7 @@ function BookingPanel({
                 startPolling(data.reference);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Impossible d'initier la rÃ©servation.");
+            setError(err instanceof Error ? err.message : "Impossible d'initier la réservation.");
         } finally {
             setSubmitting(false);
         }
@@ -199,14 +199,14 @@ function BookingPanel({
         try {
             const data = await authorizeBookingCharge(charge.chargeId, otpType, code);
             if (data.nextAction?.type === "requires_otp" || data.nextAction?.type === "requires_pin") {
-                setError("Code invalide, rÃ©essayez.");
+                setError("Code invalide, réessayez.");
                 setCode("");
             } else {
                 setStep("waiting");
                 startPolling(charge.reference);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Autorisation refusÃ©e.");
+            setError(err instanceof Error ? err.message : "Autorisation refusée.");
         } finally {
             setSubmitting(false);
         }
@@ -219,18 +219,18 @@ function BookingPanel({
             className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden sticky top-6"
         >
             {/* Header du panel */}
-            <div className="bg-gradient-to-r from-[#0D2D5A] to-[#1A6CC8] p-5">
-                <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">RÃ©servation</p>
+            <div className="bg-[#0D2D5A] p-5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Réservation</p>
                 <p className="text-sm font-bold text-white capitalize">{formatSlotDate(slot.startTime)}</p>
                 <p className="text-xs text-blue-200 flex items-center gap-1 mt-0.5">
                     <Clock className="w-3 h-3" />
-                    {formatSlotTime(slot.startTime)} â€“ {formatSlotTime(slot.endTime)}
-                    <span className="mx-1 opacity-40">Â·</span>
+                    {formatSlotTime(slot.startTime)} – {formatSlotTime(slot.endTime)}
+                    <span className="mx-1 opacity-40">·</span>
                     {teacherName}
                 </p>
                 {amount && step !== "success" && (
                     <div className="mt-3 pt-3 border-t border-white/20">
-                        <p className="text-xs text-blue-200">Montant Ã  payer</p>
+                        <p className="text-xs text-blue-200">Montant à payer</p>
                         <p className="text-xl font-black text-white">{formatMoney(amount.value, amount.currency)}</p>
                     </div>
                 )}
@@ -259,7 +259,7 @@ function BookingPanel({
                                         </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-gray-600">TÃ©lÃ©phone</Label>
+                                        <Label className="text-xs text-gray-600">Téléphone</Label>
                                         <div className="relative">
                                             <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                                             <Input value={parentPhone} onChange={e => setParentPhone(e.target.value)} placeholder="+237 6XX XXX XXX" className="h-9 text-sm pl-8" />
@@ -268,33 +268,33 @@ function BookingPanel({
                                 </div>
                             </div>
 
-                            {/* Section Ã©lÃ¨ve */}
+                            {/* Section élève */}
                             <div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1.5">
-                                    <GraduationCap className="w-3 h-3" /> L'Ã©lÃ¨ve
+                                    <GraduationCap className="w-3 h-3" /> L'élève
                                 </p>
                                 <div className="space-y-2.5">
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-gray-600">Nom de l'Ã©lÃ¨ve *</Label>
-                                        <Input value={studentName} onChange={e => setStudentName(e.target.value)} placeholder="Nom de l'enfant (ou le vÃ´tre)" className="h-9 text-sm" />
+                                        <Label className="text-xs text-gray-600">Nom de l'élève *</Label>
+                                        <Input value={studentName} onChange={e => setStudentName(e.target.value)} placeholder="Nom de l'enfant (ou le vôtre)" className="h-9 text-sm" />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-gray-600">MatiÃ¨re souhaitÃ©e</Label>
+                                        <Label className="text-xs text-gray-600">Matière souhaitée</Label>
                                         <div className="relative">
                                             <BookOpen className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                                            <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Ex: MathÃ©matiques" className="h-9 text-sm pl-8" />
+                                            <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Ex: Mathématiques" className="h-9 text-sm pl-8" />
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Section paiement */}
-                            <div className="bg-[#f4f6fb] rounded-xl p-4 space-y-2.5">
+                            <div className="bg-[#F4F2ED] rounded-xl p-4 space-y-2.5">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
                                     <CreditCard className="w-3 h-3" /> Paiement Mobile Money
                                 </p>
                                 <div className="space-y-1">
-                                    <Label className="text-xs text-gray-600">OpÃ©rateur *</Label>
+                                    <Label className="text-xs text-gray-600">Opérateur *</Label>
                                     <Select value={network} onValueChange={v => setNetwork(v as MobileMoneyNetwork)}>
                                         <SelectTrigger className="h-9 text-sm bg-white"><SelectValue /></SelectTrigger>
                                         <SelectContent>
@@ -304,7 +304,7 @@ function BookingPanel({
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-xs text-gray-600">NumÃ©ro Mobile Money *</Label>
+                                    <Label className="text-xs text-gray-600">Numéro Mobile Money *</Label>
                                     <div className="relative">
                                         <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                                         <Input value={momoPhone} onChange={e => setMomoPhone(e.target.value)} placeholder="6XX XXX XXX" className="h-9 text-sm pl-8 bg-white" />
@@ -319,14 +319,14 @@ function BookingPanel({
                             )}
 
                             <Button
-                                className="w-full h-10 text-sm font-bold bg-[#1A6CC8] hover:bg-[#155aa8] text-white rounded-xl"
+                                className="w-full h-10 text-sm font-bold bg-[#0D2D5A] hover:bg-[#0B2545] text-white rounded-xl"
                                 disabled={submitting}
                                 onClick={handleSubmit}
                             >
                                 {submitting ? (
                                     <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Initialisation...</>
                                 ) : (
-                                    <>RÃ©server et payer <ArrowRight className="w-4 h-4 ml-1.5" /></>
+                                    <>Réserver et payer <ArrowRight className="w-4 h-4 ml-1.5" /></>
                                 )}
                             </Button>
                             <button
@@ -344,9 +344,9 @@ function BookingPanel({
                                 <div className="w-12 h-12 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center mx-auto mb-3">
                                     <Phone className="w-5 h-5 text-[#1A6CC8]" />
                                 </div>
-                                <p className="text-sm font-bold text-[#0D2D5A]">VÃ©rification requise</p>
+                                <p className="text-sm font-bold text-[#0D2D5A]">Vérification requise</p>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    {otpType === "pin" ? "Entrez votre code PIN Mobile Money." : "Entrez le code reÃ§u par SMS."}
+                                    {otpType === "pin" ? "Entrez votre code PIN Mobile Money." : "Entrez le code reçu par SMS."}
                                 </p>
                             </div>
                             <Input
@@ -357,20 +357,20 @@ function BookingPanel({
                             />
                             {error && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
                             <Button
-                                className="w-full h-10 text-sm font-bold bg-[#1A6CC8] hover:bg-[#155aa8] text-white rounded-xl"
+                                className="w-full h-10 text-sm font-bold bg-[#0D2D5A] hover:bg-[#0B2545] text-white rounded-xl"
                                 disabled={!code.trim() || submitting}
                                 onClick={handleAuthorize}
                             >
-                                {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> VÃ©rification...</> : "Valider"}
+                                {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Vérification...</> : "Valider"}
                             </Button>
                         </motion.div>
                     )}
 
                     {step === "redirect" && testRedirectUrl && (
                         <motion.div key="redirect" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-4 py-4 text-center">
-                            <p className="text-xs text-gray-500">Environnement de test â€” validez le paiement sur la page Flutterwave.</p>
+                            <p className="text-xs text-gray-500">Environnement de test — validez le paiement sur la page Flutterwave.</p>
                             <Button
-                                className="w-full h-10 text-sm font-bold bg-[#1A6CC8] hover:bg-[#155aa8] text-white rounded-xl"
+                                className="w-full h-10 text-sm font-bold bg-[#0D2D5A] hover:bg-[#0B2545] text-white rounded-xl"
                                 onClick={() => window.open(testRedirectUrl, "_blank", "noopener,noreferrer")}
                             >
                                 Ouvrir la page de test Flutterwave
@@ -389,7 +389,7 @@ function BookingPanel({
                             </div>
                             <div>
                                 <p className="text-sm font-bold text-[#0D2D5A]">Validation en cours</p>
-                                <p className="text-xs text-gray-500 mt-1">Validez la transaction sur votre tÃ©lÃ©phone<br />({network === "MTN" ? "MTN Mobile Money" : "Orange Money"})</p>
+                                <p className="text-xs text-gray-500 mt-1">Validez la transaction sur votre téléphone<br />({network === "MTN" ? "MTN Mobile Money" : "Orange Money"})</p>
                             </div>
                             {error && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
                         </motion.div>
@@ -401,9 +401,9 @@ function BookingPanel({
                                 <CheckCircle2 className="w-9 h-9 text-emerald-500" />
                             </div>
                             <div>
-                                <p className="text-base font-black text-[#0D2D5A]">RÃ©servation confirmÃ©e !</p>
+                                <p className="text-base font-black text-[#0D2D5A]">Réservation confirmée !</p>
                                 <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                                    Un email de confirmation avec le lien de votre classe virtuelle a Ã©tÃ© envoyÃ© Ã  <b>{parentEmail}</b>.
+                                    Un email de confirmation avec le lien de votre classe virtuelle a été envoyé à <b>{parentEmail}</b>.
                                 </p>
                             </div>
                         </motion.div>
@@ -415,7 +415,7 @@ function BookingPanel({
     );
 }
 
-// â”€â”€â”€ Page principale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Page principale ────────────────────────────────────────────────────────
 export default function PublicTeacherProfile() {
     const { id } = useParams<{ id: string }>();
     const [selectedSlot, setSelectedSlot] = useState<TeacherSlot | null>(null);
@@ -435,7 +435,7 @@ export default function PublicTeacherProfile() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#f4f6fb]">
+            <div className="min-h-screen flex items-center justify-center bg-[#F4F2ED]">
                 <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
                     <p className="text-sm text-gray-400">Chargement du profil...</p>
@@ -446,10 +446,10 @@ export default function PublicTeacherProfile() {
 
     if (isError || !teacher) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center px-6 bg-[#f4f6fb]">
+            <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center px-6 bg-[#F4F2ED]">
                 <p className="text-xl font-bold text-[#0D2D5A]">Enseignant introuvable</p>
                 <NavLink to={ROUTE_PATHS.ANNUAIRE_COACHS} className="text-[#1A6CC8] font-semibold hover:underline text-sm">
-                    â† Retour Ã  l'annuaire
+                    ← Retour à l'annuaire
                 </NavLink>
             </div>
         );
@@ -458,94 +458,108 @@ export default function PublicTeacherProfile() {
     const initials = teacher.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+        <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
-            {/* â”€â”€ Hero â”€â”€ */}
-            <section className="bg-gradient-to-br from-[#0D2D5A] via-[#0f3870] to-[#1A6CC8] pt-10 pb-20 relative overflow-hidden">
-                <div
-                    className="absolute inset-0 opacity-[0.05]"
-                    style={{
-                        backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
-                        backgroundSize: "32px 32px",
-                    }}
-                />
-                <div className="w-full px-6 md:px-12 xl:px-20 relative">
+            {/* ── Hero ── */}
+            <section className="bg-[#0B2545] pt-8 pb-8">
+                <div className="w-full px-6 md:px-12 xl:px-20">
                     <NavLink
                         to={ROUTE_PATHS.ANNUAIRE_COACHS}
-                        className="inline-flex items-center gap-1.5 text-blue-200/80 hover:text-white text-xs font-semibold mb-8 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-blue-200/80 hover:text-white text-xs font-semibold mb-6 transition-colors"
                     >
-                        <ArrowLeft className="w-3.5 h-3.5" /> Retour Ã  l'annuaire
+                        <ArrowLeft className="w-3.5 h-3.5" /> Retour à l'annuaire
                     </NavLink>
 
-                    <div className="flex items-start gap-6 flex-wrap md:flex-nowrap">
+                    <div className="flex items-center gap-6 flex-wrap md:flex-nowrap">
                         {/* Avatar */}
                         {teacher.avatarUrl ? (
                             <img
                                 src={teacher.avatarUrl}
                                 alt={teacher.name}
-                                className="w-24 h-24 rounded-2xl object-cover flex-shrink-0 ring-4 ring-white/20 shadow-xl"
+                                className="w-16 h-16 rounded-full object-cover flex-shrink-0 ring-2 ring-white/30"
                             />
                         ) : (
-                            <div className="w-24 h-24 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center font-black text-2xl text-white flex-shrink-0 ring-4 ring-white/20">
+                            <div className="w-16 h-16 rounded-full border-2 border-white/30 flex items-center justify-center font-bold text-lg text-white flex-shrink-0">
                                 {initials}
                             </div>
                         )}
 
                         {/* Info */}
-                        <div className="flex-1 min-w-0 pt-1">
-                            <h1 className="text-2xl md:text-3xl font-black text-white leading-tight">{teacher.name}</h1>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
-                                <div className="flex items-center gap-1">
-                                    {[1,2,3,4,5].map(i => (
-                                        <Star key={i} className={`w-4 h-4 ${i <= Math.floor(teacher.rating) ? "fill-[#F5A623] text-[#F5A623]" : "text-white/20"}`} />
-                                    ))}
-                                    <span className="text-[#F5A623] text-sm font-bold ml-1">{teacher.rating.toFixed(1)}</span>
-                                </div>
-                                {(teacher.city || teacher.region || teacher.country) && (
-                                    <span className="flex items-center gap-1 text-blue-200 text-xs">
-                                        <MapPin className="w-3.5 h-3.5" />
-                                        {[teacher.city, teacher.region, teacher.country].filter(Boolean).join(", ")}
-                                    </span>
-                                )}
-                                <span className="flex items-center gap-1 text-blue-200 text-xs">
-                                    <Users className="w-3.5 h-3.5" />
-                                    {teacher.students} Ã©lÃ¨ve{teacher.students > 1 ? "s" : ""}
-                                </span>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-4">
-                                {teacher.subjects.slice(0, 6).map((s: string) => (
-                                    <span key={s} className="text-[10px] px-2.5 py-1 rounded-full bg-white/15 text-white font-semibold border border-white/20">
-                                        {s}
-                                    </span>
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-xl md:text-2xl font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.name}</h1>
+                            <p className="text-blue-200 text-sm mt-1">
+                                {[...teacher.subjects, teacher.city || teacher.region || teacher.country].filter(Boolean).join(" · ")}
+                            </p>
+                            <div className="flex items-center gap-1 mt-1.5">
+                                {[1, 2, 3, 4, 5].map(i => (
+                                    <Star key={i} className={`w-3.5 h-3.5 ${i <= Math.floor(teacher.rating) ? "fill-[#F5A623] text-[#F5A623]" : "text-white/20"}`} />
                                 ))}
+                                <span className="text-[#F5A623] text-sm font-bold ml-1">{teacher.rating.toFixed(1)}</span>
+                                <span className="text-blue-200 text-xs ml-0.5">({teacher.reviewsCount} avis)</span>
                             </div>
                         </div>
 
-                        {/* Prix card desktop */}
-                        <div className="hidden md:flex flex-col items-center bg-white/10 backdrop-blur rounded-2xl px-6 py-5 border border-white/20 flex-shrink-0 text-center">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Tarif</p>
-                            <p className="text-2xl font-black text-white">{formatMoney(teacher.rate, teacher.currency)}</p>
-                            <p className="text-xs text-blue-200 mt-0.5">/ {teacher.rateUnitMinutes} min</p>
+                        {/* Prix */}
+                        <div className="text-right flex-shrink-0">
+                            <p className="text-xl md:text-2xl font-black text-[#F5A623]">{formatMoney(teacher.rate, teacher.currency)}/h</p>
+                            <p className="text-xs text-blue-200 mt-0.5">par session</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* â”€â”€ Contenu principal â”€â”€ */}
-            <section className="w-full px-6 md:px-12 xl:px-20 -mt-10 pb-16">
+            {/* ── Contenu principal ── */}
+            <section className="w-full px-6 md:px-12 xl:px-20 py-8 pb-16">
                 <div className="grid md:grid-cols-5 gap-6 items-start">
 
-                    {/* Colonne gauche (2/3) */}
+                    {/* Colonne gauche (3/5) */}
                     <div className="md:col-span-3 space-y-5">
 
-                        {/* Card infos */}
+                        {/* Card À propos */}
+                        {teacher.bio && (
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+                                    <GraduationCap className="w-3.5 h-3.5 text-[#1A6CC8]" /> À propos
+                                </h2>
+                                <p className="text-sm text-gray-600 leading-relaxed">{teacher.bio}</p>
+                            </div>
+                        )}
+
+                        {/* Stats */}
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+                                <p className="text-xl font-black text-[#0D2D5A]">{teacher.students}</p>
+                                <p className="text-[10px] text-gray-400 mt-0.5">sessions</p>
+                            </div>
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+                                <p className="text-xl font-black text-[#0D2D5A]">{teacher.rating.toFixed(1)}</p>
+                                <p className="text-[10px] text-gray-400 mt-0.5">note moyenne</p>
+                            </div>
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+                                <p className="text-xl font-black text-[#0D2D5A]">{teacher.formats.length || teacher.subjects.length}</p>
+                                <p className="text-[10px] text-gray-400 mt-0.5">{teacher.formats.length ? "formats" : "matières"}</p>
+                            </div>
+                        </div>
+
+                        {/* Card Spécialités */}
+                        {teacher.specialties.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Spécialités</h2>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {teacher.specialties.map((s: string) => (
+                                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-[#1A6CC8]/10 text-[#1A6CC8] font-semibold border border-[#1A6CC8]/15">
+                                            {s}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Card matières + niveau */}
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                            <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
-                                <GraduationCap className="w-3.5 h-3.5 text-[#1A6CC8]" /> Ã€ propos
-                            </h2>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                <div className="bg-[#f4f6fb] rounded-xl p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">MatiÃ¨res</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Matières</p>
                                     <div className="flex flex-wrap gap-1.5">
                                         {teacher.subjects.map((s: string) => (
                                             <span key={s} className="text-xs px-2.5 py-0.5 rounded-full bg-[#1A6CC8]/10 text-[#1A6CC8] font-semibold border border-[#1A6CC8]/15">
@@ -555,26 +569,58 @@ export default function PublicTeacherProfile() {
                                     </div>
                                 </div>
                                 {teacher.level && (
-                                    <div className="bg-[#f4f6fb] rounded-xl p-4">
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Niveaux</p>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Niveau</p>
                                         <p className="text-sm font-semibold text-[#0D2D5A]">{teacher.level}</p>
                                     </div>
                                 )}
-                                <div className="bg-[#f4f6fb] rounded-xl p-4 md:hidden">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Tarif</p>
-                                    <p className="text-base font-black text-[#0D2D5A]">
-                                        {formatMoney(teacher.rate, teacher.currency)}
-                                        <span className="font-normal text-gray-400 text-xs ml-1">/ {teacher.rateUnitMinutes} min</span>
-                                    </p>
-                                </div>
                             </div>
                         </div>
 
-                        {/* Card crÃ©neaux */}
+                        {/* Card Formats disponibles */}
+                        {teacher.formats.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Formats disponibles</h2>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {teacher.formats.map((f: string) => (
+                                        <span key={f} className="text-xs px-2.5 py-1 rounded-full bg-[#F5A623]/10 text-[#c9880f] font-semibold border border-[#F5A623]/20">
+                                            {f}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Card Avis récents */}
+                        {teacher.reviews.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Avis récents</h2>
+                                <div className="space-y-4">
+                                    {teacher.reviews.map((r, i) => (
+                                        <div key={i} className={i > 0 ? "pt-4 border-t border-gray-100" : ""}>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-7 h-7 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-[10px] font-bold text-[#1A6CC8]">
+                                                    {r.reviewerName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                                </div>
+                                                <p className="text-sm font-bold text-[#0D2D5A]">{r.reviewerName}</p>
+                                                <div className="flex items-center gap-0.5">
+                                                    {[1, 2, 3, 4, 5].map(i => (
+                                                        <Star key={i} className={`w-3 h-3 ${i <= Math.round(r.rating) ? "fill-[#F5A623] text-[#F5A623]" : "text-gray-200"}`} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-gray-500 leading-relaxed mt-1.5">{r.comment}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Card créneaux */}
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                             <div className="flex items-center justify-between mb-5">
                                 <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                                    <Calendar className="w-3.5 h-3.5 text-[#1A6CC8]" /> CrÃ©neaux disponibles
+                                    <Calendar className="w-3.5 h-3.5 text-[#1A6CC8]" /> Créneaux disponibles
                                 </h2>
                                 {teacher.slots.length > 0 && (
                                     <span className="text-[10px] font-bold bg-[#1A6CC8]/10 text-[#1A6CC8] px-2.5 py-1 rounded-full">
@@ -587,8 +633,8 @@ export default function PublicTeacherProfile() {
                                     <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
                                         <Calendar className="w-5 h-5 text-gray-300" />
                                     </div>
-                                    <p className="text-sm text-gray-400">Aucun crÃ©neau ouvert pour le moment.</p>
-                                    <p className="text-xs text-gray-400">Contactez-nous pour Ãªtre mis en relation.</p>
+                                    <p className="text-sm text-gray-400">Aucun créneau ouvert pour le moment.</p>
+                                    <p className="text-xs text-gray-400">Contactez-nous pour être mis en relation.</p>
                                 </div>
                             ) : (
                                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -606,7 +652,7 @@ export default function PublicTeacherProfile() {
                         </div>
                     </div>
 
-                    {/* Colonne droite (1/3) */}
+                    {/* Colonne droite (2/5) */}
                     <div className="md:col-span-2">
                         <AnimatePresence mode="wait">
                             {selectedSlot ? (
@@ -627,8 +673,8 @@ export default function PublicTeacherProfile() {
                                     <div className="w-12 h-12 rounded-full bg-[#1A6CC8]/8 flex items-center justify-center mx-auto mb-3">
                                         <Sparkles className="w-5 h-5 text-[#1A6CC8]/40" />
                                     </div>
-                                    <p className="text-sm font-semibold text-gray-500">Choisissez un crÃ©neau</p>
-                                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">et rÃ©servez votre sÃ©ance directement en ligne.</p>
+                                    <p className="text-sm font-semibold text-gray-500">Choisissez un créneau</p>
+                                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">et réservez votre séance directement en ligne.</p>
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -636,7 +682,7 @@ export default function PublicTeacherProfile() {
                 </div>
             </section>
 
-            {/* â”€â”€ Lightbox â”€â”€ */}
+            {/* ── Lightbox ── */}
             <AnimatePresence>
                 {lightboxUrl && (
                     <motion.div

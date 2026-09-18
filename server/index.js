@@ -421,6 +421,11 @@ const ensureTeachersTable = async () => {
     ["zones",                "ALTER TABLE teachers ADD COLUMN zones JSON NULL COMMENT 'Zones dintervention acceptees'"],
     ["currency",             "ALTER TABLE teachers ADD COLUMN currency VARCHAR(3) NOT NULL DEFAULT 'XAF'"],
     ["rate_unit_minutes",    "ALTER TABLE teachers ADD COLUMN rate_unit_minutes INT NOT NULL DEFAULT 60"],
+    // Présentation publique du profil (page /professeurs/:id) — vide par
+    // défaut, à remplir plus tard depuis le profil enseignant.
+    ["bio",                  "ALTER TABLE teachers ADD COLUMN bio TEXT NULL"],
+    ["specialties",          "ALTER TABLE teachers ADD COLUMN specialties JSON NULL"],
+    ["formats",              "ALTER TABLE teachers ADD COLUMN formats JSON NULL"],
   ];
   for (const [col, sql] of migrations) {
     if (!cols.has(col)) await pool.query(sql).catch(() => {});
@@ -2393,6 +2398,9 @@ const mapPublicTeacherRow = (row) => ({
   country: row.geo_country_name || null,
   regionId: row.geo_region_id || null,
   region: row.geo_region_name || null,
+  bio: row.bio ? fixEncoding(row.bio) : null,
+  specialties: parseJson(row.specialties, []),
+  formats: parseJson(row.formats, []),
 });
 
 // Résout pays/région même quand geo_location_id pointe directement sur un
@@ -2417,6 +2425,7 @@ app.get("/api/public/teachers", async (req, res) => {
     const [rows] = await pool.query(
       `SELECT t.id, t.name, t.subjects, t.level, t.city, t.status, t.rating, t.students,
               t.rate_type, t.hourly_rate, t.monthly_rate, t.currency, t.rate_unit_minutes,
+              t.bio, t.specialties, t.formats,
               ${PUBLIC_TEACHER_GEO_COLUMNS}
        FROM teachers t
        ${PUBLIC_TEACHER_GEO_JOIN}
@@ -2442,6 +2451,7 @@ app.get("/api/public/teachers/:id", async (req, res) => {
     const [[row]] = await pool.query(
       `SELECT t.id, t.name, t.subjects, t.level, t.city, t.status, t.rating, t.students,
               t.rate_type, t.hourly_rate, t.monthly_rate, t.currency, t.rate_unit_minutes,
+              t.bio, t.specialties, t.formats,
               ${PUBLIC_TEACHER_GEO_COLUMNS}
        FROM teachers t
        ${PUBLIC_TEACHER_GEO_JOIN}
@@ -2455,7 +2465,29 @@ app.get("/api/public/teachers/:id", async (req, res) => {
       [id]
     );
 
-    res.json({ ...mapPublicTeacherRow(row), slots: slotRows.map(mapSlotRow) });
+    const [reviewRows] = await pool.query(
+      `SELECT reviewer_name, reviewer_type, rating, comment, created_at
+       FROM teacher_feedback WHERE teacher_id = ? AND comment IS NOT NULL AND comment <> ''
+       ORDER BY created_at DESC LIMIT 5`,
+      [id]
+    ).catch(() => [[]]);
+    const [[reviewCountRow]] = await pool.query(
+      `SELECT COUNT(*) as count FROM teacher_feedback WHERE teacher_id = ? AND comment IS NOT NULL AND comment <> ''`,
+      [id]
+    ).catch(() => [[{ count: 0 }]]);
+
+    res.json({
+      ...mapPublicTeacherRow(row),
+      slots: slotRows.map(mapSlotRow),
+      reviewsCount: reviewCountRow?.count || 0,
+      reviews: reviewRows.map(r => ({
+        reviewerName: fixEncoding(r.reviewer_name),
+        reviewerType: r.reviewer_type,
+        rating: Number(r.rating),
+        comment: fixEncoding(r.comment),
+        date: formatDate(r.created_at),
+      })),
+    });
   } catch (error) {
     if (isDbConnectionError(error)) {
       return res.status(503).json({ message: "Base de données indisponible." });
@@ -4097,7 +4129,7 @@ app.post("/api/teachers", authenticateRequest, requireRole("admin"), async (req,
 app.patch("/api/admin/teachers/:id", authenticateRequest, async (req, res) => {
   if (req.user?.role !== "admin" && req.user?.role !== "advisor") return res.status(403).json({ message: "Accès refusé." });
   const { id } = req.params;
-  const { subjects, levels, rateType, hourlyRate, monthlyRate, currency, rateUnitMinutes } = req.body ?? {};
+  const { subjects, levels, rateType, hourlyRate, monthlyRate, currency, rateUnitMinutes, bio, specialties, formats } = req.body ?? {};
 
   try {
     await ensureTeachersTable();
@@ -4114,6 +4146,9 @@ app.patch("/api/admin/teachers/:id", authenticateRequest, async (req, res) => {
     if (monthlyRate !== undefined) { updates.push("monthly_rate = ?"); params.push(monthlyRate === null ? null : Number(monthlyRate) || 0); }
     if (currency !== undefined) { updates.push("currency = ?"); params.push(String(currency).toUpperCase().slice(0, 3)); }
     if (rateUnitMinutes !== undefined) { updates.push("rate_unit_minutes = ?"); params.push(parseInt(rateUnitMinutes, 10) || 60); }
+    if (bio !== undefined) { updates.push("bio = ?"); params.push(bio || null); }
+    if (specialties !== undefined) { updates.push("specialties = ?"); params.push(JSON.stringify(Array.isArray(specialties) ? specialties : [])); }
+    if (formats !== undefined) { updates.push("formats = ?"); params.push(JSON.stringify(Array.isArray(formats) ? formats : [])); }
 
     if (updates.length === 0) {
       return res.status(400).json({ message: "Aucun champ à mettre à jour." });
