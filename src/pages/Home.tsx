@@ -124,7 +124,7 @@ export default function Home() {
           §1bis — NOS UNIVERS
           3 cartes objectif : Soutien scolaire / Langues / Compétences
           ══════════════════════════════════════════════════════ */}
-      <section className="py-20 md:py-28 bg-background">
+      <section className="py-5 md:py-6 bg-background">
         <div className="container mx-auto px-6">
           <div className="max-w-xl mb-14">
             <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Nos univers</p>
@@ -206,7 +206,7 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════
           §2 — POURQUOI CARE4SUCCESS
           ══════════════════════════════════════════════════════ */}
-      <section className="py-20 md:py-28 bg-[#F4F2ED]">
+      <section className="py-5 md:py-6 bg-[#F4F2ED]">
         <div className="container mx-auto px-6">
           <div className="max-w-xl mb-14">
             <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Pourquoi Care4Success</p>
@@ -269,7 +269,7 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════
           §3bis — ILS TÉMOIGNENT
           ══════════════════════════════════════════════════════ */}
-      <section className="py-20 md:py-28 bg-white">
+      <section className="py-5 md:py-6 bg-white">
         <div className="container mx-auto px-6">
           <div className="max-w-xl mb-14">
             <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Ils témoignent</p>

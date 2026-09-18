@@ -45,7 +45,7 @@ export default function CommentCaMarche() {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/95 to-[#0B2545]/70" />
         </div>
-        <div className="container mx-auto px-6 max-w-4xl relative z-10 py-20 md:py-28 text-center">
+        <div className="container mx-auto px-6 max-w-4xl relative z-10 py-5 md:py-6 text-center">
           <p className="text-[#F5A623] text-xs font-bold uppercase tracking-[0.2em] mb-4">Comment ça marche</p>
           <h1
             className="text-4xl md:text-5xl font-bold text-white leading-tight mb-6"
@@ -61,7 +61,7 @@ export default function CommentCaMarche() {
 
       <Breadcrumb />
 
-      <section className="py-20 md:py-28">
+      <section className="py-5 md:py-6">
         <div className="container mx-auto px-6 max-w-5xl">
 
           {/* Tabs */}
