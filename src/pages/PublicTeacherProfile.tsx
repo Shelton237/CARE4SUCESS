@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    Star, Calendar, Clock, ArrowLeft, ArrowRight,
-    Loader2, CheckCircle2, GraduationCap, X, BookOpen,
-    CreditCard, Phone, Mail, User, ChevronRight, Sparkles,
+    Star, Clock, ArrowLeft, ArrowRight,
+    Loader2, CheckCircle2, GraduationCap, X, BookOpen, ImageIcon,
+    CreditCard, Phone, Mail, User,
 } from "lucide-react";
 import {
     fetchPublicTeacherProfile,
@@ -23,84 +23,25 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const formatSlotDate = (value: string) =>
-    new Date(value).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" });
+    new Date(value).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" });
 
 const formatSlotTime = (value: string) =>
     new Date(value).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
+// Couleurs des pastilles "Formats disponibles", alignées sur le code couleur
+// déjà utilisé pour les univers de coaching (teal/or/corail) ailleurs sur le site.
+const FORMAT_COLORS: Record<string, { bg: string; text: string }> = {
+    "En ligne":   { bg: "bg-[#0F9B8E]/10", text: "text-[#0F9B8E]" },
+    "Présentiel": { bg: "bg-[#F5A623]/15", text: "text-[#c9880f]" },
+    "Hybride":    { bg: "bg-[#E2574C]/10", text: "text-[#E2574C]" },
+};
+const formatColor = (f: string) => FORMAT_COLORS[f] || { bg: "bg-gray-100", text: "text-gray-600" };
+
 type BookingStep = "form" | "otp" | "waiting" | "redirect" | "success";
 
-// ─── Slot Card ──────────────────────────────────────────────────────────────
-function SlotCard({
-    slot,
-    selected,
-    onSelect,
-    onZoom,
-}: {
-    slot: TeacherSlot;
-    selected: boolean;
-    onSelect: () => void;
-    onZoom: (url: string) => void;
-}) {
-    return (
-        <motion.button
-            layout
-            onClick={onSelect}
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            className={`group text-left rounded-2xl border-2 overflow-hidden transition-all duration-200 w-full bg-white ${
-                selected
-                    ? "border-[#1A6CC8] shadow-[0_0_0_4px_rgba(26,108,200,0.12)]"
-                    : "border-gray-100 hover:border-[#1A6CC8]/40 hover:shadow-md"
-            }`}
-        >
-            {/* Poster */}
-            {slot.posterUrl ? (
-                <div
-                    className="relative overflow-hidden h-36 cursor-zoom-in"
-                    onClick={(e) => { e.stopPropagation(); onZoom(slot.posterUrl!); }}
-                >
-                    <img
-                        src={slot.posterUrl}
-                        alt="Affiche du cours"
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
-                    {slot.subject && (
-                        <span className="absolute bottom-2 left-2 text-[10px] font-bold text-white bg-[#1A6CC8]/90 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                            {slot.subject}
-                        </span>
-                    )}
-                </div>
-            ) : (
-                slot.subject && (
-                    <div className="h-9 bg-gradient-to-r from-[#0D2D5A] to-[#1A6CC8] flex items-center px-4">
-                        <span className="text-[10px] font-bold text-white uppercase tracking-widest">{slot.subject}</span>
-                    </div>
-                )
-            )}
+const SECTION_TITLE = "text-lg font-bold text-[#0D2D5A]";
 
-            {/* Info */}
-            <div className="p-4">
-                <p className="text-sm font-bold text-[#0D2D5A] capitalize leading-tight">
-                    {formatSlotDate(slot.startTime)}
-                </p>
-                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1.5">
-                    <Clock className="w-3.5 h-3.5 text-[#1A6CC8]" />
-                    {formatSlotTime(slot.startTime)} – {formatSlotTime(slot.endTime)}
-                </p>
-                <div className={`mt-3 flex items-center justify-between transition-colors ${selected ? "text-[#1A6CC8]" : "text-gray-300 group-hover:text-[#1A6CC8]/60"}`}>
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                        {selected ? "Sélectionné ✓" : "Choisir ce créneau"}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                </div>
-            </div>
-        </motion.button>
-    );
-}
-
-// ─── Booking Panel ──────────────────────────────────────────────────────────
+// ─── Booking Panel (formulaire parent/élève + paiement Mobile Money) ───────
 function BookingPanel({
     teacherName,
     slot,
@@ -214,8 +155,8 @@ function BookingPanel({
 
     return (
         <motion.div
-            initial={{ opacity: 0, x: 16 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden sticky top-6"
         >
             {/* Header du panel */}
@@ -415,10 +356,108 @@ function BookingPanel({
     );
 }
 
+// ─── Panneau "Réserver une session" (format + créneaux + total + CTA) ─────
+function ReservationPanel({
+    teacher,
+    slots,
+    onZoom,
+}: {
+    teacher: { name: string; rate: number; currency: string; formats: string[] };
+    slots: TeacherSlot[];
+    onZoom: (url: string) => void;
+}) {
+    const [selectedSlotId, setSelectedSlotId] = useState<string | null>(slots[0]?.id ?? null);
+    const [format, setFormat] = useState(teacher.formats[0] || "En ligne (visioconférence)");
+    const [showForm, setShowForm] = useState(false);
+
+    const selectedSlot = slots.find(s => s.id === selectedSlotId) || null;
+
+    if (showForm && selectedSlot) {
+        return (
+            <BookingPanel
+                teacherName={teacher.name}
+                slot={selectedSlot}
+                onCancel={() => setShowForm(false)}
+            />
+        );
+    }
+
+    return (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sticky top-6">
+            <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Réserver une session</h2>
+
+            <div className="space-y-1.5 mb-5">
+                <Label className="text-xs text-gray-600">Format</Label>
+                <Select value={format} onValueChange={setFormat}>
+                    <SelectTrigger className="h-10 text-sm bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        {(teacher.formats.length ? teacher.formats : ["En ligne (visioconférence)"]).map(f => (
+                            <SelectItem key={f} value={f}>{f}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {slots.length === 0 ? (
+                <div className="text-center py-8">
+                    <p className="text-sm text-gray-400">Aucun créneau ouvert pour le moment.</p>
+                    <p className="text-xs text-gray-400 mt-1">Contactez-nous pour être mis en relation.</p>
+                </div>
+            ) : (
+                <>
+                    <Label className="text-xs text-gray-600 mb-2 block">Créneaux disponibles</Label>
+                    <div className="grid grid-cols-3 gap-2 mb-5">
+                        {slots.map(slot => {
+                            const selected = slot.id === selectedSlotId;
+                            return (
+                                <button
+                                    key={slot.id}
+                                    onClick={() => setSelectedSlotId(slot.id)}
+                                    className={`relative rounded-xl border px-2 py-2.5 text-center transition-colors ${
+                                        selected
+                                            ? "bg-[#0F9B8E] border-[#0F9B8E] text-white"
+                                            : "bg-white border-gray-200 text-[#0D2D5A] hover:border-[#0F9B8E]/40"
+                                    }`}
+                                >
+                                    {slot.posterUrl && (
+                                        <span
+                                            onClick={(e) => { e.stopPropagation(); onZoom(slot.posterUrl!); }}
+                                            className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center ${selected ? "bg-white text-[#0F9B8E]" : "bg-[#0D2D5A] text-white"}`}
+                                        >
+                                            <ImageIcon className="w-3 h-3" />
+                                        </span>
+                                    )}
+                                    <p className="text-xs font-bold capitalize">{formatSlotDate(slot.startTime)}</p>
+                                    <p className={`text-[11px] mt-0.5 ${selected ? "text-white/85" : "text-gray-400"}`}>{formatSlotTime(slot.startTime)}</p>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm font-semibold text-[#0D2D5A]">Total</span>
+                        <span className="text-lg font-black text-[#0F9B8E]">{formatMoney(teacher.rate, teacher.currency)}/h</span>
+                    </div>
+
+                    <Button
+                        disabled={!selectedSlot}
+                        onClick={() => setShowForm(true)}
+                        className="w-full h-11 text-sm font-bold bg-[#F5A623] hover:bg-[#e09520] text-[#0D2D5A] rounded-xl"
+                    >
+                        Réserver cette session <ArrowRight className="w-4 h-4 ml-1.5" />
+                    </Button>
+                    <p className="text-[11px] text-gray-400 text-center mt-3">
+                        Annulation gratuite 24h avant · Paiement sécurisé
+                    </p>
+                </>
+            )}
+        </div>
+    );
+}
+
 // ─── Page principale ────────────────────────────────────────────────────────
 export default function PublicTeacherProfile() {
     const { id } = useParams<{ id: string }>();
-    const [selectedSlot, setSelectedSlot] = useState<TeacherSlot | null>(null);
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
     useEffect(() => {
@@ -455,8 +494,6 @@ export default function PublicTeacherProfile() {
         );
     }
 
-    const initials = teacher.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
-
     return (
         <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
@@ -476,12 +513,10 @@ export default function PublicTeacherProfile() {
                             <img
                                 src={teacher.avatarUrl}
                                 alt={teacher.name}
-                                className="w-16 h-16 rounded-full object-cover flex-shrink-0 ring-2 ring-white/30"
+                                className="w-20 h-20 rounded-full object-cover flex-shrink-0 ring-2 ring-white/30"
                             />
                         ) : (
-                            <div className="w-16 h-16 rounded-full border-2 border-white/30 flex items-center justify-center font-bold text-lg text-white flex-shrink-0">
-                                {initials}
-                            </div>
+                            <div className="w-20 h-20 rounded-full border-2 border-white/30 flex-shrink-0" />
                         )}
 
                         {/* Info */}
@@ -518,36 +553,34 @@ export default function PublicTeacherProfile() {
                         {/* Card À propos */}
                         {teacher.bio && (
                             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
-                                    <GraduationCap className="w-3.5 h-3.5 text-[#1A6CC8]" /> À propos
-                                </h2>
+                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>À propos</h2>
                                 <p className="text-sm text-gray-600 leading-relaxed">{teacher.bio}</p>
                             </div>
                         )}
 
                         {/* Stats */}
                         <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-                                <p className="text-xl font-black text-[#0D2D5A]">{teacher.students}</p>
-                                <p className="text-[10px] text-gray-400 mt-0.5">sessions</p>
+                            <div className="bg-[#F4F2ED] rounded-2xl p-4 text-center">
+                                <p className="text-2xl font-black text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.students}</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5">sessions</p>
                             </div>
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-                                <p className="text-xl font-black text-[#0D2D5A]">{teacher.rating.toFixed(1)}</p>
-                                <p className="text-[10px] text-gray-400 mt-0.5">note moyenne</p>
+                            <div className="bg-[#F4F2ED] rounded-2xl p-4 text-center">
+                                <p className="text-2xl font-black text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.rating.toFixed(1)}</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5">note moyenne</p>
                             </div>
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-                                <p className="text-xl font-black text-[#0D2D5A]">{teacher.formats.length || teacher.subjects.length}</p>
-                                <p className="text-[10px] text-gray-400 mt-0.5">{teacher.formats.length ? "formats" : "matières"}</p>
+                            <div className="bg-[#F4F2ED] rounded-2xl p-4 text-center">
+                                <p className="text-2xl font-black text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.formats.length || teacher.subjects.length}</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5">{teacher.formats.length ? "formats" : "matières"}</p>
                             </div>
                         </div>
 
                         {/* Card Spécialités */}
                         {teacher.specialties.length > 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Spécialités</h2>
+                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Spécialités</h2>
                                 <div className="flex flex-wrap gap-1.5">
                                     {teacher.specialties.map((s: string) => (
-                                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-[#1A6CC8]/10 text-[#1A6CC8] font-semibold border border-[#1A6CC8]/15">
+                                        <span key={s} className="text-xs px-3 py-1 rounded-full bg-[#F4F2ED] text-[#0D2D5A] font-semibold">
                                             {s}
                                         </span>
                                     ))}
@@ -555,38 +588,19 @@ export default function PublicTeacherProfile() {
                             </div>
                         )}
 
-                        {/* Card matières + niveau */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Matières</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {teacher.subjects.map((s: string) => (
-                                            <span key={s} className="text-xs px-2.5 py-0.5 rounded-full bg-[#1A6CC8]/10 text-[#1A6CC8] font-semibold border border-[#1A6CC8]/15">
-                                                {s}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                                {teacher.level && (
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Niveau</p>
-                                        <p className="text-sm font-semibold text-[#0D2D5A]">{teacher.level}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
                         {/* Card Formats disponibles */}
                         {teacher.formats.length > 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Formats disponibles</h2>
+                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Formats disponibles</h2>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {teacher.formats.map((f: string) => (
-                                        <span key={f} className="text-xs px-2.5 py-1 rounded-full bg-[#F5A623]/10 text-[#c9880f] font-semibold border border-[#F5A623]/20">
-                                            {f}
-                                        </span>
-                                    ))}
+                                    {teacher.formats.map((f: string) => {
+                                        const c = formatColor(f);
+                                        return (
+                                            <span key={f} className={`text-xs px-3 py-1 rounded-full font-semibold ${c.bg} ${c.text}`}>
+                                                {f}
+                                            </span>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -594,7 +608,7 @@ export default function PublicTeacherProfile() {
                         {/* Card Avis récents */}
                         {teacher.reviews.length > 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Avis récents</h2>
+                                <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Avis récents</h2>
                                 <div className="space-y-4">
                                     {teacher.reviews.map((r, i) => (
                                         <div key={i} className={i > 0 ? "pt-4 border-t border-gray-100" : ""}>
@@ -615,74 +629,16 @@ export default function PublicTeacherProfile() {
                                 </div>
                             </div>
                         )}
-
-                        {/* Card créneaux */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                            <div className="flex items-center justify-between mb-5">
-                                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                                    <Calendar className="w-3.5 h-3.5 text-[#1A6CC8]" /> Créneaux disponibles
-                                </h2>
-                                {teacher.slots.length > 0 && (
-                                    <span className="text-[10px] font-bold bg-[#1A6CC8]/10 text-[#1A6CC8] px-2.5 py-1 rounded-full">
-                                        {teacher.slots.length} disponible{teacher.slots.length > 1 ? "s" : ""}
-                                    </span>
-                                )}
-                            </div>
-                            {teacher.slots.length === 0 ? (
-                                <div className="flex flex-col items-center text-center py-10 gap-3">
-                                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                                        <Calendar className="w-5 h-5 text-gray-300" />
-                                    </div>
-                                    <p className="text-sm text-gray-400">Aucun créneau ouvert pour le moment.</p>
-                                    <p className="text-xs text-gray-400">Contactez-nous pour être mis en relation.</p>
-                                </div>
-                            ) : (
-                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {teacher.slots.map((slot: TeacherSlot) => (
-                                        <SlotCard
-                                            key={slot.id}
-                                            slot={slot}
-                                            selected={selectedSlot?.id === slot.id}
-                                            onSelect={() => setSelectedSlot(slot)}
-                                            onZoom={setLightboxUrl}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
                     </div>
 
                     {/* Colonne droite (2/5) */}
                     <div className="md:col-span-2">
-                        <AnimatePresence mode="wait">
-                            {selectedSlot ? (
-                                <BookingPanel
-                                    key={selectedSlot.id}
-                                    teacherName={teacher.name}
-                                    slot={selectedSlot}
-                                    onCancel={() => setSelectedSlot(null)}
-                                />
-                            ) : (
-                                <motion.div
-                                    key="placeholder"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    className="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-8 text-center shadow-sm sticky top-6"
-                                >
-                                    <div className="w-12 h-12 rounded-full bg-[#1A6CC8]/8 flex items-center justify-center mx-auto mb-3">
-                                        <Sparkles className="w-5 h-5 text-[#1A6CC8]/40" />
-                                    </div>
-                                    <p className="text-sm font-semibold text-gray-500">Choisissez un créneau</p>
-                                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">et réservez votre séance directement en ligne.</p>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                        <ReservationPanel teacher={teacher} slots={teacher.slots} onZoom={setLightboxUrl} />
                     </div>
                 </div>
             </section>
 
-            {/* ── Lightbox ── */}
+            {/* ── Lightbox (affiche de cours) ── */}
             <AnimatePresence>
                 {lightboxUrl && (
                     <motion.div
