@@ -336,8 +336,14 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════
           §9 — CTA FINAL
           ══════════════════════════════════════════════════════ */}
-      <section className="py-20 bg-[#0B2545]">
-        <div className="container mx-auto px-6 text-center">
+      <section className="relative py-20 bg-[#0B2545] overflow-hidden">
+        {/* Bulles décoratives floutées */}
+        <div className="absolute -top-16 -left-10 w-52 h-52 rounded-full bg-[#1A6CC8]/20 blur-3xl pointer-events-none" />
+        <div className="absolute -top-24 -right-16 w-80 h-80 rounded-full bg-[#F5A623]/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 left-1/4 w-64 h-64 rounded-full bg-[#0F9B8E]/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -right-10 w-56 h-56 rounded-full bg-[#1A6CC8]/15 blur-3xl pointer-events-none" />
+
+        <div className="container mx-auto px-6 text-center relative z-10">
           <h2
             className="text-3xl md:text-4xl font-bold text-white mb-4"
             style={{ fontFamily: "'Playfair Display', serif" }}
