@@ -889,6 +889,16 @@ const ensureRequestsTable = async () => {
       console.log("Migration: Added location to requests ✅");
     }
   } catch (e) { console.warn("Migration requests.location:", e.message); }
+  // Migration: add details column (JSON) — champs riches du formulaire
+  // d'évaluation gratuite public (email, pays, école, urgence, etc.) qui
+  // n'ont pas leur propre colonne typée sur cette table historiquement minimale.
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM requests LIKE 'details'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE requests ADD COLUMN details JSON DEFAULT NULL AFTER location");
+      console.log("Migration: Added details to requests ✅");
+    }
+  } catch (e) { console.warn("Migration requests.details:", e.message); }
 };
 
 const ensureAssignmentsTable = async () => {
@@ -1444,6 +1454,8 @@ const mapRequestRow = (row) => ({
   level: row.level,
   subject: row.subject,
   phone: row.phone,
+  location: row.location,
+  details: parseJson(row.details, null),
   status: normalizeRequestStatus(row.status),
   date: formatDate(row.request_date),
 });
@@ -2450,6 +2462,41 @@ app.get("/api/public/teachers/:id", async (req, res) => {
     }
     console.error("[public/teachers/:id]", error);
     res.status(500).json({ message: "Impossible de récupérer le profil." });
+  }
+});
+
+// Formulaire public multi-étapes "Évaluation gratuite" (/evaluation-gratuite)
+// — aucune authentification requise, contrairement à POST /api/requests qui
+// sert le back-office. Alimente la même table `requests` que les conseillers
+// traitent déjà, avec les champs additionnels rangés dans `details` (JSON).
+app.post("/api/public/evaluation-requests", async (req, res) => {
+  const {
+    parentFirstName, parentLastName, email, phone, country, city,
+    childFirstName, level, schoolSystem, currentSchool, subjects, format,
+    needs, urgency, availability, howHeard,
+  } = req.body ?? {};
+
+  if (!parentFirstName || !parentLastName || !email || !phone || !childFirstName || !level) {
+    return res.status(400).json({ message: "Champs obligatoires manquants." });
+  }
+
+  try {
+    await ensureRequestsTable();
+    const id = crypto.randomUUID();
+    const parentName = `${parentFirstName} ${parentLastName}`.trim();
+    const details = { email, country, schoolSystem, currentSchool, format, needs, urgency, availability, howHeard };
+    await pool.query(
+      `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, location, details, status, request_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
+      [id, parentName, childFirstName, level, subjects || "", phone, city || null, JSON.stringify(details)]
+    );
+    res.status(201).json({ id });
+  } catch (error) {
+    if (isDbConnectionError(error)) {
+      return res.status(503).json({ message: "Base de données indisponible." });
+    }
+    console.error("[public/evaluation-requests]", error);
+    res.status(500).json({ message: "Impossible d'enregistrer la demande." });
   }
 });
 

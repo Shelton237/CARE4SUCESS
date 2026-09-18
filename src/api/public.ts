@@ -61,6 +61,31 @@ export const fetchPublicTeacherProfile = (id: string) =>
 export const fetchTeacherOpenSlots = (teacherId: string) =>
     publicRequest<TeacherSlot[]>(`/teachers/${teacherId}/slots`);
 
+export interface EvaluationRequestPayload {
+    parentFirstName: string;
+    parentLastName: string;
+    email: string;
+    phone: string;
+    country?: string;
+    city?: string;
+    childFirstName: string;
+    level: string;
+    schoolSystem?: string;
+    currentSchool?: string;
+    subjects?: string;
+    format?: string;
+    needs?: string;
+    urgency?: string;
+    availability?: string;
+    howHeard?: string;
+}
+
+export const submitEvaluationRequest = (payload: EvaluationRequestPayload) =>
+    publicRequest<{ id: string }>("/public/evaluation-requests", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+
 export type MobileMoneyNetwork = "MTN" | "ORANGE";
 
 export type FlutterwaveNextAction = {

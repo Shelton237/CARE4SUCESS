@@ -146,7 +146,7 @@ export default function Home() {
                 title: "Soutien scolaire",
                 desc: "Nous trouvons le coach parfait pour votre enfant. Évaluation, matching, suivi en temps réel, facturation transparente.",
                 tags: ["BAC / Brevet", "IB", "Système US", "Britannique"],
-                link: { label: "Évaluation gratuite", to: ROUTE_PATHS.CONTACT },
+                link: { label: "Évaluation gratuite", to: ROUTE_PATHS.EVALUATION_GRATUITE },
               },
               {
                 icon: Globe,

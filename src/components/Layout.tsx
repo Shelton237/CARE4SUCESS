@@ -30,6 +30,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   [ROUTE_PATHS.COMMENT_CA_MARCHE]: "Comment ça marche",
   "/recrutement": "Devenir coach",
   [ROUTE_PATHS.CONTACT]: "Contact",
+  [ROUTE_PATHS.EVALUATION_GRATUITE]: "Évaluation gratuite",
   "/inscription": "Inscription",
   [ROUTE_PATHS.A_PROPOS]: "À propos",
   [ROUTE_PATHS.TARIFS]: "Tarifs",
@@ -250,7 +251,7 @@ export function Layout({ children }: LayoutProps) {
               <h3 className="text-sm font-black text-[#F5A623] mb-5 uppercase tracking-[0.2em]">Parents</h3>
               <ul className="space-y-3.5">
                 {[
-                  { label: "Évaluation gratuite", to: ROUTE_PATHS.CONTACT },
+                  { label: "Évaluation gratuite", to: ROUTE_PATHS.EVALUATION_GRATUITE },
                   { label: "Espace parents", to: "/inscription" },
                   { label: "Comment ça marche", to: ROUTE_PATHS.COMMENT_CA_MARCHE },
                   { label: "Tarifs scolaire", to: ROUTE_PATHS.TARIFS },

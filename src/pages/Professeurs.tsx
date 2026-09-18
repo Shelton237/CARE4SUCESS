@@ -10,7 +10,7 @@ const OBJECTIVE_CARDS = [
     title: "Mon enfant a besoin d'un coach scolaire",
     desc: "Nous évaluons son niveau, trouvons le coach idéal et vous suivez sa progression en temps réel.",
     cta: "Évaluation gratuite",
-    to: ROUTE_PATHS.CONTACT,
+    to: ROUTE_PATHS.EVALUATION_GRATUITE,
   },
   {
     icon: Globe, color: "#F5A623", bgFrom: "from-amber-50",
