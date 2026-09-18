@@ -6,21 +6,21 @@ import { Breadcrumb } from "@/components/Layout";
 
 const OBJECTIVE_CARDS = [
   {
-    icon: GraduationCap, color: "#0F9B8E",
+    icon: GraduationCap, color: "#0F9B8E", bgFrom: "from-teal-50",
     title: "Mon enfant a besoin d'un coach scolaire",
     desc: "Nous évaluons son niveau, trouvons le coach idéal et vous suivez sa progression en temps réel.",
     cta: "Évaluation gratuite",
     to: ROUTE_PATHS.CONTACT,
   },
   {
-    icon: Globe, color: "#F5A623",
+    icon: Globe, color: "#F5A623", bgFrom: "from-amber-50",
     title: "Je veux apprendre une langue",
     desc: "Choisissez votre coach, comparez les prix et les avis, réservez votre première session.",
     cta: "Voir les coachs",
     to: `${ROUTE_PATHS.ANNUAIRE_COACHS}?categorie=langues`,
   },
   {
-    icon: Briefcase, color: "#E2574C",
+    icon: Briefcase, color: "#E2574C", bgFrom: "from-red-50",
     title: "Je veux développer une compétence pro",
     desc: "Formations, conférences, certifications — par des experts. Lancement bientôt.",
     cta: "Me prévenir",
@@ -59,21 +59,26 @@ export default function Professeurs() {
       <Breadcrumb />
 
       {/* ── QUEL EST VOTRE OBJECTIF ── */}
-      <section className="py-16 bg-[#0D2D5A]">
-        <div className="container mx-auto px-6 max-w-5xl text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
+      <section className="py-20 md:py-24 bg-white">
+        <div className="container mx-auto px-6 max-w-5xl text-center mb-12">
+          <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Nos univers</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>
             Quel est votre objectif ?
           </h2>
-          <p className="text-blue-200 mt-2">Choisissez votre univers pour commencer.</p>
+          <p className="text-gray-500 mt-2">Choisissez votre univers pour commencer.</p>
         </div>
         <div className="container mx-auto px-6 max-w-5xl grid md:grid-cols-3 gap-6">
           {OBJECTIVE_CARDS.map(card => (
-            <NavLink key={card.title} to={card.to} className="bg-white rounded-2xl p-7 hover:shadow-xl transition-shadow duration-200 cursor-pointer">
+            <NavLink
+              key={card.title}
+              to={card.to}
+              className={`bg-gradient-to-b ${card.bgFrom} to-white rounded-2xl border border-gray-100 p-7 hover:shadow-lg transition-shadow duration-200 cursor-pointer`}
+            >
               <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{ backgroundColor: card.color }}>
                 <card.icon className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-lg font-bold text-[#0D2D5A] mb-2">{card.title}</h3>
-              <p className="text-sm text-gray-500 leading-relaxed mb-5">{card.desc}</p>
+              <p className="text-sm text-gray-600 leading-relaxed mb-5">{card.desc}</p>
               <span className="inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: card.color }}>
                 {card.cta} <ArrowRight className="w-3.5 h-3.5" />
               </span>
