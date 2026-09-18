@@ -116,7 +116,7 @@ export default function DevenirProfesseur() {
         <div className="container mx-auto px-6 max-w-6xl">
 
           {/* ── 2 cartes verticales ── */}
-          <div className="grid sm:grid-cols-2 gap-5 mb-14 max-w-3xl">
+          <div className="grid sm:grid-cols-2 gap-5 mb-14">
             <div className="bg-gradient-to-br from-amber-50 to-[#F4F2ED] border border-amber-100 rounded-2xl p-6">
               <h3 className="font-bold text-[#0D2D5A] mb-2">Langues et compétences</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
