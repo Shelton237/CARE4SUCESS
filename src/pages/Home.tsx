@@ -337,25 +337,28 @@ export default function Home() {
           §9 — CTA FINAL
           ══════════════════════════════════════════════════════ */}
       <section className="relative py-20 bg-[#0B2545] overflow-hidden">
-        {/* Bulles décoratives floutées */}
-        <div className="absolute -top-16 -left-10 w-52 h-52 rounded-full bg-[#1A6CC8]/20 blur-3xl pointer-events-none" />
-        <div className="absolute -top-24 -right-16 w-80 h-80 rounded-full bg-[#F5A623]/15 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 left-1/4 w-64 h-64 rounded-full bg-[#0F9B8E]/15 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -right-10 w-56 h-56 rounded-full bg-[#1A6CC8]/15 blur-3xl pointer-events-none" />
+        {/* Bulles décoratives */}
+        <div className="absolute top-0 left-0 w-full h-full opacity-50 pointer-events-none">
+          <div className="absolute top-10 left-10 w-32 h-32 bg-[#0F9B8E]/10 rounded-full" />
+          <div className="absolute bottom-10 right-10 w-40 h-40 bg-[#F5A623]/10 rounded-full" />
+          <div className="absolute top-1/3 right-1/4 w-24 h-24 bg-[#1A6CC8]/10 rounded-full" />
+        </div>
+        <div className="absolute -top-10 -right-10 w-60 h-60 bg-[#1A6CC8]/10 rounded-full pointer-events-none" />
+        <div className="absolute -bottom-10 -left-10 w-72 h-72 bg-[#F5A623]/10 rounded-full pointer-events-none" />
 
         <div className="container mx-auto px-6 text-center relative z-10">
           <h2
             className="text-3xl md:text-4xl font-bold text-white mb-4"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            Prêt à atteindre votre objectif ?
+            Prêt à <span className="text-[#F5A623]">atteindre votre objectif</span> ?
           </h2>
           <p className="text-blue-200 max-w-lg mx-auto mb-8">
             Le bon coach est à quelques clics. Scolaire, langues ou compétences, à vous de jouer.
           </p>
           <NavLink
             to={ROUTE_PATHS.PROFESSEURS}
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-[#F5A623] text-[#0D2D5A] font-bold hover:bg-[#e09520] transition-colors duration-200"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-[#F5A623] to-[#f7b84b] hover:from-[#e09520] hover:to-[#F5A623] text-[#0D2D5A] font-bold text-lg py-4 px-10 rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
           >
             Trouver mon coach <ArrowRight className="w-4 h-4" />
           </NavLink>
