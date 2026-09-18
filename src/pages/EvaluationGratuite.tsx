@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { submitEvaluationRequest } from "@/api/public";
 import { ROUTE_PATHS } from "@/lib/index";
+import { IMAGES } from "@/assets/images";
+import { Breadcrumb } from "@/components/Layout";
 
 const STAGES = [
   { label: "Formulaire", sub: "2 minutes" },
@@ -112,8 +114,35 @@ export default function EvaluationGratuite() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F2ED] py-16" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
-      <div className="container mx-auto px-6 max-w-2xl">
+    <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+
+      {/* ── HERO ── */}
+      <section className="relative overflow-hidden bg-[#0B2545]">
+        <div className="absolute inset-0">
+          <img
+            src={IMAGES.TEACHER_STUDENT_4}
+            alt="Coach et apprenant"
+            className="w-full h-full object-cover opacity-70 mix-blend-overlay"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/80 to-[#0B2545]/50" />
+        </div>
+        <div className="container mx-auto px-6 max-w-4xl relative z-10 py-5 md:py-6 text-center">
+          <p className="text-[#F5A623] text-xs font-bold uppercase tracking-[0.2em] mb-4">Évaluation gratuite</p>
+          <h1
+            className="text-4xl md:text-5xl font-bold text-white leading-tight mb-6"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Trouvons ensemble <span className="text-[#F5A623]">le bon coach</span>
+          </h1>
+          <p className="text-blue-200 text-xl max-w-2xl mx-auto leading-relaxed">
+            Un bilan gratuit et sans engagement, pour un coach proposé sous 48h.
+          </p>
+        </div>
+      </section>
+
+      <Breadcrumb />
+
+      <div className="container mx-auto px-6 max-w-2xl py-16">
         <div className="bg-white rounded-3xl shadow-sm p-10">
 
           {/* ── Étapes macro (informatif) ── */}

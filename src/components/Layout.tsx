@@ -30,7 +30,6 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   [ROUTE_PATHS.COMMENT_CA_MARCHE]: "Comment ça marche",
   "/recrutement": "Devenir coach",
   [ROUTE_PATHS.CONTACT]: "Contact",
-  [ROUTE_PATHS.EVALUATION_GRATUITE]: "Évaluation gratuite",
   "/inscription": "Inscription",
   [ROUTE_PATHS.A_PROPOS]: "À propos",
   [ROUTE_PATHS.TARIFS]: "Tarifs",
@@ -48,6 +47,12 @@ function getBreadcrumbTrail(pathname: string): { label: string; to?: string }[] 
   }
   if (pathname.startsWith("/cours-groupe/")) {
     return [{ label: "Cours groupé" }];
+  }
+  if (pathname === ROUTE_PATHS.EVALUATION_GRATUITE) {
+    return [
+      { label: "Trouver un coach", to: ROUTE_PATHS.PROFESSEURS },
+      { label: "Évaluation gratuite" },
+    ];
   }
 
   const label = BREADCRUMB_LABELS[pathname];
@@ -68,6 +73,7 @@ const SELF_RENDERED_BREADCRUMB_ROUTES = new Set<string>([
   "/recrutement",
   ROUTE_PATHS.COMMENT_CA_MARCHE,
   ROUTE_PATHS.CONTACT,
+  ROUTE_PATHS.EVALUATION_GRATUITE,
   ROUTE_PATHS.A_PROPOS,
   ROUTE_PATHS.TARIFS,
 ]);
