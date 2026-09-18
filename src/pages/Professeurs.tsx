@@ -17,7 +17,7 @@ const OBJECTIVE_CARDS = [
     title: "Je veux apprendre une langue",
     desc: "Choisissez votre coach, comparez les prix et les avis, réservez votre première session.",
     cta: "Voir les coachs",
-    to: `${ROUTE_PATHS.ANNUAIRE_COACHS}?categorie=langues`,
+    to: ROUTE_PATHS.COURS_DE_LANGUES,
   },
   {
     icon: Briefcase, color: "#E2574C", bgFrom: "from-red-50",

@@ -14,6 +14,7 @@ import Services from "@/pages/Services";
 import Niveaux from "@/pages/Niveaux";
 import Professeurs from "@/pages/Professeurs";
 import AnnuaireCoachs from "@/pages/AnnuaireCoachs";
+import CoursDeLangues from "@/pages/CoursDeLangues";
 import PublicTeacherProfile from "@/pages/PublicTeacherProfile";
 import GroupClassCheckout from "@/pages/GroupClassCheckout";
 import DevenirProfesseur from "@/pages/DevenirProfesseur";
@@ -60,6 +61,7 @@ const App = () => (
               <Route path={ROUTE_PATHS.NIVEAUX} element={<Layout><Niveaux /></Layout>} />
               <Route path={ROUTE_PATHS.PROFESSEURS} element={<Layout><Professeurs /></Layout>} />
               <Route path={ROUTE_PATHS.ANNUAIRE_COACHS} element={<Layout><AnnuaireCoachs /></Layout>} />
+              <Route path={ROUTE_PATHS.COURS_DE_LANGUES} element={<Layout><CoursDeLangues /></Layout>} />
               <Route path="/professeurs/:id" element={<Layout><PublicTeacherProfile /></Layout>} />
               <Route path="/cours-groupe/:id" element={<Layout><GroupClassCheckout /></Layout>} />
               <Route path={ROUTE_PATHS.DEVENIR_PROFESSEUR} element={<Layout><DevenirProfesseur /></Layout>} />

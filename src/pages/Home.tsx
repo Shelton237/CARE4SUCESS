@@ -155,7 +155,7 @@ export default function Home() {
                 title: "Langues",
                 desc: "Choisissez votre coach, comparez les prix, réservez et commencez aujourd'hui. En ligne, présentiel ou hybride.",
                 tags: ["Anglais", "Français", "Espagnol", "+5 langues"],
-                link: { label: "Voir les coachs disponibles", to: `${ROUTE_PATHS.ANNUAIRE_COACHS}?categorie=langues` },
+                link: { label: "Voir les coachs disponibles", to: ROUTE_PATHS.COURS_DE_LANGUES },
               },
               {
                 icon: Briefcase,

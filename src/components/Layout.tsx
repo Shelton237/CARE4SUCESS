@@ -54,6 +54,12 @@ function getBreadcrumbTrail(pathname: string): { label: string; to?: string }[] 
       { label: "Évaluation gratuite" },
     ];
   }
+  if (pathname === ROUTE_PATHS.COURS_DE_LANGUES) {
+    return [
+      { label: "Trouver un coach", to: ROUTE_PATHS.PROFESSEURS },
+      { label: "Cours de langues" },
+    ];
+  }
 
   const label = BREADCRUMB_LABELS[pathname];
   if (label) return [{ label }];
@@ -69,6 +75,7 @@ const SELF_RENDERED_BREADCRUMB_ROUTES = new Set<string>([
   ROUTE_PATHS.NIVEAUX,
   ROUTE_PATHS.PROFESSEURS,
   ROUTE_PATHS.ANNUAIRE_COACHS,
+  ROUTE_PATHS.COURS_DE_LANGUES,
   ROUTE_PATHS.DEVENIR_PROFESSEUR,
   "/recrutement",
   ROUTE_PATHS.COMMENT_CA_MARCHE,
@@ -276,7 +283,7 @@ export function Layout({ children }: LayoutProps) {
               <h3 className="text-sm font-black text-[#F5A623] mb-5 uppercase tracking-[0.2em]">Apprenants</h3>
               <ul className="space-y-3.5">
                 {[
-                  { label: "Cours de langues", to: `${ROUTE_PATHS.ANNUAIRE_COACHS}?categorie=langues` },
+                  { label: "Cours de langues", to: ROUTE_PATHS.COURS_DE_LANGUES },
                   { label: "Compétences pro", to: "#" },
                   { label: "Nos coachs", to: ROUTE_PATHS.ANNUAIRE_COACHS },
                   { label: "Tarifs langues", to: ROUTE_PATHS.TARIFS },
