@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { NavLink } from "react-router-dom";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { NavLink, useLocation } from "react-router-dom";
+import { Menu, X, ArrowRight, ChevronRight, Home as HomeIcon } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -17,6 +17,72 @@ const NAV_MAIN = [
   { to: ROUTE_PATHS.A_PROPOS,            label: "À propos" },
   { to: "#",                             label: "FAQ" },
 ];
+
+// Libellés du fil d'Ariane par route statique. Les routes dynamiques
+// (/professeurs/:id, /cours-groupe/:id) sont gérées à part car leur
+// dernier segment n'est pas un libellé lisible.
+const BREADCRUMB_LABELS: Record<string, string> = {
+  [ROUTE_PATHS.SERVICES]: "Services",
+  [ROUTE_PATHS.NIVEAUX]: "Niveaux",
+  [ROUTE_PATHS.PROFESSEURS]: "Professeurs",
+  [ROUTE_PATHS.DEVENIR_PROFESSEUR]: "Devenir coach",
+  [ROUTE_PATHS.COMMENT_CA_MARCHE]: "Comment ça marche",
+  "/recrutement": "Devenir coach",
+  [ROUTE_PATHS.CONTACT]: "Contact",
+  "/inscription": "Inscription",
+  [ROUTE_PATHS.A_PROPOS]: "À propos",
+  [ROUTE_PATHS.TARIFS]: "Tarifs",
+  [ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE]: "Politique de confidentialité",
+};
+
+function getBreadcrumbTrail(pathname: string): { label: string; to?: string }[] {
+  if (pathname === ROUTE_PATHS.HOME) return [];
+
+  if (pathname.startsWith("/professeurs/")) {
+    return [
+      { label: "Professeurs", to: ROUTE_PATHS.PROFESSEURS },
+      { label: "Profil du coach" },
+    ];
+  }
+  if (pathname.startsWith("/cours-groupe/")) {
+    return [{ label: "Cours groupé" }];
+  }
+
+  const label = BREADCRUMB_LABELS[pathname];
+  if (label) return [{ label }];
+
+  return [{ label: "Page introuvable" }];
+}
+
+function Breadcrumb() {
+  const { pathname } = useLocation();
+  const trail = getBreadcrumbTrail(pathname);
+  if (trail.length === 0) return null;
+
+  return (
+    <div className="bg-[#F4F2ED] border-t border-[#0D2D5A]/5">
+      <div className="container mx-auto px-6 py-3">
+        <nav aria-label="Fil d'Ariane" className="flex items-center flex-wrap gap-1.5 text-xs font-semibold text-[#0D2D5A]/60">
+          <NavLink to={ROUTE_PATHS.HOME} className="flex items-center gap-1 hover:text-[#0D2D5A] transition-colors">
+            <HomeIcon className="w-3.5 h-3.5" /> Accueil
+          </NavLink>
+          {trail.map((item, i) => (
+            <span key={item.label} className="flex items-center gap-1.5">
+              <ChevronRight className="w-3 h-3 text-[#0D2D5A]/30" />
+              {item.to ? (
+                <NavLink to={item.to} className="hover:text-[#0D2D5A] transition-colors">
+                  {item.label}
+                </NavLink>
+              ) : (
+                <span className={i === trail.length - 1 ? "text-[#0D2D5A]" : ""}>{item.label}</span>
+              )}
+            </span>
+          ))}
+        </nav>
+      </div>
+    </div>
+  );
+}
 
 export function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -124,6 +190,8 @@ export function Layout({ children }: LayoutProps) {
           )}
         </AnimatePresence>
       </header>
+
+      <Breadcrumb />
 
       {/* MAIN */}
       <main className="flex-1">{children}</main>
