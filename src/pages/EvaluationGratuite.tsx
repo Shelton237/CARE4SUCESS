@@ -20,7 +20,16 @@ const STAGES = [
   { label: "Premier cours", sub: "C'est parti" },
 ];
 
-const COUNTRIES = ["Cameroun", "Madagascar"];
+const COUNTRIES = [
+  { name: "Cameroun", code: "+237" },
+  { name: "Madagascar", code: "+261" },
+  { name: "Tchad", code: "+235" },
+  { name: "Gabon", code: "+241" },
+  { name: "Comores", code: "+269" },
+  { name: "Côte d'Ivoire", code: "+225" },
+  { name: "Sénégal", code: "+221" },
+  { name: "Autres", code: "" },
+];
 
 const SCHOOL_SYSTEMS = [
   { value: "camerounais", label: "Camerounais (BEPC / BAC)" },
@@ -65,6 +74,21 @@ export default function EvaluationGratuite() {
 
   const set = (field: keyof ReturnType<typeof defaultForm>) => (value: string) =>
     setForm(f => ({ ...f, [field]: value }));
+
+  // Change l'indicatif au début du numéro quand le pays change, sans
+  // écraser un numéro déjà saisi par l'utilisateur.
+  const handleCountryChange = (countryName: string) => {
+    setForm(f => {
+      const newCode = COUNTRIES.find(c => c.name === countryName)?.code ?? "";
+      const previousCode = COUNTRIES.find(c => c.name === f.country)?.code ?? "";
+      const phoneIsUntouched = !f.phone.trim() || f.phone.trim() === previousCode;
+      return {
+        ...f,
+        country: countryName,
+        phone: phoneIsUntouched ? (newCode ? `${newCode} ` : "") : f.phone,
+      };
+    });
+  };
 
   const mutation = useMutation({
     mutationFn: submitEvaluationRequest,
@@ -221,14 +245,19 @@ export default function EvaluationGratuite() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="phone">Téléphone</Label>
-                      <Input id="phone" placeholder="+261 34 XX XXX XX" value={form.phone} onChange={e => set("phone")(e.target.value)} />
+                      <Input
+                        id="phone"
+                        placeholder={`${COUNTRIES.find(c => c.name === form.country)?.code || "+237"} XX XXX XXX`}
+                        value={form.phone}
+                        onChange={e => set("phone")(e.target.value)}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Pays</Label>
-                      <Select value={form.country} onValueChange={set("country")}>
+                      <Select value={form.country} onValueChange={handleCountryChange}>
                         <SelectTrigger><SelectValue placeholder="Choisissez..." /></SelectTrigger>
                         <SelectContent>
-                          {COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          {COUNTRIES.map(c => <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
