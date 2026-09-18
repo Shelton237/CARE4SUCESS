@@ -16,6 +16,7 @@ import {
     type MobileMoneyNetwork,
 } from "@/api/public";
 import { formatMoney } from "@/lib/money";
+import { ROUTE_PATHS } from "@/lib/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -447,7 +448,7 @@ export default function PublicTeacherProfile() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center px-6 bg-[#f4f6fb]">
                 <p className="text-xl font-bold text-[#0D2D5A]">Enseignant introuvable</p>
-                <NavLink to="/professeurs" className="text-[#1A6CC8] font-semibold hover:underline text-sm">
+                <NavLink to={ROUTE_PATHS.ANNUAIRE_COACHS} className="text-[#1A6CC8] font-semibold hover:underline text-sm">
                     â† Retour Ã  l'annuaire
                 </NavLink>
             </div>
@@ -470,7 +471,7 @@ export default function PublicTeacherProfile() {
                 />
                 <div className="w-full px-6 md:px-12 xl:px-20 relative">
                     <NavLink
-                        to="/professeurs"
+                        to={ROUTE_PATHS.ANNUAIRE_COACHS}
                         className="inline-flex items-center gap-1.5 text-blue-200/80 hover:text-white text-xs font-semibold mb-8 transition-colors"
                     >
                         <ArrowLeft className="w-3.5 h-3.5" /> Retour Ã  l'annuaire

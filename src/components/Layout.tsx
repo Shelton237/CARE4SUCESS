@@ -25,6 +25,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   [ROUTE_PATHS.SERVICES]: "Services",
   [ROUTE_PATHS.NIVEAUX]: "Niveaux",
   [ROUTE_PATHS.PROFESSEURS]: "Trouver un coach",
+  [ROUTE_PATHS.ANNUAIRE_COACHS]: "Nos coachs",
   [ROUTE_PATHS.DEVENIR_PROFESSEUR]: "Devenir coach",
   [ROUTE_PATHS.COMMENT_CA_MARCHE]: "Comment ça marche",
   "/recrutement": "Devenir coach",
@@ -40,7 +41,7 @@ function getBreadcrumbTrail(pathname: string): { label: string; to?: string }[] 
 
   if (pathname.startsWith("/professeurs/")) {
     return [
-      { label: "Trouver un coach", to: ROUTE_PATHS.PROFESSEURS },
+      { label: "Nos coachs", to: ROUTE_PATHS.ANNUAIRE_COACHS },
       { label: "Profil du coach" },
     ];
   }
@@ -61,6 +62,7 @@ const SELF_RENDERED_BREADCRUMB_ROUTES = new Set<string>([
   ROUTE_PATHS.SERVICES,
   ROUTE_PATHS.NIVEAUX,
   ROUTE_PATHS.PROFESSEURS,
+  ROUTE_PATHS.ANNUAIRE_COACHS,
   ROUTE_PATHS.DEVENIR_PROFESSEUR,
   "/recrutement",
   ROUTE_PATHS.COMMENT_CA_MARCHE,
@@ -267,9 +269,9 @@ export function Layout({ children }: LayoutProps) {
               <h3 className="text-sm font-black text-[#F5A623] mb-5 uppercase tracking-[0.2em]">Apprenants</h3>
               <ul className="space-y-3.5">
                 {[
-                  { label: "Cours de langues", to: ROUTE_PATHS.PROFESSEURS },
+                  { label: "Cours de langues", to: `${ROUTE_PATHS.ANNUAIRE_COACHS}?categorie=langues` },
                   { label: "Compétences pro", to: "#" },
-                  { label: "Nos coachs", to: ROUTE_PATHS.PROFESSEURS },
+                  { label: "Nos coachs", to: ROUTE_PATHS.ANNUAIRE_COACHS },
                   { label: "Tarifs langues", to: ROUTE_PATHS.TARIFS },
                 ].map(item => (
                   <li key={item.label}>
