@@ -306,8 +306,8 @@ export default function TeacherSchedule() {
     };
 
     const handleCreateSubmit = () => {
-        if (!form.studentIds?.length || !form.subject || !form.sessionDate || !form.sessionTime || !form.sessionEndTime) {
-            toast.error("Veuillez remplir tous les champs obligatoires (Élèves, Matière, Date, Heure début, Heure fin).");
+        if (!form.subject || !form.sessionDate || !form.sessionTime || !form.sessionEndTime) {
+            toast.error("Veuillez remplir tous les champs obligatoires (Matière, Date, Heure début, Heure fin).");
             return;
         }
         if (form.sessionEndTime <= form.sessionTime) {
@@ -405,7 +405,7 @@ export default function TeacherSchedule() {
                                         {(s.status === 'in_progress' || s.status === 'en cours') && <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />}
                                     </div>
                                     <div className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-tight">{s.subject}</div>
-                                    <div className="text-[9px] text-slate-500 font-bold mt-0.5 truncate">{s.student}</div>
+                                    <div className="text-[9px] text-slate-500 font-bold mt-0.5 truncate">{s.student || "Non assigné"}</div>
                                 </div>
                             ))}
                             {daySessions.length === 0 && (
@@ -438,7 +438,7 @@ export default function TeacherSchedule() {
                             <div className="flex-1 min-w-0">
                                 <div className="font-black text-[#0D2D5A] text-[10px] uppercase tracking-tight flex items-center gap-2">
                                     {s.subject}
-                                    <span className="text-[9px] font-bold text-slate-400 normal-case">· {s.student}</span>
+                                    <span className="text-[9px] font-bold text-slate-400 normal-case">· {s.student || "Non assigné"}</span>
                                 </div>
                                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                                     <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase">
@@ -526,7 +526,7 @@ export default function TeacherSchedule() {
                             <CalendarDays className="w-5 h-5 text-[#1A6CC8]" /> Planifier une séance
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Créez une ou plusieurs séances avec l'un de vos élèves.
+                            Créez une ou plusieurs séances, avec ou sans élève assigné.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -534,7 +534,7 @@ export default function TeacherSchedule() {
                         {/* Élèves (Multi-sélection) */}
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex justify-between items-center">
-                                <span>Élèves concernés <span className="text-red-400">*</span></span>
+                                <span>Élèves concernés <span className="normal-case font-normal">(optionnel)</span></span>
                                 <span className="text-[9px] lowercase font-normal italic">
                                     {form.studentIds?.length ?? 0} sélectionné(s)
                                 </span>
@@ -736,7 +736,7 @@ export default function TeacherSchedule() {
                         </Button>
                         <Button
                             onClick={handleCreateSubmit}
-                            disabled={createMutation.isPending || !form.studentIds?.length || !form.subject || !form.sessionDate}
+                            disabled={createMutation.isPending || !form.subject || !form.sessionDate}
                             className="flex-1 bg-[#1A6CC8] hover:bg-[#0D2D5A] gap-2 font-bold"
                         >
                             <Plus className="w-4 h-4" />

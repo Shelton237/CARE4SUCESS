@@ -440,10 +440,10 @@ const ensureSessionsTable = async () => {
       status ENUM('effectué', 'à venir', 'planifié') NOT NULL DEFAULT 'planifié',
       teacher_id VARCHAR(36) NOT NULL,
       teacher_name VARCHAR(191) NOT NULL,
-      student_id VARCHAR(36) NOT NULL,
-      student_name VARCHAR(191) NOT NULL,
-      parent_id VARCHAR(36) NOT NULL,
-      parent_name VARCHAR(191) NOT NULL,
+      student_id VARCHAR(36) NULL,
+      student_name VARCHAR(191) NULL,
+      parent_id VARCHAR(36) NULL,
+      parent_name VARCHAR(191) NULL,
       virtual_link VARCHAR(255) DEFAULT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
@@ -535,6 +535,17 @@ const ensureSessionsTable = async () => {
       console.log("Migration: Modified status ENUM in sessions table ✅");
     } catch (e) {
       console.error("Migration: Failed to modify status ENUM", e.message);
+    }
+    // Une séance peut désormais être créée sans élève assigné (créneau
+    // libre, à lier plus tard) — les colonnes élève/parent doivent accepter NULL.
+    try {
+      await pool.query("ALTER TABLE sessions MODIFY COLUMN student_id VARCHAR(36) NULL");
+      await pool.query("ALTER TABLE sessions MODIFY COLUMN student_name VARCHAR(191) NULL");
+      await pool.query("ALTER TABLE sessions MODIFY COLUMN parent_id VARCHAR(36) NULL");
+      await pool.query("ALTER TABLE sessions MODIFY COLUMN parent_name VARCHAR(191) NULL");
+      console.log("Migration: Made student/parent columns nullable in sessions table ✅");
+    } catch (e) {
+      console.error("Migration: Failed to make student/parent columns nullable", e.message);
     }
   } catch (err) {
     console.error("Migration failed for sessions table", err.message);
@@ -3154,7 +3165,6 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
     const teacherName = teachers.length > 0 ? teachers[0].name : "Enseignant";
 
     const ids = Array.isArray(studentIds) ? studentIds : (studentId ? [studentId] : []);
-    if (ids.length === 0) return res.status(400).json({ message: "Au moins un élève est requis." });
 
     // Format full session time: e.g. "14:00 - 16:00"
     let formattedTime = sessionTime || "16:00";
@@ -3166,15 +3176,24 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
     const count = recurrence === "weekly" ? Math.min(12, sessionCount || 1) : 1;
     const daysFr = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
 
-    for (const sId of ids) {
-      const [students] = await pool.query("SELECT name, parent_id FROM users WHERE id = ?", [sId]);
-      if (students.length === 0) continue;
-      const studentName = students[0].name;
-      const parentId = students[0].parent_id;
-      let parentName = "Inconnu";
-      if (parentId) {
-        const [parents] = await pool.query("SELECT name FROM users WHERE id = ?", [parentId]);
-        if (parents.length > 0) parentName = parents[0].name;
+    // Un créneau sans élève sélectionné (à lier plus tard) crée quand même
+    // la séance : on boucle une seule fois avec des infos élève/parent vides.
+    const targets = ids.length > 0 ? ids : [null];
+
+    for (const sId of targets) {
+      let studentName = null;
+      let parentId = null;
+      let parentName = null;
+      if (sId) {
+        const [students] = await pool.query("SELECT name, parent_id FROM users WHERE id = ?", [sId]);
+        if (students.length === 0) continue;
+        studentName = students[0].name;
+        parentId = students[0].parent_id;
+        parentName = "Inconnu";
+        if (parentId) {
+          const [parents] = await pool.query("SELECT name FROM users WHERE id = ?", [parentId]);
+          if (parents.length > 0) parentName = parents[0].name;
+        }
       }
 
       for (let i = 0; i < count; i++) {
