@@ -224,13 +224,13 @@ export function Layout({ children }: LayoutProps) {
             </NavLink>
 
             {/* Nav desktop */}
-            <nav className="hidden lg:flex items-center ml-2 xl:ml-6 min-[1400px]:ml-[9.65%]">
+            <nav className="hidden lg:flex items-center ml-2 xl:max-[1399px]:ml-6 min-[1400px]:ml-[9.55%]">
               {NAV_MAIN.map(link => (
                 <NavLink
                   key={link.label}
                   to={link.to}
                   className={({ isActive }) =>
-                    `mx-1.5 xl:mx-2 min-[1400px]:mx-[12.5px] py-1.5 text-[12.5px] font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
+                    `mx-1.5 xl:max-[1399px]:mx-2 min-[1400px]:mx-[11.3px] py-1.5 text-[12.5px] font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
                       isActive && link.to !== "#"
                         ? "text-[#0D2D5A] border-[#F5A623]"
                         : "text-[#0D2D5A] border-transparent hover:text-[#0D2D5A]/80"
