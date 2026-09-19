@@ -55,7 +55,11 @@ import {
     Square,
     Circle,
     Type,
-    Grid3x3
+    Grid3x3,
+    ArrowUpRight,
+    Triangle,
+    Highlighter,
+    PaintBucket
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -112,8 +116,9 @@ type WhiteboardItem =
     | { id: string; type: "youtube"; videoId: string }
     | { id: string; type: "pdf"; url: string; name: string };
 
-type DrawTool = "pen" | "eraser" | "line" | "rectangle" | "circle" | "text";
-const SHAPE_TOOLS: DrawTool[] = ["line", "rectangle", "circle"];
+type DrawTool = "pen" | "highlighter" | "eraser" | "line" | "arrow" | "rectangle" | "circle" | "triangle" | "text";
+const SHAPE_TOOLS: DrawTool[] = ["line", "arrow", "rectangle", "circle", "triangle"];
+const FILLABLE_TOOLS: DrawTool[] = ["rectangle", "circle", "triangle"];
 const QUICK_COLORS = ["#1A6CC8", "#EF4444", "#22C55E", "#F59E0B", "#000000", "#8B5CF6"];
 
 // Compat : les anciennes séances stockaient les items vidéo sans champ
@@ -188,6 +193,8 @@ export default function VirtualClassroom() {
     const [strokeWidth, setStrokeWidth] = useState(4);
     const [tool, setTool] = useState<DrawTool>("pen");
     const [showGrid, setShowGrid] = useState(false);
+    const [fillShapes, setFillShapes] = useState(false);
+    const highlighterPointsRef = useRef<{ x: number; y: number }[]>([]);
     const [history, setHistory] = useState<string[]>([]);
     const [redoStack, setRedoStack] = useState<string[]>([]);
     const shapeStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -689,6 +696,17 @@ export default function VirtualClassroom() {
             return;
         }
 
+        // Surligneur : le trait entier est redessiné à chaque mouvement sur le
+        // snapshot de départ, pour que la transparence ne s'additionne pas aux
+        // jonctions entre segments (sinon le trait paraît "perlé").
+        if (tool === 'highlighter') {
+            pushHistory();
+            highlighterPointsRef.current = [point];
+            shapeSnapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            setIsDrawing(true);
+            return;
+        }
+
         pushHistory();
         setIsDrawing(true);
         ctx.beginPath();
@@ -700,6 +718,7 @@ export default function VirtualClassroom() {
         setIsDrawing(false);
         shapeStartRef.current = null;
         shapeSnapshotRef.current = null;
+        highlighterPointsRef.current = [];
         const canvas = canvasRef.current;
         if (canvas) {
             canvas.getContext('2d')?.beginPath();
@@ -714,21 +733,61 @@ export default function VirtualClassroom() {
         if (!ctx) return;
         const point = getCanvasPoint(e);
 
+        if (tool === 'highlighter') {
+            if (!shapeSnapshotRef.current) return;
+            highlighterPointsRef.current.push(point);
+            const pts = highlighterPointsRef.current;
+            ctx.putImageData(shapeSnapshotRef.current, 0, 0);
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.strokeStyle = drawColor;
+            ctx.lineWidth = Math.max(16, strokeWidth * 4);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+            ctx.restore();
+            return;
+        }
+
         if (SHAPE_TOOLS.includes(tool)) {
             if (!shapeStartRef.current || !shapeSnapshotRef.current) return;
             ctx.putImageData(shapeSnapshotRef.current, 0, 0);
             ctx.strokeStyle = drawColor;
+            ctx.fillStyle = drawColor;
             ctx.lineWidth = strokeWidth;
             ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
             const { x: sx, y: sy } = shapeStartRef.current;
             ctx.beginPath();
-            if (tool === 'line') {
+            if (tool === 'line' || tool === 'arrow') {
                 ctx.moveTo(sx, sy);
                 ctx.lineTo(point.x, point.y);
+                if (tool === 'arrow') {
+                    const angle = Math.atan2(point.y - sy, point.x - sx);
+                    const head = Math.max(14, strokeWidth * 4);
+                    ctx.moveTo(point.x, point.y);
+                    ctx.lineTo(point.x - head * Math.cos(angle - Math.PI / 6), point.y - head * Math.sin(angle - Math.PI / 6));
+                    ctx.moveTo(point.x, point.y);
+                    ctx.lineTo(point.x - head * Math.cos(angle + Math.PI / 6), point.y - head * Math.sin(angle + Math.PI / 6));
+                }
             } else if (tool === 'rectangle') {
                 ctx.rect(sx, sy, point.x - sx, point.y - sy);
             } else if (tool === 'circle') {
                 ctx.arc(sx, sy, Math.hypot(point.x - sx, point.y - sy), 0, Math.PI * 2);
+            } else if (tool === 'triangle') {
+                ctx.moveTo((sx + point.x) / 2, sy);
+                ctx.lineTo(point.x, point.y);
+                ctx.lineTo(sx, point.y);
+                ctx.closePath();
+            }
+            if (fillShapes && FILLABLE_TOOLS.includes(tool)) {
+                ctx.save();
+                ctx.globalAlpha = 0.25;
+                ctx.fill();
+                ctx.restore();
             }
             ctx.stroke();
             return;
@@ -1129,11 +1188,15 @@ export default function VirtualClassroom() {
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
                                     <div className="flex items-center gap-1 flex-wrap">
                                         <button onClick={() => setTool('pen')} className={`p-2 rounded-xl transition-all ${tool === 'pen' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Stylo"><Palette className="w-4 h-4" /></button>
+                                        <button onClick={() => setTool('highlighter')} className={`p-2 rounded-xl transition-all ${tool === 'highlighter' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Surligneur (mettre en évidence un mot ou une phrase)"><Highlighter className="w-4 h-4" /></button>
                                         <button onClick={() => setTool('eraser')} className={`p-2 rounded-xl transition-all ${tool === 'eraser' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Gomme"><Eraser className="w-4 h-4" /></button>
                                         <div className="w-px h-5 bg-slate-100 mx-1" />
                                         <button onClick={() => setTool('line')} className={`p-2 rounded-xl transition-all ${tool === 'line' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Ligne droite"><Minus className="w-4 h-4" /></button>
+                                        <button onClick={() => setTool('arrow')} className={`p-2 rounded-xl transition-all ${tool === 'arrow' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Flèche"><ArrowUpRight className="w-4 h-4" /></button>
                                         <button onClick={() => setTool('rectangle')} className={`p-2 rounded-xl transition-all ${tool === 'rectangle' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Rectangle"><Square className="w-4 h-4" /></button>
                                         <button onClick={() => setTool('circle')} className={`p-2 rounded-xl transition-all ${tool === 'circle' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Cercle"><Circle className="w-4 h-4" /></button>
+                                        <button onClick={() => setTool('triangle')} className={`p-2 rounded-xl transition-all ${tool === 'triangle' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Triangle"><Triangle className="w-4 h-4" /></button>
+                                        <button onClick={() => setFillShapes(v => !v)} className={`p-2 rounded-xl transition-all ${fillShapes ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Remplir les formes (rectangle, cercle, triangle)"><PaintBucket className="w-4 h-4" /></button>
                                         <div className="w-px h-5 bg-slate-100 mx-1" />
                                         <button onClick={() => setTool('text')} className={`p-2 rounded-xl transition-all ${tool === 'text' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Texte (idéal pour le vocabulaire, les corrections de langue)"><Type className="w-4 h-4" /></button>
                                     </div>
