@@ -223,7 +223,7 @@ export function Layout({ children }: LayoutProps) {
         </AnimatePresence>
       </header>
 
-      {!SELF_RENDERED_BREADCRUMB_ROUTES.has(pathname) && <Breadcrumb />}
+      {!SELF_RENDERED_BREADCRUMB_ROUTES.has(pathname) && !pathname.startsWith("/professeurs/") && <Breadcrumb />}
 
       {/* MAIN */}
       <main className="flex-1">{children}</main>
