@@ -2484,6 +2484,25 @@ const shortText = (value, max) => {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 };
 
+// Dimensions d'une image PNG ou JPEG (lues dans l'en-tête), null sinon.
+const readImageSize = (buf) => {
+  if (buf.length > 24 && buf.readUInt32BE(0) === 0x89504e47) {
+    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  }
+  if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < buf.length) {
+      if (buf[i] !== 0xff) { i++; continue; }
+      const marker = buf[i + 1];
+      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+        return { height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) };
+      }
+      i += 2 + buf.readUInt16BE(i + 2);
+    }
+  }
+  return null;
+};
+
 app.get("/api/share/professeurs/:id", async (req, res) => {
   const { id } = req.params;
   const pageUrl = `${SITE_ORIGIN}/professeurs/${encodeURIComponent(id)}`;
@@ -2512,16 +2531,27 @@ app.get("/api/share/professeurs/:id", async (req, res) => {
       const rate = t.rate > 0
         ? `${Math.round(t.rate).toLocaleString("fr-FR")} ${currency}${t.rateType === "monthly" ? "/mois" : "/h"}`
         : "";
+      // Même logique qu'un profil de plateforme de cours : "Nom, accroche" en
+      // titre, début de la présentation en description.
       const facts = [
-        shortText(t.headline, 140) || (t.subjects.length ? `Coach ${t.subjects.join(", ")}` : "Coach"),
+        t.subjects.length ? `Coach ${t.subjects.join(", ")}` : "Coach",
         t.yearsExperience ? `${t.yearsExperience} an${t.yearsExperience > 1 ? "s" : ""} d'expérience` : "",
         rate,
       ].filter(Boolean).join(" · ");
-      const description = shortText(`${facts}. ${shortText(t.bio, 180)}`, 300);
-      const title = `${t.name}, coach sur Care4Success`;
+      const description = shortText(t.bio, 200) || facts;
+      const title = t.headline ? shortText(`${t.name}, ${t.headline}`, 200) : `${t.name}, coach sur Care4Success`;
       const image = t.avatarUrl
         ? (/^https?:\/\//i.test(t.avatarUrl) ? t.avatarUrl : `${SITE_ORIGIN}${t.avatarUrl}`)
         : DEFAULT_SHARE_IMAGE;
+      let dims = null;
+      if (t.avatarUrl) {
+        try {
+          const pathname = new URL(t.avatarUrl, SITE_ORIGIN).pathname;
+          if (pathname.startsWith("/uploads/")) {
+            dims = readImageSize(await fs.promises.readFile(path.join(uploadDir, path.basename(pathname))));
+          }
+        } catch { /* dimensions facultatives */ }
+      }
       const tags = [
         `<meta property="og:type" content="profile" />`,
         `<meta property="og:site_name" content="Care4Success" />`,
@@ -2530,8 +2560,12 @@ app.get("/api/share/professeurs/:id", async (req, res) => {
         `<meta property="og:description" content="${escapeHtmlAttr(description)}" />`,
         `<meta property="og:url" content="${escapeHtmlAttr(pageUrl)}" />`,
         `<meta property="og:image" content="${escapeHtmlAttr(image)}" />`,
-        `<meta property="og:image:alt" content="${escapeHtmlAttr(`Photo de ${t.name}`)}" />`,
-        `<meta name="twitter:card" content="${t.avatarUrl ? "summary" : "summary_large_image"}" />`,
+        ...(dims ? [
+          `<meta property="og:image:width" content="${dims.width}" />`,
+          `<meta property="og:image:height" content="${dims.height}" />`,
+        ] : []),
+        `<meta property="og:image:alt" content="${escapeHtmlAttr(t.avatarUrl ? `Photo de ${t.name}` : "Care4Success")}" />`,
+        `<meta name="twitter:card" content="${dims && dims.width >= 600 || !t.avatarUrl ? "summary_large_image" : "summary"}" />`,
         `<meta name="twitter:title" content="${escapeHtmlAttr(title)}" />`,
         `<meta name="twitter:description" content="${escapeHtmlAttr(description)}" />`,
         `<meta name="twitter:image" content="${escapeHtmlAttr(image)}" />`,
