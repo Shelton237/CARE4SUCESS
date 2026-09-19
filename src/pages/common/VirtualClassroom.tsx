@@ -58,7 +58,6 @@ import {
     Grid3x3,
     ArrowUpRight,
     Triangle,
-    Highlighter,
     PaintBucket,
     Headphones
 } from "lucide-react";

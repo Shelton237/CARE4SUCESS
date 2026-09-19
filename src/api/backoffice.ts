@@ -783,6 +783,40 @@ export const updateUserProfile = (userId: string, payload: UpdateUserProfilePayl
         body: JSON.stringify(payload),
     });
 
+export interface TeacherLanguage { name: string; level: string }
+export interface TeacherEducation { institution: string; degree: string; dates: string }
+export interface TeacherCertificate { name: string; dates: string }
+
+export interface TeacherPublicProfileForm {
+    headline: string;
+    bio: string;
+    specialties: string[];
+    formats: string[];
+    languages: TeacherLanguage[];
+    yearsExperience: number | null;
+    videoIntroUrl: string;
+    educations: TeacherEducation[];
+    certificates: TeacherCertificate[];
+    qualities: string[];
+}
+
+export interface TeacherPublicProfileResponse extends TeacherPublicProfileForm {
+    publicId: string;
+    status: string;
+    subjects: string[];
+    level: string;
+    options?: { languageLevels: string[]; formats: string[]; qualities: string[] };
+}
+
+export const fetchMyPublicProfile = () =>
+    request<TeacherPublicProfileResponse>("/teachers/me/public-profile");
+
+export const updateMyPublicProfile = (payload: TeacherPublicProfileForm) =>
+    request<TeacherPublicProfileResponse>("/teachers/me/public-profile", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+    });
+
 export const updateUserPassword = (
     userId: string,
     payload: { currentPassword: string; newPassword: string }

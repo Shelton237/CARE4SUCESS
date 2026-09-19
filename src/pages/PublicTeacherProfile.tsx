@@ -4,7 +4,7 @@ import { useParams, NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Star, Clock, ArrowRight,
-    Loader2, CheckCircle2, GraduationCap, X, BookOpen, ImageIcon,
+    Loader2, CheckCircle2, GraduationCap, X, BookOpen, ImageIcon, BadgeCheck, Check,
     CreditCard, Phone, Mail, User,
 } from "lucide-react";
 import {
@@ -47,6 +47,44 @@ const formatColor = (f: string) => FORMAT_COLORS[f] || { bg: "bg-gray-100", text
 type BookingStep = "form" | "otp" | "waiting" | "redirect" | "success";
 
 const SECTION_TITLE = "text-lg font-bold text-[#0D2D5A]";
+
+// Lien YouTube/Vimeo saisi par le coach -> URL d'intégration (le serveur ne
+// laisse passer que ces hôtes, cf. TEACHER_VIDEO_URL_RE).
+const toEmbedUrl = (url: string | null): string | null => {
+    if (!url) return null;
+    const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{6,})/i);
+    if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+    const vm = url.match(/vimeo\.com\/(\d+)/i);
+    if (vm) return `https://player.vimeo.com/video/${vm[1]}`;
+    return null;
+};
+
+// Texte libre du coach : les lignes "### Titre" deviennent des sous-titres,
+// le reste est rendu tel quel (retours à la ligne conservés).
+function RichText({ text }: { text: string }) {
+    const blocks: { type: "h" | "p"; text: string }[] = [];
+    let paragraphBreak = false;
+    for (const line of text.split("\n")) {
+        if (line.startsWith("### ")) {
+            blocks.push({ type: "h", text: line.slice(4).trim() });
+            paragraphBreak = false;
+        } else if (!line.trim()) {
+            paragraphBreak = true;
+        } else if (!paragraphBreak && blocks.length && blocks[blocks.length - 1].type === "p") {
+            blocks[blocks.length - 1].text += "\n" + line;
+        } else {
+            blocks.push({ type: "p", text: line });
+            paragraphBreak = false;
+        }
+    }
+    return (
+        <div className="space-y-3">
+            {blocks.map((b, i) => b.type === "h"
+                ? <h3 key={i} className="text-sm font-bold text-[#0D2D5A] pt-1">{b.text}</h3>
+                : <p key={i} className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{b.text}</p>)}
+        </div>
+    );
+}
 
 // ─── Booking Panel (formulaire parent/élève + paiement Mobile Money) ───────
 function BookingPanel({
@@ -534,7 +572,13 @@ export default function PublicTeacherProfile() {
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                            <h1 className="text-[28px] font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.name}</h1>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h1 className="text-[28px] font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.name}</h1>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-[11px] font-semibold text-white" title="Profil examiné et validé par l'équipe Care4Success">
+                                    <BadgeCheck className="w-3.5 h-3.5 text-[#F5A623]" /> Coach vérifié
+                                </span>
+                            </div>
+                            {teacher.headline && <p className="text-white/90 text-sm mt-1">{teacher.headline}</p>}
                             <p className="text-blue-200 text-sm mt-1.5">
                                 {[...teacher.subjects, teacher.city || teacher.region || teacher.country].filter(Boolean).join(" · ")}
                             </p>
@@ -564,11 +608,27 @@ export default function PublicTeacherProfile() {
                     {/* Colonne gauche */}
                     <div className="space-y-5">
 
+                        {/* Vidéo de présentation */}
+                        {toEmbedUrl(teacher.videoIntroUrl) && (
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
+                                <div className="aspect-video rounded-xl overflow-hidden bg-black">
+                                    <iframe
+                                        src={toEmbedUrl(teacher.videoIntroUrl)!}
+                                        title={`Présentation de ${teacher.name}`}
+                                        className="w-full h-full"
+                                        loading="lazy"
+                                        allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                                        allowFullScreen
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         {/* Card À propos */}
                         {teacher.bio && (
                             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                                 <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>À propos</h2>
-                                <p className="text-sm text-gray-600 leading-relaxed">{teacher.bio}</p>
+                                <RichText text={teacher.bio} />
                             </div>
                         )}
 
@@ -584,11 +644,30 @@ export default function PublicTeacherProfile() {
                                     <p className="text-[11px] text-gray-500 mt-1">note moyenne</p>
                                 </div>
                                 <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
-                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.formats.length || teacher.subjects.length}</p>
-                                    <p className="text-[11px] text-gray-500 mt-1">{teacher.formats.length ? "formats" : "matières"}</p>
+                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                                        {teacher.yearsExperience ?? (teacher.formats.length || teacher.subjects.length)}
+                                    </p>
+                                    <p className="text-[11px] text-gray-500 mt-1">
+                                        {teacher.yearsExperience != null ? (teacher.yearsExperience > 1 ? "ans d'expérience" : "an d'expérience") : teacher.formats.length ? "formats" : "matières"}
+                                    </p>
                                 </div>
                             </div>
                         </div>
+
+                        {/* Card Langues parlées */}
+                        {teacher.languages.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Langues parlées</h2>
+                                <div className="flex flex-wrap gap-2">
+                                    {teacher.languages.map(l => (
+                                        <span key={l.name} className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
+                                            <span className="font-semibold">{l.name}</span>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white text-gray-500">{l.level}</span>
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Card Spécialités */}
                         {teacher.specialties.length > 0 && (
@@ -598,6 +677,47 @@ export default function PublicTeacherProfile() {
                                     {teacher.specialties.map((s: string) => (
                                         <span key={s} className="text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
                                             {s}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Card Formations & certificats */}
+                        {(teacher.educations.length > 0 || teacher.certificates.length > 0) && (
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Formations et certificats</h2>
+                                <ul className="space-y-3">
+                                    {teacher.educations.map((ed, i) => (
+                                        <li key={`ed-${i}`} className="flex gap-3">
+                                            <GraduationCap className="w-4 h-4 text-[#1A6CC8] shrink-0 mt-0.5" />
+                                            <div className="text-sm">
+                                                <p className="font-semibold text-[#0D2D5A]">{[ed.degree, ed.institution].filter(Boolean).join(" · ")}</p>
+                                                {ed.dates && <p className="text-xs text-gray-400">{ed.dates}</p>}
+                                            </div>
+                                        </li>
+                                    ))}
+                                    {teacher.certificates.map((c, i) => (
+                                        <li key={`ce-${i}`} className="flex gap-3">
+                                            <BadgeCheck className="w-4 h-4 text-[#0F9B8E] shrink-0 mt-0.5" />
+                                            <div className="text-sm">
+                                                <p className="font-semibold text-[#0D2D5A]">{c.name}</p>
+                                                {c.dates && <p className="text-xs text-gray-400">{c.dates}</p>}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {/* Card Style d'enseignement */}
+                        {teacher.qualities.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Style d'enseignement</h2>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {teacher.qualities.map(q => (
+                                        <span key={q} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
+                                            <Check className="w-3 h-3 text-[#0F9B8E]" /> {q}
                                         </span>
                                     ))}
                                 </div>
@@ -622,9 +742,31 @@ export default function PublicTeacherProfile() {
                         )}
 
                         {/* Card Avis récents */}
-                        {teacher.reviews.length > 0 && (
+                        {teacher.reviewsCount > 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                                 <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Avis récents</h2>
+                                <div className="flex items-center gap-6 mb-5 pb-5 border-b border-gray-100">
+                                    <div className="text-center shrink-0">
+                                        <p className="text-4xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.rating.toFixed(1)}</p>
+                                        <p className="text-[11px] text-gray-400 mt-1">{teacher.reviewsCount} avis</p>
+                                    </div>
+                                    <div className="flex-1 space-y-1.5">
+                                        {([5, 4, 3, 2, 1] as const).map(stars => {
+                                            const count = teacher.ratingDistribution[stars] ?? 0;
+                                            const pct = teacher.reviewsCount ? Math.round((count / teacher.reviewsCount) * 100) : 0;
+                                            return (
+                                                <div key={stars} className="flex items-center gap-2 text-[11px] text-gray-500">
+                                                    <span className="w-3 text-right">{stars}</span>
+                                                    <Star className="w-3 h-3 fill-[#F5A623] text-[#F5A623]" />
+                                                    <div className="flex-1 h-1.5 rounded-full bg-[#F4F2ED] overflow-hidden">
+                                                        <div className="h-full rounded-full bg-[#F5A623]" style={{ width: `${pct}%` }} />
+                                                    </div>
+                                                    <span className="w-6 text-right">{count}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                                 <div className="space-y-4">
                                     {teacher.reviews.map((r, i) => (
                                         <div key={i} className={i > 0 ? "pt-4 border-t border-gray-100" : ""}>

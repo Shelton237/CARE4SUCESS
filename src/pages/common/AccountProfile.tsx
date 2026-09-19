@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bell, Camera, CheckCircle2, Loader2, MapPin, Phone, ShieldCheck, UserCircle2 } from "lucide-react";
+import { ArrowLeft, Bell, Camera, CheckCircle2, Globe, Loader2, MapPin, Phone, ShieldCheck, UserCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchUserProfile, updateUserPassword, updateUserProfile, uploadUserAvatar, UpdateUserProfilePayload } from "@/api/backoffice";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import PublicProfileEditor from "@/pages/teacher/PublicProfileEditor";
 
 type ProfileFormState = Required<Pick<UpdateUserProfilePayload, "name" | "phone" | "avatar" | "location" | "timezone" | "language" | "bio" | "notifyEmail" | "notifySms" | "notifyWhatsapp">>;
 
@@ -30,6 +31,7 @@ export default function AccountProfile() {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const isTeacher = user?.role === "teacher" || user?.secondaryRole === "teacher";
 
     const [profileForm, setProfileForm] = useState<ProfileFormState>(() => ({
         name: user?.name ?? "",
@@ -446,6 +448,21 @@ export default function AccountProfile() {
                                 </div>
                             </form>
                         </section>
+
+                        {isTeacher && (
+                            <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-10 h-10 rounded-2xl bg-[#F5A623]/10 text-[#F5A623] flex items-center justify-center">
+                                        <Globe className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-gray-900">Ma page publique</h2>
+                                        <p className="text-sm text-gray-500">Ce que les familles voient sur votre profil de coach</p>
+                                    </div>
+                                </div>
+                                <PublicProfileEditor />
+                            </section>
+                        )}
 
                         <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6">
                             <div className="flex items-center gap-3 mb-6">

@@ -426,6 +426,13 @@ const ensureTeachersTable = async () => {
     ["bio",                  "ALTER TABLE teachers ADD COLUMN bio TEXT NULL"],
     ["specialties",          "ALTER TABLE teachers ADD COLUMN specialties JSON NULL"],
     ["formats",              "ALTER TABLE teachers ADD COLUMN formats JSON NULL"],
+    ["headline",             "ALTER TABLE teachers ADD COLUMN headline VARCHAR(191) NULL"],
+    ["languages",            "ALTER TABLE teachers ADD COLUMN languages JSON NULL"],
+    ["years_experience",     "ALTER TABLE teachers ADD COLUMN years_experience TINYINT UNSIGNED NULL"],
+    ["video_intro_url",      "ALTER TABLE teachers ADD COLUMN video_intro_url VARCHAR(255) NULL"],
+    ["educations",           "ALTER TABLE teachers ADD COLUMN educations JSON NULL"],
+    ["certificates",         "ALTER TABLE teachers ADD COLUMN certificates JSON NULL"],
+    ["qualities",            "ALTER TABLE teachers ADD COLUMN qualities JSON NULL"],
   ];
   for (const [col, sql] of migrations) {
     if (!cols.has(col)) await pool.query(sql).catch(() => {});
@@ -2398,9 +2405,18 @@ const mapPublicTeacherRow = (row) => ({
   country: row.geo_country_name || null,
   regionId: row.geo_region_id || null,
   region: row.geo_region_name || null,
-  bio: row.bio ? fixEncoding(row.bio) : null,
+  // La présentation publique saisie sur la fiche coach prime ; à défaut on
+  // reprend la biographie du compte utilisateur.
+  bio: (row.bio || row.user_bio) ? fixEncoding(row.bio || row.user_bio) : null,
   specialties: parseJson(row.specialties, []),
   formats: parseJson(row.formats, []),
+  headline: row.headline ? fixEncoding(row.headline) : null,
+  languages: parseJson(row.languages, []),
+  yearsExperience: row.years_experience ?? null,
+  videoIntroUrl: row.video_intro_url || null,
+  educations: parseJson(row.educations, []),
+  certificates: parseJson(row.certificates, []),
+  qualities: parseJson(row.qualities, []),
 });
 
 // Résout pays/région même quand geo_location_id pointe directement sur un
@@ -2415,8 +2431,10 @@ const PUBLIC_TEACHER_GEO_JOIN = `
 const PUBLIC_TEACHER_GEO_COLUMNS = `
   gc.id AS geo_country_id, gc.name AS geo_country_name,
   gr.id AS geo_region_id, gr.name AS geo_region_name,
-  u.avatar_url
+  u.avatar_url, u.bio AS user_bio
 `;
+const PUBLIC_TEACHER_PROFILE_COLUMNS = `t.bio, t.specialties, t.formats, t.headline, t.languages,
+  t.years_experience, t.video_intro_url, t.educations, t.certificates, t.qualities`;
 
 app.get("/api/public/teachers", async (req, res) => {
   try {
@@ -2425,7 +2443,7 @@ app.get("/api/public/teachers", async (req, res) => {
     const [rows] = await pool.query(
       `SELECT t.id, t.name, t.subjects, t.level, t.city, t.status, t.rating, t.students,
               t.rate_type, t.hourly_rate, t.monthly_rate, t.currency, t.rate_unit_minutes,
-              t.bio, t.specialties, t.formats,
+              ${PUBLIC_TEACHER_PROFILE_COLUMNS},
               ${PUBLIC_TEACHER_GEO_COLUMNS}
        FROM teachers t
        ${PUBLIC_TEACHER_GEO_JOIN}
@@ -2451,7 +2469,7 @@ app.get("/api/public/teachers/:id", async (req, res) => {
     const [[row]] = await pool.query(
       `SELECT t.id, t.name, t.subjects, t.level, t.city, t.status, t.rating, t.students,
               t.rate_type, t.hourly_rate, t.monthly_rate, t.currency, t.rate_unit_minutes,
-              t.bio, t.specialties, t.formats,
+              ${PUBLIC_TEACHER_PROFILE_COLUMNS},
               ${PUBLIC_TEACHER_GEO_COLUMNS}
        FROM teachers t
        ${PUBLIC_TEACHER_GEO_JOIN}
@@ -2468,18 +2486,26 @@ app.get("/api/public/teachers/:id", async (req, res) => {
     const [reviewRows] = await pool.query(
       `SELECT reviewer_name, reviewer_type, rating, comment, created_at
        FROM teacher_feedback WHERE teacher_id = ? AND comment IS NOT NULL AND comment <> ''
-       ORDER BY created_at DESC LIMIT 5`,
+       ORDER BY created_at DESC LIMIT 10`,
       [id]
     ).catch(() => [[]]);
-    const [[reviewCountRow]] = await pool.query(
-      `SELECT COUNT(*) as count FROM teacher_feedback WHERE teacher_id = ? AND comment IS NOT NULL AND comment <> ''`,
+    // Distribution réelle des notes sur tous les avis (avec ou sans commentaire).
+    const [distRows] = await pool.query(
+      `SELECT ROUND(rating) AS stars, COUNT(*) AS count FROM teacher_feedback WHERE teacher_id = ? GROUP BY ROUND(rating)`,
       [id]
-    ).catch(() => [[{ count: 0 }]]);
+    ).catch(() => [[]]);
+    const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const d of distRows) {
+      const stars = Math.min(5, Math.max(1, Number(d.stars)));
+      ratingDistribution[stars] += Number(d.count);
+    }
+    const reviewsCount = Object.values(ratingDistribution).reduce((a, b) => a + b, 0);
 
     res.json({
       ...mapPublicTeacherRow(row),
       slots: slotRows.map(mapSlotRow),
-      reviewsCount: reviewCountRow?.count || 0,
+      reviewsCount,
+      ratingDistribution,
       reviews: reviewRows.map(r => ({
         reviewerName: fixEncoding(r.reviewer_name),
         reviewerType: r.reviewer_type,
@@ -2494,6 +2520,120 @@ app.get("/api/public/teachers/:id", async (req, res) => {
     }
     console.error("[public/teachers/:id]", error);
     res.status(500).json({ message: "Impossible de récupérer le profil." });
+  }
+});
+
+// ─── Fiche publique éditable par le coach lui-même ──────────────────────────
+// Le coach ne modifie que sa présentation (accroche, bio, langues, vidéo,
+// formations...). Tarif, matières et statut restent réservés à l'admin
+// (PATCH /api/admin/teachers/:id) : ils touchent au paiement et au catalogue.
+const TEACHER_LANGUAGE_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2", "Natif"];
+const TEACHER_FORMATS = ["En ligne", "Présentiel", "Hybride"];
+const TEACHER_QUALITIES = ["Patient", "Dynamique", "Orienté objectifs", "Adaptable", "Rigoureux", "Bienveillant", "Créatif", "Pédagogue"];
+const TEACHER_VIDEO_URL_RE = /^https:\/\/(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/|vimeo\.com\/)[\w\-?=&%/.]+$/i;
+
+const cleanText = (value, max) => (typeof value === "string" ? value.trim().slice(0, max) : "");
+const cleanTextList = (value, maxItems, maxLen) =>
+  Array.isArray(value) ? [...new Set(value.map((v) => cleanText(v, maxLen)).filter(Boolean))].slice(0, maxItems) : [];
+
+const findTeacherForUser = async (userId) => {
+  const [users] = await pool.query("SELECT id, email, role, secondary_role FROM users WHERE id = ?", [userId]);
+  const user = users[0] || null;
+  if (!user) return { user: null, teacher: null };
+  const [teachers] = await pool.query("SELECT * FROM teachers WHERE id = ? OR email = ? LIMIT 1", [userId, user.email]);
+  return { user, teacher: teachers[0] || null };
+};
+
+const mapEditableTeacherProfile = (t) => ({
+  publicId: t.id,
+  status: t.status,
+  subjects: parseJson(t.subjects, []),
+  level: t.level,
+  headline: t.headline || "",
+  bio: t.bio || "",
+  specialties: parseJson(t.specialties, []),
+  formats: parseJson(t.formats, []),
+  languages: parseJson(t.languages, []),
+  yearsExperience: t.years_experience ?? null,
+  videoIntroUrl: t.video_intro_url || "",
+  educations: parseJson(t.educations, []),
+  certificates: parseJson(t.certificates, []),
+  qualities: parseJson(t.qualities, []),
+});
+
+app.get("/api/teachers/me/public-profile", authenticateRequest, async (req, res) => {
+  try {
+    await ensureTeachersTable();
+    const { user, teacher } = await findTeacherForUser(req.user.sub);
+    if (!user || (user.role !== "teacher" && user.secondary_role !== "teacher")) {
+      return res.status(403).json({ message: "Accès réservé aux enseignants." });
+    }
+    if (!teacher) return res.status(404).json({ message: "Aucune fiche coach n'est associée à votre compte." });
+    res.json({
+      ...mapEditableTeacherProfile(teacher),
+      options: { languageLevels: TEACHER_LANGUAGE_LEVELS, formats: TEACHER_FORMATS, qualities: TEACHER_QUALITIES },
+    });
+  } catch (error) {
+    console.error("[teachers/me/public-profile GET]", error);
+    res.status(500).json({ message: "Impossible de charger votre fiche publique." });
+  }
+});
+
+app.put("/api/teachers/me/public-profile", authenticateRequest, async (req, res) => {
+  try {
+    await ensureTeachersTable();
+    const { user, teacher } = await findTeacherForUser(req.user.sub);
+    if (!user || (user.role !== "teacher" && user.secondary_role !== "teacher")) {
+      return res.status(403).json({ message: "Accès réservé aux enseignants." });
+    }
+    if (!teacher) return res.status(404).json({ message: "Aucune fiche coach n'est associée à votre compte." });
+
+    const b = req.body ?? {};
+    const videoIntroUrl = cleanText(b.videoIntroUrl, 255);
+    if (videoIntroUrl && !TEACHER_VIDEO_URL_RE.test(videoIntroUrl)) {
+      return res.status(400).json({ message: "Le lien vidéo doit être une URL YouTube ou Vimeo (https)." });
+    }
+    const yearsRaw = b.yearsExperience === "" || b.yearsExperience == null ? null : Number(b.yearsExperience);
+    if (yearsRaw !== null && (!Number.isInteger(yearsRaw) || yearsRaw < 0 || yearsRaw > 60)) {
+      return res.status(400).json({ message: "Les années d'expérience doivent être comprises entre 0 et 60." });
+    }
+
+    const languages = (Array.isArray(b.languages) ? b.languages : [])
+      .map((l) => ({ name: cleanText(l?.name, 40), level: TEACHER_LANGUAGE_LEVELS.includes(l?.level) ? l.level : "" }))
+      .filter((l) => l.name && l.level)
+      .slice(0, 8);
+    const educations = (Array.isArray(b.educations) ? b.educations : [])
+      .map((e) => ({ institution: cleanText(e?.institution, 120), degree: cleanText(e?.degree, 120), dates: cleanText(e?.dates, 40) }))
+      .filter((e) => e.institution || e.degree)
+      .slice(0, 6);
+    const certificates = (Array.isArray(b.certificates) ? b.certificates : [])
+      .map((c) => ({ name: cleanText(c?.name, 120), dates: cleanText(c?.dates, 40) }))
+      .filter((c) => c.name)
+      .slice(0, 8);
+
+    await pool.query(
+      `UPDATE teachers SET headline = ?, bio = ?, specialties = ?, formats = ?, languages = ?,
+         years_experience = ?, video_intro_url = ?, educations = ?, certificates = ?, qualities = ?
+       WHERE id = ?`,
+      [
+        cleanText(b.headline, 160) || null,
+        cleanText(b.bio, 4000) || null,
+        JSON.stringify(cleanTextList(b.specialties, 12, 60)),
+        JSON.stringify((Array.isArray(b.formats) ? b.formats : []).filter((f) => TEACHER_FORMATS.includes(f))),
+        JSON.stringify(languages),
+        yearsRaw,
+        videoIntroUrl || null,
+        JSON.stringify(educations),
+        JSON.stringify(certificates),
+        JSON.stringify((Array.isArray(b.qualities) ? b.qualities : []).filter((q) => TEACHER_QUALITIES.includes(q)).slice(0, 6)),
+        teacher.id,
+      ]
+    );
+    const [rows] = await pool.query("SELECT * FROM teachers WHERE id = ?", [teacher.id]);
+    res.json(mapEditableTeacherProfile(rows[0]));
+  } catch (error) {
+    console.error("[teachers/me/public-profile PUT]", error);
+    res.status(500).json({ message: "Impossible d'enregistrer votre fiche publique." });
   }
 });
 

@@ -41,6 +41,13 @@ export interface PublicTeacher {
     bio: string | null;
     specialties: string[];
     formats: string[];
+    headline: string | null;
+    languages: { name: string; level: string }[];
+    yearsExperience: number | null;
+    videoIntroUrl: string | null;
+    educations: { institution: string; degree: string; dates: string }[];
+    certificates: { name: string; dates: string }[];
+    qualities: string[];
 }
 
 export interface TeacherSlot {
@@ -65,6 +72,7 @@ export interface PublicTeacherProfile extends PublicTeacher {
     slots: TeacherSlot[];
     reviews: TeacherReview[];
     reviewsCount: number;
+    ratingDistribution: Record<1 | 2 | 3 | 4 | 5, number>;
 }
 
 export const fetchPublicTeachers = () => publicRequest<PublicTeacher[]>("/public/teachers");

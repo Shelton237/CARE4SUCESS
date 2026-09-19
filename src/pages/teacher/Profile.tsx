@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import PublicProfileEditor from "@/pages/teacher/PublicProfileEditor";
 
 export default function TeacherProfile() {
     const { user: authUser } = useAuth();
@@ -119,6 +120,7 @@ export default function TeacherProfile() {
                     <div className="border border-slate-200 bg-white p-2 space-y-1">
                         {[
                             { id: "personal", label: "Infos Personnelles", icon: UserCircle2 },
+                            { id: "public", label: "Profil public", icon: Globe },
                             { id: "banking", label: "Paiement & RIB", icon: CreditCard },
                             { id: "security", label: "Sécurité & Accès", icon: ShieldCheck },
                         ].map(tab => (
@@ -147,8 +149,10 @@ export default function TeacherProfile() {
                             <h2 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest">
                                 {activeTab === 'personal'
                                     ? (authUser?.role === 'teacher' ? "Informations de l'Enseignant" : "Informations du Tuteur")
+                                    : activeTab === 'public' ? 'Ma page publique'
                                     : activeTab === 'banking' ? 'Coordonnées de Reversement' : 'Sécurité du compte'}
                             </h2>
+                            {activeTab !== 'public' && (
                             <Button
                                 onClick={handleSave}
                                 className="bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black h-8 px-4 rounded-none shadow-none text-[10px] uppercase tracking-widest gap-2"
@@ -157,9 +161,12 @@ export default function TeacherProfile() {
                                 {updateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                                 Enregistrer
                             </Button>
+                            )}
                         </div>
 
                         <div className="p-4">
+                            {activeTab === 'public' && <PublicProfileEditor />}
+
                             {activeTab === 'personal' && (
                                 <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
