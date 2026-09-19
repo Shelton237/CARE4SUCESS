@@ -636,6 +636,33 @@ export default function PublicTeacherProfile() {
                             </div>
                         )}
 
+                        {/* Card Formations & certificats */}
+                        {(teacher.educations.length > 0 || teacher.certificates.length > 0) && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                                <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Formations et certificats</h2>
+                                <ul className="space-y-3">
+                                    {teacher.educations.map((ed, i) => (
+                                        <li key={`ed-${i}`} className="flex gap-3">
+                                            <GraduationCap className="w-4 h-4 text-[#1A6CC8] shrink-0 mt-0.5" />
+                                            <div className="text-sm">
+                                                <p className="font-semibold text-[#0D2D5A]">{[ed.degree, ed.institution].filter(Boolean).join(" · ")}</p>
+                                                {ed.dates && <p className="text-xs text-gray-400">{ed.dates}</p>}
+                                            </div>
+                                        </li>
+                                    ))}
+                                    {teacher.certificates.map((c, i) => (
+                                        <li key={`ce-${i}`} className="flex gap-3">
+                                            <BadgeCheck className="w-4 h-4 text-[#0F9B8E] shrink-0 mt-0.5" />
+                                            <div className="text-sm">
+                                                <p className="font-semibold text-[#0D2D5A]">{c.name}</p>
+                                                {c.dates && <p className="text-xs text-gray-400">{c.dates}</p>}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
                         {/* Card Avis récents */}
                         {teacher.reviewsCount > 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-6">
@@ -736,33 +763,6 @@ export default function PublicTeacherProfile() {
                                         </span>
                                     ))}
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Card Formations & certificats */}
-                        {(teacher.educations.length > 0 || teacher.certificates.length > 0) && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                                <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Formations et certificats</h2>
-                                <ul className="space-y-3">
-                                    {teacher.educations.map((ed, i) => (
-                                        <li key={`ed-${i}`} className="flex gap-3">
-                                            <GraduationCap className="w-4 h-4 text-[#1A6CC8] shrink-0 mt-0.5" />
-                                            <div className="text-sm">
-                                                <p className="font-semibold text-[#0D2D5A]">{[ed.degree, ed.institution].filter(Boolean).join(" · ")}</p>
-                                                {ed.dates && <p className="text-xs text-gray-400">{ed.dates}</p>}
-                                            </div>
-                                        </li>
-                                    ))}
-                                    {teacher.certificates.map((c, i) => (
-                                        <li key={`ce-${i}`} className="flex gap-3">
-                                            <BadgeCheck className="w-4 h-4 text-[#0F9B8E] shrink-0 mt-0.5" />
-                                            <div className="text-sm">
-                                                <p className="font-semibold text-[#0D2D5A]">{c.name}</p>
-                                                {c.dates && <p className="text-xs text-gray-400">{c.dates}</p>}
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
                             </div>
                         )}
 
