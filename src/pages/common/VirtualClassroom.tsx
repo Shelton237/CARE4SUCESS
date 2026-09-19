@@ -59,7 +59,8 @@ import {
     ArrowUpRight,
     Triangle,
     Highlighter,
-    PaintBucket
+    PaintBucket,
+    Headphones
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -114,7 +115,10 @@ declare global {
 
 type WhiteboardItem =
     | { id: string; type: "youtube"; videoId: string }
-    | { id: string; type: "pdf"; url: string; name: string };
+    | { id: string; type: "pdf"; url: string; name: string }
+    | { id: string; type: "audio"; url: string; name: string };
+
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // aligné sur la limite multer du serveur
 
 type DrawTool = "pen" | "highlighter" | "eraser" | "line" | "arrow" | "rectangle" | "circle" | "triangle" | "text";
 const SHAPE_TOOLS: DrawTool[] = ["line", "arrow", "rectangle", "circle", "triangle"];
@@ -125,11 +129,11 @@ const QUICK_COLORS = ["#1A6CC8", "#EF4444", "#22C55E", "#F59E0B", "#000000", "#8
 // `type` ({ id, videoId } uniquement) — on les normalise à la lecture.
 function normalizeWhiteboardItems(raw: any[]): WhiteboardItem[] {
     if (!Array.isArray(raw)) return [];
-    return raw.map((item) =>
-        item?.type === "pdf"
-            ? { id: item.id, type: "pdf" as const, url: item.url, name: item.name || "Document.pdf" }
-            : { id: item.id, type: "youtube" as const, videoId: item.videoId }
-    );
+    return raw.map((item): WhiteboardItem => {
+        if (item?.type === "pdf") return { id: item.id, type: "pdf", url: item.url, name: item.name || "Document.pdf" };
+        if (item?.type === "audio") return { id: item.id, type: "audio", url: item.url, name: item.name || "Audio" };
+        return { id: item.id, type: "youtube", videoId: item.videoId };
+    });
 }
 
 const getFullAttachmentUrl = (url: string) => {
@@ -205,6 +209,8 @@ export default function VirtualClassroom() {
     const previewYoutubeId = useMemo(() => extractYouTubeId(youtubeUrl), [youtubeUrl]);
     const pdfInputRef = useRef<HTMLInputElement>(null);
     const [uploadingPdf, setUploadingPdf] = useState(false);
+    const audioInputRef = useRef<HTMLInputElement>(null);
+    const [uploadingAudio, setUploadingAudio] = useState(false);
     const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
     const [boardExpanded, setBoardExpanded] = useState(false);
     const [notesExpanded, setNotesExpanded] = useState(false);
@@ -448,6 +454,33 @@ export default function VirtualClassroom() {
             handleUploadError(err, "Impossible d'importer le PDF.");
         } finally {
             setUploadingPdf(false);
+        }
+    };
+
+    const handleAudioSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+        if (!file.type.startsWith("audio/")) {
+            toast.error("Seuls les fichiers audio sont acceptés (mp3, m4a, wav, ogg).");
+            return;
+        }
+        if (file.size > MAX_AUDIO_BYTES) {
+            toast.error("Fichier trop volumineux (10 Mo maximum). Compressez l'audio ou coupez-le en plusieurs extraits.");
+            return;
+        }
+        setUploadingAudio(true);
+        try {
+            const formData = new FormData();
+            formData.append("attachment", file);
+            const { fileUrl } = await uploadMessageAttachment(formData);
+            const nextItems: WhiteboardItem[] = [...whiteboardItems, { id: crypto.randomUUID(), type: "audio", url: fileUrl, name: file.name }];
+            handleWorkspaceUpdate('whiteboardItems', nextItems);
+            toast.success("Audio ajouté au tableau partagé.");
+        } catch (err) {
+            handleUploadError(err, "Impossible d'importer l'audio.");
+        } finally {
+            setUploadingAudio(false);
         }
     };
 
@@ -1248,6 +1281,10 @@ export default function VirtualClassroom() {
                                             {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
                                         </button>
                                         <input ref={pdfInputRef} type="file" accept="application/pdf" onChange={handlePdfSelected} className="hidden" />
+                                        <button onClick={() => audioInputRef.current?.click()} disabled={uploadingAudio} className="p-2 rounded-xl transition-all bg-slate-50 text-slate-400 disabled:opacity-50" title="Importer un audio (mp3, m4a, wav, 10 Mo max) que les élèves pourront écouter">
+                                            {uploadingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <Headphones className="w-4 h-4" />}
+                                        </button>
+                                        <input ref={audioInputRef} type="file" accept="audio/*" onChange={handleAudioSelected} className="hidden" />
                                         <button
                                             onClick={() => setBoardExpanded(v => !v)}
                                             className={`hidden md:flex p-2 rounded-xl transition-all ${boardExpanded ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
@@ -1310,6 +1347,19 @@ export default function VirtualClassroom() {
                                                         <FileText className="w-3 h-3 text-red-400 shrink-0" />
                                                         <span className="text-[9px] font-bold truncate">{item.name}</span>
                                                     </div>
+                                                </div>
+                                            ) : item.type === 'audio' ? (
+                                                <div className="w-full h-full bg-gradient-to-br from-[#0D2D5A] to-[#1A6CC8] flex flex-col items-center justify-between p-3">
+                                                    <div className="flex items-center gap-2 w-full text-white">
+                                                        <Headphones className="w-4 h-4 shrink-0 text-[#F5A623]" />
+                                                        <span className="text-[10px] font-bold truncate" title={item.name}>{item.name}</span>
+                                                    </div>
+                                                    <audio
+                                                        controls
+                                                        preload="metadata"
+                                                        src={getFullAttachmentUrl(item.url)}
+                                                        className="w-full h-10"
+                                                    />
                                                 </div>
                                             ) : (
                                                 <iframe
