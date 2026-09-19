@@ -2460,6 +2460,85 @@ app.get("/api/public/teachers", async (req, res) => {
   }
 });
 
+// ─── Aperçu de lien (Open Graph) pour la page publique d'un coach ────────────
+// Les robots (WhatsApp, Facebook, LinkedIn, X, Telegram...) n'exécutent pas le
+// JavaScript de la SPA : Apache leur envoie cette route, qui renvoie index.html
+// avec les balises OG/Twitter du coach (photo, nom, description, tarif).
+const SITE_ORIGIN = (process.env.PUBLIC_SITE_URL || "https://care4success.usra-care.com").replace(/\/$/, "");
+const DEFAULT_SHARE_IMAGE = `${SITE_ORIGIN}/logo/Care%204%20Success-logo-Ok_large.png`;
+const escapeHtmlAttr = (value) =>
+  String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const shortText = (value, max) => {
+  const text = String(value || "").replace(EMOJI_RE, "").replace(/^#{1,6}\s+/gm, "").replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+};
+
+app.get("/api/share/professeurs/:id", async (req, res) => {
+  const { id } = req.params;
+  const pageUrl = `${SITE_ORIGIN}/professeurs/${encodeURIComponent(id)}`;
+  let html;
+  try {
+    html = await fs.promises.readFile(path.join(rootDir, "dist", "index.html"), "utf8");
+  } catch {
+    return res.redirect(302, pageUrl);
+  }
+  try {
+    await ensureTeachersTable();
+    await ensureGeoLocationsTable();
+    const [[row]] = await pool.query(
+      `SELECT t.id, t.name, t.subjects, t.level, t.city, t.status, t.rating, t.students,
+              t.rate_type, t.hourly_rate, t.monthly_rate, t.currency, t.rate_unit_minutes,
+              ${PUBLIC_TEACHER_PROFILE_COLUMNS},
+              ${PUBLIC_TEACHER_GEO_COLUMNS}
+       FROM teachers t
+       ${PUBLIC_TEACHER_GEO_JOIN}
+       WHERE t.id = ? AND t.status = 'actif'`,
+      [id]
+    );
+    if (row) {
+      const t = mapPublicTeacherRow(row);
+      const currency = ["XAF", "XOF"].includes(t.currency) ? "FCFA" : t.currency;
+      const rate = t.rate > 0
+        ? `${Math.round(t.rate).toLocaleString("fr-FR")} ${currency}${t.rateType === "monthly" ? "/mois" : "/h"}`
+        : "";
+      const facts = [
+        shortText(t.headline, 140) || (t.subjects.length ? `Coach ${t.subjects.join(", ")}` : "Coach"),
+        t.yearsExperience ? `${t.yearsExperience} an${t.yearsExperience > 1 ? "s" : ""} d'expérience` : "",
+        rate,
+      ].filter(Boolean).join(" · ");
+      const description = shortText(`${facts}. ${shortText(t.bio, 180)}`, 300);
+      const title = `${t.name}, coach sur Care4Success`;
+      const image = t.avatarUrl
+        ? (/^https?:\/\//i.test(t.avatarUrl) ? t.avatarUrl : `${SITE_ORIGIN}${t.avatarUrl}`)
+        : DEFAULT_SHARE_IMAGE;
+      const tags = [
+        `<meta property="og:type" content="profile" />`,
+        `<meta property="og:site_name" content="Care4Success" />`,
+        `<meta property="og:locale" content="fr_FR" />`,
+        `<meta property="og:title" content="${escapeHtmlAttr(title)}" />`,
+        `<meta property="og:description" content="${escapeHtmlAttr(description)}" />`,
+        `<meta property="og:url" content="${escapeHtmlAttr(pageUrl)}" />`,
+        `<meta property="og:image" content="${escapeHtmlAttr(image)}" />`,
+        `<meta property="og:image:alt" content="${escapeHtmlAttr(`Photo de ${t.name}`)}" />`,
+        `<meta name="twitter:card" content="${t.avatarUrl ? "summary" : "summary_large_image"}" />`,
+        `<meta name="twitter:title" content="${escapeHtmlAttr(title)}" />`,
+        `<meta name="twitter:description" content="${escapeHtmlAttr(description)}" />`,
+        `<meta name="twitter:image" content="${escapeHtmlAttr(image)}" />`,
+        `<link rel="canonical" href="${escapeHtmlAttr(pageUrl)}" />`,
+      ].join("\n  ");
+      html = html
+        .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${escapeHtmlAttr(title)}</title>`)
+        .replace(/<meta\s+name="description"[\s\S]*?\/>/, () => `<meta name="description" content="${escapeHtmlAttr(description)}" />`)
+        .replace(/\s*<meta\s+(?:property="og:[^"]*"|name="twitter:[^"]*")[\s\S]*?\/>/g, "")
+        .replace("</head>", () => `  ${tags}\n</head>`);
+    }
+  } catch (error) {
+    // Aperçu générique plutôt qu'une erreur : la page reste servie normalement.
+    console.error("[share/professeurs]", error);
+  }
+  res.set("Content-Type", "text/html; charset=utf-8").set("Cache-Control", "public, max-age=300").send(html);
+});
+
 app.get("/api/public/teachers/:id", async (req, res) => {
   const { id } = req.params;
   try {

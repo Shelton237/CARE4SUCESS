@@ -571,7 +571,13 @@ export default function PublicTeacherProfile() {
                                 className="w-[100px] h-[100px] rounded-full object-cover flex-shrink-0 ring-2 ring-white/20"
                             />
                         ) : (
-                            <div className="w-[100px] h-[100px] rounded-full border-[3px] border-white/15 flex-shrink-0" />
+                            <div
+                                aria-label={teacher.name}
+                                className="w-[100px] h-[100px] rounded-full border-[3px] border-white/15 bg-white/10 flex items-center justify-center flex-shrink-0 text-white text-3xl font-bold"
+                                style={{ fontFamily: "'Playfair Display', serif" }}
+                            >
+                                {teacher.name.split(/\s+/).filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                            </div>
                         )}
 
                         {/* Info */}
