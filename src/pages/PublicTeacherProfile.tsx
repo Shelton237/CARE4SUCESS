@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    Star, Clock, ArrowLeft, ArrowRight,
+    Star, Clock, ArrowRight,
     Loader2, CheckCircle2, GraduationCap, X, BookOpen, ImageIcon,
     CreditCard, Phone, Mail, User,
 } from "lucide-react";
@@ -22,8 +22,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const formatSlotDate = (value: string) =>
-    new Date(value).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" });
+// "mar. 22 sept." -> "Mar 22 sept"
+const formatSlotDate = (value: string) => {
+    const s = new Date(value).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" }).replace(/\./g, "");
+    return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+const formatLabel = (f: string) => (f === "En ligne" ? "En ligne (visioconférence)" : f);
 
 const formatSlotTime = (value: string) =>
     new Date(value).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -367,7 +372,7 @@ function ReservationPanel({
     onZoom: (url: string) => void;
 }) {
     const [selectedSlotId, setSelectedSlotId] = useState<string | null>(slots[0]?.id ?? null);
-    const [format, setFormat] = useState(teacher.formats[0] || "En ligne (visioconférence)");
+    const [format, setFormat] = useState(teacher.formats[0] || "En ligne");
     const [showForm, setShowForm] = useState(false);
 
     const selectedSlot = slots.find(s => s.id === selectedSlotId) || null;
@@ -383,7 +388,7 @@ function ReservationPanel({
     }
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sticky top-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sticky top-24">
             <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Réserver une session</h2>
 
             <div className="space-y-1.5 mb-5">
@@ -391,8 +396,8 @@ function ReservationPanel({
                 <Select value={format} onValueChange={setFormat}>
                     <SelectTrigger className="h-10 text-sm bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                        {(teacher.formats.length ? teacher.formats : ["En ligne (visioconférence)"]).map(f => (
-                            <SelectItem key={f} value={f}>{f}</SelectItem>
+                        {(teacher.formats.length ? teacher.formats : ["En ligne"]).map(f => (
+                            <SelectItem key={f} value={f}>{formatLabel(f)}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -427,22 +432,22 @@ function ReservationPanel({
                                             <ImageIcon className="w-3 h-3" />
                                         </span>
                                     )}
-                                    <p className="text-xs font-bold capitalize">{formatSlotDate(slot.startTime)}</p>
+                                    <p className="text-xs font-bold">{formatSlotDate(slot.startTime)}</p>
                                     <p className={`text-[11px] mt-0.5 ${selected ? "text-white/85" : "text-gray-400"}`}>{formatSlotTime(slot.startTime)}</p>
                                 </button>
                             );
                         })}
                     </div>
 
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between border-t border-gray-100 pt-4 mb-5">
                         <span className="text-sm font-semibold text-[#0D2D5A]">Total</span>
-                        <span className="text-lg font-black text-[#0F9B8E]">{formatMoney(teacher.rate, teacher.currency)}/h</span>
+                        <span className="text-xl font-bold text-[#0F9B8E]" style={{ fontFamily: "'Playfair Display', serif" }}>{formatMoney(teacher.rate, teacher.currency)}/h</span>
                     </div>
 
                     <Button
                         disabled={!selectedSlot}
                         onClick={() => setShowForm(true)}
-                        className="w-full h-11 text-sm font-bold bg-[#F5A623] hover:bg-[#e09520] text-[#0D2D5A] rounded-xl"
+                        className="w-full h-12 text-sm font-bold bg-[#F5A623] hover:bg-[#e09520] text-white rounded-xl"
                     >
                         Réserver cette session <ArrowRight className="w-4 h-4 ml-1.5" />
                     </Button>
@@ -498,57 +503,49 @@ export default function PublicTeacherProfile() {
         <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
             {/* ── Hero ── */}
-            <section className="bg-[#0B2545] pt-8 pb-8">
-                <div className="w-full px-6 md:px-12 xl:px-20">
-                    <NavLink
-                        to={ROUTE_PATHS.ANNUAIRE_COACHS}
-                        className="inline-flex items-center gap-1.5 text-blue-200/80 hover:text-white text-xs font-semibold mb-6 transition-colors"
-                    >
-                        <ArrowLeft className="w-3.5 h-3.5" /> Retour à l'annuaire
-                    </NavLink>
-
+            <section className="bg-[#0B2545] py-9">
+                <div className="mx-auto max-w-[1108px] px-6">
                     <div className="flex items-center gap-6 flex-wrap md:flex-nowrap">
                         {/* Avatar */}
                         {teacher.avatarUrl ? (
                             <img
                                 src={teacher.avatarUrl}
                                 alt={teacher.name}
-                                className="w-20 h-20 rounded-full object-cover flex-shrink-0 ring-2 ring-white/30"
+                                className="w-[100px] h-[100px] rounded-full object-cover flex-shrink-0 ring-2 ring-white/20"
                             />
                         ) : (
-                            <div className="w-20 h-20 rounded-full border-2 border-white/30 flex-shrink-0" />
+                            <div className="w-[100px] h-[100px] rounded-full border-[3px] border-white/15 flex-shrink-0" />
                         )}
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                            <h1 className="text-xl md:text-2xl font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.name}</h1>
-                            <p className="text-blue-200 text-sm mt-1">
+                            <h1 className="text-[28px] font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.name}</h1>
+                            <p className="text-blue-200 text-sm mt-1.5">
                                 {[...teacher.subjects, teacher.city || teacher.region || teacher.country].filter(Boolean).join(" · ")}
                             </p>
-                            <div className="flex items-center gap-1 mt-1.5">
+                            <div className="flex items-center gap-1 mt-2 text-[#F5A623] text-sm">
                                 {[1, 2, 3, 4, 5].map(i => (
-                                    <Star key={i} className={`w-3.5 h-3.5 ${i <= Math.floor(teacher.rating) ? "fill-[#F5A623] text-[#F5A623]" : "text-white/20"}`} />
+                                    <Star key={i} className={`w-3 h-3 ${i <= Math.floor(teacher.rating) ? "fill-[#F5A623] text-[#F5A623]" : "text-white/20"}`} />
                                 ))}
-                                <span className="text-[#F5A623] text-sm font-bold ml-1">{teacher.rating.toFixed(1)}</span>
-                                <span className="text-blue-200 text-xs ml-0.5">({teacher.reviewsCount} avis)</span>
+                                <span className="ml-1">{teacher.rating.toFixed(1)} ({teacher.reviewsCount} avis)</span>
                             </div>
                         </div>
 
                         {/* Prix */}
                         <div className="text-right flex-shrink-0">
-                            <p className="text-xl md:text-2xl font-black text-[#F5A623]">{formatMoney(teacher.rate, teacher.currency)}/h</p>
-                            <p className="text-xs text-blue-200 mt-0.5">par session</p>
+                            <p className="text-[32px] font-bold text-[#F5A623] leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{formatMoney(teacher.rate, teacher.currency)}/h</p>
+                            <p className="text-[11px] text-blue-200/80 mt-1">par session</p>
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* ── Contenu principal ── */}
-            <section className="w-full px-6 md:px-12 xl:px-20 py-8 pb-16">
-                <div className="grid md:grid-cols-5 gap-6 items-start">
+            <section className="mx-auto max-w-[1108px] px-6 py-9 pb-16">
+                <div className="grid md:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
 
-                    {/* Colonne gauche (3/5) */}
-                    <div className="md:col-span-3 space-y-5">
+                    {/* Colonne gauche */}
+                    <div className="space-y-5">
 
                         {/* Card À propos */}
                         {teacher.bio && (
@@ -559,18 +556,20 @@ export default function PublicTeacherProfile() {
                         )}
 
                         {/* Stats */}
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-[#F4F2ED] rounded-2xl p-4 text-center">
-                                <p className="text-2xl font-black text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.students}</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5">sessions</p>
-                            </div>
-                            <div className="bg-[#F4F2ED] rounded-2xl p-4 text-center">
-                                <p className="text-2xl font-black text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.rating.toFixed(1)}</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5">note moyenne</p>
-                            </div>
-                            <div className="bg-[#F4F2ED] rounded-2xl p-4 text-center">
-                                <p className="text-2xl font-black text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.formats.length || teacher.subjects.length}</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5">{teacher.formats.length ? "formats" : "matières"}</p>
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
+                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.students}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1">sessions</p>
+                                </div>
+                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
+                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.rating.toFixed(1)}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1">note moyenne</p>
+                                </div>
+                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
+                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.formats.length || teacher.subjects.length}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1">{teacher.formats.length ? "formats" : "matières"}</p>
+                                </div>
                             </div>
                         </div>
 
@@ -580,7 +579,7 @@ export default function PublicTeacherProfile() {
                                 <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Spécialités</h2>
                                 <div className="flex flex-wrap gap-1.5">
                                     {teacher.specialties.map((s: string) => (
-                                        <span key={s} className="text-xs px-3 py-1 rounded-full bg-[#F4F2ED] text-[#0D2D5A] font-semibold">
+                                        <span key={s} className="text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
                                             {s}
                                         </span>
                                     ))}
@@ -596,7 +595,7 @@ export default function PublicTeacherProfile() {
                                     {teacher.formats.map((f: string) => {
                                         const c = formatColor(f);
                                         return (
-                                            <span key={f} className={`text-xs px-3 py-1 rounded-full font-semibold ${c.bg} ${c.text}`}>
+                                            <span key={f} className={`text-xs px-3 py-1.5 rounded-full ${c.bg} ${c.text}`}>
                                                 {f}
                                             </span>
                                         );
@@ -613,7 +612,7 @@ export default function PublicTeacherProfile() {
                                     {teacher.reviews.map((r, i) => (
                                         <div key={i} className={i > 0 ? "pt-4 border-t border-gray-100" : ""}>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-[10px] font-bold text-[#1A6CC8]">
+                                                <div className="w-8 h-8 rounded-full bg-[#F4F2ED] flex items-center justify-center text-[11px] font-semibold text-[#0D2D5A]">
                                                     {r.reviewerName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                                                 </div>
                                                 <p className="text-sm font-bold text-[#0D2D5A]">{r.reviewerName}</p>
@@ -631,8 +630,8 @@ export default function PublicTeacherProfile() {
                         )}
                     </div>
 
-                    {/* Colonne droite (2/5) */}
-                    <div className="md:col-span-2">
+                    {/* Colonne droite */}
+                    <div>
                         <ReservationPanel teacher={teacher} slots={teacher.slots} onZoom={setLightboxUrl} />
                     </div>
                 </div>
