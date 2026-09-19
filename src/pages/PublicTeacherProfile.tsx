@@ -18,6 +18,7 @@ import {
 import { formatMoney } from "@/lib/money";
 import { ROUTE_PATHS } from "@/lib/index";
 import { Breadcrumb } from "@/components/Layout";
+import { IMAGES } from "@/assets/images";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -508,8 +509,17 @@ export default function PublicTeacherProfile() {
         <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
             {/* ── Hero ── */}
-            <section className="bg-[#0B2545] py-9">
-                <div className="mx-auto max-w-[1108px] px-6">
+            <section className="relative overflow-hidden bg-[#0B2545] py-9">
+                <div className="absolute inset-0">
+                    <img
+                        src={IMAGES.STUDENTS_STUDYING_7}
+                        alt=""
+                        aria-hidden="true"
+                        className="w-full h-full object-cover opacity-70 mix-blend-overlay"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/80 to-[#0B2545]/50" />
+                </div>
+                <div className="relative z-10 mx-auto max-w-[1108px] px-6">
                     <div className="flex items-center gap-6 flex-wrap md:flex-nowrap">
                         {/* Avatar */}
                         {teacher.avatarUrl ? (
