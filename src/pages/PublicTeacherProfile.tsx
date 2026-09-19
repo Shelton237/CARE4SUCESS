@@ -94,13 +94,17 @@ function RichText({ text }: { text: string }) {
 
 // ─── Spécialités : titre + description repliable (accordéon pleine largeur) ──
 function SpecialtiesSection({ teacher }: { teacher: TeacherProfileData }) {
-    if (!teacher.specialties.length) return null;
     const descriptions = teacher.specialtyDescriptions ?? {};
     const described = teacher.specialties.filter(s => descriptions[s]);
+    // Tout déplié sur ordinateur ; replié sur mobile pour éviter des écrans de texte.
+    const [openItems] = useState<string[]>(() =>
+        typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches ? described : []
+    );
+    if (!teacher.specialties.length) return null;
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
             <h2 className={SECTION_TITLE + " mb-2"} style={{ fontFamily: "'Playfair Display', serif" }}>Mes spécialités</h2>
-            <Accordion type="multiple" defaultValue={described}>
+            <Accordion type="multiple" defaultValue={openItems}>
                 {teacher.specialties.map(name => descriptions[name] ? (
                     <AccordionItem key={name} value={name} className="border-gray-100 last:border-b-0">
                         <AccordionTrigger className="text-sm font-bold text-[#0D2D5A] hover:no-underline">{name}</AccordionTrigger>
@@ -150,7 +154,7 @@ function ReviewsSection({ teacher }: { teacher: TeacherProfileData }) {
     const PAGE = 6;
     const visible = showAll ? teacher.reviews : teacher.reviews.slice(0, PAGE);
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
             <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Ce que disent mes apprenants</h2>
             <div className="flex items-center gap-8 flex-wrap mb-8">
                 <div>
@@ -199,7 +203,7 @@ function ReviewsSection({ teacher }: { teacher: TeacherProfileData }) {
 function EducationCard({ teacher }: { teacher: TeacherProfileData }) {
     if (!teacher.educations.length && !teacher.certificates.length) return null;
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
             <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Formations et certificats</h2>
             <ul className="space-y-3">
                 {teacher.educations.map((ed, i) => (
@@ -567,7 +571,7 @@ function ReservationPanel({
     }
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
             <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Réserver une session</h2>
 
             <div className="space-y-1.5 mb-5">
@@ -697,18 +701,18 @@ export default function PublicTeacherProfile() {
                     <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/80 to-[#0B2545]/50" />
                 </div>
                 <div className="relative z-10 mx-auto max-w-[1108px] px-6">
-                    <div className="flex items-center gap-6 flex-wrap md:flex-nowrap">
+                    <div className="flex items-center gap-4 md:gap-6 flex-wrap md:flex-nowrap">
                         {/* Avatar */}
                         {teacher.avatarUrl ? (
                             <img
                                 src={teacher.avatarUrl}
                                 alt={teacher.name}
-                                className="w-[100px] h-[100px] rounded-full object-cover flex-shrink-0 ring-2 ring-white/20"
+                                className="w-20 h-20 md:w-[100px] md:h-[100px] rounded-full object-cover flex-shrink-0 ring-2 ring-white/20"
                             />
                         ) : (
                             <div
                                 aria-label={teacher.name}
-                                className="w-[100px] h-[100px] rounded-full border-[3px] border-white/15 bg-white/10 flex items-center justify-center flex-shrink-0 text-white text-3xl font-bold"
+                                className="w-20 h-20 md:w-[100px] md:h-[100px] rounded-full border-[3px] border-white/15 bg-white/10 flex items-center justify-center flex-shrink-0 text-white text-2xl md:text-3xl font-bold"
                                 style={{ fontFamily: "'Playfair Display', serif" }}
                             >
                                 {teacher.name.split(/\s+/).filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase()}
@@ -718,7 +722,7 @@ export default function PublicTeacherProfile() {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                                <h1 className="text-[28px] font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.name}</h1>
+                                <h1 className="text-2xl md:text-[28px] font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.name}</h1>
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-[11px] font-semibold text-white" title="Profil examiné et validé par l'équipe Care4Success">
                                     <BadgeCheck className="w-3.5 h-3.5 text-[#F5A623]" /> Coach vérifié
                                 </span>
@@ -736,9 +740,9 @@ export default function PublicTeacherProfile() {
                         </div>
 
                         {/* Prix */}
-                        <div className="text-right flex-shrink-0">
-                            <p className="text-[32px] font-bold text-[#F5A623] leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{formatMoney(teacher.rate, teacher.currency)}/h</p>
-                            <p className="text-[11px] text-blue-200/80 mt-1">par session</p>
+                        <div className="w-full md:w-auto flex items-baseline gap-2 md:block md:text-right flex-shrink-0">
+                            <p className="text-[26px] md:text-[32px] font-bold text-[#F5A623] leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{formatMoney(teacher.rate, teacher.currency)}/h</p>
+                            <p className="text-[11px] text-blue-200/80 md:mt-1">par session</p>
                         </div>
                     </div>
                 </div>
@@ -771,7 +775,7 @@ export default function PublicTeacherProfile() {
 
                         {/* Card À propos */}
                         {teacher.bio && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
                                 <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>À propos</h2>
                                 <RichText text={teacher.bio} />
                             </div>
@@ -785,17 +789,17 @@ export default function PublicTeacherProfile() {
                         <ReservationPanel teacher={teacher} slots={teacher.slots} onZoom={setLightboxUrl} />
 
                         {/* Stats */}
-                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                        <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
                             <div className="grid grid-cols-3 gap-4">
-                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
+                                <div className="bg-[#F4F2ED] rounded-xl py-4 sm:py-6 px-1 text-center">
                                     <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.students}</p>
                                     <p className="text-[11px] text-gray-500 mt-1">sessions</p>
                                 </div>
-                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
+                                <div className="bg-[#F4F2ED] rounded-xl py-4 sm:py-6 px-1 text-center">
                                     <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.rating.toFixed(1)}</p>
                                     <p className="text-[11px] text-gray-500 mt-1">note moyenne</p>
                                 </div>
-                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
+                                <div className="bg-[#F4F2ED] rounded-xl py-4 sm:py-6 px-1 text-center">
                                     <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>
                                         {teacher.yearsExperience ?? (teacher.formats.length || teacher.subjects.length)}
                                     </p>
@@ -808,7 +812,7 @@ export default function PublicTeacherProfile() {
 
                         {/* Card Langues parlées */}
                         {teacher.languages.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
                                 <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Langues parlées</h2>
                                 <div className="flex flex-wrap gap-2">
                                     {teacher.languages.map(l => (
@@ -825,7 +829,7 @@ export default function PublicTeacherProfile() {
 
                         {/* Card Style d'enseignement */}
                         {teacher.qualities.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
                                 <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Style d'enseignement</h2>
                                 <div className="flex flex-wrap gap-1.5">
                                     {teacher.qualities.map(q => (
@@ -839,7 +843,7 @@ export default function PublicTeacherProfile() {
 
                         {/* Card Formats disponibles */}
                         {teacher.formats.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
                                 <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Formats disponibles</h2>
                                 <div className="flex flex-wrap gap-1.5">
                                     {teacher.formats.map((f: string) => {
