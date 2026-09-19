@@ -61,7 +61,7 @@ export default function Home() {
                 transition={{ ...springPresets.gentle, delay: 0.2 }}
                 className="text-blue-200 text-lg leading-relaxed mt-6 mb-10"
               >
-                Soutien scolaire. Langues. Compétences pro. Le bon coach, à côté de chez vous ou en ligne.
+                Soutien scolaire. Langues. Compétences. Un coach pour chaque objectif.
               </motion.p>
 
               {/* CTAs */}
