@@ -40,6 +40,8 @@ export interface PublicTeacher {
     /** Présentation publique, à remplir par le coach — vide au départ. */
     bio: string | null;
     specialties: string[];
+    /** Description libre par spécialité, clé = nom de la spécialité. */
+    specialtyDescriptions: Record<string, string>;
     formats: string[];
     headline: string | null;
     languages: { name: string; level: string }[];

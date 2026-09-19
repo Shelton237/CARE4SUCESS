@@ -177,6 +177,15 @@ const formatDate = (value) => {
   }
 };
 
+// Colonne JSON contenant un objet {clé: texte} (mysql2 la renvoie déjà parsée).
+const parseJsonObject = (value) => {
+  let v = value;
+  if (typeof v === "string") {
+    try { v = JSON.parse(v); } catch { return {}; }
+  }
+  return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+};
+
 const parseJson = (value, fallback) => {
   if (!value) return fallback;
   if (Array.isArray(value)) return value;
@@ -425,6 +434,7 @@ const ensureTeachersTable = async () => {
     // défaut, à remplir plus tard depuis le profil enseignant.
     ["bio",                  "ALTER TABLE teachers ADD COLUMN bio TEXT NULL"],
     ["specialties",          "ALTER TABLE teachers ADD COLUMN specialties JSON NULL"],
+    ["specialty_descriptions", "ALTER TABLE teachers ADD COLUMN specialty_descriptions JSON NULL"],
     ["formats",              "ALTER TABLE teachers ADD COLUMN formats JSON NULL"],
     ["headline",             "ALTER TABLE teachers ADD COLUMN headline VARCHAR(191) NULL"],
     ["languages",            "ALTER TABLE teachers ADD COLUMN languages JSON NULL"],
@@ -2409,6 +2419,7 @@ const mapPublicTeacherRow = (row) => ({
   // reprend la biographie du compte utilisateur.
   bio: (row.bio || row.user_bio) ? fixEncoding(row.bio || row.user_bio) : null,
   specialties: parseJson(row.specialties, []),
+  specialtyDescriptions: parseJsonObject(row.specialty_descriptions),
   formats: parseJson(row.formats, []),
   headline: row.headline ? fixEncoding(row.headline) : null,
   languages: parseJson(row.languages, []),
@@ -2433,7 +2444,7 @@ const PUBLIC_TEACHER_GEO_COLUMNS = `
   gr.id AS geo_region_id, gr.name AS geo_region_name,
   u.avatar_url, u.bio AS user_bio
 `;
-const PUBLIC_TEACHER_PROFILE_COLUMNS = `t.bio, t.specialties, t.formats, t.headline, t.languages,
+const PUBLIC_TEACHER_PROFILE_COLUMNS = `t.bio, t.specialties, t.specialty_descriptions, t.formats, t.headline, t.languages,
   t.years_experience, t.video_intro_url, t.educations, t.certificates, t.qualities`;
 
 app.get("/api/public/teachers", async (req, res) => {
@@ -2633,6 +2644,7 @@ const mapEditableTeacherProfile = (t) => ({
   headline: t.headline || "",
   bio: t.bio || "",
   specialties: parseJson(t.specialties, []),
+  specialtyDescriptions: parseJsonObject(t.specialty_descriptions),
   formats: parseJson(t.formats, []),
   languages: parseJson(t.languages, []),
   yearsExperience: t.years_experience ?? null,
@@ -2691,15 +2703,24 @@ app.put("/api/teachers/me/public-profile", authenticateRequest, async (req, res)
       .map((c) => ({ name: cleanText(c?.name, 120), dates: cleanText(c?.dates, 40) }))
       .filter((c) => c.name)
       .slice(0, 8);
+    // Une description (texte libre, 600 car. max) par spécialité conservée.
+    const specialties = cleanTextList(b.specialties, 12, 60);
+    const rawDescriptions = b.specialtyDescriptions && typeof b.specialtyDescriptions === "object" ? b.specialtyDescriptions : {};
+    const specialtyDescriptions = {};
+    for (const name of specialties) {
+      const text = cleanText(rawDescriptions[name], 600);
+      if (text) specialtyDescriptions[name] = text;
+    }
 
     await pool.query(
-      `UPDATE teachers SET headline = ?, bio = ?, specialties = ?, formats = ?, languages = ?,
+      `UPDATE teachers SET headline = ?, bio = ?, specialties = ?, specialty_descriptions = ?, formats = ?, languages = ?,
          years_experience = ?, video_intro_url = ?, educations = ?, certificates = ?, qualities = ?
        WHERE id = ?`,
       [
         cleanText(b.headline, 160) || null,
         cleanText(b.bio, 4000) || null,
-        JSON.stringify(cleanTextList(b.specialties, 12, 60)),
+        JSON.stringify(specialties),
+        JSON.stringify(specialtyDescriptions),
         JSON.stringify((Array.isArray(b.formats) ? b.formats : []).filter((f) => TEACHER_FORMATS.includes(f))),
         JSON.stringify(languages),
         yearsRaw,

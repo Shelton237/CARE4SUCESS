@@ -791,6 +791,7 @@ export interface TeacherPublicProfileForm {
     headline: string;
     bio: string;
     specialties: string[];
+    specialtyDescriptions: Record<string, string>;
     formats: string[];
     languages: TeacherLanguage[];
     yearsExperience: number | null;

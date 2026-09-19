@@ -19,7 +19,7 @@ const inputCls = "w-full h-9 bg-slate-50/50 px-3 border border-slate-200 font-bo
 const labelCls = "text-[9px] font-black text-slate-400 uppercase tracking-widest";
 
 const emptyForm: TeacherPublicProfileForm = {
-    headline: "", bio: "", specialties: [], formats: [], languages: [], yearsExperience: null,
+    headline: "", bio: "", specialties: [], specialtyDescriptions: {}, formats: [], languages: [], yearsExperience: null,
     videoIntroUrl: "", educations: [], certificates: [], qualities: [],
 };
 
@@ -52,7 +52,7 @@ export default function PublicProfileEditor() {
     useEffect(() => {
         if (!data) return;
         setForm({
-            headline: data.headline, bio: data.bio, specialties: data.specialties, formats: data.formats,
+            headline: data.headline, bio: data.bio, specialties: data.specialties, specialtyDescriptions: data.specialtyDescriptions ?? {}, formats: data.formats,
             languages: data.languages, yearsExperience: data.yearsExperience, videoIntroUrl: data.videoIntroUrl,
             educations: data.educations, certificates: data.certificates, qualities: data.qualities,
         });
@@ -89,6 +89,13 @@ export default function PublicProfileEditor() {
         if (form.specialties.length >= 12) { toast.error("12 spécialités maximum."); return; }
         if (!form.specialties.some(s => s.toLowerCase() === v.toLowerCase())) set("specialties", [...form.specialties, v]);
         setSpecialtyDraft("");
+    };
+
+    const removeSpecialty = (name: string) => {
+        setForm(f => {
+            const { [name]: _removed, ...rest } = f.specialtyDescriptions;
+            return { ...f, specialties: f.specialties.filter(x => x !== name), specialtyDescriptions: rest };
+        });
     };
 
     if (isLoading) {
@@ -229,10 +236,28 @@ export default function PublicProfileEditor() {
                     {form.specialties.map(s => (
                         <span key={s} className="inline-flex items-center gap-1.5 pl-3 pr-1.5 h-7 bg-slate-100 text-[10px] font-bold text-[#0D2D5A]">
                             {s}
-                            <button type="button" onClick={() => set("specialties", form.specialties.filter(x => x !== s))} className="text-slate-400 hover:text-red-500"><X className="w-3 h-3" /></button>
+                            <button type="button" onClick={() => removeSpecialty(s)} className="text-slate-400 hover:text-red-500"><X className="w-3 h-3" /></button>
                         </span>
                     ))}
                 </div>
+                {form.specialties.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                        <label className={labelCls}>Description de chaque spécialité (affichée sur votre page)</label>
+                        {form.specialties.map(s => (
+                            <div key={s} className="space-y-1">
+                                <p className="text-[11px] font-bold text-[#0D2D5A]">{s}</p>
+                                <textarea
+                                    value={form.specialtyDescriptions[s] ?? ""}
+                                    onChange={e => set("specialtyDescriptions", { ...form.specialtyDescriptions, [s]: e.target.value })}
+                                    maxLength={600}
+                                    rows={3}
+                                    placeholder="Expliquez votre expérience et votre méthode pour cette spécialité"
+                                    className="w-full bg-slate-50/50 px-3 py-2 border border-slate-200 text-[11px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8] transition-all resize-y"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Formats + qualités */}

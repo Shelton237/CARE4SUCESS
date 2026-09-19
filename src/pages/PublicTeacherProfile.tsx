@@ -13,6 +13,7 @@ import {
     authorizeBookingCharge,
     checkBookingStatus,
     type TeacherSlot,
+    type PublicTeacherProfile as TeacherProfileData,
     type MobileMoneyNetwork,
 } from "@/api/public";
 import { formatMoney } from "@/lib/money";
@@ -20,6 +21,7 @@ import { ROUTE_PATHS } from "@/lib/index";
 import { Breadcrumb } from "@/components/Layout";
 import { IMAGES } from "@/assets/images";
 import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -86,6 +88,109 @@ function RichText({ text }: { text: string }) {
             {blocks.map((b, i) => b.type === "h"
                 ? <h3 key={i} className="text-sm font-bold text-[#0D2D5A] pt-1">{b.text}</h3>
                 : <p key={i} className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{b.text}</p>)}
+        </div>
+    );
+}
+
+// ─── Spécialités : titre + description repliable (accordéon pleine largeur) ──
+function SpecialtiesSection({ teacher }: { teacher: TeacherProfileData }) {
+    if (!teacher.specialties.length) return null;
+    const descriptions = teacher.specialtyDescriptions ?? {};
+    const described = teacher.specialties.filter(s => descriptions[s]);
+    return (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <h2 className={SECTION_TITLE + " mb-2"} style={{ fontFamily: "'Playfair Display', serif" }}>Mes spécialités</h2>
+            <Accordion type="multiple" defaultValue={described}>
+                {teacher.specialties.map(name => descriptions[name] ? (
+                    <AccordionItem key={name} value={name} className="border-gray-100 last:border-b-0">
+                        <AccordionTrigger className="text-sm font-bold text-[#0D2D5A] hover:no-underline">{name}</AccordionTrigger>
+                        <AccordionContent className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{descriptions[name]}</AccordionContent>
+                    </AccordionItem>
+                ) : (
+                    <div key={name} className="py-4 border-b border-gray-100 last:border-b-0 text-sm font-bold text-[#0D2D5A]">{name}</div>
+                ))}
+            </Accordion>
+        </div>
+    );
+}
+
+// ─── Avis : note globale + cartes sur deux colonnes, "Voir plus" par avis ───
+function ReviewCard({ review }: { review: TeacherProfileData["reviews"][number] }) {
+    const [expanded, setExpanded] = useState(false);
+    const long = review.comment.length > 180;
+    return (
+        <div>
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[#F4F2ED] flex items-center justify-center text-sm font-semibold text-[#0D2D5A] shrink-0">
+                    {review.reviewerName.trim().charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#0D2D5A] truncate">{review.reviewerName}</p>
+                    <p className="text-xs text-gray-400">{review.date}</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-0.5 mt-3">
+                {[1, 2, 3, 4, 5].map(i => (
+                    <Star key={i} className={`w-4 h-4 ${i <= Math.round(review.rating) ? "fill-[#0D2D5A] text-[#0D2D5A]" : "text-gray-200"}`} />
+                ))}
+            </div>
+            <p className={`text-sm text-gray-600 leading-relaxed mt-2 ${expanded ? "" : "line-clamp-4"}`}>{review.comment}</p>
+            {long && (
+                <button type="button" onClick={() => setExpanded(v => !v)} className="mt-2 text-xs font-semibold text-[#0D2D5A] underline underline-offset-2">
+                    {expanded ? "Voir moins" : "Voir plus"}
+                </button>
+            )}
+        </div>
+    );
+}
+
+function ReviewsSection({ teacher }: { teacher: TeacherProfileData }) {
+    const [showAll, setShowAll] = useState(false);
+    if (teacher.reviewsCount <= 0) return null;
+    const PAGE = 6;
+    const visible = showAll ? teacher.reviews : teacher.reviews.slice(0, PAGE);
+    return (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Ce que disent mes apprenants</h2>
+            <div className="flex items-center gap-8 flex-wrap mb-8">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-5xl font-bold text-[#0D2D5A] leading-none" style={{ fontFamily: "'Playfair Display', serif" }}>{Number(teacher.rating.toFixed(1))}</span>
+                        <Star className="w-8 h-8 fill-[#F5A623] text-[#F5A623]" />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">Sur la base de {teacher.reviewsCount} avis</p>
+                </div>
+                <div className="flex-1 min-w-[240px] max-w-md space-y-1.5">
+                    {([5, 4, 3, 2, 1] as const).map(stars => {
+                        const count = teacher.ratingDistribution[stars] ?? 0;
+                        const pct = teacher.reviewsCount ? Math.round((count / teacher.reviewsCount) * 100) : 0;
+                        return (
+                            <div key={stars} className="flex items-center gap-2 text-[11px] text-gray-500">
+                                <span className="w-3 text-right">{stars}</span>
+                                <Star className="w-3 h-3 fill-[#F5A623] text-[#F5A623]" />
+                                <div className="flex-1 h-1.5 rounded-full bg-[#F4F2ED] overflow-hidden">
+                                    <div className="h-full rounded-full bg-[#F5A623]" style={{ width: `${pct}%` }} />
+                                </div>
+                                <span className="w-6 text-right">{count}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-x-12 gap-y-8">
+                {visible.map((r, i) => <ReviewCard key={i} review={r} />)}
+            </div>
+            {!showAll && teacher.reviews.length > PAGE && (
+                <div className="mt-8 flex justify-center">
+                    <button
+                        type="button"
+                        onClick={() => setShowAll(true)}
+                        className="px-6 h-11 rounded-lg border border-gray-200 text-sm font-semibold text-[#0D2D5A] hover:bg-[#F4F2ED] transition-colors"
+                    >
+                        Voir les {teacher.reviews.length} avis
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -641,80 +746,6 @@ export default function PublicTeacherProfile() {
                                 <RichText text={teacher.bio} />
                             </div>
                         )}
-
-                        {/* Card Formations & certificats */}
-                        {(teacher.educations.length > 0 || teacher.certificates.length > 0) && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                                <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Formations et certificats</h2>
-                                <ul className="space-y-3">
-                                    {teacher.educations.map((ed, i) => (
-                                        <li key={`ed-${i}`} className="flex gap-3">
-                                            <GraduationCap className="w-4 h-4 text-[#1A6CC8] shrink-0 mt-0.5" />
-                                            <div className="text-sm">
-                                                <p className="font-semibold text-[#0D2D5A]">{[ed.degree, ed.institution].filter(Boolean).join(" · ")}</p>
-                                                {ed.dates && <p className="text-xs text-gray-400">{ed.dates}</p>}
-                                            </div>
-                                        </li>
-                                    ))}
-                                    {teacher.certificates.map((c, i) => (
-                                        <li key={`ce-${i}`} className="flex gap-3">
-                                            <BadgeCheck className="w-4 h-4 text-[#0F9B8E] shrink-0 mt-0.5" />
-                                            <div className="text-sm">
-                                                <p className="font-semibold text-[#0D2D5A]">{c.name}</p>
-                                                {c.dates && <p className="text-xs text-gray-400">{c.dates}</p>}
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-
-                        {/* Card Avis récents */}
-                        {teacher.reviewsCount > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                                <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Avis récents</h2>
-                                <div className="flex items-center gap-6 mb-5 pb-5 border-b border-gray-100">
-                                    <div className="text-center shrink-0">
-                                        <p className="text-4xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.rating.toFixed(1)}</p>
-                                        <p className="text-[11px] text-gray-400 mt-1">{teacher.reviewsCount} avis</p>
-                                    </div>
-                                    <div className="flex-1 space-y-1.5">
-                                        {([5, 4, 3, 2, 1] as const).map(stars => {
-                                            const count = teacher.ratingDistribution[stars] ?? 0;
-                                            const pct = teacher.reviewsCount ? Math.round((count / teacher.reviewsCount) * 100) : 0;
-                                            return (
-                                                <div key={stars} className="flex items-center gap-2 text-[11px] text-gray-500">
-                                                    <span className="w-3 text-right">{stars}</span>
-                                                    <Star className="w-3 h-3 fill-[#F5A623] text-[#F5A623]" />
-                                                    <div className="flex-1 h-1.5 rounded-full bg-[#F4F2ED] overflow-hidden">
-                                                        <div className="h-full rounded-full bg-[#F5A623]" style={{ width: `${pct}%` }} />
-                                                    </div>
-                                                    <span className="w-6 text-right">{count}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    {teacher.reviews.map((r, i) => (
-                                        <div key={i} className={i > 0 ? "pt-4 border-t border-gray-100" : ""}>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-full bg-[#F4F2ED] flex items-center justify-center text-[11px] font-semibold text-[#0D2D5A]">
-                                                    {r.reviewerName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                                                </div>
-                                                <p className="text-sm font-bold text-[#0D2D5A]">{r.reviewerName}</p>
-                                                <div className="flex items-center gap-0.5">
-                                                    {[1, 2, 3, 4, 5].map(i => (
-                                                        <Star key={i} className={`w-3 h-3 ${i <= Math.round(r.rating) ? "fill-[#F5A623] text-[#F5A623]" : "text-gray-200"}`} />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <p className="text-sm text-gray-500 leading-relaxed mt-1.5">{r.comment}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
 
                     {/* Colonne droite */}
@@ -758,17 +789,30 @@ export default function PublicTeacherProfile() {
                             </div>
                         )}
 
-                        {/* Card Spécialités */}
-                        {teacher.specialties.length > 0 && (
+                        {/* Card Formations & certificats */}
+                        {(teacher.educations.length > 0 || teacher.certificates.length > 0) && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Spécialités</h2>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {teacher.specialties.map((s: string) => (
-                                        <span key={s} className="text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
-                                            {s}
-                                        </span>
+                                <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Formations et certificats</h2>
+                                <ul className="space-y-3">
+                                    {teacher.educations.map((ed, i) => (
+                                        <li key={`ed-${i}`} className="flex gap-3">
+                                            <GraduationCap className="w-4 h-4 text-[#1A6CC8] shrink-0 mt-0.5" />
+                                            <div className="text-sm">
+                                                <p className="font-semibold text-[#0D2D5A]">{[ed.degree, ed.institution].filter(Boolean).join(" · ")}</p>
+                                                {ed.dates && <p className="text-xs text-gray-400">{ed.dates}</p>}
+                                            </div>
+                                        </li>
                                     ))}
-                                </div>
+                                    {teacher.certificates.map((c, i) => (
+                                        <li key={`ce-${i}`} className="flex gap-3">
+                                            <BadgeCheck className="w-4 h-4 text-[#0F9B8E] shrink-0 mt-0.5" />
+                                            <div className="text-sm">
+                                                <p className="font-semibold text-[#0D2D5A]">{c.name}</p>
+                                                {c.dates && <p className="text-xs text-gray-400">{c.dates}</p>}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
 
@@ -803,6 +847,10 @@ export default function PublicTeacherProfile() {
                             </div>
                         )}
                     </div>
+                </div>
+                <div className="mt-6 space-y-5">
+                    <SpecialtiesSection teacher={teacher} />
+                    <ReviewsSection teacher={teacher} />
                 </div>
             </section>
 
