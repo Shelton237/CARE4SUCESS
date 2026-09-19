@@ -46,6 +46,9 @@ const formatColor = (f: string) => FORMAT_COLORS[f] || { bg: "bg-gray-100", text
 
 type BookingStep = "form" | "otp" | "waiting" | "redirect" | "success";
 
+// Pas d'emoji dans les contenus du coach (accroche, bio) : retirés à l'affichage.
+const stripEmoji = (t: string) => t.replace(/[\p{Extended_Pictographic}️‍]/gu, "").replace(/[ \t]{2,}/g, " ").trim();
+
 const SECTION_TITLE = "text-lg font-bold text-[#0D2D5A]";
 
 // Lien YouTube/Vimeo saisi par le coach -> URL d'intégration (le serveur ne
@@ -64,7 +67,8 @@ const toEmbedUrl = (url: string | null): string | null => {
 function RichText({ text }: { text: string }) {
     const blocks: { type: "h" | "p"; text: string }[] = [];
     let paragraphBreak = false;
-    for (const line of text.split("\n")) {
+    for (const rawLine of text.split("\n")) {
+        const line = stripEmoji(rawLine);
         if (line.startsWith("### ")) {
             blocks.push({ type: "h", text: line.slice(4).trim() });
             paragraphBreak = false;
@@ -202,7 +206,7 @@ function BookingPanel({
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden sticky top-6"
+            className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
         >
             {/* Header du panel */}
             <div className="bg-[#0D2D5A] p-5">
@@ -428,7 +432,7 @@ function ReservationPanel({
     }
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sticky top-24">
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Réserver une session</h2>
 
             <div className="space-y-1.5 mb-5">
@@ -578,7 +582,7 @@ export default function PublicTeacherProfile() {
                                     <BadgeCheck className="w-3.5 h-3.5 text-[#F5A623]" /> Coach vérifié
                                 </span>
                             </div>
-                            {teacher.headline && <p className="text-white/90 text-sm mt-1">{teacher.headline}</p>}
+                            {teacher.headline && <p className="text-white/90 text-sm mt-1">{stripEmoji(teacher.headline)}</p>}
                             <p className="text-blue-200 text-sm mt-1.5">
                                 {[...teacher.subjects, teacher.city || teacher.region || teacher.country].filter(Boolean).join(" · ")}
                             </p>
@@ -610,7 +614,7 @@ export default function PublicTeacherProfile() {
 
                         {/* Vidéo de présentation */}
                         {toEmbedUrl(teacher.videoIntroUrl) && (
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
+                            <div className="bg-white rounded-2xl border border-gray-100 p-3">
                                 <div className="aspect-video rounded-xl overflow-hidden bg-black">
                                     <iframe
                                         src={toEmbedUrl(teacher.videoIntroUrl)!}
@@ -626,124 +630,15 @@ export default function PublicTeacherProfile() {
 
                         {/* Card À propos */}
                         {teacher.bio && (
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
                                 <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>À propos</h2>
                                 <RichText text={teacher.bio} />
                             </div>
                         )}
 
-                        {/* Stats */}
-                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
-                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.students}</p>
-                                    <p className="text-[11px] text-gray-500 mt-1">sessions</p>
-                                </div>
-                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
-                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.rating.toFixed(1)}</p>
-                                    <p className="text-[11px] text-gray-500 mt-1">note moyenne</p>
-                                </div>
-                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
-                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>
-                                        {teacher.yearsExperience ?? (teacher.formats.length || teacher.subjects.length)}
-                                    </p>
-                                    <p className="text-[11px] text-gray-500 mt-1">
-                                        {teacher.yearsExperience != null ? (teacher.yearsExperience > 1 ? "ans d'expérience" : "an d'expérience") : teacher.formats.length ? "formats" : "matières"}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Card Langues parlées */}
-                        {teacher.languages.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Langues parlées</h2>
-                                <div className="flex flex-wrap gap-2">
-                                    {teacher.languages.map(l => (
-                                        <span key={l.name} className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
-                                            <span className="font-semibold">{l.name}</span>
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white text-gray-500">{l.level}</span>
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Card Spécialités */}
-                        {teacher.specialties.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Spécialités</h2>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {teacher.specialties.map((s: string) => (
-                                        <span key={s} className="text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
-                                            {s}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Card Formations & certificats */}
-                        {(teacher.educations.length > 0 || teacher.certificates.length > 0) && (
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Formations et certificats</h2>
-                                <ul className="space-y-3">
-                                    {teacher.educations.map((ed, i) => (
-                                        <li key={`ed-${i}`} className="flex gap-3">
-                                            <GraduationCap className="w-4 h-4 text-[#1A6CC8] shrink-0 mt-0.5" />
-                                            <div className="text-sm">
-                                                <p className="font-semibold text-[#0D2D5A]">{[ed.degree, ed.institution].filter(Boolean).join(" · ")}</p>
-                                                {ed.dates && <p className="text-xs text-gray-400">{ed.dates}</p>}
-                                            </div>
-                                        </li>
-                                    ))}
-                                    {teacher.certificates.map((c, i) => (
-                                        <li key={`ce-${i}`} className="flex gap-3">
-                                            <BadgeCheck className="w-4 h-4 text-[#0F9B8E] shrink-0 mt-0.5" />
-                                            <div className="text-sm">
-                                                <p className="font-semibold text-[#0D2D5A]">{c.name}</p>
-                                                {c.dates && <p className="text-xs text-gray-400">{c.dates}</p>}
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-
-                        {/* Card Style d'enseignement */}
-                        {teacher.qualities.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Style d'enseignement</h2>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {teacher.qualities.map(q => (
-                                        <span key={q} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
-                                            <Check className="w-3 h-3 text-[#0F9B8E]" /> {q}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Card Formats disponibles */}
-                        {teacher.formats.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Formats disponibles</h2>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {teacher.formats.map((f: string) => {
-                                        const c = formatColor(f);
-                                        return (
-                                            <span key={f} className={`text-xs px-3 py-1.5 rounded-full ${c.bg} ${c.text}`}>
-                                                {f}
-                                            </span>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
                         {/* Card Avis récents */}
                         {teacher.reviewsCount > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
                                 <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Avis récents</h2>
                                 <div className="flex items-center gap-6 mb-5 pb-5 border-b border-gray-100">
                                     <div className="text-center shrink-0">
@@ -790,8 +685,117 @@ export default function PublicTeacherProfile() {
                     </div>
 
                     {/* Colonne droite */}
-                    <div>
+                    <div className="space-y-5">
                         <ReservationPanel teacher={teacher} slots={teacher.slots} onZoom={setLightboxUrl} />
+
+                        {/* Stats */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
+                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.students}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1">sessions</p>
+                                </div>
+                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
+                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>{teacher.rating.toFixed(1)}</p>
+                                    <p className="text-[11px] text-gray-500 mt-1">note moyenne</p>
+                                </div>
+                                <div className="bg-[#F4F2ED] rounded-xl py-6 text-center">
+                                    <p className="text-2xl font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                                        {teacher.yearsExperience ?? (teacher.formats.length || teacher.subjects.length)}
+                                    </p>
+                                    <p className="text-[11px] text-gray-500 mt-1">
+                                        {teacher.yearsExperience != null ? (teacher.yearsExperience > 1 ? "ans d'expérience" : "an d'expérience") : teacher.formats.length ? "formats" : "matières"}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Card Langues parlées */}
+                        {teacher.languages.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Langues parlées</h2>
+                                <div className="flex flex-wrap gap-2">
+                                    {teacher.languages.map(l => (
+                                        <span key={l.name} className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
+                                            <span className="font-semibold">{l.name}</span>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white text-gray-500">{l.level}</span>
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Card Spécialités */}
+                        {teacher.specialties.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Spécialités</h2>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {teacher.specialties.map((s: string) => (
+                                        <span key={s} className="text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
+                                            {s}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Card Formations & certificats */}
+                        {(teacher.educations.length > 0 || teacher.certificates.length > 0) && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                                <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Formations et certificats</h2>
+                                <ul className="space-y-3">
+                                    {teacher.educations.map((ed, i) => (
+                                        <li key={`ed-${i}`} className="flex gap-3">
+                                            <GraduationCap className="w-4 h-4 text-[#1A6CC8] shrink-0 mt-0.5" />
+                                            <div className="text-sm">
+                                                <p className="font-semibold text-[#0D2D5A]">{[ed.degree, ed.institution].filter(Boolean).join(" · ")}</p>
+                                                {ed.dates && <p className="text-xs text-gray-400">{ed.dates}</p>}
+                                            </div>
+                                        </li>
+                                    ))}
+                                    {teacher.certificates.map((c, i) => (
+                                        <li key={`ce-${i}`} className="flex gap-3">
+                                            <BadgeCheck className="w-4 h-4 text-[#0F9B8E] shrink-0 mt-0.5" />
+                                            <div className="text-sm">
+                                                <p className="font-semibold text-[#0D2D5A]">{c.name}</p>
+                                                {c.dates && <p className="text-xs text-gray-400">{c.dates}</p>}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {/* Card Style d'enseignement */}
+                        {teacher.qualities.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Style d'enseignement</h2>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {teacher.qualities.map(q => (
+                                        <span key={q} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-[#F4F2ED] text-[#0D2D5A]">
+                                            <Check className="w-3 h-3 text-[#0F9B8E]" /> {q}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Card Formats disponibles */}
+                        {teacher.formats.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                                <h2 className={SECTION_TITLE + " mb-3"} style={{ fontFamily: "'Playfair Display', serif" }}>Formats disponibles</h2>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {teacher.formats.map((f: string) => {
+                                        const c = formatColor(f);
+                                        return (
+                                            <span key={f} className={`text-xs px-3 py-1.5 rounded-full ${c.bg} ${c.text}`}>
+                                                {f}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </section>

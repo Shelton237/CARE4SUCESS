@@ -2532,7 +2532,9 @@ const TEACHER_FORMATS = ["En ligne", "Présentiel", "Hybride"];
 const TEACHER_QUALITIES = ["Patient", "Dynamique", "Orienté objectifs", "Adaptable", "Rigoureux", "Bienveillant", "Créatif", "Pédagogue"];
 const TEACHER_VIDEO_URL_RE = /^https:\/\/(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/|vimeo\.com\/)[\w\-?=&%/.]+$/i;
 
-const cleanText = (value, max) => (typeof value === "string" ? value.trim().slice(0, max) : "");
+const EMOJI_RE = /[\p{Extended_Pictographic}️‍]/gu;
+// Pas d'emoji dans les contenus publics du coach.
+const cleanText = (value, max) => (typeof value === "string" ? value.replace(EMOJI_RE, "").replace(/[ \t]{2,}/g, " ").trim().slice(0, max) : "");
 const cleanTextList = (value, maxItems, maxLen) =>
   Array.isArray(value) ? [...new Set(value.map((v) => cleanText(v, maxLen)).filter(Boolean))].slice(0, maxItems) : [];
 
