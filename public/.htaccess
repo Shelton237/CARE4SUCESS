@@ -1,0 +1,12 @@
+# Aperçu de lien (WhatsApp, Facebook, LinkedIn, X, Telegram...) pour les pages
+# de coachs : les robots n'exécutent pas le JavaScript de la SPA, ils reçoivent
+# donc index.html enrichi des balises Open Graph du coach (route /api/share).
+# Les visiteurs normaux ne sont pas concernés et gardent la SPA telle quelle.
+# Le vhost renvoie /professeurs/:id vers /index.html avant ce fichier ; l'URL
+# d'origine est relue dans THE_REQUEST.
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|facebot|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|pinterest|skypeuripreview|embedly|vkshare|googlebot|bingbot|applebot) [NC]
+RewriteCond %{THE_REQUEST} ^[A-Z]+\ /professeurs/([^/?\ ]+)/?[?\ ]
+RewriteRule ^index\.html$ http://127.0.0.1:4002/api/share/professeurs/%1 [P,L]
+</IfModule>
