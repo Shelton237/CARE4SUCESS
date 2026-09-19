@@ -18,8 +18,39 @@ const HOME_IMAGES = {
   competences: "/images/home/card-competences.jpg",
 };
 
+/* Les valeurs préfixées xl: sont calibrées sur la maquette à 1440 px de large ;
+   en dessous, la mise en page reste fluide. */
+type FilledIcon = (props: { className?: string }) => JSX.Element;
+
+const BarsFilled: FilledIcon = ({ className }) => (
+  <svg viewBox="0 0 32 32" className={className} fill="currentColor" aria-hidden>
+    <rect x="3" y="17" width="7.5" height="12" rx="2" />
+    <rect x="12.3" y="9" width="7.5" height="20" rx="2" />
+    <rect x="21.5" y="2" width="7.5" height="27" rx="2" />
+  </svg>
+);
+
+const UsersFilled: FilledIcon = ({ className }) => (
+  <svg viewBox="0 0 32 32" className={className} fill="currentColor" aria-hidden>
+    <circle cx="16" cy="9" r="4.6" />
+    <path d="M7.5 25c0-4.6 3.8-8.2 8.5-8.2s8.5 3.6 8.5 8.2c0 .9-.7 1.6-1.6 1.6H9.1c-.9 0-1.6-.7-1.6-1.6z" />
+    <circle cx="5.5" cy="12.5" r="3.4" />
+    <path d="M0.5 24.6c0-3.2 2.3-5.8 5.2-6.3-1.2 1.4-1.9 3.2-1.9 5.2 0 .6.1 1.2.3 1.7H2c-.9 0-1.5-.5-1.5-.6z" />
+    <circle cx="26.5" cy="12.5" r="3.4" />
+    <path d="M31.5 24.6c0-3.2-2.3-5.8-5.2-6.3 1.2 1.4 1.9 3.2 1.9 5.2 0 .6-.1 1.2-.3 1.7H30c.9 0 1.5-.5 1.5-.6z" />
+  </svg>
+);
+
+const ShieldFilled: FilledIcon = ({ className }) => (
+  <svg viewBox="0 0 32 32" className={className} aria-hidden>
+    <path d="M16 2.5l11 4v8.6c0 6.6-4.5 11.6-11 14.4C9.5 26.7 5 21.7 5 15.1V6.5l11-4z" fill="currentColor" />
+    <path d="M10.8 15.8l3.7 3.7 7-7.3" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 const HANDWRITING = { fontFamily: "Caveat, cursive" };
 const SERIF = { fontFamily: "'Playfair Display', serif" };
+const WRAP = "mx-auto w-full max-w-[1334px] px-6 xl:px-0";
 
 /* ─── PETITS COMPOSANTS ──────────────────────── */
 
@@ -68,23 +99,23 @@ interface UniverseCard {
   cta: ReactNode;
 }
 
-const CARD_BTN = "inline-flex items-center justify-center gap-2 min-h-11 py-2.5 px-5 rounded-xl text-sm font-bold transition-colors";
+const CARD_BTN = "inline-flex items-center justify-center gap-2 min-h-11 py-2.5 px-5 rounded-xl text-sm font-bold transition-colors xl:h-[46px] xl:min-h-0 xl:py-0 xl:px-7 xl:text-[16.4px] xl:rounded-[12px]";
 
 const UNIVERSES: UniverseCard[] = [
   {
     key: "soutien",
     icon: GraduationCap,
     color: "#0F9B8E",
-    bg: "from-[#DDF4F0] via-[#EEF9F7] to-white",
+    bg: "from-[#D6F2EC] via-[#EAF8F5] to-[#F8FCFB]",
     border: "border-[#CDEBE6]",
-    chip: "bg-white/70 border-[#CDEBE6] text-[#0B7F74]",
+    chip: "bg-[#0F9B8E]/12 text-[#0B7F74]",
     title: "Soutien scolaire",
     desc: "Nous trouvons le coach adapté pour votre enfant. Évaluation, matching, suivi et facturation transparente.",
     tags: ["Primaire", "Collège", "Lycée", "Examens"],
     photo: HOME_IMAGES.soutien,
     footer: (
-      <p className="flex items-center gap-2 text-sm text-gray-600">
-        <MapPin className="w-4 h-4 text-[#0F9B8E]" /> Disponible à Madagascar
+      <p className="flex items-center gap-2 text-sm text-gray-700 xl:text-[14.3px]">
+        <MapPin className="w-4 h-4 xl:w-5 xl:h-5 text-[#0F9B8E] fill-[#0F9B8E]/90" /> Disponible à Madagascar
       </p>
     ),
     cta: (
@@ -97,17 +128,17 @@ const UNIVERSES: UniverseCard[] = [
     key: "langues",
     icon: Globe,
     color: "#F5A623",
-    bg: "from-[#FFF0CF] via-[#FFF8E8] to-white",
+    bg: "from-[#FFEDC4] via-[#FFF7E4] to-[#FFFDF8]",
     border: "border-[#FBE7BA]",
-    chip: "bg-white/70 border-[#FBE7BA] text-[#C9880F]",
+    chip: "bg-[#F5A623]/16 text-[#C9880F]",
     title: "Langues",
     desc: "Choisissez votre coach, comparez les prix, réservez et commencez aujourd'hui.",
     tags: ["Anglais", "Français", "Espagnol", "+5 langues"],
     photo: HOME_IMAGES.langues,
     footer: (
-      <p className="flex items-center gap-3 text-sm text-gray-700">
+      <p className="flex items-center gap-3 text-sm text-gray-700 xl:text-[14.3px]">
         <span className="flex items-center gap-2"><FlagCM /> Cameroun</span>
-        <span className="text-gray-300">|</span>
+        <span className="text-gray-400">|</span>
         <span className="flex items-center gap-2"><FlagMG /> Madagascar</span>
       </p>
     ),
@@ -121,17 +152,17 @@ const UNIVERSES: UniverseCard[] = [
     key: "competences",
     icon: Briefcase,
     color: "#E2574C",
-    bg: "from-[#FCE1DE] via-[#FEEFED] to-white",
+    bg: "from-[#FBDDDA] via-[#FEEDEB] to-[#FFF9F8]",
     border: "border-[#F6D2CE]",
-    chip: "bg-white/70 border-[#F6D2CE] text-[#D2453A]",
+    chip: "bg-[#E2574C]/12 text-[#D2453A]",
     title: "Compétences et carrière",
     desc: "Développez une compétence avec un expert capable de vous accompagner vers un objectif concret.",
     tags: ["Bureautique", "Data", "Communication", "+"],
     photo: HOME_IMAGES.competences,
     footer: null,
     cta: (
-      <span className={`${CARD_BTN} bg-[#FBE0DD] border border-[#F3C4BF] text-[#D2453A] cursor-default`}>
-        <Clock className="w-4 h-4" /> Bientôt disponible
+      <span className={`${CARD_BTN} bg-[#FBE0DD] border border-[#F3C4BF] text-[#D2453A] cursor-default xl:h-[50px] xl:text-[15.5px]`}>
+        <Clock className="w-4 h-4 xl:w-5 xl:h-5" /> Bientôt disponible
       </span>
     ),
   },
@@ -139,9 +170,9 @@ const UNIVERSES: UniverseCard[] = [
 
 function UniverseCardView({ card }: { card: UniverseCard }) {
   return (
-    <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${card.bg} ${card.border} p-6 md:p-7 min-h-[300px] flex flex-col`}>
+    <div className={`relative overflow-hidden rounded-2xl xl:rounded-[22px] border bg-gradient-to-br ${card.bg} ${card.border} p-6 md:p-7 xl:pt-[16px] xl:px-[22px] xl:pb-[22px] min-h-[300px] xl:h-[354px] flex flex-col`}>
       {/* Photo à droite, fondue vers la couleur de la carte. Icône décorative si le fichier est absent. */}
-      <card.icon className="absolute right-6 top-6 w-28 h-28 opacity-[0.07]" style={{ color: card.color }} aria-hidden />
+      <card.icon className="absolute right-6 top-6 w-28 h-28 opacity-[0.05]" style={{ color: card.color }} aria-hidden />
       <img
         src={card.photo}
         alt=""
@@ -150,14 +181,17 @@ function UniverseCardView({ card }: { card: UniverseCard }) {
       />
 
       <div className="relative z-10 flex flex-col flex-1">
-        <span className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" style={{ backgroundColor: card.color }}>
-          <card.icon className="w-7 h-7 text-white" />
+        <span
+          className="w-14 h-14 xl:w-[66px] xl:h-[66px] rounded-2xl xl:rounded-[18px] flex items-center justify-center mb-5 xl:mb-[15px]"
+          style={{ backgroundColor: card.color }}
+        >
+          <card.icon className="w-7 h-7 xl:w-[31px] xl:h-[31px] text-white" />
         </span>
-        <h3 className="text-xl font-extrabold text-[#0D2D5A] mb-2.5">{card.title}</h3>
-        <p className="text-[13px] leading-relaxed text-gray-700 mb-4 max-w-[92%]">{card.desc}</p>
-        <div className="flex flex-wrap gap-2 mb-5">
+        <h3 className="text-xl xl:text-[23.6px] font-extrabold text-[#0D2D5A] mb-2.5 xl:mb-[8px] leading-tight">{card.title}</h3>
+        <p className="text-[13px] xl:text-[13.7px] leading-relaxed xl:leading-[19px] text-gray-700 xl:text-[#2A3550] mb-4 xl:mb-5 max-w-[92%] xl:max-w-[306px] xl:min-h-[57px]">{card.desc}</p>
+        <div className="flex flex-wrap gap-2 xl:gap-[9px] mb-5 xl:mb-3">
           {card.tags.map(tag => (
-            <span key={tag} className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${card.chip}`}>{tag}</span>
+            <span key={tag} className={`text-xs xl:text-[12.4px] font-semibold px-3 xl:px-[14px] py-1.5 xl:py-[7px] rounded-full ${card.chip}`}>{tag}</span>
           ))}
         </div>
         <div className="mt-auto">
@@ -169,7 +203,7 @@ function UniverseCardView({ card }: { card: UniverseCard }) {
   );
 }
 
-interface ApproachStep { icon: LucideIcon; label: string }
+interface ApproachStep { icon: LucideIcon; label: string[] }
 
 function ApproachPanel({
   tone, icon: Icon, title, subtitle, steps, cta,
@@ -184,30 +218,32 @@ function ApproachPanel({
   const teal = tone === "teal";
   const accent = teal ? "#0F9B8E" : "#F5A623";
   return (
-    <div className={`rounded-2xl border p-5 md:p-6 bg-gradient-to-br ${teal ? "from-[#E3F6F3] to-[#F4FBFA] border-[#CDEBE6]" : "from-[#FFF3D9] to-[#FFFBF1] border-[#FBE7BA]"}`}>
-      <div className="flex items-center gap-4 mb-5">
+    <div className={`rounded-2xl xl:rounded-[18px] border p-5 md:p-6 xl:pt-[22px] xl:px-[27px] xl:pb-[21px] xl:h-[271px] bg-gradient-to-br ${teal ? "from-[#DFF5F1] to-[#F3FAF9] border-[#CDEBE6]" : "from-[#FFF1D3] to-[#FFFAEE] border-[#FBE7BA]"}`}>
+      <div className={`flex items-center gap-4 xl:gap-[25px] mb-5 xl:mb-[16px] ${teal ? "xl:pl-[11px]" : ""}`}>
         {teal ? (
-          <Icon className="w-11 h-11 shrink-0" style={{ color: accent }} strokeWidth={1.6} />
+          <Icon className="w-11 h-11 xl:w-12 xl:h-12 shrink-0" style={{ color: accent }} strokeWidth={1.6} />
         ) : (
-          <span className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: accent }}>
-            <Icon className="w-7 h-7 text-white" />
+          <span className="w-12 h-12 xl:w-[53px] xl:h-[53px] rounded-xl xl:rounded-[14px] flex items-center justify-center shrink-0" style={{ backgroundColor: accent }}>
+            <Icon className="w-7 h-7 xl:w-8 xl:h-8 text-white" />
           </span>
         )}
         <div>
-          <p className="text-[17px] text-[#0D2D5A] leading-snug">{title}</p>
-          <p className="text-sm text-gray-600 mt-0.5">{subtitle}</p>
+          <p className="text-[17px] xl:text-[18px] text-[#0D2D5A] leading-snug">{title}</p>
+          <p className="text-sm xl:text-[15.6px] text-gray-600 xl:text-[#3E4C66] mt-0.5 xl:mt-[3px]">{subtitle}</p>
         </div>
       </div>
 
-      <div className="bg-white/90 rounded-xl px-4 py-5 mb-5 grid grid-cols-2 gap-y-5 sm:flex sm:items-start sm:justify-between">
+      <div className="bg-white/90 rounded-xl xl:rounded-[14px] px-4 py-5 xl:py-0 xl:h-[107px] xl:px-[4px] mb-5 xl:mb-[13px] grid grid-cols-2 gap-y-5 sm:flex sm:items-center sm:justify-between">
         {steps.map((step, i) => (
-          <div key={step.label} className="contents sm:flex sm:items-start">
-            <div className="flex flex-col items-center text-center gap-2 sm:w-[92px]">
-              <step.icon className="w-7 h-7" style={{ color: accent }} strokeWidth={1.7} />
-              <span className="text-xs text-gray-700 leading-snug">{step.label}</span>
+          <div key={step.label.join(" ")} className="contents sm:flex sm:items-center">
+            <div className="flex flex-col items-center text-center gap-2 xl:gap-[6px] sm:w-[92px] xl:w-[110px]">
+              <step.icon className="w-7 h-7 xl:w-9 xl:h-9" style={{ color: accent }} strokeWidth={1.9} />
+              <span className="text-xs xl:text-[15px] text-gray-700 xl:text-[#1E2B4A] xl:font-medium leading-snug xl:leading-[19px]">
+                {step.label.map((line, k) => <span key={k} className="block">{line}</span>)}
+              </span>
             </div>
             {i < steps.length - 1 && (
-              <ArrowRight className="hidden sm:block w-4 h-4 mt-3 shrink-0" style={{ color: accent }} />
+              <ArrowRight className="hidden sm:block w-4 h-4 xl:w-[17px] xl:h-[17px] shrink-0" style={{ color: accent }} strokeWidth={2.8} />
             )}
           </div>
         ))}
@@ -217,11 +253,11 @@ function ApproachPanel({
   );
 }
 
-const WHY = [
+const WHY: { icon: LucideIcon | FilledIcon; title: string; desc: string; round: boolean }[] = [
   { icon: BadgeCheck, title: "Coachs sélectionnés", desc: "Compétences, expérience et pédagogie vérifiées.", round: true },
-  { icon: ChartColumn, title: "Accompagnement adapté", desc: "Une solution pour chaque objectif et chaque niveau.", round: false },
-  { icon: Users, title: "Progression suivie", desc: "Cours, objectifs et résultats depuis votre espace.", round: false },
-  { icon: ShieldCheck, title: "Paiements simples et sécurisés", desc: "Mobile Money et carte bancaire selon votre pays.", round: false },
+  { icon: BarsFilled, title: "Accompagnement adapté", desc: "Une solution pour chaque objectif et chaque niveau.", round: false },
+  { icon: UsersFilled, title: "Progression suivie", desc: "Cours, objectifs et résultats depuis votre espace.", round: false },
+  { icon: ShieldFilled, title: "Paiements simples et sécurisés", desc: "Mobile Money et carte bancaire selon votre pays.", round: false },
 ];
 
 const TRUST = [
@@ -237,115 +273,115 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#F7FAFC]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative overflow-hidden bg-[#0D2D5A]">
-        <div className="hidden md:block absolute top-0 right-0 w-[58%] h-[90%]">
-          <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0D2D5A] via-[#0D2D5A]/20 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0D2D5A] to-transparent" />
+      <section className="relative overflow-hidden bg-[#0D2D5A] xl:h-[444px]">
+        {/* Photo à droite (positions de la maquette, en % de la largeur) */}
+        <div className="hidden md:block absolute top-0 left-[42.97%] w-[57.03%]">
+          <img src={HOME_IMAGES.hero} alt="" className="w-full h-auto block" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0D2D5A] via-[#0D2D5A]/10 to-transparent" />
+          <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#0D2D5A] via-[#0D2D5A]/80 to-transparent" />
         </div>
 
-        <div className="container mx-auto px-6 relative z-10 pt-11 md:pt-12 pb-5">
-          <div className="max-w-xl">
+        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.05%] xl:pr-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[44px] xl:pb-0">
+          <div className="max-w-xl xl:max-w-none">
             <h1
-              className="font-bold text-white leading-[1.02] text-[clamp(2.6rem,4.4vw,3.95rem)]"
+              className="font-bold text-white leading-[1.02] text-[clamp(2.6rem,4.4vw,3.95rem)] xl:text-[69.5px] xl:leading-[60px]"
               style={SERIF}
             >
               Every genius<br />
-              needs <span className="italic text-[#F5A623]">a coach</span>
+              needs <span className="italic text-[#F5A623] xl:text-[1.145em]">a coach</span>
             </h1>
-            <p className="text-white/90 text-lg md:text-[22px] leading-snug mt-5">
+            <p className="text-white/90 text-lg md:text-[22px] xl:text-[23.8px] leading-snug xl:leading-[28px] mt-5 xl:mt-[24px]">
               Soutien scolaire. Langues. Compétences.<br />
               Un coach pour chaque objectif.
             </p>
 
-            <div className="flex flex-wrap gap-4 mt-6">
+            <div className="flex flex-wrap gap-4 xl:gap-[18px] mt-6 xl:mt-[22px]">
               <NavLink
                 to={ROUTE_PATHS.PROFESSEURS}
                 id="hero-cta-primary"
-                className="inline-flex items-center gap-2 h-14 px-8 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-extrabold hover:bg-[#e09520] transition-colors"
+                className="inline-flex items-center gap-2 h-14 px-8 xl:px-[33px] rounded-xl xl:rounded-[13px] bg-[#F5A623] text-[#0D2D5A] font-extrabold xl:text-[17px] hover:bg-[#e09520] transition-colors"
               >
                 Trouver mon coach <ArrowRight className="w-4 h-4" />
               </NavLink>
               <NavLink
                 to={ROUTE_PATHS.COMMENT_CA_MARCHE}
-                className="inline-flex items-center gap-2.5 h-14 px-7 rounded-xl border border-white/35 bg-[#0D2D5A]/40 text-white font-bold hover:bg-white/10 transition-colors"
+                className="inline-flex items-center gap-2.5 h-14 px-7 xl:px-[30px] rounded-xl xl:rounded-[13px] border border-white/40 bg-[#0D2D5A]/40 text-white font-bold xl:font-semibold xl:text-[15px] hover:bg-white/10 transition-colors"
               >
-                <CirclePlay className="w-5 h-5" strokeWidth={1.6} /> Voir comment ça marche
+                <CirclePlay className="w-5 h-5 xl:w-[26px] xl:h-[26px]" strokeWidth={1.5} /> Voir comment ça marche
               </NavLink>
             </div>
 
-            <p className="flex items-center gap-2 text-sm text-blue-100/80 mt-4">
-              <MapPin className="w-4 h-4 text-[#2BB3A3]" /> Disponible au Cameroun et à Madagascar
+            <p className="flex items-center gap-2 text-sm text-blue-100/80 mt-4 xl:mt-5">
+              <MapPin className="w-4 h-4 xl:w-[18px] xl:h-[18px] text-[#2BB3A3] fill-[#2BB3A3]/80" /> Disponible au Cameroun et à Madagascar
             </p>
-          </div>
 
-          {/* Mobile : la photo passe sous les boutons, en bloc net */}
-          <div className="md:hidden relative -mx-6 mt-6 h-56">
-            <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
-            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#0D2D5A] to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#0D2D5A] to-transparent" />
-          </div>
+            {/* Mobile : la photo passe sous les boutons, en bloc net */}
+            <div className="md:hidden relative -mx-6 mt-6 h-56">
+              <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
+              <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#0D2D5A] to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#0D2D5A] to-transparent" />
+            </div>
 
-          <ul className="flex flex-wrap gap-x-10 gap-y-3 mt-7">
-            {TRUST.map(item => (
-              <li key={item.label} className="flex items-center gap-2.5 text-sm text-white/90">
-                <item.icon className="w-7 h-7" style={{ color: item.color }} strokeWidth={1.8} />
-                {item.label}
-              </li>
-            ))}
-          </ul>
+            <ul className="flex flex-wrap gap-x-10 xl:gap-x-[58px] gap-y-3 mt-7 xl:mt-[33px]">
+              {TRUST.map(item => (
+                <li key={item.label} className="flex items-center gap-2.5 text-sm xl:text-[14.3px] text-white/90">
+                  <item.icon className="w-7 h-7 xl:w-8 xl:h-8" style={{ color: item.color }} strokeWidth={1.8} />
+                  {item.label}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
       {/* ══════════ NOS UNIVERS ══════════ */}
-      <section className="pt-10 md:pt-10 pb-6 md:pb-8">
-        <div className="container mx-auto px-6">
-          <div className="flex items-start justify-between gap-6 mb-6">
-            <div>
-              <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-2">Nos univers</p>
-              <h2 className="text-3xl md:text-[40px] font-bold text-[#0D2D5A] leading-tight" style={SERIF}>
-                Quel est votre objectif&nbsp;?
-              </h2>
-              <p className="text-gray-500 mt-1.5">Chaque parcours est unique. Choisissez le vôtre.</p>
-            </div>
-            <div className="hidden md:block text-right shrink-0 -rotate-6 mt-2 mr-2">
-              <p className="text-[30px] leading-[1.05] text-[#0D2D5A] font-medium" style={HANDWRITING}>
+      <section className="pt-10 xl:pt-[44px] pb-6 md:pb-8 xl:pb-0">
+        <div className={WRAP}>
+          <div className="relative xl:pl-[17px] mb-6 xl:mb-3">
+            <p className="text-[#0F9B8E] text-xs xl:text-[12.8px] font-bold uppercase tracking-[0.2em] mb-2 xl:mb-[11px]">Nos univers</p>
+            <h2 className="text-3xl md:text-[40px] xl:text-[46.7px] font-bold text-[#0D2D5A] leading-tight xl:leading-[1.1]" style={SERIF}>
+              Quel est votre objectif&nbsp;?
+            </h2>
+            <p className="text-gray-500 mt-1.5 xl:mt-1">Chaque parcours est unique. Choisissez le vôtre.</p>
+
+            <div className="hidden md:block absolute right-0 top-0 xl:-top-[11px] text-right -rotate-[10deg] origin-right">
+              <p className="text-[27px] xl:text-[28.4px] leading-[1.05] text-[#0D2D5A] font-medium" style={HANDWRITING}>
                 Un coach<br />pour chaque objectif
               </p>
-              <HandUnderline className="w-28 h-3 ml-auto mt-1" />
+              <HandUnderline className="w-20 xl:w-[73px] h-3 ml-auto mt-0.5" />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 xl:[grid-template-columns:313fr_303fr_299fr] xl:gap-x-[23.5px]">
             {UNIVERSES.map(card => <UniverseCardView key={card.key} card={card} />)}
           </div>
         </div>
       </section>
 
       {/* ══════════ DEUX APPROCHES ══════════ */}
-      <section className="py-6 md:py-8">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl md:text-[34px] font-bold text-[#0D2D5A] leading-tight" style={SERIF}>
-              Deux approches, un même objectif : votre réussite
+      <section className="py-6 md:py-8 xl:pt-[43px] xl:pb-0">
+        <div className={`${WRAP} xl:max-w-[1326px]`}>
+          <div className="text-center mb-6 xl:mb-3.5">
+            <h2 className="text-2xl md:text-[34px] xl:text-[32.2px] font-bold text-[#0D2D5A] leading-tight xl:leading-[1.2]" style={SERIF}>
+              Deux approches, un même objectif&nbsp;: votre réussite
             </h2>
-            <p className="text-gray-500 mt-2">Selon votre besoin, nous vous accompagnons différemment.</p>
+            <p className="text-gray-500 mt-2 xl:mt-1 xl:text-[20px] xl:leading-7">Selon votre besoin, nous vous accompagnons différemment.</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 xl:gap-[21px]">
             <ApproachPanel
               tone="teal"
               icon={GraduationCap}
               title={<><b className="font-extrabold">Soutien scolaire</b> – un service managé (Madagascar)</>}
               subtitle="Vous nous confiez votre besoin, nous nous occupons du reste."
               steps={[
-                { icon: ClipboardList, label: "Évaluation du besoin" },
-                { icon: Users, label: "Matching Care4Success" },
-                { icon: UserCog, label: "Coach assigné" },
-                { icon: TrendingUp, label: "Suivi et bilan régulier" },
+                { icon: ClipboardList, label: ["Évaluation", "du besoin"] },
+                { icon: Users, label: ["Matching", "Care4Success"] },
+                { icon: UserCog, label: ["Coach", "assigné"] },
+                { icon: TrendingUp, label: ["Suivi et bilan", "régulier"] },
               ]}
               cta={
-                <NavLink to={ROUTE_PATHS.SERVICES} className={`${CARD_BTN} bg-[#0F9B8E] text-white hover:bg-[#0c857a]`}>
+                <NavLink to={ROUTE_PATHS.SERVICES} className={`${CARD_BTN} xl:h-[44px] xl:px-[27px] xl:text-[13.2px] bg-[#0F9B8E] text-white hover:bg-[#0c857a]`}>
                   En savoir plus sur le soutien scolaire <ArrowRight className="w-4 h-4" />
                 </NavLink>
               }
@@ -356,13 +392,13 @@ export default function Home() {
               title={<><b className="font-extrabold">Langues</b> – une <b className="font-extrabold">marketplace</b> (Cameroun + Madagascar)</>}
               subtitle="Vous gardez le choix de votre coach."
               steps={[
-                { icon: Search, label: "Recherche de coachs" },
-                { icon: Scale, label: "Comparaison des tarifs" },
-                { icon: CalendarDays, label: "Réservation du cours" },
-                { icon: Laptop, label: "Cours en ligne" },
+                { icon: Search, label: ["Recherche", "de coachs"] },
+                { icon: Scale, label: ["Comparaison", "des tarifs"] },
+                { icon: CalendarDays, label: ["Réservation", "du cours"] },
+                { icon: Laptop, label: ["Cours", "en ligne"] },
               ]}
               cta={
-                <NavLink to={ROUTE_PATHS.COURS_DE_LANGUES} className={`${CARD_BTN} bg-[#F5A623] text-[#0D2D5A] hover:bg-[#e09520]`}>
+                <NavLink to={ROUTE_PATHS.COURS_DE_LANGUES} className={`${CARD_BTN} xl:h-[44px] xl:px-[27px] xl:text-[13.2px] bg-[#F5A623] text-[#0D2D5A] hover:bg-[#e09520]`}>
                   Découvrir les cours de langues <ArrowRight className="w-4 h-4" />
                 </NavLink>
               }
@@ -372,24 +408,29 @@ export default function Home() {
       </section>
 
       {/* ══════════ POURQUOI CHOISIR ══════════ */}
-      <section className="pt-8 md:pt-8 pb-10 md:pb-11">
-        <div className="container mx-auto px-6">
-          <h2 className="text-2xl md:text-[32px] font-bold text-[#0D2D5A] text-center mb-7" style={SERIF}>
+      <section className="pt-8 pb-10 md:pb-11 xl:pt-[31px] xl:pb-[63px]">
+        <div className={WRAP}>
+          <h2 className="text-2xl md:text-[32px] font-bold text-[#0D2D5A] text-center mb-7 xl:mb-3" style={SERIF}>
             Pourquoi choisir Care4Success&nbsp;?
           </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-7 lg:gap-x-0 lg:divide-x lg:divide-[#0D2D5A]/10">
-            {WHY.map(item => (
-              <div key={item.title} className="flex items-start gap-4 lg:px-6 first:lg:pl-0 last:lg:pr-0">
+          <div className="grid sm:grid-cols-2 xl:grid-cols-[334fr_344fr_321fr_335fr] gap-x-8 gap-y-7 xl:gap-x-0 xl:gap-y-0 xl:mt-[22px]">
+            {WHY.map((item, i) => (
+              <div
+                key={item.title}
+                className={`flex items-start gap-4 xl:gap-5 xl:h-[68px] ${i === 0 ? "xl:pl-[19px]" : "xl:pl-[10px] xl:border-l xl:border-[#0D2D5A]/10"}`}
+              >
                 <span
-                  className={`w-14 h-14 flex items-center justify-center shrink-0 ${
-                    item.round ? "rounded-full bg-[#0F9B8E]" : "rounded-2xl bg-white border border-[#0D2D5A]/5 shadow-sm"
+                  className={`flex items-center justify-center shrink-0 w-14 h-14 ${
+                    item.round
+                      ? "rounded-full bg-[#0F9B8E] xl:w-[65px] xl:h-[65px]"
+                      : "rounded-2xl xl:rounded-[16px] bg-white border border-[#0D2D5A]/5 shadow-sm xl:w-[70px] xl:h-[70px]"
                   }`}
                 >
-                  <item.icon className={`w-7 h-7 ${item.round ? "text-white" : "text-[#F5A623]"}`} strokeWidth={item.round ? 1.8 : 2} />
+                  <item.icon className={`w-7 h-7 xl:w-9 xl:h-9 ${item.round ? "text-white" : "text-[#F5A623]"}`} {...(item.round ? { strokeWidth: 1.8 } : {})} />
                 </span>
-                <div>
-                  <p className="font-extrabold text-[#0D2D5A] text-[15px] leading-snug">{item.title}</p>
-                  <p className="text-sm text-gray-500 leading-relaxed mt-1">{item.desc}</p>
+                <div className="xl:pt-[8px]">
+                  <p className="font-extrabold text-[#0D2D5A] text-[15px] xl:text-[15.4px] leading-snug">{item.title}</p>
+                  <p className="text-sm xl:text-[15.4px] text-gray-500 xl:text-[#5C6B80] leading-relaxed xl:leading-[22px] mt-1 xl:mt-[8px] xl:max-w-[232px]">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -398,42 +439,42 @@ export default function Home() {
       </section>
 
       {/* ══════════ CTA FINAL ══════════ */}
-      <section className="relative py-10 md:py-11 bg-[#0B2545] overflow-hidden">
-        <div className="absolute -bottom-16 -left-10 w-64 h-64 rounded-full bg-white/[0.06] pointer-events-none" />
-        <div className="absolute top-8 left-8 w-28 h-28 rounded-full bg-[#0F9B8E]/15 pointer-events-none" />
-        <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full bg-[#1A6CC8]/10 pointer-events-none" />
-        <div className="absolute -bottom-20 -right-4 w-56 h-56 rounded-full bg-[#F5A623]/10 pointer-events-none" />
+      <section className="relative py-10 md:py-11 xl:py-0 xl:h-[229px] bg-[#0B2545] overflow-hidden">
+        <div className="absolute top-[53px] left-[31px] w-[112px] h-[112px] rounded-full bg-[#0F9B8E]/20 pointer-events-none" />
+        <div className="absolute top-[62px] left-0 w-[166px] h-[166px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
+        <div className="absolute -top-[60px] -right-[20px] w-[200px] h-[200px] rounded-full bg-[#1A6CC8]/12 pointer-events-none" />
+        <div className="absolute top-[86px] right-[48px] w-[120px] h-[120px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
 
-        <div className="container mx-auto px-6 relative z-10">
-          <div className="max-w-4xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-10">
+        <div className="mx-auto max-w-[947px] px-6 xl:px-0 relative z-10 xl:pt-[36px]">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10">
             <div className="max-w-xl">
-              <h2 className="text-3xl md:text-[38px] font-bold text-white leading-tight" style={SERIF}>
+              <h2 className="text-3xl md:text-[38px] xl:text-[34.3px] font-bold text-white leading-tight xl:leading-[1.15]" style={SERIF}>
                 Prêt à <span className="text-[#F5A623]">atteindre votre objectif</span>&nbsp;?
               </h2>
-              <p className="text-blue-100/85 mt-3">
+              <p className="text-blue-100/85 mt-3 xl:mt-[10px] xl:text-[17px] xl:leading-[22.5px] xl:max-w-[540px]">
                 Scolaire, langues ou compétences, Care4Success vous accompagne vers le bon coach.
               </p>
-              <div className="flex flex-wrap gap-4 mt-7">
+              <div className="flex flex-wrap gap-4 xl:gap-[15px] mt-7 xl:mt-[19px]">
                 <NavLink
                   to={ROUTE_PATHS.PROFESSEURS}
-                  className="inline-flex items-center gap-2 h-12 px-7 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-extrabold hover:bg-[#e09520] transition-colors"
+                  className="inline-flex items-center gap-2 h-12 px-7 xl:px-[27px] rounded-xl xl:rounded-[11px] bg-[#F5A623] text-[#0D2D5A] font-extrabold xl:text-[16.8px] hover:bg-[#e09520] transition-colors"
                 >
                   Trouver mon coach <ArrowRight className="w-4 h-4" />
                 </NavLink>
                 <NavLink
                   to="/inscription"
-                  className="inline-flex items-center h-12 px-7 rounded-xl border border-white/40 text-white font-bold hover:bg-white/10 transition-colors"
+                  className="inline-flex items-center h-12 px-7 xl:px-[27px] rounded-xl xl:rounded-[11px] border border-white/45 text-white font-bold xl:font-semibold xl:text-[17.6px] hover:bg-white/10 transition-colors"
                 >
                   Créer un compte gratuitement
                 </NavLink>
               </div>
             </div>
 
-            <div className="hidden md:block -rotate-[8deg] shrink-0">
-              <p className="text-[32px] leading-[1.1] text-white font-medium" style={HANDWRITING}>
+            <div className="hidden md:block -rotate-[12deg] shrink-0 xl:mt-[29px] xl:mr-[6px]">
+              <p className="text-[28px] leading-[1.1] xl:leading-[1.2] text-white font-medium" style={HANDWRITING}>
                 Investir aujourd'hui<br />dans votre potentiel
               </p>
-              <HandUnderline className="w-28 h-3 mt-1 ml-6" />
+              <HandUnderline className="w-[88px] h-3 mt-1 xl:mt-[11px] ml-6 xl:ml-[60px]" />
             </div>
           </div>
         </div>

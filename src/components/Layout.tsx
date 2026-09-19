@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Menu, X, ArrowRight, ChevronRight, ChevronDown, Home as HomeIcon, User, Linkedin, Facebook, Instagram, Youtube } from "lucide-react";
+import { Menu, X, ArrowRight, ChevronRight, ChevronDown, Home as HomeIcon, User } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -20,11 +20,44 @@ const NAV_MAIN = [
 
 // Réseaux sociaux du pied de page. Renseigner les URL officielles : tant
 // qu'une valeur est "#", l'icône est affichée mais ne mène nulle part.
+const SocialSvg = ({ children }: { children: React.ReactNode }) => (
+  <svg viewBox="0 0 24 24" className="w-8 h-8" fill="currentColor" aria-hidden>{children}</svg>
+);
 const SOCIAL_LINKS = [
-  { label: "LinkedIn",  icon: Linkedin,  href: "#" },
-  { label: "Facebook",  icon: Facebook,  href: "#" },
-  { label: "Instagram", icon: Instagram, href: "#" },
-  { label: "YouTube",   icon: Youtube,   href: "#" },
+  {
+    label: "LinkedIn", href: "#",
+    icon: () => (
+      <SocialSvg>
+        <path d="M5 2h14a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3zm-.4 8v9.2h3V10h-3zm1.5-4.4a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4zM10 10v9.2h3v-4.7c0-1.3.6-2.1 1.7-2.1 1 0 1.5.7 1.5 2.1v4.7h3v-5.4c0-2.5-1.3-3.9-3.3-3.9-1.3 0-2.2.6-2.8 1.5V10H10z" fillRule="evenodd" />
+      </SocialSvg>
+    ),
+  },
+  {
+    label: "Facebook", href: "#",
+    icon: () => (
+      <SocialSvg>
+        <path d="M5 2h14a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3h-4.2v-7.4h2.5l.4-3h-2.9V9.7c0-.9.3-1.5 1.5-1.5h1.5V5.5c-.3 0-1.2-.1-2.2-.1-2.2 0-3.7 1.3-3.7 3.8v2.4H8v3h2.6V22H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3z" />
+      </SocialSvg>
+    ),
+  },
+  {
+    label: "Instagram", href: "#",
+    icon: () => (
+      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4.2" />
+        <circle cx="17.3" cy="6.7" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
+    label: "YouTube", href: "#",
+    icon: () => (
+      <SocialSvg>
+        <path d="M21.6 7.2a2.6 2.6 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.6 2.6 0 0 0 2.4 7.2C2 8.8 2 12 2 12s0 3.2.4 4.8a2.6 2.6 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.6 2.6 0 0 0 1.8-1.8c.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5.2 3L10 15z" fillRule="evenodd" />
+      </SocialSvg>
+    ),
+  },
 ];
 
 function FlagFR() {
@@ -178,29 +211,29 @@ export function Layout({ children }: LayoutProps) {
       <header className={`sticky top-0 w-full z-50 transition-all duration-300 bg-[#F4F2ED] ${
         scrolled ? "shadow-lg shadow-[#0D2D5A]/8" : ""
       }`}>
-        <div className="container mx-auto px-6">
-          <div className="flex items-center justify-between h-20">
+        <div className="mx-auto w-full max-w-[1920px] px-6 xl:pl-[6.05%] xl:pr-[4.1%]">
+          <div className="flex items-center h-20 xl:h-[69px]">
 
             {/* Logo */}
             <NavLink to={ROUTE_PATHS.HOME} className="flex items-center shrink-0">
               <img
                 src="/logo/Care 4 Success-logo-Ok_compact.png"
                 alt="Care4Success"
-                className="h-12 xl:h-14 w-auto object-contain"
+                className="h-12 xl:h-[70px] w-auto object-contain -ml-[3px]"
               />
             </NavLink>
 
             {/* Nav desktop */}
-            <nav className="hidden lg:flex items-center ml-2 xl:ml-4">
+            <nav className="hidden lg:flex items-center ml-2 xl:ml-6 min-[1400px]:ml-[9.65%]">
               {NAV_MAIN.map(link => (
                 <NavLink
                   key={link.label}
                   to={link.to}
                   className={({ isActive }) =>
-                    `mx-1.5 xl:mx-2.5 py-1.5 text-[12.5px] xl:text-sm font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
+                    `mx-1.5 xl:mx-2 min-[1400px]:mx-[12.5px] py-1.5 text-[12.5px] font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
                       isActive && link.to !== "#"
                         ? "text-[#0D2D5A] border-[#F5A623]"
-                        : "text-[#0D2D5A]/75 border-transparent hover:text-[#0D2D5A]"
+                        : "text-[#0D2D5A] border-transparent hover:text-[#0D2D5A]/80"
                     }`
                   }
                 >
@@ -210,16 +243,16 @@ export function Layout({ children }: LayoutProps) {
             </nav>
 
             {/* CTA desktop */}
-            <div className="hidden lg:flex items-center gap-2 xl:gap-3 ml-2 xl:ml-4">
+            <div className="hidden lg:flex items-center gap-2 xl:gap-[13px] ml-auto pl-2">
               <NavLink
                 to="/login"
-                className="h-10 px-3 xl:px-4 rounded-lg bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] text-[13px] xl:text-sm font-semibold flex items-center gap-2 hover:bg-white/70 transition-colors"
+                className="h-10 xl:h-[42px] px-3 xl:px-[18px] rounded-lg bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] text-[12.5px] font-semibold flex items-center gap-2 hover:bg-white/70 transition-colors"
               >
                 <User className="w-4 h-4" /> Connexion
               </NavLink>
               <NavLink
                 to={ROUTE_PATHS.PROFESSEURS}
-                className="h-10 px-3.5 xl:px-5 rounded-lg bg-[#F5A623] text-[#0D2D5A] text-[13px] xl:text-sm font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                className="h-10 xl:h-[42px] px-3.5 xl:px-5 rounded-lg bg-[#F5A623] text-[#0D2D5A] text-[13px] xl:text-[13.3px] font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
               >
                 Trouver mon coach <ArrowRight className="w-4 h-4" />
               </NavLink>
@@ -281,35 +314,35 @@ export function Layout({ children }: LayoutProps) {
       <main className="flex-1">{children}</main>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-[#0D2D5A] text-white" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
-        <div className="h-1 bg-[#F5A623]" />
-        <div className="container mx-auto px-6 pt-10 pb-7">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.2fr_auto] gap-10">
+      <footer className="bg-[#0B2D5B] text-white" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
+        <div className="mx-auto w-full max-w-[1920px] px-6 xl:px-[5%] pt-10 xl:pt-[26px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr_auto] xl:grid-cols-[368fr_241fr_246fr_244fr_202fr] gap-x-6 gap-y-8 xl:gap-x-0">
 
             {/* Marque */}
-            <div>
+            <div className="xl:pl-[15px]">
               <img
-                src="/logo/care4success-long-white.png"
+                src="/logo/care4success-compact-white.png"
                 alt="Care4Success"
-                className="h-16 w-auto object-contain mb-3"
+                className="h-16 xl:h-[75px] w-auto object-contain mb-2.5 xl:mb-[8px] xl:-mt-[5px] xl:-ml-[5px]"
               />
-              <p className="text-sm text-blue-200/80 leading-relaxed mb-5 max-w-xs">
-                Every genius needs a coach. Plateforme de coaching panafricaine par USRA-CARE.
+              <p className="text-[13.5px] text-white/90 leading-[23px]">Every genius needs a coach.</p>
+              <p className="text-[13.1px] text-[#A9C1E3] leading-[22px] mt-1.5 xl:mt-[5px] max-w-[266px]">
+                Une plateforme de coaching panafricaine par USRA-CARE.
               </p>
             </div>
 
             {/* Parents */}
             <div>
-              <h3 className="text-sm font-black text-[#F5A623] mb-4 uppercase tracking-[0.2em]">Parents</h3>
-              <ul className="space-y-3">
+              <h3 className="text-[13.7px] font-extrabold text-[#F5A623] mb-3 xl:mb-[11px] uppercase tracking-[0.1em]">Parents</h3>
+              <ul className="space-y-2.5 xl:space-y-[11px]">
                 {[
                   { label: "Évaluation gratuite", to: ROUTE_PATHS.EVALUATION_GRATUITE },
-                  { label: "Espace parents", to: "/inscription" },
+                  { label: "Suivi de progression", to: ROUTE_PATHS.SERVICES },
                   { label: "Comment ça marche", to: ROUTE_PATHS.COMMENT_CA_MARCHE },
-                  { label: "Tarifs scolaire", to: ROUTE_PATHS.TARIFS },
+                  { label: "Tarifs scolaires", to: ROUTE_PATHS.TARIFS },
                 ].map(item => (
                   <li key={item.label}>
-                    <NavLink to={item.to} className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">
+                    <NavLink to={item.to} className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">
                       {item.label}
                     </NavLink>
                   </li>
@@ -319,8 +352,8 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Apprenants */}
             <div>
-              <h3 className="text-sm font-black text-[#F5A623] mb-4 uppercase tracking-[0.2em]">Apprenants</h3>
-              <ul className="space-y-3">
+              <h3 className="text-[13.7px] font-extrabold text-[#F5A623] mb-3 xl:mb-[11px] uppercase tracking-[0.1em]">Apprenants</h3>
+              <ul className="space-y-2.5 xl:space-y-[11px]">
                 {[
                   { label: "Cours de langues", to: ROUTE_PATHS.COURS_DE_LANGUES },
                   { label: "Compétences pro", to: "#" },
@@ -328,7 +361,7 @@ export function Layout({ children }: LayoutProps) {
                   { label: "Tarifs langues", to: ROUTE_PATHS.TARIFS },
                 ].map(item => (
                   <li key={item.label}>
-                    <NavLink to={item.to} className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">
+                    <NavLink to={item.to} className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">
                       {item.label}
                     </NavLink>
                   </li>
@@ -338,21 +371,17 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Coachs */}
             <div>
-              <h3 className="text-sm font-black text-[#F5A623] mb-4 uppercase tracking-[0.2em]">Coachs</h3>
-              <ul className="space-y-3">
+              <h3 className="text-[13.7px] font-extrabold text-[#F5A623] mb-3 xl:mb-[11px] uppercase tracking-[0.1em]">Coachs</h3>
+              <ul className="space-y-2.5 xl:space-y-[11px]">
                 <li>
-                  <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">
+                  <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">
                     Devenir coach
                   </NavLink>
                 </li>
+                <li><a href="#" className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">Nos critères</a></li>
+                <li><a href="#" className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">FAQ coachs</a></li>
                 <li>
-                  <a href="#" className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">Nos critères</a>
-                </li>
-                <li>
-                  <a href="#" className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">FAQ coachs</a>
-                </li>
-                <li>
-                  <a href="mailto:contact@care4success.com" className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">
+                  <a href="mailto:contact@care4success.com" className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">
                     contact@care4success.com
                   </a>
                 </li>
@@ -360,9 +389,9 @@ export function Layout({ children }: LayoutProps) {
             </div>
 
             {/* Nous suivre */}
-            <div className="lg:border-l lg:border-white/10 lg:pl-8">
-              <h3 className="text-sm font-bold text-white mb-4">Nous suivre</h3>
-              <div className="flex items-center gap-4">
+            <div className="lg:border-l lg:border-white/12 xl:pl-[41px] lg:pl-8 xl:h-[143px]">
+              <h3 className="text-[14.3px] font-semibold text-white mb-3 xl:mb-[16px]">Nous suivre</h3>
+              <div className="flex items-center gap-4 xl:gap-[13px]">
                 {SOCIAL_LINKS.map(({ label, icon: Icon, href }) => (
                   <a
                     key={label}
@@ -371,16 +400,16 @@ export function Layout({ children }: LayoutProps) {
                     {...(href !== "#" ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                     className="text-white hover:text-[#F5A623] transition-colors"
                   >
-                    <Icon className="w-6 h-6" />
+                    <Icon />
                   </a>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="border-t border-white/8 mt-8 pt-5 flex flex-col md:flex-row justify-between items-center gap-3">
-            <p className="text-xs text-blue-300/50">© 2026 Care4Success · USRA-CARE</p>
-            <div className="flex items-center gap-6 text-xs text-blue-300/50">
+          <div className="border-t border-white/12 mt-6 xl:mt-[23px] pt-5 xl:pt-[23px] pb-6 xl:pb-[30px] flex flex-col md:flex-row justify-between items-center gap-3">
+            <p className="text-[13.4px] text-[#7F9CC7]">© 2026 Care4Success · USRA-CARE</p>
+            <div className="flex items-center gap-6 xl:gap-[26px] text-[13.4px] text-[#7F9CC7]">
               <a href="#" className="hover:text-[#F5A623] transition-colors">CGU</a>
               <NavLink to={ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE} className="hover:text-[#F5A623] transition-colors">Confidentialité</NavLink>
               <a href="#" className="hover:text-[#F5A623] transition-colors">Remboursements</a>
