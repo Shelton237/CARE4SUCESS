@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import {
-  ArrowRight, CreditCard, GraduationCap, CheckCircle, Star, MapPin,
+  ArrowRight, CreditCard, GraduationCap, CheckCircle, Star,
   Globe, Briefcase, Eye, Shield,
 } from "lucide-react";
 import { IMAGES } from "@/assets/images";
@@ -30,17 +30,6 @@ export default function Home() {
 
         <div className="container mx-auto px-6 pt-24 pb-36 md:pt-28 md:pb-44 relative z-10">
           <div className="w-full max-w-xl">
-
-              {/* Badge localisation */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="inline-flex items-center gap-2 border border-white/15 rounded-full px-4 py-2 text-sm text-blue-200 mb-8"
-              >
-                <MapPin className="w-4 h-4 text-blue-300" />
-                Disponible au Cameroun et à Madagascar
-              </motion.div>
 
               {/* Titre */}
               <motion.h1
