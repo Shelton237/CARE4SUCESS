@@ -211,6 +211,26 @@ export default function VirtualClassroom() {
     const [uploadingPdf, setUploadingPdf] = useState(false);
     const audioInputRef = useRef<HTMLInputElement>(null);
     const [uploadingAudio, setUploadingAudio] = useState(false);
+
+    // Un fichier importé (PDF/audio) peut avoir disparu du serveur : plutôt que
+    // de laisser l'aperçu afficher le JSON brut d'une 404, on le détecte et on
+    // affiche un message clair. Seul un vrai 404/410 compte — une erreur réseau
+    // passagère ne doit pas marquer le fichier comme perdu.
+    const [missingItemIds, setMissingItemIds] = useState<Set<string>>(new Set());
+    const checkedItemIdsRef = useRef<Set<string>>(new Set());
+    useEffect(() => {
+        whiteboardItems.forEach((item) => {
+            if (item.type === "youtube" || checkedItemIdsRef.current.has(item.id)) return;
+            checkedItemIdsRef.current.add(item.id);
+            fetch(getFullAttachmentUrl(item.url), { method: "HEAD" })
+                .then((res) => {
+                    if (res.status === 404 || res.status === 410) {
+                        setMissingItemIds((prev) => new Set(prev).add(item.id));
+                    }
+                })
+                .catch(() => { /* réseau : on ne conclut rien */ });
+        });
+    }, [whiteboardItems]);
     const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
     const [boardExpanded, setBoardExpanded] = useState(false);
     const [notesExpanded, setNotesExpanded] = useState(false);
@@ -1330,7 +1350,17 @@ export default function VirtualClassroom() {
                                 <div className="flex gap-3 overflow-x-auto pb-1">
                                     {whiteboardItems.map((item) => (
                                         <div key={item.id} className="relative shrink-0 w-56 aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-black group">
-                                            {item.type === 'pdf' ? (
+                                            {item.type !== 'youtube' && missingItemIds.has(item.id) ? (
+                                                <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center gap-1 px-3 text-center">
+                                                    {item.type === 'pdf'
+                                                        ? <FileText className="w-5 h-5 text-slate-300" />
+                                                        : <Headphones className="w-5 h-5 text-slate-300" />}
+                                                    <span className="text-[10px] font-bold text-slate-500 truncate max-w-full" title={item.name}>{item.name}</span>
+                                                    <span className="text-[9px] text-slate-400 leading-tight">
+                                                        Fichier introuvable : il n'est plus disponible sur le serveur.{canEdit ? " Retirez-le puis importez-le à nouveau." : ""}
+                                                    </span>
+                                                </div>
+                                            ) : item.type === 'pdf' ? (
                                                 <div className="relative w-full h-full bg-white">
                                                     <iframe
                                                         src={`${getFullAttachmentUrl(item.url)}#toolbar=0&navpanes=0`}

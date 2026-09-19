@@ -152,3 +152,7 @@ server/routes_list.txt
 _agent/scratch/
 brain/**/scratch/
 
+
+# Fichiers importés en séance (PDF, audio, affiches) : ne jamais les suivre ni les laisser
+# exposés à un `git stash -u` / `git clean` sur le serveur de production.
+uploads/
