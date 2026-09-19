@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Menu, X, ArrowRight, ChevronRight, Home as HomeIcon } from "lucide-react";
+import { Menu, X, ArrowRight, ChevronRight, ChevronDown, Home as HomeIcon, User, Linkedin, Facebook, Instagram, Youtube } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -10,13 +10,56 @@ interface LayoutProps {
 
 const NAV_MAIN = [
   { to: ROUTE_PATHS.HOME,               label: "Accueil" },
+  { to: ROUTE_PATHS.SERVICES,            label: "Soutien scolaire" },
+  { to: ROUTE_PATHS.COURS_DE_LANGUES,    label: "Langues" },
   { to: ROUTE_PATHS.COMMENT_CA_MARCHE,   label: "Comment ça marche" },
-  { to: "#",                             label: "Parents" },
   { to: ROUTE_PATHS.DEVENIR_PROFESSEUR,  label: "Devenir coach" },
   { to: ROUTE_PATHS.TARIFS,              label: "Tarifs" },
-  { to: ROUTE_PATHS.A_PROPOS,            label: "À propos" },
   { to: "#",                             label: "FAQ" },
 ];
+
+// Réseaux sociaux du pied de page. Renseigner les URL officielles : tant
+// qu'une valeur est "#", l'icône est affichée mais ne mène nulle part.
+const SOCIAL_LINKS = [
+  { label: "LinkedIn",  icon: Linkedin,  href: "#" },
+  { label: "Facebook",  icon: Facebook,  href: "#" },
+  { label: "Instagram", icon: Instagram, href: "#" },
+  { label: "YouTube",   icon: Youtube,   href: "#" },
+];
+
+function FlagFR() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-4 h-4 rounded-full shrink-0" aria-hidden>
+      <rect width="8" height="24" fill="#0055A4" />
+      <rect x="8" width="8" height="24" fill="#fff" />
+      <rect x="16" width="8" height="24" fill="#EF4135" />
+    </svg>
+  );
+}
+
+// Sélecteur de langue : le site n'est disponible qu'en français pour l'instant.
+function LanguageSelector() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex items-center gap-2 text-xs text-blue-100/80 hover:text-white transition-colors"
+      >
+        <FlagFR /> <span className="font-semibold">FR</span> <ChevronDown className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <ul role="listbox" className="absolute right-0 bottom-full mb-2 w-40 rounded-lg bg-white text-[#0D2D5A] text-xs shadow-lg py-1 z-10">
+          <li role="option" aria-selected className="px-3 py-2 font-semibold flex items-center gap-2"><FlagFR /> Français</li>
+          <li role="option" aria-disabled className="px-3 py-2 text-gray-400">English (bientôt)</li>
+        </ul>
+      )}
+    </div>
+  );
+}
 
 // Libellés du fil d'Ariane par route statique. Les routes dynamiques
 // (/professeurs/:id, /cours-groupe/:id) sont gérées à part car leur
@@ -143,21 +186,21 @@ export function Layout({ children }: LayoutProps) {
               <img
                 src="/logo/Care 4 Success-logo-Ok_compact.png"
                 alt="Care4Success"
-                className="h-14 w-auto object-contain"
+                className="h-12 xl:h-14 w-auto object-contain"
               />
             </NavLink>
 
             {/* Nav desktop */}
-            <nav className="hidden lg:flex items-center gap-0.5 ml-6">
+            <nav className="hidden lg:flex items-center ml-2 xl:ml-4">
               {NAV_MAIN.map(link => (
                 <NavLink
                   key={link.label}
                   to={link.to}
                   className={({ isActive }) =>
-                    `px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors duration-150 ${
+                    `mx-1.5 xl:mx-2.5 py-1.5 text-[12.5px] xl:text-sm font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
                       isActive && link.to !== "#"
-                        ? "text-[#0D2D5A]"
-                        : "text-[#0D2D5A]/70 hover:text-[#0D2D5A]"
+                        ? "text-[#0D2D5A] border-[#F5A623]"
+                        : "text-[#0D2D5A]/75 border-transparent hover:text-[#0D2D5A]"
                     }`
                   }
                 >
@@ -167,12 +210,18 @@ export function Layout({ children }: LayoutProps) {
             </nav>
 
             {/* CTA desktop */}
-            <div className="hidden lg:flex items-center ml-6">
+            <div className="hidden lg:flex items-center gap-2 xl:gap-3 ml-2 xl:ml-4">
+              <NavLink
+                to="/login"
+                className="h-10 px-3 xl:px-4 rounded-lg bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] text-[13px] xl:text-sm font-semibold flex items-center gap-2 hover:bg-white/70 transition-colors"
+              >
+                <User className="w-4 h-4" /> Connexion
+              </NavLink>
               <NavLink
                 to={ROUTE_PATHS.PROFESSEURS}
-                className="h-10 px-5 rounded-lg bg-[#F5A623] text-[#0D2D5A] text-sm font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center shadow-sm"
+                className="h-10 px-3.5 xl:px-5 rounded-lg bg-[#F5A623] text-[#0D2D5A] text-[13px] xl:text-sm font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
               >
-                Trouver mon coach
+                Trouver mon coach <ArrowRight className="w-4 h-4" />
               </NavLink>
             </div>
 
@@ -212,7 +261,10 @@ export function Layout({ children }: LayoutProps) {
                     {link.label}
                   </NavLink>
                 ))}
-                <div className="pt-3 border-t border-[#0D2D5A]/10">
+                <div className="pt-3 border-t border-[#0D2D5A]/10 space-y-2">
+                  <NavLink to="/login" onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] cursor-pointer">
+                    <User className="w-4 h-4" /> Connexion
+                  </NavLink>
                   <NavLink to={ROUTE_PATHS.PROFESSEURS} onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-[#F5A623] text-[#0D2D5A] hover:bg-[#e09520] transition-colors cursor-pointer">
                     Trouver mon coach <ArrowRight className="w-4 h-4" />
                   </NavLink>
@@ -231,8 +283,8 @@ export function Layout({ children }: LayoutProps) {
       {/* ── FOOTER ── */}
       <footer className="bg-[#0D2D5A] text-white" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
         <div className="h-1 bg-[#F5A623]" />
-        <div className="container mx-auto px-6 pt-14 pb-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div className="container mx-auto px-6 pt-10 pb-7">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.2fr_auto] gap-10">
 
             {/* Marque */}
             <div>
@@ -244,25 +296,12 @@ export function Layout({ children }: LayoutProps) {
               <p className="text-sm text-blue-200/80 leading-relaxed mb-5 max-w-xs">
                 Every genius needs a coach. Plateforme de coaching panafricaine par USRA-CARE.
               </p>
-              <div className="flex flex-wrap items-center gap-4">
-                {[
-                  { label: "Orange Money", logo: "/payment-icons/orange-money.png" },
-                  { label: "MTN MoMo", logo: "/payment-icons/mtn-momo.png" },
-                  { label: "MVola", logo: "/payment-icons/mvola.png" },
-                  { label: "Visa", logo: "/payment-icons/visa.svg" },
-                  { label: "Mastercard", logo: "/payment-icons/mastercard.png" },
-                ].map(({ label, logo }) => (
-                  <span key={label} className="h-12 flex items-center">
-                    <img src={logo} alt={label} className="h-12 w-auto object-contain" />
-                  </span>
-                ))}
-              </div>
             </div>
 
             {/* Parents */}
             <div>
-              <h3 className="text-sm font-black text-[#F5A623] mb-5 uppercase tracking-[0.2em]">Parents</h3>
-              <ul className="space-y-3.5">
+              <h3 className="text-sm font-black text-[#F5A623] mb-4 uppercase tracking-[0.2em]">Parents</h3>
+              <ul className="space-y-3">
                 {[
                   { label: "Évaluation gratuite", to: ROUTE_PATHS.EVALUATION_GRATUITE },
                   { label: "Espace parents", to: "/inscription" },
@@ -280,8 +319,8 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Apprenants */}
             <div>
-              <h3 className="text-sm font-black text-[#F5A623] mb-5 uppercase tracking-[0.2em]">Apprenants</h3>
-              <ul className="space-y-3.5">
+              <h3 className="text-sm font-black text-[#F5A623] mb-4 uppercase tracking-[0.2em]">Apprenants</h3>
+              <ul className="space-y-3">
                 {[
                   { label: "Cours de langues", to: ROUTE_PATHS.COURS_DE_LANGUES },
                   { label: "Compétences pro", to: "#" },
@@ -299,8 +338,8 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Coachs */}
             <div>
-              <h3 className="text-sm font-black text-[#F5A623] mb-5 uppercase tracking-[0.2em]">Coachs</h3>
-              <ul className="space-y-3.5">
+              <h3 className="text-sm font-black text-[#F5A623] mb-4 uppercase tracking-[0.2em]">Coachs</h3>
+              <ul className="space-y-3">
                 <li>
                   <NavLink to={ROUTE_PATHS.DEVENIR_PROFESSEUR} className="text-base text-blue-100/85 font-medium hover:text-[#F5A623] transition-colors">
                     Devenir coach
@@ -319,14 +358,33 @@ export function Layout({ children }: LayoutProps) {
                 </li>
               </ul>
             </div>
+
+            {/* Nous suivre */}
+            <div className="lg:border-l lg:border-white/10 lg:pl-8">
+              <h3 className="text-sm font-bold text-white mb-4">Nous suivre</h3>
+              <div className="flex items-center gap-4">
+                {SOCIAL_LINKS.map(({ label, icon: Icon, href }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    aria-label={label}
+                    {...(href !== "#" ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    className="text-white hover:text-[#F5A623] transition-colors"
+                  >
+                    <Icon className="w-6 h-6" />
+                  </a>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="border-t border-white/8 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
+          <div className="border-t border-white/8 mt-8 pt-5 flex flex-col md:flex-row justify-between items-center gap-3">
             <p className="text-xs text-blue-300/50">© 2026 Care4Success · USRA-CARE</p>
-            <div className="flex gap-6 text-xs text-blue-300/50">
+            <div className="flex items-center gap-6 text-xs text-blue-300/50">
               <a href="#" className="hover:text-[#F5A623] transition-colors">CGU</a>
               <NavLink to={ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE} className="hover:text-[#F5A623] transition-colors">Confidentialité</NavLink>
               <a href="#" className="hover:text-[#F5A623] transition-colors">Remboursements</a>
+              <LanguageSelector />
             </div>
           </div>
         </div>

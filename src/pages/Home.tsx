@@ -1,359 +1,443 @@
-import { motion } from "framer-motion";
+import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import {
-  ArrowRight, CreditCard, GraduationCap, CheckCircle, Star,
-  Globe, Briefcase, Eye, Shield,
+  ArrowRight, CirclePlay, MapPin, GraduationCap, ChartColumn, ShieldCheck, Heart,
+  Globe, Briefcase, Clock, ClipboardList, Users, UserCog, TrendingUp, Search, Scale,
+  CalendarDays, Laptop, BadgeCheck, type LucideIcon,
 } from "lucide-react";
-import { IMAGES } from "@/assets/images";
-import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { ROUTE_PATHS } from "@/lib/index";
 
-/* ─── DONNÉES ────────────────────────────────── */
+/* ─── IMAGES ─────────────────────────────────────
+   Les photos vivent dans public/images/home/. Le hero est fourni ; les trois
+   photos des cartes "univers" sont facultatives : tant qu'un fichier est absent,
+   la carte affiche une icône décorative à la place. */
+const HOME_IMAGES = {
+  hero: "/images/home/hero-coach.png",
+  soutien: "/images/home/card-soutien.jpg",
+  langues: "/images/home/card-langues.jpg",
+  competences: "/images/home/card-competences.jpg",
+};
 
-/* ─── COMPOSANT PRINCIPAL ─────────────────────── */
+const HANDWRITING = { fontFamily: "Caveat, cursive" };
+const SERIF = { fontFamily: "'Playfair Display', serif" };
+
+/* ─── PETITS COMPOSANTS ──────────────────────── */
+
+function FlagCM() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-6 h-6 rounded-full shrink-0" aria-hidden>
+      <rect width="8" height="24" fill="#007A5E" />
+      <rect x="8" width="8" height="24" fill="#CE1126" />
+      <rect x="16" width="8" height="24" fill="#FCD116" />
+      <path d="M12 8.5l1 2.6h2.8l-2.2 1.7.9 2.7-2.5-1.7-2.5 1.7.9-2.7-2.2-1.7H11z" fill="#FCD116" />
+    </svg>
+  );
+}
+
+function FlagMG() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-6 h-6 rounded-full shrink-0" aria-hidden>
+      <rect width="24" height="24" fill="#fff" />
+      <rect x="8" width="16" height="12" fill="#FC3D32" />
+      <rect x="8" y="12" width="16" height="12" fill="#007E3A" />
+    </svg>
+  );
+}
+
+/** Trait de soulignement manuscrit (or) sous les textes en écriture. */
+function HandUnderline({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 120 12" className={className} aria-hidden>
+      <path d="M2 9 C 30 2, 80 2, 118 5" stroke="#F5A623" strokeWidth="3" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
+interface UniverseCard {
+  key: string;
+  icon: LucideIcon;
+  color: string;
+  bg: string;
+  border: string;
+  chip: string;
+  title: string;
+  desc: string;
+  tags: string[];
+  photo: string;
+  footer: ReactNode;
+  cta: ReactNode;
+}
+
+const CARD_BTN = "inline-flex items-center justify-center gap-2 min-h-11 py-2.5 px-5 rounded-xl text-sm font-bold transition-colors";
+
+const UNIVERSES: UniverseCard[] = [
+  {
+    key: "soutien",
+    icon: GraduationCap,
+    color: "#0F9B8E",
+    bg: "from-[#DDF4F0] via-[#EEF9F7] to-white",
+    border: "border-[#CDEBE6]",
+    chip: "bg-white/70 border-[#CDEBE6] text-[#0B7F74]",
+    title: "Soutien scolaire",
+    desc: "Nous trouvons le coach adapté pour votre enfant. Évaluation, matching, suivi et facturation transparente.",
+    tags: ["Primaire", "Collège", "Lycée", "Examens"],
+    photo: HOME_IMAGES.soutien,
+    footer: (
+      <p className="flex items-center gap-2 text-sm text-gray-600">
+        <MapPin className="w-4 h-4 text-[#0F9B8E]" /> Disponible à Madagascar
+      </p>
+    ),
+    cta: (
+      <NavLink to={ROUTE_PATHS.EVALUATION_GRATUITE} className={`${CARD_BTN} bg-[#0F9B8E] text-white hover:bg-[#0c857a]`}>
+        Faire évaluer mon enfant <ArrowRight className="w-4 h-4" />
+      </NavLink>
+    ),
+  },
+  {
+    key: "langues",
+    icon: Globe,
+    color: "#F5A623",
+    bg: "from-[#FFF0CF] via-[#FFF8E8] to-white",
+    border: "border-[#FBE7BA]",
+    chip: "bg-white/70 border-[#FBE7BA] text-[#C9880F]",
+    title: "Langues",
+    desc: "Choisissez votre coach, comparez les prix, réservez et commencez aujourd'hui.",
+    tags: ["Anglais", "Français", "Espagnol", "+5 langues"],
+    photo: HOME_IMAGES.langues,
+    footer: (
+      <p className="flex items-center gap-3 text-sm text-gray-700">
+        <span className="flex items-center gap-2"><FlagCM /> Cameroun</span>
+        <span className="text-gray-300">|</span>
+        <span className="flex items-center gap-2"><FlagMG /> Madagascar</span>
+      </p>
+    ),
+    cta: (
+      <NavLink to={ROUTE_PATHS.COURS_DE_LANGUES} className={`${CARD_BTN} bg-[#F5A623] text-white hover:bg-[#e09520]`}>
+        Trouver un coach de langue <ArrowRight className="w-4 h-4" />
+      </NavLink>
+    ),
+  },
+  {
+    key: "competences",
+    icon: Briefcase,
+    color: "#E2574C",
+    bg: "from-[#FCE1DE] via-[#FEEFED] to-white",
+    border: "border-[#F6D2CE]",
+    chip: "bg-white/70 border-[#F6D2CE] text-[#D2453A]",
+    title: "Compétences et carrière",
+    desc: "Développez une compétence avec un expert capable de vous accompagner vers un objectif concret.",
+    tags: ["Bureautique", "Data", "Communication", "+"],
+    photo: HOME_IMAGES.competences,
+    footer: null,
+    cta: (
+      <span className={`${CARD_BTN} bg-[#FBE0DD] border border-[#F3C4BF] text-[#D2453A] cursor-default`}>
+        <Clock className="w-4 h-4" /> Bientôt disponible
+      </span>
+    ),
+  },
+];
+
+function UniverseCardView({ card }: { card: UniverseCard }) {
+  return (
+    <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${card.bg} ${card.border} p-6 md:p-7 min-h-[300px] flex flex-col`}>
+      {/* Photo à droite, fondue vers la couleur de la carte. Icône décorative si le fichier est absent. */}
+      <card.icon className="absolute right-6 top-6 w-28 h-28 opacity-[0.07]" style={{ color: card.color }} aria-hidden />
+      <img
+        src={card.photo}
+        alt=""
+        onError={(e) => { e.currentTarget.style.display = "none"; }}
+        className="absolute right-0 top-0 h-[62%] w-[52%] object-cover object-top [mask-image:linear-gradient(to_right,transparent,black_40%),linear-gradient(to_bottom,black_70%,transparent)] [mask-composite:intersect]"
+      />
+
+      <div className="relative z-10 flex flex-col flex-1">
+        <span className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" style={{ backgroundColor: card.color }}>
+          <card.icon className="w-7 h-7 text-white" />
+        </span>
+        <h3 className="text-xl font-extrabold text-[#0D2D5A] mb-2.5">{card.title}</h3>
+        <p className="text-[13px] leading-relaxed text-gray-700 mb-4 max-w-[92%]">{card.desc}</p>
+        <div className="flex flex-wrap gap-2 mb-5">
+          {card.tags.map(tag => (
+            <span key={tag} className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${card.chip}`}>{tag}</span>
+          ))}
+        </div>
+        <div className="mt-auto">
+          <div className="mb-3.5">{card.cta}</div>
+          {card.footer}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ApproachStep { icon: LucideIcon; label: string }
+
+function ApproachPanel({
+  tone, icon: Icon, title, subtitle, steps, cta,
+}: {
+  tone: "teal" | "amber";
+  icon: LucideIcon;
+  title: ReactNode;
+  subtitle: string;
+  steps: ApproachStep[];
+  cta: ReactNode;
+}) {
+  const teal = tone === "teal";
+  const accent = teal ? "#0F9B8E" : "#F5A623";
+  return (
+    <div className={`rounded-2xl border p-5 md:p-6 bg-gradient-to-br ${teal ? "from-[#E3F6F3] to-[#F4FBFA] border-[#CDEBE6]" : "from-[#FFF3D9] to-[#FFFBF1] border-[#FBE7BA]"}`}>
+      <div className="flex items-center gap-4 mb-5">
+        {teal ? (
+          <Icon className="w-11 h-11 shrink-0" style={{ color: accent }} strokeWidth={1.6} />
+        ) : (
+          <span className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: accent }}>
+            <Icon className="w-7 h-7 text-white" />
+          </span>
+        )}
+        <div>
+          <p className="text-[17px] text-[#0D2D5A] leading-snug">{title}</p>
+          <p className="text-sm text-gray-600 mt-0.5">{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="bg-white/90 rounded-xl px-4 py-5 mb-5 grid grid-cols-2 gap-y-5 sm:flex sm:items-start sm:justify-between">
+        {steps.map((step, i) => (
+          <div key={step.label} className="contents sm:flex sm:items-start">
+            <div className="flex flex-col items-center text-center gap-2 sm:w-[92px]">
+              <step.icon className="w-7 h-7" style={{ color: accent }} strokeWidth={1.7} />
+              <span className="text-xs text-gray-700 leading-snug">{step.label}</span>
+            </div>
+            {i < steps.length - 1 && (
+              <ArrowRight className="hidden sm:block w-4 h-4 mt-3 shrink-0" style={{ color: accent }} />
+            )}
+          </div>
+        ))}
+      </div>
+      {cta}
+    </div>
+  );
+}
+
+const WHY = [
+  { icon: BadgeCheck, title: "Coachs sélectionnés", desc: "Compétences, expérience et pédagogie vérifiées.", round: true },
+  { icon: ChartColumn, title: "Accompagnement adapté", desc: "Une solution pour chaque objectif et chaque niveau.", round: false },
+  { icon: Users, title: "Progression suivie", desc: "Cours, objectifs et résultats depuis votre espace.", round: false },
+  { icon: ShieldCheck, title: "Paiements simples et sécurisés", desc: "Mobile Money et carte bancaire selon votre pays.", round: false },
+];
+
+const TRUST = [
+  { icon: GraduationCap, label: "Coachs sélectionnés", color: "#2BB3A3" },
+  { icon: ChartColumn, label: "Suivi de progression", color: "#2BB3A3" },
+  { icon: ShieldCheck, label: "Paiement sécurisé", color: "#2BB3A3" },
+  { icon: Heart, label: "Zéro frais d'inscription", color: "#F5A623" },
+];
+
+/* ─── PAGE ───────────────────────────────────── */
 export default function Home() {
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
+    <div className="min-h-screen overflow-x-hidden bg-[#F7FAFC]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
-      {/* ══════════════════════════════════════════════════════
-          §1 — HERO
-          Fond uni marine, titre serif, badge de localisation, stats
-          ══════════════════════════════════════════════════════ */}
-      <section className="relative bg-[#0D2D5A] overflow-hidden">
-        {/* Photo de fond */}
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${IMAGES.TEACHER_STUDENT_1})` }}
-        />
-        {/* Voile de lisibilité */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0D2D5A]/97 via-[#0D2D5A]/92 to-[#0D2D5A]/60" />
+      {/* ══════════ HERO ══════════ */}
+      <section className="relative overflow-hidden bg-[#0D2D5A]">
+        <div className="hidden md:block absolute top-0 right-0 w-[58%] h-[90%]">
+          <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0D2D5A] via-[#0D2D5A]/20 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0D2D5A] to-transparent" />
+        </div>
 
-        <div className="container mx-auto px-6 pt-24 pb-36 md:pt-28 md:pb-44 relative z-10">
-          <div className="w-full max-w-xl">
+        <div className="container mx-auto px-6 relative z-10 pt-11 md:pt-12 pb-5">
+          <div className="max-w-xl">
+            <h1
+              className="font-bold text-white leading-[1.02] text-[clamp(2.6rem,4.4vw,3.95rem)]"
+              style={SERIF}
+            >
+              Every genius<br />
+              needs <span className="italic text-[#F5A623]">a coach</span>
+            </h1>
+            <p className="text-white/90 text-lg md:text-[22px] leading-snug mt-5">
+              Soutien scolaire. Langues. Compétences.<br />
+              Un coach pour chaque objectif.
+            </p>
 
-              {/* Titre */}
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...springPresets.gentle, delay: 0.1 }}
-                className="font-bold text-white leading-[1.05] text-[clamp(2.5rem,5vw,3.75rem)]"
-                style={{ fontFamily: "'Playfair Display', serif" }}
+            <div className="flex flex-wrap gap-4 mt-6">
+              <NavLink
+                to={ROUTE_PATHS.PROFESSEURS}
+                id="hero-cta-primary"
+                className="inline-flex items-center gap-2 h-14 px-8 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-extrabold hover:bg-[#e09520] transition-colors"
               >
-                Every genius needs{" "}
-                <span className="italic text-[#F5A623]">a coach</span>
-              </motion.h1>
-
-              {/* Sous-titre */}
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...springPresets.gentle, delay: 0.2 }}
-                className="text-blue-200 text-lg leading-relaxed mt-6 mb-10"
+                Trouver mon coach <ArrowRight className="w-4 h-4" />
+              </NavLink>
+              <NavLink
+                to={ROUTE_PATHS.COMMENT_CA_MARCHE}
+                className="inline-flex items-center gap-2.5 h-14 px-7 rounded-xl border border-white/35 bg-[#0D2D5A]/40 text-white font-bold hover:bg-white/10 transition-colors"
               >
-                Soutien scolaire. Langues. Compétences. Un coach pour chaque objectif.
-              </motion.p>
+                <CirclePlay className="w-5 h-5" strokeWidth={1.6} /> Voir comment ça marche
+              </NavLink>
+            </div>
 
-              {/* CTAs */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...springPresets.gentle, delay: 0.3 }}
-                className="flex flex-wrap gap-4 mb-16"
-              >
+            <p className="flex items-center gap-2 text-sm text-blue-100/80 mt-4">
+              <MapPin className="w-4 h-4 text-[#2BB3A3]" /> Disponible au Cameroun et à Madagascar
+            </p>
+          </div>
+
+          {/* Mobile : la photo passe sous les boutons, en bloc net */}
+          <div className="md:hidden relative -mx-6 mt-6 h-56">
+            <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
+            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#0D2D5A] to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#0D2D5A] to-transparent" />
+          </div>
+
+          <ul className="flex flex-wrap gap-x-10 gap-y-3 mt-7">
+            {TRUST.map(item => (
+              <li key={item.label} className="flex items-center gap-2.5 text-sm text-white/90">
+                <item.icon className="w-7 h-7" style={{ color: item.color }} strokeWidth={1.8} />
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ══════════ NOS UNIVERS ══════════ */}
+      <section className="pt-10 md:pt-10 pb-6 md:pb-8">
+        <div className="container mx-auto px-6">
+          <div className="flex items-start justify-between gap-6 mb-6">
+            <div>
+              <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-2">Nos univers</p>
+              <h2 className="text-3xl md:text-[40px] font-bold text-[#0D2D5A] leading-tight" style={SERIF}>
+                Quel est votre objectif&nbsp;?
+              </h2>
+              <p className="text-gray-500 mt-1.5">Chaque parcours est unique. Choisissez le vôtre.</p>
+            </div>
+            <div className="hidden md:block text-right shrink-0 -rotate-6 mt-2 mr-2">
+              <p className="text-[30px] leading-[1.05] text-[#0D2D5A] font-medium" style={HANDWRITING}>
+                Un coach<br />pour chaque objectif
+              </p>
+              <HandUnderline className="w-28 h-3 ml-auto mt-1" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
+            {UNIVERSES.map(card => <UniverseCardView key={card.key} card={card} />)}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ DEUX APPROCHES ══════════ */}
+      <section className="py-6 md:py-8">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl md:text-[34px] font-bold text-[#0D2D5A] leading-tight" style={SERIF}>
+              Deux approches, un même objectif : votre réussite
+            </h2>
+            <p className="text-gray-500 mt-2">Selon votre besoin, nous vous accompagnons différemment.</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+            <ApproachPanel
+              tone="teal"
+              icon={GraduationCap}
+              title={<><b className="font-extrabold">Soutien scolaire</b> – un service managé (Madagascar)</>}
+              subtitle="Vous nous confiez votre besoin, nous nous occupons du reste."
+              steps={[
+                { icon: ClipboardList, label: "Évaluation du besoin" },
+                { icon: Users, label: "Matching Care4Success" },
+                { icon: UserCog, label: "Coach assigné" },
+                { icon: TrendingUp, label: "Suivi et bilan régulier" },
+              ]}
+              cta={
+                <NavLink to={ROUTE_PATHS.SERVICES} className={`${CARD_BTN} bg-[#0F9B8E] text-white hover:bg-[#0c857a]`}>
+                  En savoir plus sur le soutien scolaire <ArrowRight className="w-4 h-4" />
+                </NavLink>
+              }
+            />
+            <ApproachPanel
+              tone="amber"
+              icon={Globe}
+              title={<><b className="font-extrabold">Langues</b> – une <b className="font-extrabold">marketplace</b> (Cameroun + Madagascar)</>}
+              subtitle="Vous gardez le choix de votre coach."
+              steps={[
+                { icon: Search, label: "Recherche de coachs" },
+                { icon: Scale, label: "Comparaison des tarifs" },
+                { icon: CalendarDays, label: "Réservation du cours" },
+                { icon: Laptop, label: "Cours en ligne" },
+              ]}
+              cta={
+                <NavLink to={ROUTE_PATHS.COURS_DE_LANGUES} className={`${CARD_BTN} bg-[#F5A623] text-[#0D2D5A] hover:bg-[#e09520]`}>
+                  Découvrir les cours de langues <ArrowRight className="w-4 h-4" />
+                </NavLink>
+              }
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ POURQUOI CHOISIR ══════════ */}
+      <section className="pt-8 md:pt-8 pb-10 md:pb-11">
+        <div className="container mx-auto px-6">
+          <h2 className="text-2xl md:text-[32px] font-bold text-[#0D2D5A] text-center mb-7" style={SERIF}>
+            Pourquoi choisir Care4Success&nbsp;?
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-7 lg:gap-x-0 lg:divide-x lg:divide-[#0D2D5A]/10">
+            {WHY.map(item => (
+              <div key={item.title} className="flex items-start gap-4 lg:px-6 first:lg:pl-0 last:lg:pr-0">
+                <span
+                  className={`w-14 h-14 flex items-center justify-center shrink-0 ${
+                    item.round ? "rounded-full bg-[#0F9B8E]" : "rounded-2xl bg-white border border-[#0D2D5A]/5 shadow-sm"
+                  }`}
+                >
+                  <item.icon className={`w-7 h-7 ${item.round ? "text-white" : "text-[#F5A623]"}`} strokeWidth={item.round ? 1.8 : 2} />
+                </span>
+                <div>
+                  <p className="font-extrabold text-[#0D2D5A] text-[15px] leading-snug">{item.title}</p>
+                  <p className="text-sm text-gray-500 leading-relaxed mt-1">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ CTA FINAL ══════════ */}
+      <section className="relative py-10 md:py-11 bg-[#0B2545] overflow-hidden">
+        <div className="absolute -bottom-16 -left-10 w-64 h-64 rounded-full bg-white/[0.06] pointer-events-none" />
+        <div className="absolute top-8 left-8 w-28 h-28 rounded-full bg-[#0F9B8E]/15 pointer-events-none" />
+        <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full bg-[#1A6CC8]/10 pointer-events-none" />
+        <div className="absolute -bottom-20 -right-4 w-56 h-56 rounded-full bg-[#F5A623]/10 pointer-events-none" />
+
+        <div className="container mx-auto px-6 relative z-10">
+          <div className="max-w-4xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-10">
+            <div className="max-w-xl">
+              <h2 className="text-3xl md:text-[38px] font-bold text-white leading-tight" style={SERIF}>
+                Prêt à <span className="text-[#F5A623]">atteindre votre objectif</span>&nbsp;?
+              </h2>
+              <p className="text-blue-100/85 mt-3">
+                Scolaire, langues ou compétences, Care4Success vous accompagne vers le bon coach.
+              </p>
+              <div className="flex flex-wrap gap-4 mt-7">
                 <NavLink
                   to={ROUTE_PATHS.PROFESSEURS}
-                  id="hero-cta-primary"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-[#F5A623] text-[#0D2D5A] font-bold hover:bg-[#e09520] transition-colors duration-200"
+                  className="inline-flex items-center gap-2 h-12 px-7 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-extrabold hover:bg-[#e09520] transition-colors"
                 >
                   Trouver mon coach <ArrowRight className="w-4 h-4" />
                 </NavLink>
                 <NavLink
-                  to={ROUTE_PATHS.COMMENT_CA_MARCHE}
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-white/5 border border-white/15 text-white font-bold hover:bg-white/10 transition-colors duration-200"
+                  to="/inscription"
+                  className="inline-flex items-center h-12 px-7 rounded-xl border border-white/40 text-white font-bold hover:bg-white/10 transition-colors"
                 >
-                  Comment ça marche
-                </NavLink>
-              </motion.div>
-
-              {/* Stats */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...springPresets.gentle, delay: 0.4 }}
-                className="flex flex-wrap gap-10"
-              >
-                {[
-                  { value: "4", label: "systèmes scolaires couverts" },
-                  { value: "8+", label: "langues enseignées" },
-                  { value: "2", label: "pays actifs" },
-                ].map(stat => (
-                  <div key={stat.label}>
-                    <p
-                      className="text-[#F5A623] text-5xl font-bold leading-none"
-                      style={{ fontFamily: "'Playfair Display', serif" }}
-                    >
-                      {stat.value}
-                    </p>
-                    <p className="text-blue-200 text-base mt-3">{stat.label}</p>
-                  </div>
-                ))}
-              </motion.div>
-          </div>
-        </div>
-
-        {/* Vague de bas de section */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 leading-[0]">
-          <svg viewBox="0 0 1440 120" className="w-full block" preserveAspectRatio="none">
-            <path d="M0,120 L0,60 C360,120 1080,0 1440,60 L1440,120 Z" fill="oklch(0.99 0.003 230)" />
-          </svg>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════
-          §1bis — NOS UNIVERS
-          3 cartes objectif : Soutien scolaire / Langues / Compétences
-          ══════════════════════════════════════════════════════ */}
-      <section className="py-20 md:py-24 bg-background">
-        <div className="container mx-auto px-6">
-          <div className="max-w-xl mb-14">
-            <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Nos univers</p>
-            <h2
-              className="text-3xl md:text-4xl font-bold text-[#0D2D5A] mb-3"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              Quel est votre objectif ?
-            </h2>
-            <p className="text-gray-500">Chaque univers a son approche. Choisissez le vôtre.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                icon: GraduationCap,
-                color: "#0F9B8E",
-                bgFrom: "from-teal-50",
-                title: "Soutien scolaire",
-                desc: "Nous trouvons le coach parfait pour votre enfant. Évaluation, matching, suivi en temps réel, facturation transparente.",
-                tags: ["BAC / Brevet", "IB", "Système US", "Britannique"],
-                link: { label: "Évaluation gratuite", to: ROUTE_PATHS.EVALUATION_GRATUITE },
-              },
-              {
-                icon: Globe,
-                color: "#F5A623",
-                bgFrom: "from-amber-50",
-                title: "Langues",
-                desc: "Choisissez votre coach, comparez les prix, réservez et commencez aujourd'hui. En ligne, présentiel ou hybride.",
-                tags: ["Anglais", "Français", "Espagnol", "+5 langues"],
-                link: { label: "Voir les coachs disponibles", to: ROUTE_PATHS.COURS_DE_LANGUES },
-              },
-              {
-                icon: Briefcase,
-                color: "#E2574C",
-                bgFrom: "from-red-50",
-                title: "Compétences et carrière",
-                desc: "Formations pro, conférences payantes, certifications, par des experts reconnus. Visio sécurisée incluse.",
-                tags: ["Excel / Data", "Management", "Prépa concours"],
-                link: { label: "Me prévenir du lancement", to: "#" },
-              },
-            ].map(card => (
-              <div
-                key={card.title}
-                className={`bg-gradient-to-b ${card.bgFrom} to-white rounded-2xl border border-gray-100 p-8`}
-              >
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
-                  style={{ backgroundColor: card.color }}
-                >
-                  <card.icon className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-[#0D2D5A] mb-3">{card.title}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed mb-5">{card.desc}</p>
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {card.tags.map(tag => (
-                    <span
-                      key={tag}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-full"
-                      style={{ backgroundColor: `${card.color}1A`, color: card.color }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <NavLink
-                  to={card.link.to}
-                  className="inline-flex items-center gap-1.5 text-sm font-bold hover:gap-2.5 transition-all duration-200"
-                  style={{ color: card.color }}
-                >
-                  {card.link.label} <ArrowRight className="w-3.5 h-3.5" />
+                  Créer un compte gratuitement
                 </NavLink>
               </div>
-            ))}
+            </div>
+
+            <div className="hidden md:block -rotate-[8deg] shrink-0">
+              <p className="text-[32px] leading-[1.1] text-white font-medium" style={HANDWRITING}>
+                Investir aujourd'hui<br />dans votre potentiel
+              </p>
+              <HandUnderline className="w-28 h-3 mt-1 ml-6" />
+            </div>
           </div>
         </div>
       </section>
-
-      {/* ══════════════════════════════════════════════════════
-          §2 — POURQUOI CARE4SUCCESS
-          ══════════════════════════════════════════════════════ */}
-      <section className="py-20 md:py-24 bg-[#F4F2ED]">
-        <div className="container mx-auto px-6">
-          <div className="max-w-xl mb-14">
-            <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Pourquoi Care4Success</p>
-            <h2
-              className="text-3xl md:text-4xl font-bold text-[#0D2D5A]"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              Ce qui nous rend différents
-            </h2>
-          </div>
-
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
-          >
-            {[
-              {
-                icon: CheckCircle,
-                color: "#0F9B8E",
-                title: "Coachs vérifiés",
-                desc: "Chaque coach passe 5 étapes de validation. Diplômes, expertise, pédagogie : nous vérifions tout avant qu'un coach donne son premier cours.",
-              },
-              {
-                icon: Eye,
-                color: "#F5A623",
-                title: "Suivi transparent",
-                desc: "Parents : vous voyez tout. Heure d'arrivée du coach, contenu du cours, devoirs laissés, progression, en temps réel depuis votre espace.",
-              },
-              {
-                icon: CreditCard,
-                color: "#0D2D5A",
-                title: "Paiement sécurisé",
-                desc: "Orange Money, MTN MoMo, MVola, Visa, Mastercard. Vos paiements sont protégés, votre coach est payé automatiquement.",
-              },
-              {
-                icon: Shield,
-                color: "#E2574C",
-                title: "Zéro frais d'inscription",
-                desc: "Pas d'abonnement, pas de frais cachés. Vous ne payez que les cours. Évaluation scolaire et première session de langue gratuites.",
-              },
-            ].map(card => (
-              <motion.div key={card.title} variants={staggerItem} className="bg-white rounded-2xl border border-gray-100 p-6">
-                <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-5"
-                  style={{ backgroundColor: card.color }}
-                >
-                  <card.icon className="w-5 h-5 text-white" />
-                </div>
-                <p className="font-bold text-[#0D2D5A] text-base mb-2">{card.title}</p>
-                <p className="text-sm text-gray-500 leading-relaxed">{card.desc}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════
-          §3bis — ILS TÉMOIGNENT
-          ══════════════════════════════════════════════════════ */}
-      <section className="py-20 md:py-24 bg-white">
-        <div className="container mx-auto px-6">
-          <div className="max-w-xl mb-14">
-            <p className="text-[#0F9B8E] text-xs font-bold uppercase tracking-[0.2em] mb-3">Ils témoignent</p>
-            <h2
-              className="text-3xl md:text-4xl font-bold text-[#0D2D5A]"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              Ce que disent nos premiers utilisateurs
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                stars: 5,
-                quote: "Mon fils avait 8/20 en maths en début d'année. En 3 mois avec son coach, il est passé à 14. Le suivi en temps réel m'a permis de voir exactement ce qui se passait à chaque session.",
-                initials: "MR",
-                color: "#0F9B8E",
-                name: "Marie R.",
-                role: "Parent d'un élève en 3ème · Antananarivo",
-              },
-              {
-                stars: 5,
-                quote: "J'enseignais sur Preply depuis 2 ans. Care4Success me donne la même liberté de fixer mes prix, mais avec des étudiants locaux qui veulent du présentiel. C'est exactement ce qui manquait.",
-                initials: "AK",
-                color: "#F5A623",
-                name: "Aminata K.",
-                role: "Coach d'anglais · Douala",
-              },
-              {
-                stars: 4,
-                quote: "Je cherchais un cours d'anglais pour préparer mon IELTS. J'ai trouvé un coach spécialisé en 5 minutes, réservé ma première session le soir même. Simple et efficace.",
-                initials: "PD",
-                color: "#E2574C",
-                name: "Patrick D.",
-                role: "Apprenant anglais · Yaoundé",
-              },
-            ].map(t => (
-              <div key={t.name} className="bg-[#F4F2ED] rounded-2xl p-6">
-                <div className="flex gap-0.5 mb-4">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <Star key={i} className={`w-4 h-4 ${i <= t.stars ? "fill-[#F5A623] text-[#F5A623]" : "fill-transparent text-gray-300"}`} />
-                  ))}
-                </div>
-                <p className="text-sm text-gray-700 italic leading-relaxed mb-6">{t.quote}</p>
-                <div className="flex items-center gap-3">
-                  <span
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                    style={{ backgroundColor: t.color }}
-                  >
-                    {t.initials}
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-[#0D2D5A]">{t.name}</p>
-                    <p className="text-xs text-gray-500">{t.role}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════
-          §9 — CTA FINAL
-          ══════════════════════════════════════════════════════ */}
-      <section className="relative py-20 bg-[#0B2545] overflow-hidden">
-        {/* Bulles décoratives */}
-        <div className="absolute top-0 left-0 w-full h-full opacity-50 pointer-events-none">
-          <div className="absolute top-10 left-10 w-32 h-32 bg-[#0F9B8E]/10 rounded-full" />
-          <div className="absolute bottom-10 right-10 w-40 h-40 bg-[#F5A623]/10 rounded-full" />
-          <div className="absolute top-1/3 right-1/4 w-24 h-24 bg-[#1A6CC8]/10 rounded-full" />
-        </div>
-        <div className="absolute -top-10 -right-10 w-60 h-60 bg-[#1A6CC8]/10 rounded-full pointer-events-none" />
-        <div className="absolute -bottom-10 -left-10 w-72 h-72 bg-[#F5A623]/10 rounded-full pointer-events-none" />
-
-        <div className="container mx-auto px-6 text-center relative z-10">
-          <h2
-            className="text-3xl md:text-4xl font-bold text-white mb-4"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
-            Prêt à <span className="text-[#F5A623]">atteindre votre objectif</span> ?
-          </h2>
-          <p className="text-blue-200 max-w-lg mx-auto mb-8">
-            Le bon coach est à quelques clics. Scolaire, langues ou compétences, à vous de jouer.
-          </p>
-          <NavLink
-            to={ROUTE_PATHS.PROFESSEURS}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-[#F5A623] to-[#f7b84b] hover:from-[#e09520] hover:to-[#F5A623] text-[#0D2D5A] font-bold text-lg py-4 px-10 rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-          >
-            Trouver mon coach <ArrowRight className="w-4 h-4" />
-          </NavLink>
-        </div>
-      </section>
-
     </div>
   );
 }
