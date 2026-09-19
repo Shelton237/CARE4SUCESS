@@ -12,6 +12,7 @@ import TeacherMessages from "./Messages";
 import TeacherHomework from "./Homework";
 import TeacherResources from "./Resources";
 import TeacherGroupClasses from "./GroupClasses";
+import TeacherProfile from "./Profile";
 import { ClipboardList, LayoutDashboard, CalendarDays, Users, Banknote, BookOpen, MessageCircle, Library, Users2 } from "lucide-react";
 
 export default function TeacherLayout() {
@@ -53,6 +54,7 @@ export default function TeacherLayout() {
                     <Route path="messages" element={<TeacherMessages />} />
                     <Route path="resources" element={<TeacherResources />} />
                     <Route path="earnings" element={<TeacherEarnings />} />
+                    <Route path="profile" element={<TeacherProfile />} />
                     <Route path="*" element={<Navigate to="/teacher" replace />} />
                 </Routes>
             </main>
