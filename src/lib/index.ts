@@ -11,7 +11,6 @@ export const ROUTE_PATHS = {
   DEVENIR_PROFESSEUR: "/devenir-professeur",
   RECRUTEMENT: "/devenir-professeur",
   A_PROPOS: "/a-propos",
-  TARIFS: "/tarifs",
   POLITIQUE_CONFIDENTIALITE: "/politique-confidentialite",
   COMMENT_CA_MARCHE: "/comment-ca-marche",
   FAQ: "/faq",

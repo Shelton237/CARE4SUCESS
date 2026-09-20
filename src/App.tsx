@@ -26,7 +26,6 @@ import Contact from "@/pages/Contact";
 import EvaluationGratuite from "@/pages/EvaluationGratuite";
 import Inscription from "@/pages/Inscription";
 import About from "@/pages/About";
-import Pricing from "@/pages/Pricing";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import NotFound from "./pages/not-found/Index";
 import Login from "@/pages/auth/Login";
@@ -77,7 +76,6 @@ const App = () => (
               <Route path={ROUTE_PATHS.EVALUATION_GRATUITE} element={<Layout><EvaluationGratuite /></Layout>} />
               <Route path="/inscription" element={<Layout><Inscription /></Layout>} />
               <Route path={ROUTE_PATHS.A_PROPOS} element={<Layout><About /></Layout>} />
-              <Route path={ROUTE_PATHS.TARIFS} element={<Layout><Pricing /></Layout>} />
               <Route path={ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE} element={<Layout><PrivacyPolicy /></Layout>} />
 
               {/* Auth */}

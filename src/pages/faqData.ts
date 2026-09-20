@@ -13,7 +13,7 @@ export interface FaqCategory {
   items: FaqItem[];
 }
 
-/* Contenu rédigé à partir des pages Tarifs, Comment ça marche, Devenir coach et
+/* Contenu rédigé à partir des anciennes pages Tarifs, Comment ça marche, Devenir coach et
    de l'accueil. À faire relire par l'équipe avant diffusion large : les règles
    d'annulation et de report de cours notamment. Pas de tiret cadratin. */
 export const FAQ_CATEGORIES: FaqCategory[] = [

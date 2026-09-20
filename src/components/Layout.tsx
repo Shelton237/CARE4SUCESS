@@ -15,7 +15,6 @@ const NAV_MAIN = [
   { to: ROUTE_PATHS.COMPETENCES,         label: "Compétences" },
   { to: ROUTE_PATHS.COMMENT_CA_MARCHE,   label: "Comment ça marche" },
   { to: ROUTE_PATHS.DEVENIR_PROFESSEUR,  label: "Devenir coach" },
-  { to: ROUTE_PATHS.TARIFS,              label: "Tarifs" },
   { to: ROUTE_PATHS.FAQ,                  label: "FAQ" },
 ];
 
@@ -111,7 +110,6 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   [ROUTE_PATHS.CONTACT]: "Contact",
   "/inscription": "Inscription",
   [ROUTE_PATHS.A_PROPOS]: "À propos",
-  [ROUTE_PATHS.TARIFS]: "Tarifs",
   [ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE]: "Politique de confidentialité",
 };
 
@@ -164,7 +162,6 @@ const SELF_RENDERED_BREADCRUMB_ROUTES = new Set<string>([
   ROUTE_PATHS.CONTACT,
   ROUTE_PATHS.EVALUATION_GRATUITE,
   ROUTE_PATHS.A_PROPOS,
-  ROUTE_PATHS.TARIFS,
 ]);
 
 export function Breadcrumb() {
@@ -358,7 +355,6 @@ export function Layout({ children }: LayoutProps) {
                   { label: "Évaluation gratuite", to: ROUTE_PATHS.EVALUATION_GRATUITE },
                   { label: "Suivi de progression", to: ROUTE_PATHS.SERVICES },
                   { label: "Comment ça marche", to: ROUTE_PATHS.COMMENT_CA_MARCHE },
-                  { label: "Tarifs scolaires", to: ROUTE_PATHS.TARIFS },
                   { label: "FAQ", to: ROUTE_PATHS.FAQ },
                 ].map(item => (
                   <li key={item.label}>
@@ -378,7 +374,6 @@ export function Layout({ children }: LayoutProps) {
                   { label: "Cours de langues", to: ROUTE_PATHS.COURS_DE_LANGUES },
                   { label: "Compétences pro", to: ROUTE_PATHS.COMPETENCES },
                   { label: "Nos coachs", to: ROUTE_PATHS.ANNUAIRE_COACHS },
-                  { label: "Tarifs langues", to: ROUTE_PATHS.TARIFS },
                   { label: "FAQ", to: "/faq?cat=langues" },
                 ].map(item => (
                   <li key={item.label}>
