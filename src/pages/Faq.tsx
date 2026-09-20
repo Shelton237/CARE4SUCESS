@@ -116,7 +116,7 @@ export default function Faq() {
 
       {/* ══════════ QUESTIONS ══════════ */}
       <section className="py-10 md:py-12">
-        <div className="mx-auto w-full max-w-[1286px] px-6 xl:px-0 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,330px)_minmax(0,1fr)] xl:grid-cols-[368px_minmax(0,1fr)] gap-8 lg:gap-0">
+        <div className="mx-auto w-full max-w-[1286px] px-6 min-[1400px]:px-0 grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,330px)_minmax(0,1fr)] xl:grid-cols-[368px_minmax(0,1fr)] gap-8 lg:gap-0">
 
           {/* Catégories */}
           <nav aria-label="Catégories" className="min-w-0 lg:border-r lg:border-[#0D2D5A]/10 lg:pr-5 xl:pr-[22px]">
@@ -206,7 +206,7 @@ export default function Faq() {
 
       {/* ══════════ CONTACT ══════════ */}
       <section className="pb-10 md:pb-12">
-        <div className="mx-auto w-full max-w-[1334px] px-6 xl:px-0">
+        <div className="mx-auto w-full max-w-[1334px] px-6 min-[1400px]:px-0">
           <div className="rounded-2xl xl:rounded-[18px] bg-gradient-to-r from-[#DFF3F0] via-[#E8F6F4] to-[#EEF8F8] p-6 md:p-8 xl:pl-[33px] xl:pr-[40px] xl:py-[38px] grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,330px)] xl:grid-cols-[minmax(0,1fr)_372px] gap-8 lg:gap-0">
             <div className="grid md:grid-cols-[minmax(0,1fr)_170px] xl:grid-cols-[minmax(0,1fr)_214px] items-center gap-6 lg:pr-8">
               <div>

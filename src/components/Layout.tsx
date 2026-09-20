@@ -12,9 +12,9 @@ const NAV_MAIN = [
   { to: ROUTE_PATHS.HOME,               label: "Accueil" },
   { to: ROUTE_PATHS.SERVICES,            label: "Soutien scolaire" },
   { to: ROUTE_PATHS.COURS_DE_LANGUES,    label: "Langues" },
+  { to: `${ROUTE_PATHS.ANNUAIRE_COACHS}?categorie=competences`, label: "Compétences" },
   { to: ROUTE_PATHS.COMMENT_CA_MARCHE,   label: "Comment ça marche" },
   { to: ROUTE_PATHS.DEVENIR_PROFESSEUR,  label: "Devenir coach" },
-  { to: ROUTE_PATHS.TARIFS,              label: "Tarifs" },
   { to: ROUTE_PATHS.FAQ,                  label: "FAQ" },
 ];
 
@@ -213,7 +213,7 @@ export function Layout({ children }: LayoutProps) {
       <header className={`sticky top-0 w-full z-50 transition-all duration-300 bg-[#F4F2ED] ${
         scrolled ? "shadow-lg shadow-[#0D2D5A]/8" : ""
       }`}>
-        <div className="mx-auto w-full max-w-[1920px] px-6 xl:pl-[6.05%] xl:pr-[4.1%]">
+        <div className="mx-auto w-full max-w-[1920px] px-6 xl:pl-[6.05%] xl:pr-[4.8%]">
           <div className="flex items-center h-20 xl:h-[69px]">
 
             {/* Logo */}
@@ -226,7 +226,7 @@ export function Layout({ children }: LayoutProps) {
             </NavLink>
 
             {/* Nav desktop */}
-            <nav className="hidden lg:flex items-center ml-2 xl:max-[1399px]:ml-6 min-[1400px]:ml-[9.55%]">
+            <nav className="hidden lg:flex items-center ml-2 xl:max-[1399px]:ml-6 min-[1400px]:ml-[6.9%]">
               {NAV_MAIN.map(link => (
                 <NavLink
                   key={link.label}
@@ -248,13 +248,13 @@ export function Layout({ children }: LayoutProps) {
             <div className="hidden lg:flex items-center gap-2 xl:gap-[13px] ml-auto pl-2">
               <NavLink
                 to="/login"
-                className="h-10 xl:h-[42px] px-3 xl:px-[18px] rounded-lg bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] text-[12.5px] font-semibold flex items-center gap-2 hover:bg-white/70 transition-colors"
+                className="h-10 xl:h-[42px] px-3 xl:px-[22px] rounded-lg bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] text-[12.5px] xl:text-[13.6px] font-semibold flex items-center gap-2 hover:bg-white/70 transition-colors"
               >
                 <User className="w-4 h-4" /> Connexion
               </NavLink>
               <NavLink
                 to={ROUTE_PATHS.PROFESSEURS}
-                className="h-10 xl:h-[42px] px-3.5 xl:px-5 rounded-lg bg-[#F5A623] text-[#0D2D5A] text-[13px] xl:text-[13.3px] font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                className="h-10 xl:h-[42px] px-3.5 xl:px-[24px] rounded-lg bg-[#F5A623] text-[#0D2D5A] text-[13px] xl:text-[14.4px] font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
               >
                 Trouver mon coach <ArrowRight className="w-4 h-4" />
               </NavLink>
@@ -316,7 +316,7 @@ export function Layout({ children }: LayoutProps) {
       <main className="flex-1">{children}</main>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-[#0B2D5B] text-white" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
+      <footer className="bg-[#072345] text-white" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
         <div className="mx-auto w-full max-w-[1920px] px-6 xl:px-[5%] pt-10 xl:pt-[26px]">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr_auto] xl:grid-cols-[368fr_241fr_246fr_244fr_202fr] gap-x-6 gap-y-8 xl:gap-x-0">
 

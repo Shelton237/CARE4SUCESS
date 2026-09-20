@@ -6,6 +6,7 @@ import {
   CalendarDays, Laptop, BadgeCheck, type LucideIcon,
 } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
+import { BarsFilled, UsersFilled, ShieldFilled, HandUnderline, type FilledIcon } from "@/components/decor";
 
 /* ─── IMAGES ─────────────────────────────────────
    Les photos vivent dans public/images/home/. Elles sont découpées dans la
@@ -21,48 +22,11 @@ const HOME_IMAGES = {
 
 /* Les valeurs préfixées xl: sont calibrées sur la maquette à 1440 px de large ;
    en dessous, la mise en page reste fluide. */
-type FilledIcon = (props: { className?: string }) => JSX.Element;
-
-const BarsFilled: FilledIcon = ({ className }) => (
-  <svg viewBox="0 0 32 32" className={className} fill="currentColor" aria-hidden>
-    <rect x="3" y="17" width="7.5" height="12" rx="2" />
-    <rect x="12.3" y="9" width="7.5" height="20" rx="2" />
-    <rect x="21.5" y="2" width="7.5" height="27" rx="2" />
-  </svg>
-);
-
-const UsersFilled: FilledIcon = ({ className }) => (
-  <svg viewBox="0 0 32 32" className={className} fill="currentColor" aria-hidden>
-    <circle cx="16" cy="9" r="4.6" />
-    <path d="M7.5 25c0-4.6 3.8-8.2 8.5-8.2s8.5 3.6 8.5 8.2c0 .9-.7 1.6-1.6 1.6H9.1c-.9 0-1.6-.7-1.6-1.6z" />
-    <circle cx="5.5" cy="12.5" r="3.4" />
-    <path d="M0.5 24.6c0-3.2 2.3-5.8 5.2-6.3-1.2 1.4-1.9 3.2-1.9 5.2 0 .6.1 1.2.3 1.7H2c-.9 0-1.5-.5-1.5-.6z" />
-    <circle cx="26.5" cy="12.5" r="3.4" />
-    <path d="M31.5 24.6c0-3.2-2.3-5.8-5.2-6.3 1.2 1.4 1.9 3.2 1.9 5.2 0 .6-.1 1.2-.3 1.7H30c.9 0 1.5-.5 1.5-.6z" />
-  </svg>
-);
-
-const ShieldFilled: FilledIcon = ({ className }) => (
-  <svg viewBox="0 0 32 32" className={className} aria-hidden>
-    <path d="M16 2.5l11 4v8.6c0 6.6-4.5 11.6-11 14.4C9.5 26.7 5 21.7 5 15.1V6.5l11-4z" fill="currentColor" />
-    <path d="M10.8 15.8l3.7 3.7 7-7.3" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
 const HANDWRITING = { fontFamily: "Caveat, cursive" };
 const SERIF = { fontFamily: "'Playfair Display', serif" };
-const WRAP = "mx-auto w-full max-w-[1334px] px-6 xl:px-0";
+const WRAP = "mx-auto w-full max-w-[1334px] px-6 min-[1400px]:px-0";
 
 /* ─── PETITS COMPOSANTS ──────────────────────── */
-
-/** Trait de soulignement manuscrit (or) sous les textes en écriture. */
-function HandUnderline({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 120 12" className={className} aria-hidden>
-      <path d="M2 9 C 30 2, 80 2, 118 5" stroke="#F5A623" strokeWidth="3" strokeLinecap="round" fill="none" />
-    </svg>
-  );
-}
 
 interface UniverseCard {
   key: string;
@@ -258,12 +222,12 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#F7FAFC]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative overflow-hidden bg-[#0D2D5A] xl:h-[410px]">
+      <section className="relative overflow-hidden bg-[#07284B] xl:h-[410px]">
         {/* Photo à droite (positions de la maquette, en % de la largeur) */}
         <div className="hidden md:block absolute top-0 left-[42.97%] w-[57.03%]">
           <img src={HOME_IMAGES.hero} alt="" className="w-full h-auto block" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0D2D5A] via-[#0D2D5A]/10 to-transparent" />
-          <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#0D2D5A] via-[#0D2D5A]/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#07284B] via-[#07284B]/10 to-transparent" />
+          <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#07284B] via-[#07284B]/80 to-transparent" />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.05%] xl:pr-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[44px] xl:pb-0">
@@ -290,7 +254,7 @@ export default function Home() {
               </NavLink>
               <NavLink
                 to={ROUTE_PATHS.COMMENT_CA_MARCHE}
-                className="inline-flex items-center gap-2.5 h-14 px-7 xl:px-[30px] rounded-xl xl:rounded-[13px] border border-white/40 bg-[#0D2D5A]/40 text-white font-bold xl:font-semibold xl:text-[15px] hover:bg-white/10 transition-colors"
+                className="inline-flex items-center gap-2.5 h-14 px-7 xl:px-[30px] rounded-xl xl:rounded-[13px] border border-white/40 bg-[#07284B]/40 text-white font-bold xl:font-semibold xl:text-[15px] hover:bg-white/10 transition-colors"
               >
                 <CirclePlay className="w-5 h-5 xl:w-[26px] xl:h-[26px]" strokeWidth={1.5} /> Voir comment ça marche
               </NavLink>
@@ -299,8 +263,8 @@ export default function Home() {
             {/* Mobile : la photo passe sous les boutons, en bloc net */}
             <div className="md:hidden relative -mx-6 mt-6 h-56">
               <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
-              <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#0D2D5A] to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#0D2D5A] to-transparent" />
+              <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#07284B] to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#07284B] to-transparent" />
             </div>
 
             <ul className="flex flex-wrap gap-x-10 xl:gap-x-[58px] gap-y-3 mt-7 xl:mt-[38px]">
@@ -420,13 +384,13 @@ export default function Home() {
       </section>
 
       {/* ══════════ CTA FINAL ══════════ */}
-      <section className="relative py-10 md:py-11 xl:py-0 xl:h-[229px] bg-[#0B2545] overflow-hidden">
+      <section className="relative py-10 md:py-11 xl:py-0 xl:h-[229px] bg-[#06274A] overflow-hidden">
         <div className="absolute top-[53px] left-[31px] w-[112px] h-[112px] rounded-full bg-[#0F9B8E]/20 pointer-events-none" />
         <div className="absolute top-[62px] left-0 w-[166px] h-[166px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
         <div className="absolute -top-[60px] -right-[20px] w-[200px] h-[200px] rounded-full bg-[#1A6CC8]/12 pointer-events-none" />
         <div className="absolute top-[86px] right-[48px] w-[120px] h-[120px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
 
-        <div className="mx-auto max-w-[947px] px-6 xl:px-0 relative z-10 xl:pt-[36px]">
+        <div className="mx-auto max-w-[947px] px-6 min-[1400px]:px-0 relative z-10 xl:pt-[36px]">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10">
             <div className="max-w-xl">
               <h2 className="text-3xl md:text-[38px] xl:text-[34.3px] font-bold text-white leading-tight xl:leading-[1.15]" style={SERIF}>
