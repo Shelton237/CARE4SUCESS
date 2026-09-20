@@ -8,14 +8,15 @@ import {
 import { ROUTE_PATHS } from "@/lib/index";
 
 /* ─── IMAGES ─────────────────────────────────────
-   Les photos vivent dans public/images/home/. Le hero est fourni ; les trois
-   photos des cartes "univers" sont facultatives : tant qu'un fichier est absent,
-   la carte affiche une icône décorative à la place. */
+   Les photos vivent dans public/images/home/. Elles sont découpées dans la
+   maquette (zones sans texte) : remplacer les fichiers par les originaux pour
+   une meilleure définition, en gardant les mêmes noms. Les tailles ci-dessous
+   (px à 1440 de large) sont celles de la maquette. */
 const HOME_IMAGES = {
   hero: "/images/home/hero-coach.png",
-  soutien: "/images/home/card-soutien.jpg",
-  langues: "/images/home/card-langues.jpg",
-  competences: "/images/home/card-competences.jpg",
+  soutien: { src: "/images/home/card-soutien.png", w: 111, h: 294 },
+  langues: { src: "/images/home/card-langues.png", w: 141, h: 204 },
+  competences: { src: "/images/home/card-competences.png", w: 103, h: 204 },
 };
 
 /* Les valeurs préfixées xl: sont calibrées sur la maquette à 1440 px de large ;
@@ -94,7 +95,7 @@ interface UniverseCard {
   title: string;
   desc: string;
   tags: string[];
-  photo: string;
+  photo: { src: string; w: number; h: number };
   footer: ReactNode;
   cta: ReactNode;
 }
@@ -106,7 +107,7 @@ const UNIVERSES: UniverseCard[] = [
     key: "soutien",
     icon: GraduationCap,
     color: "#0F9B8E",
-    bg: "from-[#D6F2EC] via-[#EAF8F5] to-[#F8FCFB]",
+    bg: "from-[#DFF5F1] via-[#EDF9F7] to-[#FAFDFC]",
     border: "border-[#CDEBE6]",
     chip: "bg-[#0F9B8E]/12 text-[#0B7F74]",
     title: "Soutien scolaire",
@@ -128,7 +129,7 @@ const UNIVERSES: UniverseCard[] = [
     key: "langues",
     icon: Globe,
     color: "#F5A623",
-    bg: "from-[#FFEDC4] via-[#FFF7E4] to-[#FFFDF8]",
+    bg: "from-[#FFF1D1] via-[#FFF8E8] to-[#FFFDF8]",
     border: "border-[#FBE7BA]",
     chip: "bg-[#F5A623]/16 text-[#C9880F]",
     title: "Langues",
@@ -152,7 +153,7 @@ const UNIVERSES: UniverseCard[] = [
     key: "competences",
     icon: Briefcase,
     color: "#E2574C",
-    bg: "from-[#FBDDDA] via-[#FEEDEB] to-[#FFF9F8]",
+    bg: "from-[#FCE2DF] via-[#FEEFED] to-[#FFF8F7]",
     border: "border-[#F6D2CE]",
     chip: "bg-[#E2574C]/12 text-[#D2453A]",
     title: "Compétences et carrière",
@@ -170,15 +171,30 @@ const UNIVERSES: UniverseCard[] = [
 
 function UniverseCardView({ card }: { card: UniverseCard }) {
   return (
-    <div className={`relative overflow-hidden rounded-2xl xl:rounded-[22px] border bg-gradient-to-br ${card.bg} ${card.border} p-6 md:p-7 xl:pt-[16px] xl:px-[22px] xl:pb-[22px] min-h-[300px] xl:h-[354px] flex flex-col`}>
+    <div className={`relative overflow-hidden rounded-2xl xl:rounded-[22px] border bg-gradient-to-r ${card.bg} ${card.border} p-6 md:p-7 xl:pt-[16px] xl:px-[22px] xl:pb-[22px] min-h-[300px] xl:h-[354px] flex flex-col`}>
       {/* Photo à droite, fondue vers la couleur de la carte. Icône décorative si le fichier est absent. */}
-      <card.icon className="absolute right-6 top-6 w-28 h-28 opacity-[0.05]" style={{ color: card.color }} aria-hidden />
-      <img
-        src={card.photo}
-        alt=""
-        onError={(e) => { e.currentTarget.style.display = "none"; }}
-        className="absolute right-0 top-0 h-[62%] w-[52%] object-cover object-top [mask-image:linear-gradient(to_right,transparent,black_40%),linear-gradient(to_bottom,black_70%,transparent)] [mask-composite:intersect]"
-      />
+      <card.icon className="absolute right-6 top-6 w-28 h-28 opacity-[0.05] xl:hidden" style={{ color: card.color }} aria-hidden />
+      {/* Deux masques imbriqués : fondu vers le bas (div) puis vers la gauche (img) */}
+      <div
+        className="hidden xl:block absolute -right-px -top-px"
+        style={{
+          width: card.photo.w,
+          height: card.photo.h,
+          WebkitMaskImage: "linear-gradient(to bottom, #000 70%, transparent 100%)",
+          maskImage: "linear-gradient(to bottom, #000 70%, transparent 100%)",
+        }}
+      >
+        <img
+          src={card.photo.src}
+          alt=""
+          onError={(e) => { e.currentTarget.style.display = "none"; }}
+          className="block w-full h-full"
+          style={{
+            WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 26%)",
+            maskImage: "linear-gradient(to right, transparent 0%, #000 26%)",
+          }}
+        />
+      </div>
 
       <div className="relative z-10 flex flex-col flex-1">
         <span
