@@ -329,6 +329,19 @@ export function Layout({ children }: LayoutProps) {
               <p className="text-[13.1px] text-[#A9C1E3] leading-[22px] mt-1.5 xl:mt-[5px] max-w-[266px]">
                 Une plateforme de coaching panafricaine par USRA-CARE.
               </p>
+              <div className="flex flex-wrap items-center gap-4 mt-5">
+                {[
+                  { label: "Orange Money", logo: "/payment-icons/orange-money.png" },
+                  { label: "MTN MoMo", logo: "/payment-icons/mtn-momo.png" },
+                  { label: "MVola", logo: "/payment-icons/mvola.png" },
+                  { label: "Visa", logo: "/payment-icons/visa.svg" },
+                  { label: "Mastercard", logo: "/payment-icons/mastercard.png" },
+                ].map(({ label, logo }) => (
+                  <span key={label} className="h-12 flex items-center">
+                    <img src={logo} alt={label} className="h-12 w-auto object-contain" />
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Parents */}
@@ -389,7 +402,7 @@ export function Layout({ children }: LayoutProps) {
             </div>
 
             {/* Nous suivre */}
-            <div className="lg:border-l lg:border-white/12 xl:pl-[41px] lg:pl-8 xl:h-[143px]">
+            <div className="lg:border-l lg:border-white/12 xl:pl-[41px] lg:pl-8 xl:h-[143px] xl:self-start">
               <h3 className="text-[14.3px] font-semibold text-white mb-3 xl:mb-[16px]">Nous suivre</h3>
               <div className="flex items-center gap-4 xl:gap-[13px]">
                 {SOCIAL_LINKS.map(({ label, icon: Icon, href }) => (

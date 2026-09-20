@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import {
-  ArrowRight, CirclePlay, MapPin, GraduationCap, ChartColumn, ShieldCheck, Heart,
+  ArrowRight, CirclePlay, GraduationCap, ChartColumn, ShieldCheck, Heart,
   Globe, Briefcase, Clock, ClipboardList, Users, UserCog, TrendingUp, Search, Scale,
   CalendarDays, Laptop, BadgeCheck, type LucideIcon,
 } from "lucide-react";
@@ -55,27 +55,6 @@ const WRAP = "mx-auto w-full max-w-[1334px] px-6 xl:px-0";
 
 /* ─── PETITS COMPOSANTS ──────────────────────── */
 
-function FlagCM() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-6 h-6 rounded-full shrink-0" aria-hidden>
-      <rect width="8" height="24" fill="#007A5E" />
-      <rect x="8" width="8" height="24" fill="#CE1126" />
-      <rect x="16" width="8" height="24" fill="#FCD116" />
-      <path d="M12 8.5l1 2.6h2.8l-2.2 1.7.9 2.7-2.5-1.7-2.5 1.7.9-2.7-2.2-1.7H11z" fill="#FCD116" />
-    </svg>
-  );
-}
-
-function FlagMG() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-6 h-6 rounded-full shrink-0" aria-hidden>
-      <rect width="24" height="24" fill="#fff" />
-      <rect x="8" width="16" height="12" fill="#FC3D32" />
-      <rect x="8" y="12" width="16" height="12" fill="#007E3A" />
-    </svg>
-  );
-}
-
 /** Trait de soulignement manuscrit (or) sous les textes en écriture. */
 function HandUnderline({ className = "" }: { className?: string }) {
   return (
@@ -114,11 +93,7 @@ const UNIVERSES: UniverseCard[] = [
     desc: "Nous trouvons le coach adapté pour votre enfant. Évaluation, matching, suivi et facturation transparente.",
     tags: ["Primaire", "Collège", "Lycée", "Examens"],
     photo: HOME_IMAGES.soutien,
-    footer: (
-      <p className="flex items-center gap-2 text-sm text-gray-700 xl:text-[14.3px]">
-        <MapPin className="w-4 h-4 xl:w-5 xl:h-5 text-[#0F9B8E] fill-[#0F9B8E]/90" /> Disponible à Madagascar
-      </p>
-    ),
+    footer: null,
     cta: (
       <NavLink to={ROUTE_PATHS.EVALUATION_GRATUITE} className={`${CARD_BTN} bg-[#0F9B8E] text-white hover:bg-[#0c857a]`}>
         Faire évaluer mon enfant <ArrowRight className="w-4 h-4" />
@@ -136,13 +111,7 @@ const UNIVERSES: UniverseCard[] = [
     desc: "Choisissez votre coach, comparez les prix, réservez et commencez aujourd'hui.",
     tags: ["Anglais", "Français", "Espagnol", "+5 langues"],
     photo: HOME_IMAGES.langues,
-    footer: (
-      <p className="flex items-center gap-3 text-sm text-gray-700 xl:text-[14.3px]">
-        <span className="flex items-center gap-2"><FlagCM /> Cameroun</span>
-        <span className="text-gray-400">|</span>
-        <span className="flex items-center gap-2"><FlagMG /> Madagascar</span>
-      </p>
-    ),
+    footer: null,
     cta: (
       <NavLink to={ROUTE_PATHS.COURS_DE_LANGUES} className={`${CARD_BTN} bg-[#F5A623] text-white hover:bg-[#e09520]`}>
         Trouver un coach de langue <ArrowRight className="w-4 h-4" />
@@ -289,7 +258,7 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#F7FAFC]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative overflow-hidden bg-[#0D2D5A] xl:h-[444px]">
+      <section className="relative overflow-hidden bg-[#0D2D5A] xl:h-[410px]">
         {/* Photo à droite (positions de la maquette, en % de la largeur) */}
         <div className="hidden md:block absolute top-0 left-[42.97%] w-[57.03%]">
           <img src={HOME_IMAGES.hero} alt="" className="w-full h-auto block" />
@@ -327,10 +296,6 @@ export default function Home() {
               </NavLink>
             </div>
 
-            <p className="flex items-center gap-2 text-sm text-blue-100/80 mt-4 xl:mt-5">
-              <MapPin className="w-4 h-4 xl:w-[18px] xl:h-[18px] text-[#2BB3A3] fill-[#2BB3A3]/80" /> Disponible au Cameroun et à Madagascar
-            </p>
-
             {/* Mobile : la photo passe sous les boutons, en bloc net */}
             <div className="md:hidden relative -mx-6 mt-6 h-56">
               <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
@@ -338,7 +303,7 @@ export default function Home() {
               <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#0D2D5A] to-transparent" />
             </div>
 
-            <ul className="flex flex-wrap gap-x-10 xl:gap-x-[58px] gap-y-3 mt-7 xl:mt-[33px]">
+            <ul className="flex flex-wrap gap-x-10 xl:gap-x-[58px] gap-y-3 mt-7 xl:mt-[38px]">
               {TRUST.map(item => (
                 <li key={item.label} className="flex items-center gap-2.5 text-sm xl:text-[14.3px] text-white/90">
                   <item.icon className="w-7 h-7 xl:w-8 xl:h-8" style={{ color: item.color }} strokeWidth={1.8} />
