@@ -316,7 +316,7 @@ export default function Home() {
       </section>
 
       {/* ══════════ NOS UNIVERS ══════════ */}
-      <section className="pt-10 xl:pt-[44px] pb-6 md:pb-8 xl:pb-0">
+      <section className="py-20 md:py-24">
         <div className={WRAP}>
           <div className="relative xl:pl-[17px] mb-6 xl:mb-3">
             <p className="text-[#0F9B8E] text-xs xl:text-[12.8px] font-bold uppercase tracking-[0.2em] mb-2 xl:mb-[11px]">Nos univers</p>
@@ -340,7 +340,7 @@ export default function Home() {
       </section>
 
       {/* ══════════ DEUX APPROCHES ══════════ */}
-      <section className="py-6 md:py-8 xl:pt-[43px] xl:pb-0">
+      <section className="py-20 md:py-24">
         <div className={`${WRAP} xl:max-w-[1326px]`}>
           <div className="text-center mb-6 xl:mb-3.5">
             <h2 className="text-2xl md:text-[34px] xl:text-[32.2px] font-bold text-[#0D2D5A] leading-tight xl:leading-[1.2]" style={SERIF}>
@@ -389,7 +389,7 @@ export default function Home() {
       </section>
 
       {/* ══════════ POURQUOI CHOISIR ══════════ */}
-      <section className="pt-8 pb-10 md:pb-11 xl:pt-[31px] xl:pb-[63px]">
+      <section className="py-20 md:py-24">
         <div className={WRAP}>
           <h2 className="text-2xl md:text-[32px] font-bold text-[#0D2D5A] text-center mb-7 xl:mb-3" style={SERIF}>
             Pourquoi choisir Care4Success&nbsp;?
