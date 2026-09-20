@@ -185,7 +185,7 @@ export default function DevenirProfesseur() {
               maskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
             }}
           />
-          <div className="absolute inset-0 md:hidden bg-[#022D58]/65" />
+          <div className="absolute inset-0 lg:hidden bg-[#022D58]/62" />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.05%] relative z-10 pt-12 pb-10 xl:pt-[48px] xl:pb-0">
@@ -228,13 +228,13 @@ export default function DevenirProfesseur() {
         </div>
 
         {/* Texte manuscrit + carte des avantages, posés sur la photo */}
-        <div className="hidden md:block absolute right-[5.4%] top-[40px] xl:top-[42px] text-left -rotate-[9deg] origin-left z-10">
+        <div className="hidden lg:block absolute right-[5.4%] top-[40px] xl:top-[42px] text-left -rotate-[9deg] origin-left z-10">
           <p className="text-[28px] xl:text-[35px] leading-[1.02] xl:leading-[35px] text-white font-medium" style={HANDWRITING}>
             Votre<br />expertise<br />change<br />des vies
           </p>
           <HandUnderline className="w-[78px] xl:w-[88px] h-3 mt-1 -ml-1" />
         </div>
-        <ul className="hidden md:flex flex-col gap-3 xl:gap-[15px] absolute right-[2.6%] xl:right-[2.34%] top-[204px] xl:top-[221px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
+        <ul className="hidden lg:flex flex-col gap-3 xl:gap-[15px] absolute right-[2.6%] xl:right-[2.34%] top-[204px] xl:top-[221px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
           {HERO_CARD.map(({ icon: Icon, label }) => (
             <li key={label.join(" ")} className="flex items-center gap-3 xl:gap-[12px]">
               <Icon className="w-6 h-6 xl:w-[31px] xl:h-[31px] text-[#0F9B8E] shrink-0" strokeWidth={1.6} />
@@ -247,7 +247,7 @@ export default function DevenirProfesseur() {
       </section>
 
       {/* ══════════ TROIS FAÇONS DE COACHER ══════════ */}
-      <section className="pt-10 xl:pt-[31px]">
+      <section className="py-10 md:py-12">
         <div className={WRAP}>
           <div className="xl:pl-[22px]">
             <p className={EYEBROW}>Trois façons de coacher</p>
@@ -259,7 +259,7 @@ export default function DevenirProfesseur() {
             {WAYS.map(way => (
               <div
                 key={way.key}
-                className={`relative overflow-hidden rounded-2xl xl:rounded-[16px] border bg-gradient-to-r ${way.bg} ${way.border} p-5 xl:pt-[8px] xl:pl-[35px] xl:pr-[0px] xl:pb-[22px] min-h-[220px] xl:h-[243px]`}
+                className={`relative overflow-hidden rounded-2xl xl:rounded-[16px] border bg-gradient-to-r ${way.bg} ${way.border} p-5 pb-[68px] xl:pt-[8px] xl:pl-[35px] xl:pr-[0px] xl:pb-[22px] min-h-[220px] xl:h-[243px]`}
               >
                 <div
                   className="hidden xl:block absolute right-0 top-0"
@@ -304,7 +304,7 @@ export default function DevenirProfesseur() {
       </section>
 
       {/* ══════════ COMMENT NOUS REJOINDRE ══════════ */}
-      <section className="pt-10 xl:pt-[33px]">
+      <section className="py-10 md:py-12">
         <div className={WRAP}>
           <div className="xl:pl-[22px]">
             <p className={EYEBROW}>Comment nous rejoindre ?</p>
@@ -344,7 +344,7 @@ export default function DevenirProfesseur() {
       </section>
 
       {/* ══════════ POURQUOI DEVENIR COACH ══════════ */}
-      <section className="pt-10 xl:pt-[34px]">
+      <section className="py-10 md:py-12">
         <div className={WRAP}>
           <div className="xl:pl-[22px]">
             <p className={EYEBROW}>Pourquoi devenir coach ?</p>
@@ -374,7 +374,7 @@ export default function DevenirProfesseur() {
       </section>
 
       {/* ══════════ ILS TÉMOIGNENT ══════════ */}
-      <section className="pt-10 pb-10 xl:pt-[60px] xl:pb-[22px]">
+      <section className="py-10 md:py-12">
         <div className={`${WRAP} grid lg:grid-cols-[minmax(0,1fr)_minmax(0,660px)_auto] xl:grid-cols-[471px_638px_1fr] items-center gap-6 xl:gap-0`}>
           <div className="xl:pl-[22px]">
             <p className={EYEBROW}>Ils témoignent</p>
@@ -392,8 +392,8 @@ export default function DevenirProfesseur() {
             />
             <div className="min-w-0">
               <p className="text-[#3E4C66] text-sm xl:text-[16px] leading-relaxed xl:leading-[23px]">« {current.quote} »</p>
-              <p className="mt-2 xl:mt-[9px] flex items-center gap-3 xl:gap-[14px]">
-                <span className="font-extrabold text-[#0D2D5A] text-sm xl:text-[15px]">{current.role}</span>
+              <p className="mt-2 xl:mt-[9px] flex flex-wrap items-center gap-x-3 gap-y-1 xl:gap-[14px]">
+                <span className="font-extrabold text-[#0D2D5A] text-sm xl:text-[15px] whitespace-nowrap">{current.role}</span>
                 <span className="flex gap-0.5">
                   {Array.from({ length: current.rating }).map((_, i) => (
                     <Star key={i} className="w-4 h-4 xl:w-[18px] xl:h-[18px] fill-[#F5A623] text-[#F5A623]" />
@@ -424,10 +424,10 @@ export default function DevenirProfesseur() {
 
       {/* ══════════ CTA FINAL ══════════ */}
       <section className="relative py-10 md:py-11 xl:py-0 xl:h-[211px] bg-[#012650] overflow-hidden">
-        <div className="absolute top-[42px] left-[31px] w-[112px] h-[112px] rounded-full bg-[#0F9B8E]/20 pointer-events-none" />
-        <div className="absolute top-[62px] left-0 w-[166px] h-[166px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
+        <div className="hidden xl:block absolute top-[42px] left-[31px] w-[112px] h-[112px] rounded-full bg-[#0F9B8E]/20 pointer-events-none" />
+        <div className="hidden xl:block absolute top-[62px] left-0 w-[166px] h-[166px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
         <div className="absolute -top-[60px] -right-[20px] w-[200px] h-[200px] rounded-full bg-[#1A6CC8]/12 pointer-events-none" />
-        <div className="absolute top-[78px] right-[48px] w-[120px] h-[120px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
+        <div className="hidden xl:block absolute top-[78px] right-[48px] w-[120px] h-[120px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
 
         <div className="mx-auto max-w-[947px] px-6 min-[1400px]:px-0 relative z-10 xl:pt-[26px]">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10">
