@@ -19,6 +19,7 @@ import PublicTeacherProfile from "@/pages/PublicTeacherProfile";
 import GroupClassCheckout from "@/pages/GroupClassCheckout";
 import DevenirProfesseur from "@/pages/DevenirProfesseur";
 import CommentCaMarche from "@/pages/CommentCaMarche";
+import Faq from "@/pages/Faq";
 import Contact from "@/pages/Contact";
 import EvaluationGratuite from "@/pages/EvaluationGratuite";
 import Inscription from "@/pages/Inscription";
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/cours-groupe/:id" element={<Layout><GroupClassCheckout /></Layout>} />
               <Route path={ROUTE_PATHS.DEVENIR_PROFESSEUR} element={<Layout><DevenirProfesseur /></Layout>} />
               <Route path={ROUTE_PATHS.COMMENT_CA_MARCHE} element={<Layout><CommentCaMarche /></Layout>} />
+              <Route path={ROUTE_PATHS.FAQ} element={<Layout><Faq /></Layout>} />
               <Route path="/recrutement" element={<Layout><DevenirProfesseur /></Layout>} />
               <Route path={ROUTE_PATHS.CONTACT} element={<Layout><Contact /></Layout>} />
               <Route path={ROUTE_PATHS.EVALUATION_GRATUITE} element={<Layout><EvaluationGratuite /></Layout>} />

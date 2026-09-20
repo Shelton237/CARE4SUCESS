@@ -13,6 +13,7 @@ export const ROUTE_PATHS = {
   TARIFS: "/tarifs",
   POLITIQUE_CONFIDENTIALITE: "/politique-confidentialite",
   COMMENT_CA_MARCHE: "/comment-ca-marche",
+  FAQ: "/faq",
 } as const;
 
 export interface Teacher {

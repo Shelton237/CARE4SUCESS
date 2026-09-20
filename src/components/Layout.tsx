@@ -15,7 +15,7 @@ const NAV_MAIN = [
   { to: ROUTE_PATHS.COMMENT_CA_MARCHE,   label: "Comment ça marche" },
   { to: ROUTE_PATHS.DEVENIR_PROFESSEUR,  label: "Devenir coach" },
   { to: ROUTE_PATHS.TARIFS,              label: "Tarifs" },
-  { to: "#",                             label: "FAQ" },
+  { to: ROUTE_PATHS.FAQ,                  label: "FAQ" },
 ];
 
 // Réseaux sociaux du pied de page. Renseigner les URL officielles : tant
@@ -104,6 +104,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   [ROUTE_PATHS.ANNUAIRE_COACHS]: "Nos coachs",
   [ROUTE_PATHS.DEVENIR_PROFESSEUR]: "Devenir coach",
   [ROUTE_PATHS.COMMENT_CA_MARCHE]: "Comment ça marche",
+  [ROUTE_PATHS.FAQ]: "FAQ",
   "/recrutement": "Devenir coach",
   [ROUTE_PATHS.CONTACT]: "Contact",
   "/inscription": "Inscription",
@@ -155,6 +156,7 @@ const SELF_RENDERED_BREADCRUMB_ROUTES = new Set<string>([
   ROUTE_PATHS.DEVENIR_PROFESSEUR,
   "/recrutement",
   ROUTE_PATHS.COMMENT_CA_MARCHE,
+  ROUTE_PATHS.FAQ,
   ROUTE_PATHS.CONTACT,
   ROUTE_PATHS.EVALUATION_GRATUITE,
   ROUTE_PATHS.A_PROPOS,
@@ -231,7 +233,7 @@ export function Layout({ children }: LayoutProps) {
                   to={link.to}
                   className={({ isActive }) =>
                     `mx-1.5 xl:max-[1399px]:mx-2 min-[1400px]:mx-[11.3px] py-1.5 text-[12.5px] font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
-                      isActive && link.to !== "#"
+                      isActive
                         ? "text-[#0D2D5A] border-[#F5A623]"
                         : "text-[#0D2D5A] border-transparent hover:text-[#0D2D5A]/80"
                     }`
@@ -287,7 +289,7 @@ export function Layout({ children }: LayoutProps) {
                     onClick={close}
                     className={({ isActive }) =>
                       `block px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                        isActive && link.to !== "#" ? "bg-[#0D2D5A] text-white" : "text-[#0D2D5A] hover:bg-white/60"
+                        isActive ? "bg-[#0D2D5A] text-white" : "text-[#0D2D5A] hover:bg-white/60"
                       }`
                     }
                   >
@@ -353,6 +355,7 @@ export function Layout({ children }: LayoutProps) {
                   { label: "Suivi de progression", to: ROUTE_PATHS.SERVICES },
                   { label: "Comment ça marche", to: ROUTE_PATHS.COMMENT_CA_MARCHE },
                   { label: "Tarifs scolaires", to: ROUTE_PATHS.TARIFS },
+                  { label: "FAQ", to: ROUTE_PATHS.FAQ },
                 ].map(item => (
                   <li key={item.label}>
                     <NavLink to={item.to} className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">
@@ -372,6 +375,7 @@ export function Layout({ children }: LayoutProps) {
                   { label: "Compétences pro", to: "#" },
                   { label: "Nos coachs", to: ROUTE_PATHS.ANNUAIRE_COACHS },
                   { label: "Tarifs langues", to: ROUTE_PATHS.TARIFS },
+                  { label: "FAQ", to: "/faq?cat=langues" },
                 ].map(item => (
                   <li key={item.label}>
                     <NavLink to={item.to} className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">
@@ -392,7 +396,7 @@ export function Layout({ children }: LayoutProps) {
                   </NavLink>
                 </li>
                 <li><a href="#" className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">Nos critères</a></li>
-                <li><a href="#" className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">FAQ coachs</a></li>
+                <li><NavLink to="/faq?cat=devenir-coach" className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">FAQ coachs</NavLink></li>
                 <li>
                   <a href="mailto:contact@care4success.com" className="block text-[14.5px] text-white/90 leading-5 hover:text-[#F5A623] transition-colors">
                     contact@care4success.com
@@ -422,7 +426,7 @@ export function Layout({ children }: LayoutProps) {
 
           <div className="border-t border-white/12 mt-6 xl:mt-[23px] pt-5 xl:pt-[23px] pb-6 xl:pb-[30px] flex flex-col md:flex-row justify-between items-center gap-3">
             <p className="text-[13.4px] text-[#7F9CC7]">© 2026 Care4Success · USRA-CARE</p>
-            <div className="flex items-center gap-6 xl:gap-[26px] text-[13.4px] text-[#7F9CC7]">
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 xl:gap-x-[26px] text-[13.4px] text-[#7F9CC7]">
               <a href="#" className="hover:text-[#F5A623] transition-colors">CGU</a>
               <NavLink to={ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE} className="hover:text-[#F5A623] transition-colors">Confidentialité</NavLink>
               <a href="#" className="hover:text-[#F5A623] transition-colors">Remboursements</a>
