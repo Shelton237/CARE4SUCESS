@@ -185,6 +185,7 @@ export default function DevenirProfesseur() {
               maskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
             }}
           />
+          <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)", maskImage: "linear-gradient(to right, transparent 0%, #000 16%)" }} />
           <div className="absolute inset-0 lg:hidden bg-[#022D58]/62" />
         </div>
 
@@ -195,7 +196,7 @@ export default function DevenirProfesseur() {
             style={SERIF}
           >
             Transmettez votre savoir.<br />
-            Faites <span className="italic text-[#F5A623]">grandir des potentiels.</span>
+            Faites <span className="italic text-gold-shimmer">grandir des potentiels.</span>
           </h1>
           <p className="mt-6 xl:mt-[25px] text-white/90 text-lg xl:text-[22.8px] leading-snug xl:leading-[31px] max-w-[500px] xl:max-w-[600px]">
             Rejoignez Care4Success et accompagnez des apprenants vers leurs objectifs.

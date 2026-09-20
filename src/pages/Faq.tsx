@@ -74,6 +74,7 @@ export default function Faq() {
             onError={(e) => { e.currentTarget.style.display = "none"; }}
             className="w-full h-full object-cover object-center"
           />
+          <span className="hero-sheen" aria-hidden />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0B2A55] via-[#0B2A55]/35 md:via-[#0B2A55]/10 to-transparent" />
           <div className="absolute inset-0 md:hidden bg-[#0B2A55]/60" />
         </div>
@@ -85,7 +86,7 @@ export default function Faq() {
             style={SERIF}
           >
             <span className="block text-white">Vos questions,</span>
-            <span className="block text-[#F5A623]">nos réponses.</span>
+            <span className="block"><span className="text-gold-shimmer">nos réponses.</span></span>
           </h1>
           <p className="mt-6 xl:mt-[28px] text-white/90 text-lg xl:text-[22.5px] leading-snug xl:leading-[34px] max-w-[440px] xl:max-w-[600px]">
             Tout ce que vous devez savoir sur Care4Success,<br className="hidden md:block" /> au même endroit.

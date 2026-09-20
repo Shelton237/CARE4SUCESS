@@ -71,6 +71,7 @@ export default function Services() {
               maskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
             }}
           />
+          <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 15%)", maskImage: "linear-gradient(to right, transparent 0%, #000 15%)" }} />
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012B54] to-transparent" />
         </div>
 
@@ -87,7 +88,7 @@ export default function Services() {
             style={SERIF}
           >
             Révéler le potentiel<br />
-            de <span className="italic text-[#F5A623]">chaque enfant.</span>
+            de <span className="italic text-gold-shimmer">chaque enfant.</span>
           </h1>
           <div className="mt-5 xl:mt-[22px] space-y-2 xl:space-y-[8px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[700px]">
             <p>Chaque enfant apprend différemment.</p>
@@ -113,6 +114,7 @@ export default function Services() {
           {/* Mobile : la photo passe sous les boutons */}
           <div className="md:hidden relative -mx-6 mt-8">
             <img src={IMG.hero} alt="" className="w-full h-auto block" />
+            <span className="hero-sheen" aria-hidden />
             <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012B54] to-transparent" />
           </div>
 

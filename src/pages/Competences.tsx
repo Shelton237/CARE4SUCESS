@@ -73,6 +73,7 @@ export default function Competences() {
               maskImage: "linear-gradient(to right, transparent 0%, #000 14%)",
             }}
           />
+          <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 14%)", maskImage: "linear-gradient(to right, transparent 0%, #000 14%)" }} />
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012C56] to-transparent" />
         </div>
 
@@ -89,7 +90,7 @@ export default function Competences() {
             style={SERIF}
           >
             Développer aujourd’hui<br />
-            les opportunités <span className="italic text-[#F5A623]">de demain.</span>
+            les opportunités <span className="italic text-gold-shimmer">de demain.</span>
           </h1>
           <p className="mt-5 xl:mt-[23px] text-white/90 text-lg xl:text-[22px] leading-snug xl:leading-[29px] max-w-[520px] xl:max-w-[720px]">
             Acquérez de nouvelles compétences avec des experts<br className="hidden md:block" />{" "}
@@ -114,6 +115,7 @@ export default function Competences() {
           {/* Mobile : la photo passe sous les boutons */}
           <div className="md:hidden relative -mx-6 mt-8">
             <img src={IMG.hero} alt="" className="w-full h-auto block" />
+            <span className="hero-sheen" aria-hidden />
             <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012C56] to-transparent" />
           </div>
 

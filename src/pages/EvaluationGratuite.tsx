@@ -153,6 +153,7 @@ export default function EvaluationGratuite() {
               maskImage: "linear-gradient(to right, transparent 0%, #000 22%)",
             }}
           />
+        <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 22%)", maskImage: "linear-gradient(to right, transparent 0%, #000 22%)" }} />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.15%] relative z-10 pt-8 pb-10 xl:pt-[19px] xl:pb-0">
@@ -170,7 +171,7 @@ export default function EvaluationGratuite() {
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             Trouvons ensemble<br />
-            <span className="italic text-[#F5A623]">le bon coach.</span>
+            <span className="italic text-gold-shimmer">le bon coach.</span>
           </h1>
           <p className="mt-5 xl:mt-[24px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[640px]">
             Un bilan gratuit et sans engagement,<br className="hidden md:block" />{" "}
@@ -189,6 +190,7 @@ export default function EvaluationGratuite() {
           {/* Mobile : la photo passe sous le bouton */}
           <div className="lg:hidden relative -mx-6 mt-8">
             <img src="/images/soutien/fille.jpg" alt="" className="w-full h-auto block" />
+            <span className="hero-sheen" aria-hidden />
             <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012B54] to-transparent" />
           </div>
 

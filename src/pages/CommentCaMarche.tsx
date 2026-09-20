@@ -73,6 +73,7 @@ export default function CommentCaMarche() {
               maskImage: "linear-gradient(to right, transparent 0%, #000 12%)",
             }}
           />
+          <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 12%)", maskImage: "linear-gradient(to right, transparent 0%, #000 12%)" }} />
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012853] to-transparent" />
         </div>
 
@@ -89,7 +90,7 @@ export default function CommentCaMarche() {
             style={SERIF}
           >
             Un parcours simple<br />
-            vers <span className="italic text-[#F5A623]">vos objectifs.</span>
+            vers <span className="italic text-gold-shimmer">vos objectifs.</span>
           </h1>
           <p className="mt-5 xl:mt-[26px] text-white/90 text-lg xl:text-[23px] leading-snug xl:leading-[34px] max-w-[520px] xl:max-w-[760px]">
             Nous vous accompagnons à chaque étape, de l’évaluation<br className="hidden md:block" />{" "}
@@ -108,6 +109,7 @@ export default function CommentCaMarche() {
           {/* Mobile : la photo passe sous le bouton */}
           <div className="md:hidden relative -mx-6 mt-8">
             <img src={IMG.hero} alt="" className="w-full h-auto block" />
+            <span className="hero-sheen" aria-hidden />
             <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012853] to-transparent" />
           </div>
         </div>
