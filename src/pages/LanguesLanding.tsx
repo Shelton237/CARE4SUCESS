@@ -68,18 +68,19 @@ export default function LanguesLanding() {
     <div className="min-h-screen bg-[#F8FCFF]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative overflow-hidden bg-[#002A53] xl:h-[422px]">
-        <div className="hidden md:block absolute top-0 right-0 w-[47.3%] h-full">
+      <section className="relative overflow-hidden bg-[#002A53] xl:h-[460px]">
+        <div className="hidden md:block absolute top-0 right-0 w-[47.3%]">
           <img
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-left"
+            className="w-full h-auto block"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
             }}
           />
+          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#002A53] to-transparent" />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.05%] relative z-10 pt-8 pb-10 xl:pt-[15px] xl:pb-0">
@@ -97,12 +98,12 @@ export default function LanguesLanding() {
             Parler un<br />
             <span className="italic text-[#F5A623]">nouveau monde.</span>
           </h1>
-          <p className="mt-4 xl:mt-[17px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[720px]">
-            Apprenez une langue avec un coach adapté à vos objectifs.<br className="hidden md:block" />{" "}
-            Progressez à votre rythme, en ligne ou en présentiel.
-          </p>
+          <div className="mt-5 xl:mt-[23px] space-y-2 xl:space-y-[8px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[720px]">
+            <p>Apprenez une langue avec un coach adapté à vos objectifs.</p>
+            <p>Progressez à votre rythme, en ligne ou en présentiel.</p>
+          </div>
 
-          <div className="flex flex-wrap gap-4 xl:gap-[17px] mt-6 xl:mt-[22px]">
+          <div className="flex flex-wrap gap-4 xl:gap-[17px] mt-8 xl:mt-[34px]">
             <NavLink
               to={DIRECTORY}
               className="inline-flex items-center gap-2.5 h-14 xl:h-[49px] px-7 xl:px-[27px] rounded-xl xl:rounded-[9px] bg-[#F5A623] text-[#0D2D5A] font-extrabold xl:text-[16.5px] hover:bg-[#e09520] transition-colors"
@@ -118,12 +119,12 @@ export default function LanguesLanding() {
           </div>
 
           {/* Mobile : la photo passe sous les boutons */}
-          <div className="md:hidden relative -mx-6 mt-6">
+          <div className="md:hidden relative -mx-6 mt-8">
             <img src={IMG.hero} alt="" className="w-full h-auto block" />
             <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#002A53] to-transparent" />
           </div>
 
-          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[42px] gap-y-3 mt-7 xl:mt-[28px]">
+          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[42px] gap-y-3 mt-8 xl:mt-[40px]">
             {[
               { icon: Globe, label: "Un large choix de langues" },
               { icon: BarsFilled, label: "Coachs qualifiés", alt: true },

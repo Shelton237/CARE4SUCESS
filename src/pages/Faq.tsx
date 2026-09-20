@@ -66,7 +66,7 @@ export default function Faq() {
     <div className="min-h-screen bg-[#F7FAFC]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative overflow-hidden bg-[#0B2A55] xl:h-[432px]">
+      <section className="relative overflow-hidden bg-[#0B2A55] xl:h-[446px]">
         <div className="absolute inset-y-0 right-0 w-full md:w-[52%]">
           <img
             src={HERO_PHOTO}
@@ -87,11 +87,11 @@ export default function Faq() {
             <span className="block text-white">Vos questions,</span>
             <span className="block text-[#F5A623]">nos réponses.</span>
           </h1>
-          <p className="mt-5 xl:mt-[22px] text-white/90 text-lg xl:text-[22.5px] leading-snug xl:leading-[34px] max-w-[440px] xl:max-w-[600px]">
+          <p className="mt-6 xl:mt-[28px] text-white/90 text-lg xl:text-[22.5px] leading-snug xl:leading-[34px] max-w-[440px] xl:max-w-[600px]">
             Tout ce que vous devez savoir sur Care4Success,<br className="hidden md:block" /> au même endroit.
           </p>
 
-          <label className="mt-7 xl:mt-[32px] flex items-center gap-3 h-14 xl:h-[66px] max-w-[593px] rounded-xl xl:rounded-[14px] bg-white px-5 xl:px-[24px] shadow-sm">
+          <label className="mt-8 xl:mt-[40px] flex items-center gap-3 h-14 xl:h-[66px] max-w-[593px] rounded-xl xl:rounded-[14px] bg-white px-5 xl:px-[24px] shadow-sm">
             <Search className="w-5 h-5 xl:w-[24px] xl:h-[24px] text-[#1A6CC8] shrink-0" strokeWidth={1.8} />
             <input
               type="search"

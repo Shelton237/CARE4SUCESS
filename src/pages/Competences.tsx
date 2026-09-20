@@ -61,18 +61,19 @@ export default function Competences() {
     <div className="min-h-screen bg-[#F7FBFE]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative overflow-hidden bg-[#012C56] xl:h-[443px]">
-        <div className="hidden md:block absolute top-0 right-0 w-[46.5%] h-full">
+      <section className="relative overflow-hidden bg-[#012C56] xl:h-[470px]">
+        <div className="hidden md:block absolute top-0 right-0 w-[46.5%]">
           <img
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-left"
+            className="w-full h-auto block"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 14%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 14%)",
             }}
           />
+          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012C56] to-transparent" />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.25%] relative z-10 pt-8 pb-10 xl:pt-[17px] xl:pb-0">
@@ -90,12 +91,12 @@ export default function Competences() {
             Développer aujourd’hui<br />
             les opportunités <span className="italic text-[#F5A623]">de demain.</span>
           </h1>
-          <p className="mt-4 xl:mt-[17px] text-white/90 text-lg xl:text-[22px] leading-snug xl:leading-[29px] max-w-[520px] xl:max-w-[720px]">
+          <p className="mt-5 xl:mt-[23px] text-white/90 text-lg xl:text-[22px] leading-snug xl:leading-[29px] max-w-[520px] xl:max-w-[720px]">
             Acquérez de nouvelles compétences avec des experts<br className="hidden md:block" />{" "}
             et avancez vers vos ambitions professionnelles.
           </p>
 
-          <div className="flex flex-wrap gap-4 xl:gap-[17px] mt-6 xl:mt-[22px]">
+          <div className="flex flex-wrap gap-4 xl:gap-[17px] mt-8 xl:mt-[34px]">
             <NavLink
               to={DIRECTORY}
               className="inline-flex items-center gap-2.5 h-14 xl:h-[52px] px-7 xl:px-[30px] rounded-xl xl:rounded-[9px] bg-[#F5A623] text-[#0D2D5A] font-extrabold xl:text-[17.5px] hover:bg-[#e09520] transition-colors"
@@ -111,12 +112,12 @@ export default function Competences() {
           </div>
 
           {/* Mobile : la photo passe sous les boutons */}
-          <div className="md:hidden relative -mx-6 mt-6">
+          <div className="md:hidden relative -mx-6 mt-8">
             <img src={IMG.hero} alt="" className="w-full h-auto block" />
             <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012C56] to-transparent" />
           </div>
 
-          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[42px] gap-y-3 mt-7 xl:mt-[31px]">
+          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[42px] gap-y-3 mt-8 xl:mt-[40px]">
             {[
               { icon: BarsFilled, label: "Compétences concrètes" },
               { icon: UsersOutline, label: "Coachs experts" },

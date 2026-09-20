@@ -173,7 +173,7 @@ export default function DevenirProfesseur() {
     <div className="min-h-screen bg-[#F7FCFF]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative overflow-hidden bg-[#022D58] xl:h-[430px]">
+      <section className="relative overflow-hidden bg-[#022D58] xl:h-[464px]">
         <div className="absolute inset-y-0 right-0 w-full md:w-[47%] xl:w-[46%]">
           <img
             src={IMG.hero}
@@ -197,11 +197,11 @@ export default function DevenirProfesseur() {
             Transmettez votre savoir.<br />
             Faites <span className="italic text-[#F5A623]">grandir des potentiels.</span>
           </h1>
-          <p className="mt-5 xl:mt-[19px] text-white/90 text-lg xl:text-[22.8px] leading-snug xl:leading-[31px] max-w-[500px] xl:max-w-[600px]">
+          <p className="mt-6 xl:mt-[25px] text-white/90 text-lg xl:text-[22.8px] leading-snug xl:leading-[31px] max-w-[500px] xl:max-w-[600px]">
             Rejoignez Care4Success et accompagnez des apprenants vers leurs objectifs.
           </p>
 
-          <div className="flex flex-wrap gap-4 xl:gap-[21px] mt-7 xl:mt-[27px]">
+          <div className="flex flex-wrap gap-4 xl:gap-[21px] mt-8 xl:mt-[37px]">
             <button
               type="button"
               onClick={() => openApply()}
@@ -217,7 +217,7 @@ export default function DevenirProfesseur() {
             </NavLink>
           </div>
 
-          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[30px] gap-y-3 mt-8 xl:mt-[33px]">
+          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[30px] gap-y-3 mt-8 xl:mt-[41px]">
             {TRUST.map(({ icon: Icon, label }) => (
               <li key={label} className="flex items-center gap-2.5 text-sm xl:text-[14px] text-white/90">
                 <Icon className="w-6 h-6 xl:w-[27px] xl:h-[27px] text-[#2BB3A3]" />

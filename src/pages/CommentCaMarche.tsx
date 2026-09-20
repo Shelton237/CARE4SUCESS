@@ -61,18 +61,19 @@ export default function CommentCaMarche() {
     <div className="min-h-screen bg-[#F8FCFF]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative overflow-hidden bg-[#012853] xl:h-[418px]">
-        <div className="hidden md:block absolute top-0 right-0 w-[51.2%] h-full">
+      <section className="relative overflow-hidden bg-[#012853] xl:h-[426px]">
+        <div className="hidden md:block absolute top-0 right-0 w-[51.2%]">
           <img
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-left"
+            className="w-full h-auto block"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 12%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 12%)",
             }}
           />
+          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012853] to-transparent" />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.35%] relative z-10 pt-8 pb-10 xl:pt-[17px] xl:pb-0">
@@ -90,12 +91,12 @@ export default function CommentCaMarche() {
             Un parcours simple<br />
             vers <span className="italic text-[#F5A623]">vos objectifs.</span>
           </h1>
-          <p className="mt-4 xl:mt-[20px] text-white/90 text-lg xl:text-[23px] leading-snug xl:leading-[34px] max-w-[520px] xl:max-w-[760px]">
+          <p className="mt-5 xl:mt-[26px] text-white/90 text-lg xl:text-[23px] leading-snug xl:leading-[34px] max-w-[520px] xl:max-w-[760px]">
             Nous vous accompagnons à chaque étape, de l’évaluation<br className="hidden md:block" />{" "}
             du besoin jusqu’au suivi de vos progrès.
           </p>
 
-          <div className="mt-6 xl:mt-[20px]">
+          <div className="mt-8 xl:mt-[32px]">
             <NavLink
               to={ROUTE_PATHS.PROFESSEURS}
               className="inline-flex items-center gap-2.5 h-14 xl:h-[56px] px-8 xl:px-[32px] rounded-xl xl:rounded-[10px] bg-[#F5A623] text-[#0D2D5A] font-extrabold xl:text-[17.6px] hover:bg-[#e09520] transition-colors"
@@ -105,7 +106,7 @@ export default function CommentCaMarche() {
           </div>
 
           {/* Mobile : la photo passe sous le bouton */}
-          <div className="md:hidden relative -mx-6 mt-6">
+          <div className="md:hidden relative -mx-6 mt-8">
             <img src={IMG.hero} alt="" className="w-full h-auto block" />
             <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012853] to-transparent" />
           </div>

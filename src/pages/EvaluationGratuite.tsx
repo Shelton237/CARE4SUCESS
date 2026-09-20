@@ -140,7 +140,7 @@ export default function EvaluationGratuite() {
     <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden bg-[#012B54] xl:h-[437px]">
+      <section className="relative overflow-hidden bg-[#012B54] xl:h-[467px]">
         {/* Photo dans public/images/soutien/fille.jpg (texte manuscrit et bulle inclus) */}
         <div className="hidden lg:block absolute top-0 right-0 w-[44%] h-full">
           <img
@@ -172,12 +172,12 @@ export default function EvaluationGratuite() {
             Trouvons ensemble<br />
             <span className="italic text-[#F5A623]">le bon coach.</span>
           </h1>
-          <p className="mt-4 xl:mt-[18px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[640px]">
+          <p className="mt-5 xl:mt-[24px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[640px]">
             Un bilan gratuit et sans engagement,<br className="hidden md:block" />{" "}
             pour un coach proposé sous 48h.
           </p>
 
-          <div className="mt-6 xl:mt-[22px]">
+          <div className="mt-8 xl:mt-[34px]">
             <a
               href="#formulaire"
               className="inline-flex items-center gap-2.5 h-14 xl:h-[53px] px-7 xl:px-[28px] rounded-xl xl:rounded-[10px] bg-[#0F9B8E] text-white font-extrabold xl:text-[17.2px] hover:bg-[#0c857a] transition-colors"
@@ -187,12 +187,12 @@ export default function EvaluationGratuite() {
           </div>
 
           {/* Mobile : la photo passe sous le bouton */}
-          <div className="lg:hidden relative -mx-6 mt-6">
+          <div className="lg:hidden relative -mx-6 mt-8">
             <img src="/images/soutien/fille.jpg" alt="" className="w-full h-auto block" />
             <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012B54] to-transparent" />
           </div>
 
-          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[28px] gap-y-3 mt-7 xl:mt-[28px]">
+          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[28px] gap-y-3 mt-8 xl:mt-[40px]">
             {[
               { icon: ShieldFilled, label: "Gratuit et sans engagement" },
               { icon: Clock, label: "Coach proposé sous 48h" },
