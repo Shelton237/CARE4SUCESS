@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { NavLink } from "react-router-dom";
+import { NavLink, useSearchParams } from "react-router-dom";
 import { Search, Star, ArrowRight } from "lucide-react";
 import { fetchPublicTeachers, type PublicTeacher } from "@/api/public";
 import { formatMoney } from "@/lib/money";
@@ -21,8 +21,12 @@ const SORT_OPTIONS = [
 ];
 
 export default function CoursDeLangues() {
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [language, setLanguage] = useState("all");
+  const [language, setLanguage] = useState(() => {
+    const requested = searchParams.get("langue");
+    return requested && LANGUAGES.includes(requested) ? requested : "all";
+  });
   const [level, setLevel] = useState("all");
   const [sort, setSort] = useState("pertinence");
 

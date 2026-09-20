@@ -77,7 +77,7 @@ const UNIVERSES: UniverseCard[] = [
     photo: HOME_IMAGES.langues,
     footer: null,
     cta: (
-      <NavLink to={ROUTE_PATHS.COURS_DE_LANGUES} className={`${CARD_BTN} bg-[#F5A623] text-white hover:bg-[#e09520]`}>
+      <NavLink to={ROUTE_PATHS.COACHS_LANGUES} className={`${CARD_BTN} bg-[#F5A623] text-white hover:bg-[#e09520]`}>
         Trouver un coach de langue <ArrowRight className="w-4 h-4" />
       </NavLink>
     ),

@@ -132,10 +132,10 @@ function getBreadcrumbTrail(pathname: string): { label: string; to?: string }[] 
       { label: "Évaluation gratuite" },
     ];
   }
-  if (pathname === ROUTE_PATHS.COURS_DE_LANGUES) {
+  if (pathname === ROUTE_PATHS.COACHS_LANGUES) {
     return [
-      { label: "Trouver un coach", to: ROUTE_PATHS.PROFESSEURS },
-      { label: "Cours de langues" },
+      { label: "Langues", to: ROUTE_PATHS.COURS_DE_LANGUES },
+      { label: "Nos coachs de langue" },
     ];
   }
 
@@ -154,6 +154,7 @@ const SELF_RENDERED_BREADCRUMB_ROUTES = new Set<string>([
   ROUTE_PATHS.PROFESSEURS,
   ROUTE_PATHS.ANNUAIRE_COACHS,
   ROUTE_PATHS.COURS_DE_LANGUES,
+  ROUTE_PATHS.COACHS_LANGUES,
   ROUTE_PATHS.DEVENIR_PROFESSEUR,
   "/recrutement",
   ROUTE_PATHS.COMMENT_CA_MARCHE,

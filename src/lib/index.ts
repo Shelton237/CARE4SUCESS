@@ -5,6 +5,7 @@ export const ROUTE_PATHS = {
   PROFESSEURS: "/trouver-un-coach",
   ANNUAIRE_COACHS: "/annuaire-coachs",
   COURS_DE_LANGUES: "/cours-de-langues",
+  COACHS_LANGUES: "/cours-de-langues/coachs",
   CONTACT: "/contact",
   EVALUATION_GRATUITE: "/evaluation-gratuite",
   DEVENIR_PROFESSEUR: "/devenir-professeur",
