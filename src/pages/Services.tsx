@@ -1,272 +1,342 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
-  Home as HomeIcon, Monitor, Calendar, GraduationCap,
-  Check, ArrowRight, Users, Shield, TrendingUp, Clock,
+  ArrowRight, BadgeCheck, BookOpen, CirclePlay, ClipboardCheck, ClipboardList, GraduationCap,
+  School, Star, TrendingUp, UserCog, UsersRound, ShieldCheck, Heart, ChevronRight, type LucideIcon,
 } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
-import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
-import { IMAGES } from "@/assets/images";
-import { Breadcrumb } from "@/components/Layout";
+import { BarsFilled, BarsOutline, HandUnderline, ShieldFilled, UsersFilled, type FilledIcon } from "@/components/decor";
 
-const SERVICES = [
-  {
-    id: "domicile",
-    icon: HomeIcon,
-    label: "Cours à domicile",
-    tag: "Le plus choisi",
-    price: "Dès 9 000 FCFA/h",
-    desc: "Un enseignant qualifié se déplace chez vous. Cours personnalisés 1-à-1, à l'heure et l'endroit qui vous conviennent.",
-    image: IMAGES.TEACHER_STUDENT_1,
-    features: [
-      "Enseignant sélectionné parmi 500+ profils vérifiés",
-      "Programme sur mesure dès le premier cours",
-      "Rapport écrit après chaque séance",
-      "Enseignant remplacé sous 48h si insatisfaction",
-      "Annulation libre, sans pénalité",
-    ],
-    color: "bg-[#1A6CC8]",
-  },
-  {
-    id: "enligne",
-    icon: Monitor,
-    label: "Cours en ligne",
-    tag: null,
-    price: "Dès 7 500 FCFA/h",
-    desc: "Tableau blanc interactif, enregistrements de sessions, outils pédagogiques numériques. Toute l'Afrique francophone.",
-    image: IMAGES.ONLINE_LEARNING_1,
-    features: [
-      "Classe virtuelle dédiée avec tableau blanc partagé",
-      "Enregistrement de chaque cours disponible en replay",
-      "Partage de fichiers et de ressources en temps réel",
-      "Connexion optimisée pour les réseaux africains",
-      "Accessible depuis smartphone ou ordinateur",
-    ],
-    color: "bg-purple-600",
-  },
-  {
-    id: "stage",
-    icon: Calendar,
-    label: "Stages vacances",
-    tag: "Vacances scolaires",
-    price: "Dès 150 000 FCFA",
-    desc: "8 élèves maximum par groupe. Programme intensif pour rattraper, consolider ou prendre de l'avance sur la rentrée.",
-    image: IMAGES.STUDENTS_STUDYING_4,
-    features: [
-      "Groupes de 8 élèves maximum pour une attention maximale",
-      "Programme 5 jours intensifs par matière",
-      "Bilan de progression remis à la fin du stage",
-      "Enseignants spécialisés par niveau et par matière",
-      "Horaires adaptés aux calendriers scolaires locaux de chaque pays",
-    ],
-    color: "bg-emerald-600",
-  },
-  {
-    id: "bac",
-    icon: GraduationCap,
-    label: "Prépa BEPC & BAC",
-    tag: "Examens nationaux",
-    price: "Dès 10 000 FCFA/h",
-    desc: "Méthodologie d'examen, sujets des 5 dernières années, simulations chronométrées. Pour ne rien laisser au hasard.",
-    image: IMAGES.STUDENTS_STUDYING_2,
-    features: [
-      "Enseignant spécialisé prépa examens nationaux",
-      "Sujets corrigés BEPC/BAC des 5 dernières années",
-      "Simulations d'épreuves en conditions réelles",
-      "Suivi hebdomadaire avec conseiller pédagogique",
-      "Garantie +4 points ou remboursement",
-    ],
-    color: "bg-[#F5A623]",
-  },
+/* Photos dans public/images/soutien/ (découpées dans la maquette, texte manuscrit et
+   bulle inclus dans l'image). Remplaçables par les originaux, mêmes noms de fichier. */
+const IMG = {
+  hero: "/images/soutien/hero-soutien.jpg",
+  fille: "/images/soutien/fille.jpg",
+  avatar: "/images/soutien/avatar-parent.jpg",
+};
+
+const SERIF = { fontFamily: "'Playfair Display', serif" };
+const HANDWRITING = { fontFamily: "Caveat, cursive" };
+const EYEBROW = "text-[#0F9B8E] text-xs xl:text-[14.4px] font-bold uppercase tracking-[0.16em]";
+const H2 = "text-2xl md:text-[32px] xl:text-[42.6px] font-bold text-[#0D2D5A] leading-tight";
+// Contenu aligné sur la maquette à 1440 px : marge gauche 5,85 %, droite 4,1 %
+const WRAP = "mx-auto max-w-[1440px] px-6 min-[1400px]:pl-[5.85%] min-[1400px]:pr-[4.1%]";
+
+const LEVELS: { key: string; label: string; icon: LucideIcon; subjects: string[] }[] = [
+  { key: "primaire", label: "Primaire", icon: GraduationCap, subjects: ["Mathématiques", "Français", "Anglais", "Sciences", "Physique-Chimie", "SVT"] },
+  { key: "college", label: "Collège", icon: BookOpen, subjects: ["Mathématiques", "Français", "Anglais", "Physique-Chimie", "SVT", "Histoire-Géo"] },
+  { key: "lycee", label: "Lycée", icon: School, subjects: ["Mathématiques", "Français", "Anglais", "Physique-Chimie", "SVT", "Philosophie", "Économie", "Informatique"] },
+  { key: "examens", label: "Examens", icon: ClipboardCheck, subjects: ["Mathématiques", "Français", "Anglais", "Physique-Chimie", "SVT", "Philosophie"] },
 ];
 
-const PROCESS = [
-  { n: "01", title: "Bilan pédagogique", desc: "20 min avec un conseiller pour cerner les vrais blocages de votre enfant." },
-  { n: "02", title: "Enseignant sélectionné", desc: "Parmi 500+ profils, le plus adapté au niveau et à la personnalité de votre enfant." },
-  { n: "03", title: "Programme sur mesure", desc: "Un plan heure par heure conçu pour atteindre l'objectif fixé ensemble." },
-  { n: "04", title: "Suivi & progression", desc: "Rapports réguliers, ajustements en continu, conseiller joignable à tout moment." },
+const TRUST: { icon: FilledIcon | LucideIcon; label: string }[] = [
+  { icon: ShieldFilled, label: "Coachs sélectionnés" },
+  { icon: UsersFilled, label: "Accompagnement personnalisé" },
+  { icon: BarsFilled, label: "Progression suivie" },
 ];
 
-const TRUST = [
-  { icon: Shield,     text: "Garantie +4 points en 6 mois" },
-  { icon: Clock,      text: "Enseignant trouvé en 4 jours" },
-  { icon: Users,      text: "1 candidat sur 10 retenu" },
-  { icon: TrendingUp, text: "10 ans de résultats mesurés" },
+const STEPS: { n: string; title: string; desc: string[]; icon: LucideIcon | FilledIcon }[] = [
+  { n: "01", title: "Évaluation du besoin", desc: ["Nous identifions les difficultés,", "objectifs et attentes."], icon: ClipboardList },
+  { n: "02", title: "Matching Care4Success", desc: ["Nous recherchons le profil", "pédagogique le plus adapté."], icon: UsersRound },
+  { n: "03", title: "Coach assigné", desc: ["Votre enfant commence avec", "un coach sélectionné."], icon: UserCog },
+  { n: "04", title: "Suivi de la progression", desc: ["Vous suivez régulièrement", "ses progrès."], icon: BarsOutline },
+];
+
+const WHY: { icon: LucideIcon | FilledIcon; title: string; desc: string[]; round: string; color: string; fill?: boolean }[] = [
+  { icon: BadgeCheck, title: "Coachs sélectionnés", desc: ["Compétences, expérience", "et pédagogie vérifiées."], round: "bg-[#099F94]", color: "text-white" },
+  { icon: UsersFilled, title: "Matching personnalisé", desc: ["Le coach est choisi selon", "les besoins réels de l'enfant."], round: "bg-white border border-[#0D2D5A]/8", color: "text-[#F5A623]" },
+  { icon: BarsFilled, title: "Progression suivie", desc: ["Les objectifs et progrès", "sont suivis dans le temps."], round: "bg-white border border-[#0D2D5A]/8", color: "text-[#099F94]" },
+  { icon: Heart, title: "Parents informés", desc: ["Vous gardez une vision claire", "de l'accompagnement."], round: "bg-white border border-[#0D2D5A]/8", color: "text-[#E2574C]", fill: true },
 ];
 
 export default function Services() {
+  const [level, setLevel] = useState(LEVELS[0].key);
+  const active = LEVELS.find(l => l.key === level)!;
+
+  const scrollToApproach = () => document.getElementById("approche")?.scrollIntoView({ behavior: "smooth", block: "start" });
+
   return (
-    <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#F8FCFF]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
-      {/* ── HERO ── */}
-      <section className="relative py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${IMAGES.TEACHER_STUDENT_1})` }} />
-        <div className="absolute inset-0 bg-[#0D2D5A]/78" />
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#1A6CC8]/20 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 pointer-events-none" />
+      {/* ══════════ HERO ══════════ */}
+      <section className="relative overflow-hidden bg-[#012B54] xl:h-[437px]">
+        <div className="hidden md:block absolute top-0 right-0 w-[47.3%] h-full">
+          <img
+            src={IMG.hero}
+            alt=""
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+            className="w-full h-full object-cover object-left"
+            style={{
+              WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
+              maskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
+            }}
+          />
+        </div>
 
-        <div className="container mx-auto px-6 max-w-5xl relative z-10">
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={springPresets.gentle} className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-4">Nos formules</p>
-            <h1 className="text-4xl md:text-5xl font-black text-white leading-tight mb-5">
-              Des solutions taillées<br />
-              <span className="text-[#F5A623]">pour chaque profil</span>
-            </h1>
-            <p className="text-blue-200 text-lg leading-relaxed max-w-xl mb-8">
-              Cours à domicile, en ligne, stages intensifs ou prépa examens : choisissez la formule adaptée à l'objectif de votre enfant.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <NavLink to="/inscription" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-bold text-sm hover:bg-white transition-all duration-200 shadow-lg cursor-pointer">
-                S'inscrire gratuitement <ArrowRight className="w-4 h-4" />
-              </NavLink>
-              <NavLink to={ROUTE_PATHS.TARIFS} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/20 text-white font-semibold text-sm hover:bg-white/10 transition-all duration-200 cursor-pointer">
-                Voir les tarifs
-              </NavLink>
-            </div>
-          </motion.div>
+        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.15%] relative z-10 pt-8 pb-10 xl:pt-[19px] xl:pb-0">
+          <nav aria-label="Fil d'Ariane" className="flex items-center gap-2 text-sm xl:text-[14.6px] text-white/85">
+            <NavLink to={ROUTE_PATHS.HOME} className="hover:text-white transition-colors">Accueil</NavLink>
+            <ChevronRight className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-white/60" />
+            <span>Soutien scolaire</span>
+          </nav>
+
+          <p className="mt-4 xl:mt-[14px] text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">Soutien scolaire</p>
+          <h1
+            className="mt-2 xl:mt-[7px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[66px] leading-[1.12] xl:leading-[62px]"
+            style={SERIF}
+          >
+            Révéler le potentiel<br />
+            de <span className="italic text-[#F5A623]">chaque enfant.</span>
+          </h1>
+          <p className="mt-4 xl:mt-[16px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[700px]">
+            Chaque enfant apprend différemment.<br className="hidden md:block" />{" "}
+            Nous trouvons le coach qui lui correspond et suivons sa progression.
+          </p>
+
+          <div className="flex flex-wrap gap-4 xl:gap-[17px] mt-6 xl:mt-[24px]">
+            <NavLink
+              to={ROUTE_PATHS.EVALUATION_GRATUITE}
+              className="inline-flex items-center gap-2.5 h-14 xl:h-[55px] px-7 xl:px-[28px] rounded-xl xl:rounded-[10px] bg-[#0F9B8E] text-white font-extrabold xl:text-[18px] hover:bg-[#0c857a] transition-colors"
+            >
+              Faire évaluer mon enfant <ArrowRight className="w-4 h-4" />
+            </NavLink>
+            <button
+              type="button"
+              onClick={scrollToApproach}
+              className="inline-flex items-center gap-2.5 h-14 xl:h-[55px] px-7 xl:px-[28px] rounded-xl xl:rounded-[10px] border border-white/45 bg-[#012B54]/40 text-white font-semibold xl:text-[17px] hover:bg-white/10 transition-colors"
+            >
+              <CirclePlay className="w-5 h-5 xl:w-[26px] xl:h-[26px]" strokeWidth={1.5} /> Découvrir notre approche
+            </button>
+          </div>
+
+          {/* Mobile : la photo passe sous les boutons */}
+          <div className="md:hidden relative -mx-6 mt-6">
+            <img src={IMG.hero} alt="" className="w-full h-auto block" />
+            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012B54] to-transparent" />
+          </div>
+
+          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[28px] gap-y-3 mt-7 xl:mt-[31px]">
+            {TRUST.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-2.5 text-sm xl:text-[15.2px] text-white/90">
+                <Icon className="w-6 h-6 xl:w-[27px] xl:h-[27px] text-[#2BB3A3]" />
+                {label}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
-      <Breadcrumb />
+      {/* ══════════ COMMENT POUVONS-NOUS AIDER ══════════ */}
+      <section className="py-10 md:py-12">
+        <div className={`${WRAP} grid lg:grid-cols-[minmax(0,1fr)_minmax(0,422px)] gap-8 lg:gap-[30px] items-start`}>
+          <div>
+            <p className={EYEBROW}>Un accompagnement adapté</p>
+            <h2 className={`${H2} mt-2 xl:mt-[6px]`} style={SERIF}>Comment pouvons-nous aider votre enfant&nbsp;?</h2>
+            <p className="mt-1.5 xl:mt-[3px] text-[#5C6B80] xl:text-[19px]">Un accompagnement adapté à son niveau, ses matières et ses objectifs.</p>
 
-      {/* ── TRUST BAR ── */}
-      <section className="bg-white border-b border-gray-100">
-        <div className="container mx-auto px-6 max-w-5xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-            {TRUST.map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-3 py-5 px-6">
-                <div className="w-8 h-8 rounded-lg bg-[#1A6CC8]/8 flex items-center justify-center shrink-0">
-                  <Icon className="w-4 h-4 text-[#1A6CC8]" />
+            <div role="tablist" aria-label="Niveau scolaire" className="mt-6 xl:mt-[22px] grid grid-cols-2 sm:grid-cols-4 gap-3 xl:gap-[14px]">
+              {LEVELS.map(l => {
+                const on = l.key === level;
+                return (
+                  <button
+                    key={l.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setLevel(l.key)}
+                    className={`flex flex-col items-center justify-center gap-1.5 xl:gap-[6px] h-20 xl:h-[84px] rounded-xl xl:rounded-[11px] font-bold text-sm xl:text-[16.6px] transition-colors ${
+                      on ? "bg-[#019B8F] text-white" : "bg-[#F0F7FD] text-[#0D2D5A] hover:bg-[#E4F0FA]"
+                    }`}
+                  >
+                    <l.icon className={`w-7 h-7 xl:w-[33px] xl:h-[33px] ${on ? "text-white" : "text-[#1A6CC8]"}`} strokeWidth={1.6} />
+                    {l.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 xl:mt-[24px] pt-5 xl:pt-[26px] border-t border-[#0D2D5A]/10 flex flex-wrap gap-2.5 xl:gap-[14px]">
+              {active.subjects.map(s => (
+                <span key={s} className="px-4 xl:px-[17px] h-9 xl:h-[42px] inline-flex items-center rounded-full bg-[#EBF5FD] border border-[#DCEBF7] text-[#0D2D5A] text-[13px] xl:text-[13.4px]">
+                  {s}
+                </span>
+              ))}
+              <span className="px-4 xl:px-[17px] h-9 xl:h-[42px] inline-flex items-center rounded-full bg-[#EBF5FD] border border-[#DCEBF7] text-[#0D2D5A] text-[13px] xl:text-[13.4px]">
+                + autres matières
+              </span>
+            </div>
+          </div>
+
+          <img
+            src={IMG.fille}
+            alt=""
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+            className="w-full h-auto rounded-2xl xl:rounded-[20px] block"
+          />
+        </div>
+      </section>
+
+      {/* ══════════ L'APPROCHE CARE4SUCCESS ══════════ */}
+      <section id="approche" className="py-10 md:py-12 scroll-mt-24">
+        <div className="mx-auto max-w-[1440px] px-6 min-[1400px]:pl-[4.3%] min-[1400px]:pr-[4.1%]">
+          <div className="rounded-2xl xl:rounded-[20px] border border-[#D5F1EE] bg-[#EBFBFA] p-5 md:p-7 xl:pt-[19px] xl:px-[30px] xl:pb-[31px]">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
+              <div>
+                <p className={EYEBROW}>L'approche Care4Success</p>
+                <h2 className={`${H2} mt-2 xl:mt-[4px] xl:text-[42px] xl:leading-[42px]`} style={SERIF}>
+                  Vous ne choisissez pas<br className="hidden md:block" /> un coach au hasard.
+                </h2>
+                <p className="mt-3 xl:mt-[8px] text-[#3E4C66] xl:text-[18.5px] xl:leading-[25px] max-w-[640px] xl:max-w-[470px]">
+                  Nous commençons par comprendre votre enfant, puis nous identifions le coach le plus adapté à ses besoins.
+                </p>
+              </div>
+              <NavLink
+                to={ROUTE_PATHS.EVALUATION_GRATUITE}
+                className="shrink-0 inline-flex items-center gap-2.5 h-12 xl:h-[51px] px-6 xl:px-[27px] rounded-lg xl:rounded-[9px] bg-[#0F9B8E] text-white font-extrabold xl:text-[17px] hover:bg-[#0c857a] transition-colors xl:mt-[36px] xl:mr-[4px]"
+              >
+                Faire évaluer mon enfant <ArrowRight className="w-4 h-4" />
+              </NavLink>
+            </div>
+
+            <ol className="mt-6 xl:mt-[20px] grid gap-4 sm:grid-cols-2 lg:flex lg:items-stretch lg:gap-0">
+              {STEPS.map((step, i) => (
+                <li key={step.n} className="contents lg:flex lg:items-center lg:min-w-0" style={{ flex: "1 1 0%" }}>
+                  <div className="flex-1 min-w-0 h-full rounded-xl xl:rounded-[11px] border border-[#0D2D5A]/[0.06] bg-[#F7FBFE] p-4 xl:pt-[17px] xl:px-[16px] xl:pb-[14px] xl:min-h-[160px] xl:bg-white/80">
+                    <div className="flex items-center gap-3 xl:gap-[16px] xl:pl-[6px]">
+                      <span className="w-9 h-9 xl:w-[47px] xl:h-[47px] rounded-full bg-[#0F9B8E] text-white flex items-center justify-center text-sm xl:text-[19px] font-extrabold">
+                        {step.n}
+                      </span>
+                      <step.icon className="w-8 h-8 xl:w-[40px] xl:h-[40px] text-[#0F9B8E]" {...(step.icon === BarsOutline ? {} : { strokeWidth: 1.6 })} />
+                    </div>
+                    <h3 className="mt-3 xl:mt-[14px] text-center font-extrabold text-[#0D2D5A] text-[15px] xl:text-[17.8px] leading-snug">{step.title}</h3>
+                    <p className="mt-1 xl:mt-[5px] text-center text-[13px] xl:text-[15px] leading-snug xl:leading-[21px] text-[#4B5A73]">
+                      {step.desc.map((line, k) => <span key={k} className="block">{line}</span>)}
+                    </p>
+                  </div>
+                  {i < STEPS.length - 1 && (
+                    <span className="hidden lg:flex w-6 xl:w-[53px] shrink-0 items-center justify-center text-[#0F9B8E]">
+                      <ArrowRight className="w-4 h-4 xl:w-[22px] xl:h-[22px]" strokeWidth={2.2} />
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ POURQUOI LES PARENTS ══════════ */}
+      <section className="py-10 md:py-12">
+        <div className="mx-auto max-w-[1440px] px-6">
+          <h2 className="text-center text-2xl md:text-[28px] xl:text-[33px] font-bold text-[#0D2D5A] leading-tight" style={SERIF}>
+            Pourquoi les parents nous confient leur enfant&nbsp;?
+          </h2>
+        </div>
+        <div className={WRAP}>
+          <div className="mt-6 xl:mt-[24px] grid sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-6 lg:gap-x-0">
+            {WHY.map((item, i) => (
+              <div
+                key={item.title}
+                className={`flex items-start gap-4 xl:gap-[16px] ${i === 0 ? "" : "lg:pl-5 xl:pl-[14px] lg:border-l lg:border-[#0D2D5A]/10"}`}
+              >
+                <span className={`w-14 h-14 xl:w-[68px] xl:h-[68px] rounded-full flex items-center justify-center shrink-0 ${item.round}`}>
+                  <item.icon className={`w-6 h-6 xl:w-[34px] xl:h-[34px] ${item.color}`} {...(item.fill ? { fill: "currentColor" } : {})} />
+                </span>
+                <div className="xl:pt-[4px]">
+                  <p className="font-extrabold text-[#0D2D5A] text-[15px] xl:text-[15.4px] leading-snug">{item.title}</p>
+                  <p className="mt-1 xl:mt-[3px] text-sm xl:text-[15.2px] text-[#5C6B80] leading-relaxed xl:leading-[21px]">
+                    {item.desc.map((line, k) => <span key={k} className="block">{line}</span>)}
+                  </p>
                 </div>
-                <p className="text-sm font-semibold text-[#0D2D5A]">{text}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── SERVICES ── */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-6 max-w-5xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={springPresets.gentle}
-            className="text-center mb-14"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-3">Formules disponibles</p>
-            <h2 className="text-3xl md:text-4xl font-black text-[#0D2D5A]">Choisissez votre formule</h2>
-          </motion.div>
-
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="space-y-6"
-          >
-            {SERVICES.map((s, i) => (
-              <motion.div
-                key={s.id}
-                variants={staggerItem}
-                className={`bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col md:flex-row ${i % 2 === 1 ? "md:flex-row-reverse" : ""}`}
-              >
-                {/* Image */}
-                <div className="md:w-72 lg:w-80 shrink-0 relative overflow-hidden">
-                  <img src={s.image} alt={s.label} className="w-full h-52 md:h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0D2D5A]/50 to-transparent" />
-                  <div className={`absolute top-4 left-4 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full text-white ${s.color}`}>
-                    {s.tag ?? "Disponible"}
-                  </div>
-                </div>
-
-                {/* Contenu */}
-                <div className="flex-1 p-7 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-9 h-9 rounded-xl bg-[#0D2D5A]/8 flex items-center justify-center">
-                        <s.icon className="w-5 h-5 text-[#0D2D5A]" />
-                      </div>
-                      <div>
-                        <h3 className="font-black text-[#0D2D5A] text-lg leading-tight">{s.label}</h3>
-                        <p className="text-[#F5A623] text-sm font-bold font-mono">{s.price}</p>
-                      </div>
-                    </div>
-                    <p className="text-gray-500 text-sm leading-relaxed mb-5">{s.desc}</p>
-                    <ul className="space-y-2">
-                      {s.features.map(f => (
-                        <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
-                          <Check className="w-3.5 h-3.5 text-[#1A6CC8] shrink-0" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="mt-6 pt-5 border-t border-gray-100 flex flex-wrap gap-3">
-                    <NavLink to="/inscription" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#0D2D5A] text-white text-sm font-bold hover:bg-[#1A6CC8] transition-all duration-150 cursor-pointer">
-                      S'inscrire <ArrowRight className="w-3.5 h-3.5" />
-                    </NavLink>
-                    <NavLink to={ROUTE_PATHS.TARIFS} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:border-[#1A6CC8] hover:text-[#1A6CC8] transition-all duration-150 cursor-pointer">
-                      Voir les tarifs
-                    </NavLink>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── PROCESSUS ── */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-6 max-w-5xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={springPresets.gentle}
-            className="text-center mb-14"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-3">Notre méthode</p>
-            <h2 className="text-3xl md:text-4xl font-black text-[#0D2D5A]">Comment ça fonctionne</h2>
-          </motion.div>
-
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
-          >
-            {PROCESS.map(({ n, title, desc }) => (
-              <motion.div key={n} variants={staggerItem} className="relative">
-                <div className="text-5xl font-black font-mono text-[#0D2D5A]/5 leading-none mb-3">{n}</div>
-                <div className="w-8 h-1 bg-[#F5A623] rounded-full mb-3" />
-                <h3 className="font-black text-[#0D2D5A] mb-2">{title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── CTA ── */}
-      <section className="py-20 bg-[#0D2D5A] relative overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-        <div className="container mx-auto px-6 max-w-3xl relative z-10 text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={springPresets.gentle}>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F5A623] mb-4">Bilan gratuit</p>
-            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-              Pas sûr de la formule ?<br />Demandez conseil.
+      {/* ══════════ TÉMOIGNAGE ══════════ */}
+      <section className="py-10 md:py-12">
+        <div className={`${WRAP} grid lg:grid-cols-[minmax(0,1fr)_minmax(0,658px)_minmax(0,200px)] xl:grid-cols-[minmax(0,1fr)_658px_200px] items-center gap-6 lg:gap-8 xl:gap-[24px]`}>
+          <div>
+            <p className={EYEBROW}>Ils témoignent</p>
+            <h2 className={`${H2} mt-2 xl:mt-[8px] xl:text-[34px] xl:leading-[42px] xl:whitespace-nowrap`} style={SERIF}>
+              Ce sont <em>leurs</em> progrès<br className="hidden md:block" /> qui parlent le mieux.
             </h2>
-            <p className="text-blue-200/70 mb-8">
-              Un conseiller vous rappelle sous 24h pour vous orienter vers la formule la plus adaptée à votre enfant.
-            </p>
-            <NavLink to={ROUTE_PATHS.CONTACT} className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-[#F5A623] text-[#0D2D5A] font-bold hover:bg-white transition-all duration-200 shadow-lg cursor-pointer">
-              Demander un bilan gratuit <ArrowRight className="w-4 h-4" />
-            </NavLink>
-          </motion.div>
+          </div>
+
+          <div className="rounded-xl xl:rounded-[12px] border border-[#0D2D5A]/8 bg-white p-4 xl:py-[22px] xl:px-[22px] flex items-center gap-4 xl:gap-[20px]">
+            <img
+              src={IMG.avatar}
+              alt=""
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+              className="w-16 h-16 xl:w-[105px] xl:h-[105px] rounded-full object-cover shrink-0"
+            />
+            <div className="min-w-0">
+              <p className="text-[#3E4C66] text-sm xl:text-[15.2px] leading-relaxed xl:leading-[24px]">
+                « Mon fils avait perdu confiance en mathématiques. Après quelques semaines avec son coach, il est devenu beaucoup plus autonome et ses résultats ont progressé. »
+              </p>
+              <p className="mt-2 xl:mt-[9px] flex flex-wrap items-center gap-x-3 gap-y-1 xl:gap-[16px]">
+                <span className="font-extrabold text-[#0D2D5A] text-sm xl:text-[14.6px] whitespace-nowrap">Parent d'un élève</span>
+                <span className="flex gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="w-4 h-4 xl:w-[19px] xl:h-[19px] fill-[#F5A623] text-[#F5A623]" />)}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <ul className="flex flex-row lg:flex-col gap-3 xl:gap-[11px]">
+            {[
+              { icon: TrendingUp, label: "Progression suivie" },
+              { icon: ShieldCheck, label: "Coach sélectionné selon le besoin" },
+            ].map(({ icon: Icon, label }) => (
+              <li key={label} className="flex-1 lg:flex-none flex items-center gap-3 xl:gap-[12px] rounded-xl xl:rounded-[14px] bg-[#E9FAF8] px-4 xl:px-[16px] py-2.5 xl:py-[12px]">
+                <Icon className="w-6 h-6 xl:w-[29px] xl:h-[29px] text-[#0F9B8E] shrink-0" strokeWidth={1.9} />
+                <span className="text-[#0D2D5A] font-semibold text-[13px] xl:text-[12.6px] leading-tight">{label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ══════════ CTA FINAL ══════════ */}
+      <section className="relative py-10 md:py-11 xl:py-0 xl:h-[217px] bg-[#022A52] overflow-hidden">
+        <div className="hidden xl:block absolute top-[50px] left-[31px] w-[112px] h-[112px] rounded-full bg-[#0F9B8E]/20 pointer-events-none" />
+        <div className="hidden xl:block absolute top-[90px] left-0 w-[166px] h-[166px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
+        <div className="hidden xl:block absolute -top-[60px] -right-[20px] w-[200px] h-[200px] rounded-full bg-[#1A6CC8]/12 pointer-events-none" />
+        <div className="hidden xl:block absolute top-[84px] right-[48px] w-[120px] h-[120px] rounded-full bg-[#8A8467]/30 pointer-events-none" />
+
+        <div className="mx-auto max-w-[947px] px-6 min-[1400px]:px-0 relative z-10 xl:pt-[28px]">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10">
+            <div className="max-w-xl xl:max-w-[700px]">
+              <h2 className="text-3xl md:text-[38px] xl:text-[35.5px] font-bold text-white leading-tight xl:leading-[38px]" style={SERIF}>
+                Chaque enfant peut progresser<br className="hidden md:block" /> avec le <span className="text-[#F5A623]">bon accompagnement.</span>
+              </h2>
+              <p className="text-blue-100/85 mt-3 xl:mt-[8px] xl:text-[17.5px] xl:leading-[24px]">
+                Tout commence par comprendre ses besoins.
+              </p>
+              <div className="flex flex-wrap gap-4 xl:gap-[17px] mt-6 xl:mt-[16px]">
+                <NavLink
+                  to={ROUTE_PATHS.EVALUATION_GRATUITE}
+                  className="inline-flex items-center gap-2 h-12 xl:h-[50px] px-7 xl:px-[26px] rounded-xl xl:rounded-[8px] bg-[#F5A623] text-[#0D2D5A] font-extrabold xl:text-[16.8px] hover:bg-[#e09520] transition-colors"
+                >
+                  Faire évaluer mon enfant <ArrowRight className="w-4 h-4" />
+                </NavLink>
+                <NavLink
+                  to={ROUTE_PATHS.CONTACT}
+                  className="inline-flex items-center h-12 xl:h-[50px] px-7 xl:px-[26px] rounded-xl xl:rounded-[8px] border border-white/45 text-white font-semibold xl:text-[16.8px] hover:bg-white/10 transition-colors"
+                >
+                  Nous contacter
+                </NavLink>
+              </div>
+            </div>
+
+            <div className="hidden md:block -rotate-[10deg] shrink-0 xl:mt-[22px] min-[1400px]:-mr-[60px]">
+              <p className="text-[28px] xl:text-[32px] leading-[1.1] xl:leading-[1.15] text-white font-medium" style={HANDWRITING}>
+                Chaque potentiel<br />mérite d'être accompagné
+              </p>
+              <HandUnderline className="w-[130px] h-3 mt-1 xl:mt-[6px] ml-10" />
+            </div>
+          </div>
         </div>
       </section>
     </div>

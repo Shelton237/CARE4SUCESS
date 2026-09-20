@@ -15,6 +15,7 @@ const NAV_MAIN = [
   { to: `${ROUTE_PATHS.ANNUAIRE_COACHS}?categorie=competences`, label: "Compétences" },
   { to: ROUTE_PATHS.COMMENT_CA_MARCHE,   label: "Comment ça marche" },
   { to: ROUTE_PATHS.DEVENIR_PROFESSEUR,  label: "Devenir coach" },
+  { to: ROUTE_PATHS.TARIFS,              label: "Tarifs" },
   { to: ROUTE_PATHS.FAQ,                  label: "FAQ" },
 ];
 
@@ -210,7 +211,7 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen flex flex-col" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── NAVBAR ── */}
-      <header className={`sticky top-0 w-full z-50 transition-all duration-300 bg-[#F4F2ED] ${
+      <header className={`sticky top-0 w-full z-50 transition-all duration-300 bg-[#F8F8F7] ${
         scrolled ? "shadow-lg shadow-[#0D2D5A]/8" : ""
       }`}>
         <div className="mx-auto w-full max-w-[1920px] px-6 xl:pl-[6.05%] xl:pr-[4.8%]">
@@ -232,7 +233,7 @@ export function Layout({ children }: LayoutProps) {
                   key={link.label}
                   to={link.to}
                   className={({ isActive }) =>
-                    `mx-1.5 xl:max-[1399px]:mx-2 min-[1400px]:mx-[11.3px] py-1.5 text-[12.5px] font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
+                    `mx-1 xl:max-[1399px]:mx-2 min-[1400px]:mx-[11.3px] py-1.5 text-[12px] xl:text-[12.5px] font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
                       isActive
                         ? "text-[#0D2D5A] border-[#F5A623]"
                         : "text-[#0D2D5A] border-transparent hover:text-[#0D2D5A]/80"
@@ -245,16 +246,16 @@ export function Layout({ children }: LayoutProps) {
             </nav>
 
             {/* CTA desktop */}
-            <div className="hidden lg:flex items-center gap-2 xl:gap-[13px] ml-auto pl-2">
+            <div className="hidden lg:flex items-center gap-2 xl:gap-[13px] ml-auto pl-1 xl:pl-2">
               <NavLink
                 to="/login"
-                className="h-10 xl:h-[42px] px-3 xl:px-[22px] rounded-lg bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] text-[12.5px] xl:text-[13.6px] font-semibold flex items-center gap-2 hover:bg-white/70 transition-colors"
+                className="h-10 xl:h-[42px] px-2.5 xl:px-[22px] rounded-lg bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] text-[12.5px] xl:text-[13.6px] font-semibold flex items-center gap-2 hover:bg-white/70 transition-colors"
               >
                 <User className="w-4 h-4" /> Connexion
               </NavLink>
               <NavLink
                 to={ROUTE_PATHS.PROFESSEURS}
-                className="h-10 xl:h-[42px] px-3.5 xl:px-[24px] rounded-lg bg-[#F5A623] text-[#0D2D5A] text-[13px] xl:text-[14.4px] font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                className="h-10 xl:h-[42px] px-2.5 xl:px-[24px] rounded-lg bg-[#F5A623] text-[#0D2D5A] text-[13px] xl:text-[14.4px] font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
               >
                 Trouver mon coach <ArrowRight className="w-4 h-4" />
               </NavLink>
@@ -279,7 +280,7 @@ export function Layout({ children }: LayoutProps) {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="lg:hidden border-t border-[#0D2D5A]/10 bg-[#F4F2ED]"
+              className="lg:hidden border-t border-[#0D2D5A]/10 bg-[#F8F8F7]"
             >
               <nav className="container mx-auto px-4 py-4 space-y-1">
                 {NAV_MAIN.map(link => (
