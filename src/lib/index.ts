@@ -15,6 +15,7 @@ export const ROUTE_PATHS = {
   POLITIQUE_CONFIDENTIALITE: "/politique-confidentialite",
   COMMENT_CA_MARCHE: "/comment-ca-marche",
   FAQ: "/faq",
+  COMPETENCES: "/competences",
 } as const;
 
 export interface Teacher {

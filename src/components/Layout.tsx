@@ -12,7 +12,7 @@ const NAV_MAIN = [
   { to: ROUTE_PATHS.HOME,               label: "Accueil" },
   { to: ROUTE_PATHS.SERVICES,            label: "Soutien scolaire" },
   { to: ROUTE_PATHS.COURS_DE_LANGUES,    label: "Langues" },
-  { to: `${ROUTE_PATHS.ANNUAIRE_COACHS}?categorie=competences`, label: "Compétences" },
+  { to: ROUTE_PATHS.COMPETENCES,         label: "Compétences" },
   { to: ROUTE_PATHS.COMMENT_CA_MARCHE,   label: "Comment ça marche" },
   { to: ROUTE_PATHS.DEVENIR_PROFESSEUR,  label: "Devenir coach" },
   { to: ROUTE_PATHS.TARIFS,              label: "Tarifs" },
@@ -106,6 +106,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   [ROUTE_PATHS.DEVENIR_PROFESSEUR]: "Devenir coach",
   [ROUTE_PATHS.COMMENT_CA_MARCHE]: "Comment ça marche",
   [ROUTE_PATHS.FAQ]: "FAQ",
+  [ROUTE_PATHS.COMPETENCES]: "Compétences et carrière",
   "/recrutement": "Devenir coach",
   [ROUTE_PATHS.CONTACT]: "Contact",
   "/inscription": "Inscription",
@@ -159,6 +160,7 @@ const SELF_RENDERED_BREADCRUMB_ROUTES = new Set<string>([
   "/recrutement",
   ROUTE_PATHS.COMMENT_CA_MARCHE,
   ROUTE_PATHS.FAQ,
+  ROUTE_PATHS.COMPETENCES,
   ROUTE_PATHS.CONTACT,
   ROUTE_PATHS.EVALUATION_GRATUITE,
   ROUTE_PATHS.A_PROPOS,
@@ -374,7 +376,7 @@ export function Layout({ children }: LayoutProps) {
               <ul className="space-y-2.5 xl:space-y-[11px]">
                 {[
                   { label: "Cours de langues", to: ROUTE_PATHS.COURS_DE_LANGUES },
-                  { label: "Compétences pro", to: "#" },
+                  { label: "Compétences pro", to: ROUTE_PATHS.COMPETENCES },
                   { label: "Nos coachs", to: ROUTE_PATHS.ANNUAIRE_COACHS },
                   { label: "Tarifs langues", to: ROUTE_PATHS.TARIFS },
                   { label: "FAQ", to: "/faq?cat=langues" },

@@ -44,3 +44,34 @@ export const BarsOutline: FilledIcon = ({ className }) => (
     <rect x="21.9" y="3.5" width="6.5" height="25" rx="3.2" />
   </svg>
 );
+
+export function TargetIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+      <circle cx="15" cy="17" r="11" />
+      <circle cx="15" cy="17" r="6.5" />
+      <circle cx="15" cy="17" r="2" fill="currentColor" />
+      <path d="M15 17 L27 5 M22 4 v6 h6" />
+    </svg>
+  );
+}
+
+export function MedalFilled({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+      <path d="M16 3l2.6 2 3.3-.2 1.2 3 2.8 1.8-.7 3.2 1.2 3.1-2.3 2.4-.6 3.2-3.2.7L16 26l-2.3-1.8-3.2-.7-.6-3.2L7.6 18l1.2-3.1-.7-3.2 2.8-1.8 1.2-3 3.3.2z" />
+      <path d="M12.5 15.5l2.6 2.6 4.6-5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function UsersOutline({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
+      <circle cx="16" cy="11" r="4.2" />
+      <path d="M8 26c0-4.6 3.6-8 8-8s8 3.4 8 8" />
+      <circle cx="6.5" cy="13.5" r="3" /><path d="M2 24.5c0-2.8 1.9-5 4.5-5.4" />
+      <circle cx="25.5" cy="13.5" r="3" /><path d="M30 24.5c0-2.8-1.9-5-4.5-5.4" />
+    </svg>
+  );
+}
