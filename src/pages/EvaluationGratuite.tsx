@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { NavLink } from "react-router-dom";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, ChevronRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,8 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { submitEvaluationRequest } from "@/api/public";
 import { ROUTE_PATHS } from "@/lib/index";
-import { IMAGES } from "@/assets/images";
-import { Breadcrumb } from "@/components/Layout";
+import { ShieldFilled, UsersOutline } from "@/components/decor";
 
 const STAGES = [
   { label: "Formulaire", sub: "2 minutes" },
@@ -141,32 +140,74 @@ export default function EvaluationGratuite() {
     <div className="min-h-screen bg-[#F4F2ED]" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden bg-[#0B2545]">
-        <div className="absolute inset-0">
+      <section className="relative overflow-hidden bg-[#012B54] xl:h-[437px]">
+        {/* Photo dans public/images/soutien/fille.jpg (texte manuscrit et bulle inclus) */}
+        <div className="hidden lg:block absolute top-0 right-0 w-[44%] h-full">
           <img
-            src={IMAGES.TEACHER_STUDENT_4}
-            alt="Coach et apprenant"
-            className="w-full h-full object-cover opacity-70 mix-blend-overlay"
+            src="/images/soutien/fille.jpg"
+            alt=""
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+            className="w-full h-full object-cover object-[65%_center]"
+            style={{
+              WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 22%)",
+              maskImage: "linear-gradient(to right, transparent 0%, #000 22%)",
+            }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0B2545]/80 to-[#0B2545]/50" />
         </div>
-        <div className="container mx-auto px-6 max-w-4xl relative z-10 py-5 md:py-6 text-center">
-          <p className="text-[#F5A623] text-xs font-bold uppercase tracking-[0.2em] mb-4">Évaluation gratuite</p>
+
+        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.15%] relative z-10 pt-8 pb-10 xl:pt-[19px] xl:pb-0">
+          <nav aria-label="Fil d'Ariane" className="flex flex-wrap items-center gap-2 text-sm xl:text-[14.6px] text-white/85">
+            <NavLink to={ROUTE_PATHS.HOME} className="hover:text-white transition-colors">Accueil</NavLink>
+            <ChevronRight className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-white/60" />
+            <NavLink to={ROUTE_PATHS.PROFESSEURS} className="hover:text-white transition-colors">Trouver un coach</NavLink>
+            <ChevronRight className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-white/60" />
+            <span>Évaluation gratuite</span>
+          </nav>
+
+          <p className="mt-4 xl:mt-[16px] text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">Évaluation gratuite</p>
           <h1
-            className="text-4xl md:text-5xl font-bold text-white leading-tight mb-6"
+            className="mt-2 xl:mt-[8px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[58px] leading-[1.12] xl:leading-[60px]"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            Trouvons ensemble <span className="text-[#F5A623]">le bon coach</span>
+            Trouvons ensemble<br />
+            <span className="italic text-[#F5A623]">le bon coach.</span>
           </h1>
-          <p className="text-blue-200 text-xl max-w-2xl mx-auto leading-relaxed">
-            Un bilan gratuit et sans engagement, pour un coach proposé sous 48h.
+          <p className="mt-4 xl:mt-[18px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[640px]">
+            Un bilan gratuit et sans engagement,<br className="hidden md:block" />{" "}
+            pour un coach proposé sous 48h.
           </p>
+
+          <div className="mt-6 xl:mt-[22px]">
+            <a
+              href="#formulaire"
+              className="inline-flex items-center gap-2.5 h-14 xl:h-[53px] px-7 xl:px-[28px] rounded-xl xl:rounded-[10px] bg-[#0F9B8E] text-white font-extrabold xl:text-[17.2px] hover:bg-[#0c857a] transition-colors"
+            >
+              Commencer l'évaluation <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
+
+          {/* Mobile : la photo passe sous le bouton */}
+          <div className="lg:hidden relative -mx-6 mt-6">
+            <img src="/images/soutien/fille.jpg" alt="" className="w-full h-auto block" />
+            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012B54] to-transparent" />
+          </div>
+
+          <ul className="flex flex-wrap gap-x-8 xl:gap-x-[28px] gap-y-3 mt-7 xl:mt-[28px]">
+            {[
+              { icon: ShieldFilled, label: "Gratuit et sans engagement" },
+              { icon: Clock, label: "Coach proposé sous 48h" },
+              { icon: UsersOutline, label: "Vous décidez" },
+            ].map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-2.5 text-sm xl:text-[15.2px] text-white/90">
+                <Icon className="w-6 h-6 xl:w-[27px] xl:h-[27px] text-[#2BB3A3]" />
+                {label}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
-      <Breadcrumb />
-
-      <div className="container mx-auto px-6 max-w-2xl py-16">
+      <div id="formulaire" className="container mx-auto px-6 max-w-2xl py-16 scroll-mt-24">
         <div className="bg-white rounded-3xl shadow-sm p-10">
 
           {/* ── Étapes macro (informatif) ── */}
@@ -197,9 +238,9 @@ export default function EvaluationGratuite() {
             </div>
           )}
 
-          <h1 className="text-2xl font-bold text-[#0D2D5A] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h2 className="text-2xl font-bold text-[#0D2D5A] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
             Évaluation gratuite
-          </h1>
+          </h2>
           <p className="text-sm text-gray-500 mb-8">
             Remplissez ce formulaire. Notre équipe évalue le profil de votre enfant et vous propose le coach idéal sous 48h.
           </p>
