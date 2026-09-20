@@ -259,11 +259,11 @@ export default function Services() {
 
       {/* ══════════ TÉMOIGNAGE ══════════ */}
       <section className="py-10 md:py-12">
-        <div className={`${WRAP} grid lg:grid-cols-[minmax(0,1fr)_minmax(0,658px)_minmax(0,200px)] xl:grid-cols-[minmax(0,1fr)_658px_200px] items-center gap-6 lg:gap-8 xl:gap-[24px]`}>
+        <div className={`${WRAP} grid lg:grid-cols-[minmax(250px,0.8fr)_minmax(0,1.2fr)_170px] xl:grid-cols-[430px_minmax(0,658px)_200px] xl:justify-between items-center gap-6 lg:gap-6 xl:gap-[24px]`}>
           <div>
             <p className={EYEBROW}>Ils témoignent</p>
-            <h2 className={`${H2} mt-2 xl:mt-[8px] xl:text-[34px] xl:leading-[42px] xl:whitespace-nowrap`} style={SERIF}>
-              Ce sont <em>leurs</em> progrès<br className="hidden md:block" /> qui parlent le mieux.
+            <h2 className={`${H2} mt-2 xl:mt-[8px] xl:text-[34px] xl:leading-[42px]`} style={SERIF}>
+              Ce sont <em>leurs</em> progrès<br className="hidden xl:block" /> qui parlent le mieux.
             </h2>
           </div>
 
