@@ -53,17 +53,17 @@ type LucideOrFilled = FilledIcon | typeof BadgeCheck;
 
 const WAYS = [
   {
-    key: "soutien", vertical: "soutien-scolaire", title: "Soutien scolaire", photo: IMG.soutien,
+    key: "soutien", to: ROUTE_PATHS.SERVICES, title: "Soutien scolaire", photo: IMG.soutien,
     desc: "Accompagnez les élèves du primaire au lycée dans leurs apprentissages (Maths, français, sciences, etc.).",
     icon: GraduationCap, iconColor: "#1A6CC8", circle: "bg-[#DDEEFB]", bg: "from-[#EEF8FE] via-[#EBF7FF] to-[#F4FAFF]", border: "border-[#DCEBF7]", fr: "305fr",
   },
   {
-    key: "langues", vertical: "langues-competences", title: "Langues", photo: IMG.langues,
+    key: "langues", to: ROUTE_PATHS.COURS_DE_LANGUES, title: "Langues", photo: IMG.langues,
     desc: "Enseignez une langue et ouvrez de nouvelles opportunités (anglais, français, espagnol, etc.).",
     icon: Globe, iconColor: "#F5A623", circle: "bg-[#FDEDD0]", bg: "from-[#FFF3E3] via-[#FDF9EE] to-[#FCF8F0]", border: "border-[#F6E9D2]", fr: "290fr",
   },
   {
-    key: "competences", vertical: "langues-competences", title: "Compétences pro", photo: IMG.competences,
+    key: "competences", to: ROUTE_PATHS.COMPETENCES, title: "Compétences pro", photo: IMG.competences,
     desc: "Partagez votre expertise dans des domaines professionnels (data, bureautique, management, communication, etc.).",
     icon: BarsOutline, iconColor: "#0F9B8E", circle: "bg-[#D2F1EC]", bg: "from-[#F0FDFC] via-[#ECFBF8] to-[#F3FDFB]", border: "border-[#D2F0EA]", fr: "302fr",
   },
@@ -257,9 +257,11 @@ export default function DevenirProfesseur() {
 
           <div className="mt-6 xl:mt-[10px] grid grid-cols-1 md:grid-cols-3 gap-5 xl:gap-[22px] xl:[grid-template-columns:305fr_290fr_302fr]">
             {WAYS.map(way => (
-              <div
+              <NavLink
                 key={way.key}
-                className={`relative overflow-hidden rounded-2xl xl:rounded-[16px] border bg-gradient-to-r ${way.bg} ${way.border} p-5 pb-[68px] xl:pt-[8px] xl:pl-[35px] xl:pr-[0px] xl:pb-[22px] min-h-[220px] xl:h-[243px]`}
+                to={way.to}
+                aria-label={`Découvrir : ${way.title}`}
+                className={`group relative block overflow-hidden rounded-2xl xl:rounded-[16px] border bg-gradient-to-r ${way.bg} ${way.border} p-5 pb-[68px] xl:pt-[8px] xl:pl-[35px] xl:pr-[0px] xl:pb-[22px] min-h-[220px] xl:h-[243px] hover:-translate-y-0.5 transition-transform`}
               >
                 <div
                   className="hidden xl:block absolute right-0 top-0"
@@ -289,15 +291,13 @@ export default function DevenirProfesseur() {
                   <p className="mt-2 xl:mt-[8px] text-sm xl:text-[16px] leading-relaxed xl:leading-[21px] text-[#4B5A73]">{way.desc}</p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => openApply(way.vertical)}
-                  aria-label={`Candidater : ${way.title}`}
-                  className="absolute right-4 bottom-4 xl:right-[13px] xl:bottom-[10px] w-10 h-10 xl:w-[43px] xl:h-[43px] rounded-full bg-white text-[#0D2D5A] flex items-center justify-center shadow-sm hover:scale-105 transition-transform z-10"
+                <span
+                  aria-hidden
+                  className="absolute right-4 bottom-4 xl:right-[13px] xl:bottom-[10px] w-10 h-10 xl:w-[43px] xl:h-[43px] rounded-full bg-white text-[#0D2D5A] flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform z-10"
                 >
                   <ArrowRight className="w-4 h-4 xl:w-[19px] xl:h-[19px]" strokeWidth={2.4} />
-                </button>
-              </div>
+                </span>
+              </NavLink>
             ))}
           </div>
         </div>
