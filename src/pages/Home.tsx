@@ -226,6 +226,7 @@ export default function Home() {
         {/* Photo à droite (positions de la maquette, en % de la largeur) */}
         <div className="hidden md:block absolute top-0 left-[42.97%] w-[57.03%]">
           <img src={HOME_IMAGES.hero} alt="" className="w-full h-auto block" />
+          <span className="hero-sheen" aria-hidden />
           <div className="absolute inset-0 bg-gradient-to-r from-[#07284B] via-[#07284B]/10 to-transparent" />
           <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#07284B] via-[#07284B]/80 to-transparent" />
         </div>
@@ -237,7 +238,7 @@ export default function Home() {
               style={SERIF}
             >
               Every genius<br />
-              needs <span className="italic text-[#F5A623] xl:text-[1.145em]">a coach</span>
+              needs <span className="italic text-gold-shimmer xl:text-[1.145em]">a coach</span>
             </h1>
             <p className="text-white/90 text-lg md:text-[22px] xl:text-[23.8px] leading-snug xl:leading-[28px] mt-5 xl:mt-[24px]">
               Soutien scolaire. Langues. Compétences.<br />
@@ -263,6 +264,7 @@ export default function Home() {
             {/* Mobile : la photo passe sous les boutons, en bloc net */}
             <div className="md:hidden relative -mx-6 mt-6 h-56">
               <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
+              <span className="hero-sheen" aria-hidden />
               <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#07284B] to-transparent" />
               <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#07284B] to-transparent" />
             </div>

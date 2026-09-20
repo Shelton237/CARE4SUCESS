@@ -344,3 +344,62 @@ CARE 4 SUCCESS — Charte graphique
     }
   }
 }
+/* ── Effet "shine" du hero de l'accueil ───────────────────────────────────────
+   Un éclat traverse d'abord le titre ("a coach"), puis un reflet balaie la photo,
+   toutes les 8 s. Désactivé si l'utilisateur préfère réduire les animations. */
+@keyframes hero-sheen-sweep {
+  0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+  4%   { opacity: 1; }
+  22%  { transform: translateX(230%) skewX(-18deg); opacity: 1; }
+  26%  { opacity: 0; }
+  100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
+}
+
+@keyframes gold-shimmer-pass {
+  0%   { background-position: 130% 0; }
+  22%  { background-position: -30% 0; }
+  100% { background-position: -30% 0; }
+}
+
+.hero-sheen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-sheen::before {
+  content: "";
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(100deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.08) 30%,
+      rgba(255, 255, 255, 0.30) 50%,
+      rgba(255, 255, 255, 0.08) 70%,
+      rgba(255, 255, 255, 0) 100%);
+  filter: blur(3px);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: hero-sheen-sweep 8s ease-in-out 1.3s infinite;
+}
+
+.text-gold-shimmer {
+  color: #F5A623;
+  background-image: linear-gradient(100deg,
+      #F5A623 0%, #F5A623 38%, #FFF1C9 50%, #F5A623 62%, #F5A623 100%);
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gold-shimmer-pass 8s ease-in-out 0.4s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-sheen::before { animation: none; opacity: 0; }
+  .text-gold-shimmer { animation: none; background-image: none; -webkit-text-fill-color: currentColor; }
+}
