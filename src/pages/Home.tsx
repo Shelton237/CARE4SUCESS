@@ -222,7 +222,7 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#F7FAFC]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
       {/* ══════════ HERO ══════════ */}
-      <section className="relative overflow-hidden bg-[#07284B] xl:h-[410px]">
+      <section className="relative overflow-hidden bg-[#07284B] xl:h-[448px]">
         {/* Photo à droite (positions de la maquette, en % de la largeur) */}
         <div className="hidden md:block absolute top-0 left-[42.97%] w-[57.03%]">
           <img src={HOME_IMAGES.hero} alt="" className="w-full h-auto block" />
@@ -231,7 +231,7 @@ export default function Home() {
           <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#07284B] via-[#07284B]/80 to-transparent" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.05%] xl:pr-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[44px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.05%] xl:pr-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[48px] xl:pb-0">
           <div className="max-w-xl xl:max-w-none">
             <h1
               className="font-bold text-white leading-[1.02] text-[clamp(2.6rem,4.4vw,3.95rem)] xl:text-[69.5px] xl:leading-[60px]"
@@ -240,12 +240,12 @@ export default function Home() {
               Every genius<br />
               needs <span className="italic text-gold-shimmer xl:text-[1.145em]">a coach</span>
             </h1>
-            <p className="text-white/90 text-lg md:text-[22px] xl:text-[23.8px] leading-snug xl:leading-[28px] mt-5 xl:mt-[24px]">
-              Soutien scolaire. Langues. Compétences.<br />
-              Un coach pour chaque objectif.
-            </p>
+            <div className="text-white/90 text-lg md:text-[22px] xl:text-[23.8px] leading-snug xl:leading-[28px] mt-6 xl:mt-[30px] space-y-2 xl:space-y-[8px]">
+              <p>Soutien scolaire. Langues. Compétences.</p>
+              <p><em className="italic">Un coach pour chaque objectif.</em></p>
+            </div>
 
-            <div className="flex flex-wrap gap-4 xl:gap-[18px] mt-6 xl:mt-[22px]">
+            <div className="flex flex-wrap gap-4 xl:gap-[18px] mt-8 xl:mt-[34px]">
               <NavLink
                 to={ROUTE_PATHS.PROFESSEURS}
                 id="hero-cta-primary"
@@ -262,14 +262,14 @@ export default function Home() {
             </div>
 
             {/* Mobile : la photo passe sous les boutons, en bloc net */}
-            <div className="md:hidden relative -mx-6 mt-6 h-56">
+            <div className="md:hidden relative -mx-6 mt-8 h-56">
               <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
               <span className="hero-sheen" aria-hidden />
               <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#07284B] to-transparent" />
               <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#07284B] to-transparent" />
             </div>
 
-            <ul className="flex flex-wrap gap-x-10 xl:gap-x-[58px] gap-y-3 mt-7 xl:mt-[38px]">
+            <ul className="flex flex-wrap gap-x-10 xl:gap-x-[58px] gap-y-3 mt-8 xl:mt-[40px]">
               {TRUST.map(item => (
                 <li key={item.label} className="flex items-center gap-2.5 text-sm xl:text-[14.3px] text-white/90">
                   <item.icon className="w-7 h-7 xl:w-8 xl:h-8" style={{ color: item.color }} strokeWidth={1.8} />
