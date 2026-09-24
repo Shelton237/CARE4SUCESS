@@ -2233,7 +2233,7 @@ const ensureTeacherSlotsTable = async () => {
       subject VARCHAR(120) NULL,
       start_time DATETIME NOT NULL,
       end_time DATETIME NOT NULL,
-      status ENUM('open','booked','cancelled') NOT NULL DEFAULT 'open',
+      status ENUM('open','pending','booked','cancelled') NOT NULL DEFAULT 'open',
       poster_url VARCHAR(500) NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
@@ -2246,6 +2246,17 @@ const ensureTeacherSlotsTable = async () => {
   try {
     await pool.query(`ALTER TABLE teacher_slots ADD COLUMN IF NOT EXISTS poster_url VARCHAR(500) NULL`);
   } catch (_) { /* colonne déjà présente — ignoré */ }
+  // 'pending' = créneau verrouillé pendant le paiement (réservation publique).
+  // Sans cette valeur l'UPDATE échouait : « Data truncated for column 'status' ».
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM teacher_slots LIKE 'status'");
+    if (cols[0] && !String(cols[0].Type).includes("'pending'")) {
+      await pool.query("ALTER TABLE teacher_slots MODIFY COLUMN status ENUM('open','pending','booked','cancelled') NOT NULL DEFAULT 'open'");
+      console.log("Migration: added 'pending' to teacher_slots.status");
+    }
+  } catch (err) {
+    console.warn("Migration teacher_slots.status skip:", err.message);
+  }
 };
 
 const mapSlotRow = (row) => ({
