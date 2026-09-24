@@ -496,12 +496,12 @@ function BookingPanel({
 
                     {step === "redirect" && testRedirectUrl && (
                         <motion.div key="redirect" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-4 py-4 text-center">
-                            <p className="text-xs text-gray-500">Environnement de test — validez le paiement sur la page Flutterwave.</p>
+                            <p className="text-xs text-gray-500">Réglez sur la page de paiement sécurisée Flutterwave (carte ou Mobile Money), puis revenez ici : la confirmation est automatique.</p>
                             <Button
                                 className="w-full h-10 text-sm font-bold bg-[#0D2D5A] hover:bg-[#0B2545] text-white rounded-xl"
                                 onClick={() => window.open(testRedirectUrl, "_blank", "noopener,noreferrer")}
                             >
-                                Ouvrir la page de test Flutterwave
+                                Ouvrir la page de paiement sécurisée
                             </Button>
                             <div className="flex items-center gap-2 text-xs text-slate-400">
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" /> En attente de confirmation...

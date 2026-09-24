@@ -6997,6 +6997,63 @@ const flutterwaveRequest = async (path, options = {}) => {
   return data;
 };
 
+// ── Flutterwave v3 (page de paiement hébergée : carte + Mobile Money) ────────
+// Activé dès que FLUTTERWAVE_SECRET_KEY (clé secrète v3, FLWSECK_... ) est défini.
+// Le client est redirigé vers la page Flutterwave, paie (carte ou Mobile Money),
+// puis le serveur VÉRIFIE la transaction auprès de Flutterwave (verify_by_reference)
+// avant de valider quoi que ce soit : on ne fait jamais confiance à la redirection.
+// Les résultats sont normalisés au format de l'API v4 pour réutiliser telles quelles
+// les fonctions finalize* (montant, devise, statut) et les routes de polling.
+const FLW_V3_SECRET_KEY = process.env.FLUTTERWAVE_SECRET_KEY;
+const FLW_V3_ENABLED = Boolean(FLW_V3_SECRET_KEY);
+const FLW_V3_BASE_URL = process.env.FLUTTERWAVE_V3_BASE_URL || "https://api.flutterwave.com/v3";
+const FLW_V3_WEBHOOK_HASH = process.env.FLUTTERWAVE_V3_WEBHOOK_HASH;
+if (FLW_V3_ENABLED) console.log("[flutterwave] mode v3 (page hébergée) activé");
+
+const flwV3StartPayment = async ({ reference, amount, currency, email, name, phone, redirectUrl, title }) => {
+  const res = await fetch(`${FLW_V3_BASE_URL}/payments`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${FLW_V3_SECRET_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tx_ref: reference,
+      amount: Number(amount),
+      currency,
+      redirect_url: redirectUrl,
+      customer: { email, name: name || "Client Care4Success", ...(phone ? { phonenumber: phone } : {}) },
+      customizations: { title: "Care4Success", description: title || "Paiement Care4Success", logo: `${FRONTEND_BASE_URL}/favicon.png` },
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body?.status !== "success" || !body?.data?.link) {
+    throw new Error(body?.message || "Impossible de créer le paiement Flutterwave.");
+  }
+  // Même forme que la réponse v4 pour que le front ouvre la page de paiement.
+  return { data: { id: null, status: "pending", next_action: { type: "redirect_url", redirect_url: { url: body.data.link } } } };
+};
+
+const flwV3FetchCharge = async (reference) => {
+  const pending = { id: null, status: "pending", amount: 0, currency: null };
+  const res = await fetch(`${FLW_V3_BASE_URL}/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`, {
+    headers: { Authorization: `Bearer ${FLW_V3_SECRET_KEY}` },
+  });
+  const body = await res.json().catch(() => ({}));
+  const d = body?.data;
+  if (!res.ok || body?.status !== "success" || !d || d.tx_ref !== reference) return pending;
+  return {
+    id: d.id,
+    status: d.status === "successful" ? "succeeded" : d.status,
+    amount: d.amount,
+    currency: d.currency,
+    payment_method: { type: d.payment_type || "card" },
+  };
+};
+
+// Lance le paiement : v3 (page hébergée) si configuré, sinon flux Mobile Money v4.
+const flwStartPayment = (v3Params, v4Path, v4Options) =>
+  FLW_V3_ENABLED ? flwV3StartPayment(v3Params) : flutterwaveRequest(v4Path, v4Options);
+const flwChargeForStatus = async (reference, chargeId) =>
+  FLW_V3_ENABLED ? { data: await flwV3FetchCharge(reference) } : flutterwaveRequest(`/charges/${chargeId}`);
+
 // Valide et applique un paiement confirmé côté Flutterwave à la facture
 // correspondante. Idempotent : appelable indifféremment depuis le polling
 // front-end ET depuis le webhook pour la même charge.
@@ -7038,10 +7095,10 @@ const finalizeFlutterwaveCharge = async (reference, chargeData) => {
 // code (requires_otp/requires_pin) selon le réseau/pays.
 app.post("/api/payments/flutterwave/initiate", authenticateRequest, async (req, res) => {
   const { invoiceId, phoneNumber, network, countryCode = "237" } = req.body ?? {};
-  if (!invoiceId || !phoneNumber || !network) {
+  if (!invoiceId || (!FLW_V3_ENABLED && (!phoneNumber || !network))) {
     return res.status(400).json({ message: "invoiceId, phoneNumber et network sont requis." });
   }
-  if (!["MTN", "ORANGE"].includes(network)) {
+  if (!FLW_V3_ENABLED && !["MTN", "ORANGE"].includes(network)) {
     return res.status(400).json({ message: "Réseau non supporté." });
   }
 
@@ -7064,7 +7121,7 @@ app.post("/api/payments/flutterwave/initiate", authenticateRequest, async (req, 
     const reference = `c4s-inv-${invoice.id.slice(0, 8)}-${Date.now()}`;
     const [firstName, ...restName] = (payer.name || "Parent").split(" ");
 
-    const chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+    const chargeRes = await flwStartPayment({ reference, amount: invoice.amount, currency: PARENT_INVOICE_CURRENCY, email: payer.email, name: payer.name, phone: phoneNumber ? `${countryCode}${phoneNumber}` : undefined, redirectUrl: `${FRONTEND_BASE_URL}/parent/invoices`, title: "Facture Care4Success" }, "/orchestration/direct-charges", {
       method: "POST",
       idempotencyKey: reference,
       headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
@@ -7134,10 +7191,10 @@ app.get("/api/payments/flutterwave/status/:reference", authenticateRequest, asyn
     if (invoice.status === "paid") {
       return res.json({ success: true, alreadyProcessed: true });
     }
-    if (!invoice.flw_charge_id) {
+    if (!invoice.flw_charge_id && !FLW_V3_ENABLED) {
       return res.json({ success: false, reason: "pending" });
     }
-    const chargeRes = await flutterwaveRequest(`/charges/${invoice.flw_charge_id}`);
+    const chargeRes = await flwChargeForStatus(reference, invoice.flw_charge_id);
     const result = await finalizeFlutterwaveCharge(reference, chargeRes.data);
     res.json(result);
   } catch (error) {
@@ -7149,8 +7206,36 @@ app.get("/api/payments/flutterwave/status/:reference", authenticateRequest, asyn
 // Endpoint public (aucun JWT) — authentifié par calcul HMAC-SHA256 du corps
 // brut de la requête avec le secret hash configuré dans le dashboard
 // Flutterwave, comparé au header `flutterwave-signature`.
+// Applique une charge confirmée à l'objet qui porte cette référence (facture,
+// réservation de créneau, achat de cours ou cours groupé).
+const finalizeAnyFlutterwaveReference = async (reference, charge) => {
+  const invoiceResult = await finalizeFlutterwaveCharge(reference, charge);
+  if (invoiceResult.success || invoiceResult.reason !== "invoice_not_found") return invoiceResult;
+  const bookingResult = await finalizeSlotBooking(reference, charge);
+  if (bookingResult.success || bookingResult.reason !== "booking_not_found") return bookingResult;
+  const courseResult = await finalizeCoursePurchase(reference, charge);
+  if (courseResult.success || courseResult.reason !== "enrollment_not_found") return courseResult;
+  return finalizeGroupClassRegistration(reference, charge);
+};
+
 app.post("/api/payments/flutterwave/webhook", async (req, res) => {
   try {
+    // Webhook v3 : Flutterwave envoie le « secret hash » tel quel dans l'en-tête verif-hash.
+    // Le contenu du corps n'est jamais cru : la transaction est revérifiée via l'API.
+    const v3Hash = req.headers["verif-hash"];
+    if (v3Hash) {
+      const given = Buffer.from(String(v3Hash));
+      const expected = Buffer.from(String(FLW_V3_WEBHOOK_HASH || ""));
+      if (!FLW_V3_ENABLED || !FLW_V3_WEBHOOK_HASH || given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+        return res.status(401).json({ message: "Signature invalide." });
+      }
+      const reference = req.body?.data?.tx_ref || req.body?.txRef;
+      if (reference) {
+        const charge = await flwV3FetchCharge(String(reference));
+        await finalizeAnyFlutterwaveReference(String(reference), charge);
+      }
+      return res.status(200).json({ received: true });
+    }
     if (!FLW_WEBHOOK_SECRET_HASH || !req.rawBody) {
       return res.status(401).json({ message: "Webhook non configuré." });
     }
@@ -7344,10 +7429,10 @@ app.post("/api/bookings/initiate", async (req, res) => {
     slotId, network, phoneNumber, countryCode = "237",
     parentName, parentEmail, parentPhone, studentName, studentEmail, subject,
   } = req.body ?? {};
-  if (!slotId || !network || !phoneNumber || !parentName || !parentEmail) {
+  if (!slotId || !parentName || !parentEmail || (!FLW_V3_ENABLED && (!network || !phoneNumber))) {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
   }
-  if (!["MTN", "ORANGE"].includes(network)) {
+  if (!FLW_V3_ENABLED && !["MTN", "ORANGE"].includes(network)) {
     return res.status(400).json({ message: "Réseau non supporté." });
   }
 
@@ -7390,7 +7475,7 @@ app.post("/api/bookings/initiate", async (req, res) => {
 
     let chargeRes;
     try {
-      chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+      chargeRes = await flwStartPayment({ reference, amount, currency: teacher.currency || "XAF", email: parentEmail, name: parentName, phone: phoneNumber ? `${countryCode}${phoneNumber}` : undefined, redirectUrl: `${FRONTEND_BASE_URL}/professeurs/${teacher.id}`, title: `Cours avec ${teacher.name}` }, "/orchestration/direct-charges", {
         method: "POST",
         idempotencyKey: reference,
         headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
@@ -7463,10 +7548,10 @@ app.get("/api/bookings/status/:reference", async (req, res) => {
     if (booking.status === "paid") {
       return res.json({ success: true, alreadyProcessed: true, sessionId: booking.session_id });
     }
-    if (!booking.flw_charge_id) {
+    if (!booking.flw_charge_id && !FLW_V3_ENABLED) {
       return res.json({ success: false, reason: "pending" });
     }
-    const chargeRes = await flutterwaveRequest(`/charges/${booking.flw_charge_id}`);
+    const chargeRes = await flwChargeForStatus(reference, booking.flw_charge_id);
     const result = await finalizeSlotBooking(reference, chargeRes.data);
     res.json(result);
   } catch (error) {
@@ -7539,10 +7624,10 @@ app.post("/api/courses/:courseId/purchase/initiate", authenticateRequest, async 
   if (req.user?.role !== "student") {
     return res.status(403).json({ message: "Réservé aux élèves." });
   }
-  if (!phoneNumber || !network) {
+  if (!FLW_V3_ENABLED && (!phoneNumber || !network)) {
     return res.status(400).json({ message: "phoneNumber et network sont requis." });
   }
-  if (!["MTN", "ORANGE"].includes(network)) {
+  if (!FLW_V3_ENABLED && !["MTN", "ORANGE"].includes(network)) {
     return res.status(400).json({ message: "Réseau non supporté." });
   }
 
@@ -7579,7 +7664,7 @@ app.post("/api/courses/:courseId/purchase/initiate", authenticateRequest, async 
     const reference = `c4s-course-${courseId.slice(0, 8)}-${Date.now()}`;
     const [firstName, ...restName] = (student.name || "Élève").split(" ");
 
-    const chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+    const chargeRes = await flwStartPayment({ reference, amount: course.price, currency, email: student.email, name: student.name, phone: phoneNumber ? `${countryCode}${phoneNumber}` : undefined, redirectUrl: `${FRONTEND_BASE_URL}/student/courses`, title: course.title || "Cours Care4Success" }, "/orchestration/direct-charges", {
       method: "POST",
       idempotencyKey: reference,
       headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
@@ -7649,10 +7734,10 @@ app.get("/api/courses/purchase/status/:reference", authenticateRequest, async (r
     if (enrollment.paid_at) {
       return res.json({ success: true, alreadyProcessed: true, courseId: enrollment.course_id });
     }
-    if (!enrollment.flw_charge_id) {
+    if (!enrollment.flw_charge_id && !FLW_V3_ENABLED) {
       return res.json({ success: false, reason: "pending" });
     }
-    const chargeRes = await flutterwaveRequest(`/charges/${enrollment.flw_charge_id}`);
+    const chargeRes = await flwChargeForStatus(reference, enrollment.flw_charge_id);
     const result = await finalizeCoursePurchase(reference, chargeRes.data);
     res.json(result);
   } catch (error) {
@@ -7955,10 +8040,10 @@ app.post("/api/group-classes/:id/register/initiate", async (req, res) => {
     network, phoneNumber, countryCode = "237",
     parentName, parentEmail, parentPhone, studentName, studentEmail,
   } = req.body ?? {};
-  if (!network || !phoneNumber || !parentName || !parentEmail || !studentName) {
+  if (!parentName || !parentEmail || !studentName || (!FLW_V3_ENABLED && (!network || !phoneNumber))) {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
   }
-  if (!["MTN", "ORANGE"].includes(network)) {
+  if (!FLW_V3_ENABLED && !["MTN", "ORANGE"].includes(network)) {
     return res.status(400).json({ message: "Réseau non supporté." });
   }
 
@@ -8001,7 +8086,7 @@ app.post("/api/group-classes/:id/register/initiate", async (req, res) => {
     const [firstName, ...restName] = (parentName || "Parent").split(" ");
     let chargeRes;
     try {
-      chargeRes = await flutterwaveRequest("/orchestration/direct-charges", {
+      chargeRes = await flwStartPayment({ reference, amount: groupClass.price, currency: groupClass.currency, email: parentEmail, name: parentName, phone: phoneNumber ? `${countryCode}${phoneNumber}` : undefined, redirectUrl: `${FRONTEND_BASE_URL}/cours-groupe/${groupClassId}`, title: groupClass.title || "Cours groupé Care4Success" }, "/orchestration/direct-charges", {
         method: "POST",
         idempotencyKey: reference,
         headers: FLW_IS_SANDBOX ? { "X-Scenario-Key": "scenario:auth_redirect" } : undefined,
@@ -8075,10 +8160,10 @@ app.get("/api/group-classes/register/status/:reference", async (req, res) => {
     if (registration.status === "paid") {
       return res.json({ success: true, alreadyProcessed: true, sessionId: registration.session_id });
     }
-    if (!registration.flw_charge_id) {
+    if (!registration.flw_charge_id && !FLW_V3_ENABLED) {
       return res.json({ success: false, reason: "pending" });
     }
-    const chargeRes = await flutterwaveRequest(`/charges/${registration.flw_charge_id}`);
+    const chargeRes = await flwChargeForStatus(reference, registration.flw_charge_id);
     const result = await finalizeGroupClassRegistration(reference, chargeRes.data);
     res.json(result);
   } catch (error) {

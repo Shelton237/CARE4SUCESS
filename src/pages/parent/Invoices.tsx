@@ -502,13 +502,13 @@ function PaymentDialog({
                 {step === "redirect" && testRedirectUrl && (
                     <div className="flex flex-col items-center gap-4 py-6 text-center">
                         <p className="text-sm text-slate-600">
-                            Environnement de test : cliquez ci-dessous pour ouvrir la page de simulation Flutterwave et valider (ou refuser) le paiement.
+                            Cliquez ci-dessous pour ouvrir la page de paiement sécurisée Flutterwave (carte ou Mobile Money). Une fois payé, revenez ici : la confirmation est automatique.
                         </p>
                         <Button
                             className="w-full"
                             onClick={() => window.open(testRedirectUrl, "_blank", "noopener,noreferrer")}
                         >
-                            Ouvrir la page de test Flutterwave
+                            Ouvrir la page de paiement sécurisée
                         </Button>
                         <div className="flex items-center gap-2 text-xs text-slate-400">
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
