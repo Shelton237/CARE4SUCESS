@@ -1,0 +1,8 @@
+{
+  "Recherche": { "en": "Search", "mg": "Fikarohana", "ar": "بحث" },
+  "Résultats de la recherche": { "en": "Search results", "mg": "Vokatry ny fikarohana", "ar": "نتائج البحث" },
+  "Questions fréquentes": { "en": "Frequently asked questions", "mg": "Fanontaniana matetika apetraka", "ar": "الأسئلة الشائعة" },
+  "résultat pour": { "en": "result for", "mg": "vokatra ho an'ny", "ar": "نتيجة لـ" },
+  "résultats pour": { "en": "results for", "mg": "vokatra ho an'ny", "ar": "نتيجة لـ" },
+  "Aucune question ne correspond à votre recherche. Essayez d'autres mots ou": { "en": "No question matches your search. Try other words or", "mg": "Tsy misy fanontaniana mifanaraka amin'ny fikarohanao. Andramo ny teny hafa na", "ar": "لا يوجد سؤال يطابق بحثك. جرّب كلمات أخرى أو" }
+}

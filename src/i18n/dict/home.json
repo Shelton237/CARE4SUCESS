@@ -1,0 +1,91 @@
+{
+  "Nous trouvons le coach adapté pour votre enfant. Évaluation, matching, suivi et facturation transparente.": {
+    "en": "We find the right coach for your child. Assessment, matching, follow-up and transparent billing.",
+    "mg": "Mitady ny mpanazatra mety amin'ny zanakao izahay. Fanombanana, fampifanarahana, fanaraha-maso ary faktiora mazava.",
+    "ar": "نجد المدرّب المناسب لطفلك: تقييم، وتوفيق، ومتابعة، وفوترة شفّافة."
+  },
+  "Primaire": { "en": "Primary", "mg": "Ambaratonga voalohany", "ar": "الابتدائي" },
+  "Collège": { "en": "Middle school", "mg": "Kolejy", "ar": "الإعدادي" },
+  "Lycée": { "en": "High school", "mg": "Lisea", "ar": "الثانوي" },
+  "Examens": { "en": "Exams", "mg": "Fanadinana", "ar": "الامتحانات" },
+  "Faire évaluer mon enfant": { "en": "Have my child assessed", "mg": "Hanombana ny zanako", "ar": "قيّموا طفلي" },
+  "Choisissez votre coach, comparez les prix, réservez et commencez aujourd'hui.": {
+    "en": "Choose your coach, compare prices, book and start today.",
+    "mg": "Fidio ny mpanazatra anao, ampitahao ny vidiny, raiso ary atombohy anio.",
+    "ar": "اختر مدرّبك، وقارن الأسعار، واحجز وابدأ اليوم."
+  },
+  "Anglais": { "en": "English", "mg": "Anglisy", "ar": "الإنجليزية" },
+  "Français": { "en": "French", "mg": "Frantsay", "ar": "الفرنسية" },
+  "Espagnol": { "en": "Spanish", "mg": "Espaniola", "ar": "الإسبانية" },
+  "+5 langues": { "en": "+5 languages", "mg": "+5 fiteny", "ar": "+5 لغات" },
+  "Trouver un coach de langue": { "en": "Find a language coach", "mg": "Hitady mpanazatra fiteny", "ar": "ابحث عن مدرّب لغة" },
+  "Compétences et carrière": { "en": "Skills and career", "mg": "Fahaiza-manao sy asa", "ar": "المهارات والمسار المهني" },
+  "Développez une compétence avec un expert capable de vous accompagner vers un objectif concret.": {
+    "en": "Develop a skill with an expert who can guide you towards a concrete goal.",
+    "mg": "Ampivelaro ny fahaiza-manao miaraka amin'ny manam-pahaizana afaka hanampy anao hahatratra tanjona mazava.",
+    "ar": "طوّر مهارة مع خبير قادر على مرافقتك نحو هدف ملموس."
+  },
+  "Bureautique": { "en": "Office skills", "mg": "Birao (informatika)", "ar": "الأعمال المكتبية" },
+  "Data": { "en": "Data", "mg": "Data", "ar": "البيانات" },
+  "Communication": { "en": "Communication", "mg": "Serasera", "ar": "التواصل" },
+  "Bientôt disponible": { "en": "Coming soon", "mg": "Tsy ho ela", "ar": "قريبًا" },
+  "Coachs sélectionnés": { "en": "Carefully selected coaches", "mg": "Mpanazatra voafantina", "ar": "مدرّبون مختارون بعناية" },
+  "Compétences, expérience et pédagogie vérifiées.": { "en": "Skills, experience and teaching ability verified.", "mg": "Voamarina ny fahaiza-manao, ny traikefa ary ny fomba fampianarana.", "ar": "تم التحقق من الكفاءة والخبرة والأسلوب التربوي." },
+  "Accompagnement adapté": { "en": "Tailored support", "mg": "Fanampiana mifanaraka", "ar": "مرافقة مخصّصة" },
+  "Une solution pour chaque objectif et chaque niveau.": { "en": "A solution for every goal and every level.", "mg": "Vahaolana ho an'ny tanjona rehetra sy ambaratonga rehetra.", "ar": "حلّ لكل هدف ولكل مستوى." },
+  "Progression suivie": { "en": "Progress tracked", "mg": "Arahi-maso ny fandrosoana", "ar": "تقدّم متابَع" },
+  "Cours, objectifs et résultats depuis votre espace.": { "en": "Lessons, goals and results from your account.", "mg": "Lesona, tanjona ary vokatra avy ao amin'ny kaontinao.", "ar": "الدروس والأهداف والنتائج من حسابك." },
+  "Paiements simples et sécurisés": { "en": "Simple, secure payments", "mg": "Fandoavam-bola tsotra sy azo antoka", "ar": "مدفوعات بسيطة وآمنة" },
+  "Mobile Money et carte bancaire selon votre pays.": { "en": "Mobile Money and bank card depending on your country.", "mg": "Mobile Money sy karatra banky arakaraka ny firenenao.", "ar": "الدفع عبر الهاتف والبطاقة المصرفية حسب بلدك." },
+  "Paiement sécurisé": { "en": "Secure payment", "mg": "Fandoavam-bola azo antoka", "ar": "دفع آمن" },
+  "Zéro frais d'inscription": { "en": "No registration fees", "mg": "Tsy misy saram-pisoratana anarana", "ar": "بلا رسوم تسجيل" },
+  "Every genius\nneeds <gold>a coach</gold>": {
+    "en": "Every genius\nneeds <gold>a coach</gold>",
+    "mg": "Ny mpahay rehetra\nmila <gold>mpanazatra</gold>",
+    "ar": "كل عبقري\nيحتاج إلى <gold>مدرّب</gold>"
+  },
+  "Soutien scolaire. Langues. Compétences.": { "en": "School support. Languages. Skills.", "mg": "Fanampiana ara-pianarana. Fiteny. Fahaiza-manao.", "ar": "الدعم المدرسي. اللغات. المهارات." },
+  "Un coach pour chaque objectif.": { "en": "A coach for every goal.", "mg": "Mpanazatra ho an'ny tanjona tsirairay.", "ar": "مدرّب لكل هدف." },
+  "Voir comment ça marche": { "en": "See how it works", "mg": "Jereo ny fiasan'izany", "ar": "شاهد كيف يعمل" },
+  "Nos univers": { "en": "Our worlds", "mg": "Ny sehatra misy anay", "ar": "مجالاتنا" },
+  "Quel est votre objectif ?": { "en": "What is your goal?", "mg": "Inona no tanjonao?", "ar": "ما هو هدفك؟" },
+  "Chaque parcours est unique. Choisissez le vôtre.": { "en": "Every journey is unique. Choose yours.", "mg": "Samy hafa ny lalana. Fidio ny anao.", "ar": "لكل مسار خصوصيته. اختر مسارك." },
+  "Un coach\npour chaque objectif": { "en": "A coach\nfor every goal", "mg": "Mpanazatra\nho an'ny tanjona tsirairay", "ar": "مدرّب\nلكل هدف" },
+  "Deux approches, un même objectif : votre réussite": {
+    "en": "Two approaches, one goal: your success",
+    "mg": "Fomba roa, tanjona iray: ny fahombiazanao",
+    "ar": "نهجان وهدف واحد: نجاحك"
+  },
+  "Selon votre besoin, nous vous accompagnons différemment.": { "en": "Depending on your needs, we support you differently.", "mg": "Arakaraka ny filanao, mifanampy aminao amin'ny fomba samihafa izahay.", "ar": "بحسب حاجتك، نرافقك بطريقة مختلفة." },
+  "<b>Soutien scolaire</b> – un service managé (Madagascar)": {
+    "en": "<b>School support</b> – a managed service (Madagascar)",
+    "mg": "<b>Fanampiana ara-pianarana</b> – serivisy tantanana ho anao (Madagasikara)",
+    "ar": "<b>الدعم المدرسي</b> – خدمة مُدارة (مدغشقر)"
+  },
+  "Vous nous confiez votre besoin, nous nous occupons du reste.": { "en": "You tell us what you need, we take care of the rest.", "mg": "Lazainao aminay ny filanao, izahay no mikarakara ny sisa.", "ar": "تخبرنا باحتياجك ونتكفّل بالباقي." },
+  "Évaluation\ndu besoin": { "en": "Needs\nassessment", "mg": "Fanombanana\nny filana", "ar": "تقييم\nالاحتياج" },
+  "Matching\nCare4Success": { "en": "Care4Success\nmatching", "mg": "Fampifanarahana\nCare4Success", "ar": "توفيق\nCare4Success" },
+  "Coach\nassigné": { "en": "Coach\nassigned", "mg": "Mpanazatra\nvoatendry", "ar": "تعيين\nالمدرّب" },
+  "Suivi et bilan\nrégulier": { "en": "Regular follow-up\nand review", "mg": "Fanaraha-maso sy\nfamintinana tsy tapaka", "ar": "متابعة وتقييم\nدوريان" },
+  "En savoir plus sur le soutien scolaire": { "en": "Learn more about school support", "mg": "Fantaro bebe kokoa ny fanampiana ara-pianarana", "ar": "اعرف المزيد عن الدعم المدرسي" },
+  "<b>Langues</b> – une <b>marketplace</b> (Cameroun + Madagascar)": {
+    "en": "<b>Languages</b> – a <b>marketplace</b> (Cameroon + Madagascar)",
+    "mg": "<b>Fiteny</b> – <b>marketplace</b> (Kamerona + Madagasikara)",
+    "ar": "<b>اللغات</b> – <b>سوق</b> مفتوحة (الكاميرون + مدغشقر)"
+  },
+  "Vous gardez le choix de votre coach.": { "en": "You keep the choice of your coach.", "mg": "Ianao no mifidy ny mpanazatra anao.", "ar": "تحتفظ بحرية اختيار مدرّبك." },
+  "Recherche\nde coachs": { "en": "Search\nfor coaches", "mg": "Fikarohana\nmpanazatra", "ar": "البحث\nعن المدرّبين" },
+  "Comparaison\ndes tarifs": { "en": "Price\ncomparison", "mg": "Fampitahana\nny vidiny", "ar": "مقارنة\nالأسعار" },
+  "Réservation\ndu cours": { "en": "Lesson\nbooking", "mg": "Famandrihana\nny lesona", "ar": "حجز\nالدرس" },
+  "Cours\nen ligne": { "en": "Online\nlessons", "mg": "Lesona\nan-tserasera", "ar": "دروس\nعبر الإنترنت" },
+  "Découvrir les cours de langues": { "en": "Discover language courses", "mg": "Hitsidika ny lesona fiteny", "ar": "اكتشف دروس اللغات" },
+  "Pourquoi choisir Care4Success ?": { "en": "Why choose Care4Success?", "mg": "Nahoana no misafidy Care4Success?", "ar": "لماذا تختار Care4Success؟" },
+  "Prêt à <gold>atteindre votre objectif</gold> ?": { "en": "Ready to <gold>reach your goal</gold>?", "mg": "Vonona hahatratra <gold>ny tanjonao</gold> ve ianao?", "ar": "هل أنت مستعد <gold>لتحقيق هدفك</gold>؟" },
+  "Scolaire, langues ou compétences, Care4Success vous accompagne vers le bon coach.": {
+    "en": "School, languages or skills: Care4Success guides you to the right coach.",
+    "mg": "Ara-pianarana, fiteny na fahaiza-manao, Care4Success no mitondra anao any amin'ny mpanazatra mety.",
+    "ar": "دراسة أو لغات أو مهارات، تقودك Care4Success إلى المدرّب المناسب."
+  },
+  "Créer un compte gratuitement": { "en": "Create a free account", "mg": "Mamorona kaonty maimaim-poana", "ar": "أنشئ حسابًا مجانيًا" },
+  "Investir aujourd'hui\ndans votre potentiel": { "en": "Invest today\nin your potential", "mg": "Mampiasà vola anio\namin'ny fahaizanao", "ar": "استثمر اليوم\nفي إمكاناتك" }
+}

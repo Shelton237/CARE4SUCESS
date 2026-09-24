@@ -1,0 +1,472 @@
+{
+  "Vos questions,": {
+    "en": "Your questions,",
+    "mg": "Ny fanontanianao,",
+    "ar": "أسئلتكم،"
+  },
+  "nos réponses.": {
+    "en": "our answers.",
+    "mg": "ny valinay.",
+    "ar": "وإجاباتنا."
+  },
+  "Tout ce que vous devez savoir sur Care4Success,{md}au même endroit.": {
+    "en": "Everything you need to know about Care4Success,{md}in one place.",
+    "mg": "Ny zava-drehetra tokony ho fantatrao momba ny Care4Success,{md}amin'ny toerana iray.",
+    "ar": "كل ما تحتاج إلى معرفته عن Care4Success،{md}في مكان واحد."
+  },
+  "Rechercher une question...": {
+    "en": "Search for a question...",
+    "mg": "Hikaroka fanontaniana...",
+    "ar": "ابحث عن سؤال..."
+  },
+  "Rechercher une question": {
+    "en": "Search for a question",
+    "mg": "Hikaroka fanontaniana",
+    "ar": "ابحث عن سؤال"
+  },
+  "Des réponses\npour avancer\nen toute\nconfiance": {
+    "en": "Answers\nto move forward\nwith\nconfidence",
+    "mg": "Valiny\nmba handroso\namin'ny\nfahatokisana",
+    "ar": "إجابات\nلتتقدّم\nبكل\nثقة"
+  },
+  "Catégories": {
+    "en": "Categories",
+    "mg": "Sokajy",
+    "ar": "الفئات"
+  },
+  "contactez-nous": {
+    "en": "contact us",
+    "mg": "mifandraisa aminay",
+    "ar": "اتصل بنا"
+  },
+  "Vous ne trouvez pas la réponse ?": {
+    "en": "Can't find the answer?",
+    "mg": "Tsy hita ny valiny?",
+    "ar": "لم تجد الإجابة؟"
+  },
+  "Nous sommes là pour vous aider.": {
+    "en": "We are here to help you.",
+    "mg": "Eto izahay hanampy anao.",
+    "ar": "نحن هنا لمساعدتك."
+  },
+  "<s1>Notre équipe</s1> est <s2>à votre écoute</s2> pour répondre à toutes vos questions.": {
+    "en": "<s1>Our team</s1> is <s2>here to listen</s2> and answer all your questions.",
+    "mg": "<s1>Ny ekipanay</s1> dia <s2>vonona hihaino anao</s2> ary hamaly ny fanontanianao rehetra.",
+    "ar": "<s1>فريقنا</s1> <s2>في خدمتك</s2> للإجابة عن جميع أسئلتك."
+  },
+  "Par email": {
+    "en": "By email",
+    "mg": "Amin'ny mailaka",
+    "ar": "عبر البريد الإلكتروني"
+  },
+  "contact@care4success.com": {
+    "en": "contact@care4success.com",
+    "mg": "contact@care4success.com",
+    "ar": "contact@care4success.com"
+  },
+  "Via notre formulaire": {
+    "en": "Via our form",
+    "mg": "Amin'ny taratasinay",
+    "ar": "عبر نموذجنا"
+  },
+  "Réponse sous 24h": {
+    "en": "Reply within 24h",
+    "mg": "Valiny ao anatin'ny 24 ora",
+    "ar": "الرد خلال 24 ساعة"
+  },
+  "Assistance en ligne": {
+    "en": "Online support",
+    "mg": "Fanampiana an-tserasera",
+    "ar": "الدعم عبر الإنترنت"
+  },
+  "Lun - Sam, 8h - 18h (GMT+1)": {
+    "en": "Mon - Sat, 8am - 6pm (GMT+1)",
+    "mg": "Alatsinainy - Asabotsy, 8 ora - 18 ora (GMT+1)",
+    "ar": "الاثنين - السبت، 8 ص - 6 م (GMT+1)"
+  },
+  "Généralités": {
+    "en": "General",
+    "mg": "Ankapobeny",
+    "ar": "عامّة"
+  },
+  "À propos de Care4Success": {
+    "en": "About Care4Success",
+    "mg": "Momba ny Care4Success",
+    "ar": "عن Care4Success"
+  },
+  "Les réponses aux questions les plus courantes sur Care4Success.": {
+    "en": "Answers to the most common questions about Care4Success.",
+    "mg": "Valin'ny fanontaniana matetika apetraka momba ny Care4Success.",
+    "ar": "إجابات عن أكثر الأسئلة شيوعًا حول Care4Success."
+  },
+  "Qu'est-ce que Care4Success ?": {
+    "en": "What is Care4Success?",
+    "mg": "Inona ny Care4Success?",
+    "ar": "ما هي Care4Success؟"
+  },
+  "Care4Success est une plateforme de coaching panafricaine qui met en relation des apprenants avec des coachs qualifiés pour le soutien scolaire, les langues et le développement de compétences professionnelles. Notre mission est de révéler le potentiel de chaque apprenant grâce à un accompagnement personnalisé et de qualité.": {
+    "en": "Care4Success is a pan-African coaching platform that connects learners with qualified coaches for academic support, languages and professional skills development. Our mission is to reveal each learner's potential through personalised, high-quality support.",
+    "mg": "Ny Care4Success dia sehatra fanazarana eran'i Afrika mampifandray ny mpianatra amin'ny mpanazatra mahay ho an'ny fanampiana amin'ny fianarana, ny fiteny ary ny fampivoarana fahaiza-manao matihanina. Ny iraka ananay dia ny fanehoana ny fahaizan'ny mpianatra tsirairay amin'ny alalan'ny fanampiana manokana sady avo lenta.",
+    "ar": "Care4Success منصّة تدريب إفريقية تربط المتعلّمين بمدرّبين مؤهّلين للدعم الدراسي واللغات وتطوير المهارات المهنية. رسالتنا هي إبراز إمكانات كل متعلّم من خلال مرافقة مخصّصة وعالية الجودة."
+  },
+  "Comment fonctionne la plateforme ?": {
+    "en": "How does the platform work?",
+    "mg": "Ahoana no fiasan'ny sehatra?",
+    "ar": "كيف تعمل المنصّة؟"
+  },
+  "Vous choisissez votre univers : soutien scolaire, langues ou compétences. Pour le soutien scolaire, nous évaluons le besoin de l'enfant puis nous vous proposons le coach le plus adapté. Pour les langues, vous parcourez les profils, comparez les tarifs et les avis, réservez un créneau et payez en ligne. Le suivi se fait ensuite depuis votre espace personnel.": {
+    "en": "You choose your universe: academic support, languages or skills. For academic support, we assess your child's needs and then suggest the most suitable coach. For languages, you browse profiles, compare rates and reviews, book a slot and pay online. Follow-up then takes place from your personal area.",
+    "mg": "Mifidy ny sehatrao ianao: fanampiana amin'ny fianarana, fiteny na fahaiza-manao. Ho an'ny fanampiana amin'ny fianarana, manombana ny filan'ny zanakao izahay dia manolotra ny mpanazatra mety indrindra. Ho an'ny fiteny, mijery ny mombamomba ianao, mampitaha ny vidiny sy ny hevitra, mandeha amin'ny fotoana ary mandoa an-tserasera. Ny fanaraha-maso dia atao ao amin'ny toerana manokana anao.",
+    "ar": "تختار مجالك: الدعم الدراسي أو اللغات أو المهارات. بالنسبة للدعم الدراسي، نقيّم احتياج طفلك ثم نقترح المدرّب الأنسب. أما اللغات، فتتصفّح الملفّات وتقارن الأسعار والتقييمات، ثم تحجز موعدًا وتدفع عبر الإنترنت. وتتم المتابعة بعد ذلك من مساحتك الشخصية."
+  },
+  "Quels niveaux sont concernés par le soutien scolaire ?": {
+    "en": "Which levels does academic support cover?",
+    "mg": "Inona ireo haavo iharan'ny fanampiana amin'ny fianarana?",
+    "ar": "ما المستويات التي يغطّيها الدعم الدراسي؟"
+  },
+  "Le soutien scolaire couvre le primaire, le collège, le lycée et la préparation aux examens, dans plusieurs systèmes scolaires : BAC et Brevet, Baccalauréat International, système américain et système britannique.": {
+    "en": "Academic support covers primary school, middle school, high school and exam preparation, across several school systems: French Baccalauréat and Brevet, International Baccalaureate, the American system and the British system.",
+    "mg": "Ny fanampiana amin'ny fianarana dia mandrafitra ny sekoly fototra, ny CEG, ny lisea ary ny fiomanana amin'ny fanadinana, amin'ny rafi-pianarana maro: BAC sy Brevet, Baccalauréat International, rafi-pianarana amerikana ary rafi-pianarana britanika.",
+    "ar": "يغطّي الدعم الدراسي المرحلة الابتدائية والإعدادية والثانوية والتحضير للامتحانات، ضمن عدة أنظمة تعليمية: البكالوريا والبريفيه الفرنسيان، والبكالوريا الدولية، والنظام الأمريكي، والنظام البريطاني."
+  },
+  "Quelles langues puis-je apprendre sur Care4Success ?": {
+    "en": "Which languages can I learn on Care4Success?",
+    "mg": "Inona ireo fiteny azoko ianarana amin'ny Care4Success?",
+    "ar": "ما اللغات التي يمكنني تعلّمها على Care4Success؟"
+  },
+  "Vous pouvez apprendre l'anglais, le français, l'espagnol et plus de cinq autres langues, selon les coachs disponibles. La page Cours de langues présente tous les coachs et leurs spécialités.": {
+    "en": "You can learn English, French, Spanish and more than five other languages, depending on available coaches. The Language lessons page lists all coaches and their specialities.",
+    "mg": "Afaka mianatra anglisy, frantsay, espaniola ary fiteny hafa mihoatra ny dimy ianao, arakaraka ny mpanazatra misy. Ny pejy Lesona fiteny dia mampiseho ny mpanazatra rehetra sy ny sehatra iandraiketan'izy ireo.",
+    "ar": "يمكنك تعلّم الإنجليزية والفرنسية والإسبانية وأكثر من خمس لغات أخرى، بحسب المدرّبين المتاحين. تعرض صفحة دروس اللغات جميع المدرّبين وتخصّصاتهم."
+  },
+  "Qui sont les coachs ?": {
+    "en": "Who are the coaches?",
+    "mg": "Iza ireo mpanazatra?",
+    "ar": "من هم المدرّبون؟"
+  },
+  "Chaque coach est examiné par notre équipe avant de donner son premier cours : diplômes, expertise et pédagogie sont vérifiés. Sur son profil, vous retrouvez sa présentation, ses spécialités, ses formations, ses langues et les avis de ses apprenants.": {
+    "en": "Each coach is reviewed by our team before giving their first lesson: qualifications, expertise and teaching approach are verified. On their profile you will find their introduction, specialities, training, languages and reviews from their learners.",
+    "mg": "Ny mpanazatra tsirairay dia dinihin'ny ekipanay alohan'ny hanaovany ny lesona voalohany: voamarina ny diplaoma, ny fahaizana ary ny fomba fampianarana. Ao amin'ny mombamombany no misy ny fampahafantarana azy, ny sehatra iandraiketany, ny fiofanany, ny fiteniny ary ny hevitry ny mpianany.",
+    "ar": "يخضع كل مدرّب لمراجعة فريقنا قبل إعطاء درسه الأول: يتم التحقق من الشهادات والخبرة والأسلوب التربوي. وتجد في ملفّه تعريفًا به وتخصّصاته وتكوينه ولغاته وتقييمات متعلّميه."
+  },
+  "Les cours sont-ils uniquement en ligne ?": {
+    "en": "Are lessons online only?",
+    "mg": "Ampiasaina an-tserasera ihany ve ny lesona?",
+    "ar": "هل الدروس عبر الإنترنت فقط؟"
+  },
+  "Non. Les cours peuvent se donner en ligne, dans notre salle de classe virtuelle intégrée, ou en présentiel selon les coachs. Le ou les formats proposés (en ligne, présentiel, hybride) sont indiqués sur le profil de chaque coach.": {
+    "en": "No. Lessons can be given online, in our built-in virtual classroom, or in person depending on the coach. The available formats (online, in person, hybrid) are shown on each coach's profile.",
+    "mg": "Tsia. Azo atao an-tserasera ny lesona, ao amin'ny efitrano fianarana virtoaly ananay, na ao an-toerana arakaraka ny mpanazatra. Ny fomba misy (an-tserasera, ao an-toerana, mifangaro) dia aseho ao amin'ny mombamombany.",
+    "ar": "لا. يمكن إعطاء الدروس عبر الإنترنت، في فصلنا الافتراضي المدمج، أو حضوريًا بحسب المدرّب. وتظهر الصيغ المتاحة (عبر الإنترنت، حضوري، مختلط) في ملف كل مدرّب."
+  },
+  "Comment se déroule le paiement ?": {
+    "en": "How does payment work?",
+    "mg": "Ahoana ny fandoavam-bola?",
+    "ar": "كيف يتم الدفع؟"
+  },
+  "Vous payez en ligne par Orange Money, MTN MoMo, MVola, Visa ou Mastercard, selon votre pays. Il n'y a ni frais d'inscription ni abonnement : vous ne payez que les cours.": {
+    "en": "You pay online by Orange Money, MTN MoMo, MVola, Visa or Mastercard, depending on your country. There are no registration fees or subscriptions: you only pay for lessons.",
+    "mg": "Mandoa an-tserasera amin'ny Orange Money, MTN MoMo, MVola, Visa na Mastercard ianao, arakaraka ny taninao. Tsy misy hetra fisoratana anarana na fandoavam-bola isam-bolana: ny lesona ihany no aloanao.",
+    "ar": "تدفع عبر الإنترنت بواسطة Orange Money أو MTN MoMo أو MVola أو Visa أو Mastercard بحسب بلدك. لا توجد رسوم تسجيل ولا اشتراك: تدفع ثمن الدروس فقط."
+  },
+  "Puis-je annuler ou reporter un cours ?": {
+    "en": "Can I cancel or postpone a lesson?",
+    "mg": "Azoko foanana na ahemotra ve ny lesona?",
+    "ar": "هل يمكنني إلغاء درس أو تأجيله؟"
+  },
+  "Oui, en prévenant votre coach le plus tôt possible. Les modalités précises de report sont convenues avec lui au moment de la réservation. En cas de difficulté, notre équipe vous accompagne : écrivez-nous via la page Contact.": {
+    "en": "Yes, by letting your coach know as early as possible. The exact rescheduling terms are agreed with them when you book. If you run into difficulties, our team will help: write to us via the Contact page.",
+    "mg": "Eny, amin'ny fampahafantarana ny mpanazatra anao haingana araka izay azo atao. Ny fepetra mazava momba ny fanemorana dia iarahana aminy rehefa mandray fotoana. Raha misy olana, manampy anao ny ekipanay: soraty amin'ny alalan'ny pejy Fifandraisana.",
+    "ar": "نعم، بإبلاغ مدرّبك في أقرب وقت ممكن. يتم الاتفاق معه على شروط التأجيل بدقة عند الحجز. وفي حال وجود صعوبة، يساعدك فريقنا: راسلنا عبر صفحة التواصل."
+  },
+  "Comment devenir coach sur Care4Success ?": {
+    "en": "How do I become a coach on Care4Success?",
+    "mg": "Ahoana no ho mpanazatra amin'ny Care4Success?",
+    "ar": "كيف أصبح مدرّبًا على Care4Success؟"
+  },
+  "Rendez-vous sur la page Devenir coach et remplissez le formulaire de candidature. Notre équipe étudie votre profil, puis vous accompagne dans vos premières missions.": {
+    "en": "Go to the Become a coach page and fill in the application form. Our team reviews your profile, then supports you through your first assignments.",
+    "mg": "Mankanesa any amin'ny pejy Ho mpanazatra ary fenoy ny taratasy fangatahana. Mandinika ny mombamombanao ny ekipanay, avy eo manampy anao amin'ny iraka voalohany.",
+    "ar": "توجّه إلى صفحة «كن مدرّبًا» واملأ نموذج الترشّح. يدرس فريقنا ملفّك ثم يرافقك في مهامك الأولى."
+  },
+  "Cours et accompagnement": {
+    "en": "Lessons and support",
+    "mg": "Lesona sy fanampiana",
+    "ar": "الدروس والمرافقة"
+  },
+  "Tout savoir sur l'accompagnement scolaire proposé à votre enfant.": {
+    "en": "Everything about the academic support offered to your child.",
+    "mg": "Ny zava-drehetra momba ny fanampiana amin'ny fianarana omena ny zanakao.",
+    "ar": "كل ما يتعلّق بالدعم الدراسي المقدّم لطفلك."
+  },
+  "Comment obtenir un coach pour mon enfant ?": {
+    "en": "How do I get a coach for my child?",
+    "mg": "Ahoana no hahazoana mpanazatra ho an'ny zanako?",
+    "ar": "كيف أحصل على مدرّب لطفلي؟"
+  },
+  "Remplissez le formulaire d'évaluation gratuite en décrivant les besoins de votre enfant. Notre équipe analyse son profil et son programme sous 24 à 48 h, puis vous propose le coach le plus adapté. Vous décidez de le retenir ou non.": {
+    "en": "Fill in the free assessment form describing your child's needs. Our team reviews their profile and curriculum within 24 to 48 hours, then suggests the most suitable coach. You decide whether or not to keep them.",
+    "mg": "Fenoy ny taratasy fanombanana maimaim-poana milaza ny filan'ny zanakao. Mandinika ny mombamombany sy ny fandaharam-pianarany ny ekipanay ao anatin'ny 24 ka hatramin'ny 48 ora, avy eo manolotra ny mpanazatra mety indrindra. Ianao no mandray ny fanapahan-kevitra raha tazonina izy na tsia.",
+    "ar": "املأ نموذج التقييم المجاني مع وصف احتياجات طفلك. يدرس فريقنا ملفّه ومنهجه خلال 24 إلى 48 ساعة، ثم يقترح المدرّب الأنسب. وأنت من يقرّر الإبقاء عليه أو لا."
+  },
+  "L'évaluation est-elle payante ?": {
+    "en": "Is the assessment paid?",
+    "mg": "Misy vidiny ve ny fanombanana?",
+    "ar": "هل التقييم مدفوع؟"
+  },
+  "Non, l'évaluation scolaire est gratuite et sans engagement.": {
+    "en": "No, the academic assessment is free and without obligation.",
+    "mg": "Tsia, maimaim-poana ary tsy misy fanerena ny fanombanana ara-pianarana.",
+    "ar": "لا، التقييم الدراسي مجاني وبلا أي التزام."
+  },
+  "Puis-je suivre le travail de mon enfant ?": {
+    "en": "Can I follow my child's work?",
+    "mg": "Azoko arahina ve ny asan'ny zanako?",
+    "ar": "هل يمكنني متابعة عمل طفلي؟"
+  },
+  "Oui. Depuis votre espace parent, vous voyez en temps réel la présence, le contenu des séances, les devoirs, la progression et la facturation.": {
+    "en": "Yes. From your parent area, you see attendance, session content, homework, progress and billing in real time.",
+    "mg": "Eny. Ao amin'ny toerana manokan'ny ray aman-dreny, hitanao mivantana ny fanatrehana, ny votoatin'ny fotoam-pianarana, ny asa an-trano, ny fandrosoana ary ny fandoavam-bola.",
+    "ar": "نعم. من مساحة ولي الأمر، ترى في الوقت الفعلي الحضور ومحتوى الحصص والواجبات والتقدّم والفواتير."
+  },
+  "Puis-je changer de coach si je ne suis pas satisfait ?": {
+    "en": "Can I change coach if I'm not satisfied?",
+    "mg": "Azoko ovaina ve ny mpanazatra raha tsy afa-po aho?",
+    "ar": "هل يمكنني تغيير المدرّب إن لم أكن راضيًا؟"
+  },
+  "Oui, sans frais ni délai. Votre conseiller organise le remplacement sous 48 heures ouvrées.": {
+    "en": "Yes, at no cost and without delay. Your advisor arranges the replacement within 48 working hours.",
+    "mg": "Eny, tsy misy vidiny ary tsy misy fanemorana. Ny mpanolo-tsainao no mandamina ny fanoloana ao anatin'ny 48 ora andraiki-piasana.",
+    "ar": "نعم، دون أي تكلفة أو تأخير. ينظّم مستشارك الاستبدال خلال 48 ساعة عمل."
+  },
+  "Choisir votre coach, réserver et progresser dans la langue de votre choix.": {
+    "en": "Choose your coach, book and progress in the language of your choice.",
+    "mg": "Fidio ny mpanazatra anao, raiso ny fotoana ary mandrosoa amin'ny fiteny tianao.",
+    "ar": "اختر مدرّبك واحجز وتقدّم في اللغة التي تريدها."
+  },
+  "Comment choisir mon coach de langue ?": {
+    "en": "How do I choose my language coach?",
+    "mg": "Ahoana no fidiana ny mpanazatra fiteniko?",
+    "ar": "كيف أختار مدرّب لغتي؟"
+  },
+  "Parcourez les profils, comparez les tarifs, les spécialités et les avis, puis ouvrez la page du coach qui vous convient pour consulter ses créneaux disponibles.": {
+    "en": "Browse profiles, compare rates, specialities and reviews, then open the page of the coach who suits you to see their available slots.",
+    "mg": "Jereo ny mombamomba, ampitahao ny vidiny, ny sehatra iandraiketana ary ny hevitra, avy eo sokafy ny pejin'ny mpanazatra mety aminao mba hijerena ny fotoana malalaka.",
+    "ar": "تصفّح الملفّات وقارن الأسعار والتخصّصات والتقييمات، ثم افتح صفحة المدرّب المناسب لك لتطّلع على المواعيد المتاحة."
+  },
+  "Comment réserver un cours ?": {
+    "en": "How do I book a lesson?",
+    "mg": "Ahoana no andraisana lesona?",
+    "ar": "كيف أحجز درسًا؟"
+  },
+  "Sélectionnez un créneau sur la page du coach, choisissez le format (en ligne ou présentiel) et réglez en ligne. La réservation prend environ deux minutes.": {
+    "en": "Select a slot on the coach's page, choose the format (online or in person) and pay online. Booking takes about two minutes.",
+    "mg": "Fidio ny fotoana ao amin'ny pejin'ny mpanazatra, fidio ny fomba (an-tserasera na ao an-toerana) ary mandoa an-tserasera. Maharitra roa minitra eo ho eo ny famandrihana.",
+    "ar": "اختر موعدًا في صفحة المدرّب، ثم اختر الصيغة (عبر الإنترنت أو حضوريًا) وادفع عبر الإنترنت. يستغرق الحجز نحو دقيقتين."
+  },
+  "Quelle est la durée d'une session ?": {
+    "en": "How long is a session?",
+    "mg": "Ohatrinona ny faharetan'ny fotoam-pianarana?",
+    "ar": "ما مدة الحصة؟"
+  },
+  "Une session dure 60 minutes. Le tarif horaire est indiqué sur le profil de chaque coach.": {
+    "en": "A session lasts 60 minutes. The hourly rate is shown on each coach's profile.",
+    "mg": "Maharitra 60 minitra ny fotoam-pianarana. Ny vidin'ny ora dia aseho ao amin'ny mombamomban'ny mpanazatra tsirairay.",
+    "ar": "مدة الحصة 60 دقيقة. ويظهر السعر بالساعة في ملف كل مدرّب."
+  },
+  "Je suis hors de la zone FCFA, quel tarif s'applique ?": {
+    "en": "I'm outside the FCFA zone, which rate applies?",
+    "mg": "Any ivelan'ny faritra FCFA aho, inona no vidiny mihatra?",
+    "ar": "أنا خارج منطقة الفرنك الإفريقي، فأي سعر ينطبق؟"
+  },
+  "Nos tarifs de référence sont en FCFA pour la zone CFA. Pour Madagascar, les Comores, la Guinée ou tout autre pays, notre équipe établit un équivalent dans votre devise. Contactez-nous pour un devis adapté.": {
+    "en": "Our reference rates are in FCFA for the CFA zone. For Madagascar, the Comoros, Guinea or any other country, our team sets an equivalent in your currency. Contact us for a tailored quote.",
+    "mg": "Ny vidiny fototra dia amin'ny FCFA ho an'ny faritra CFA. Ho an'i Madagasikara, Komoro, Ginea na firenena hafa, ny ekipanay no mametraka ny mitovy amin'izany amin'ny vola ampiasainao. Mifandraisa aminay ho an'ny tolotra mifanaraka aminao.",
+    "ar": "أسعارنا المرجعية بالفرنك الإفريقي لمنطقة الفرنك. أما لمدغشقر وجزر القمر وغينيا وأي بلد آخر، فيحدّد فريقنا ما يعادلها بعملتك. تواصل معنا للحصول على عرض مناسب."
+  },
+  "Formations professionnelles": {
+    "en": "Professional training",
+    "mg": "Fiofanana matihanina",
+    "ar": "التدريب المهني"
+  },
+  "Développer une compétence professionnelle avec un expert.": {
+    "en": "Develop a professional skill with an expert.",
+    "mg": "Ampivelaro ny fahaiza-manao matihanina miaraka amin'ny manam-pahaizana.",
+    "ar": "طوّر مهارة مهنية مع خبير."
+  },
+  "Quand l'univers Compétences et carrière sera-t-il disponible ?": {
+    "en": "When will the Skills and career universe be available?",
+    "mg": "Rahoviana no hisokatra ny sehatra Fahaiza-manao sy asa?",
+    "ar": "متى سيكون مجال المهارات والمسار المهني متاحًا؟"
+  },
+  "Il est bientôt disponible. Il permettra de développer une compétence avec un expert capable de vous accompagner vers un objectif concret.": {
+    "en": "It will be available soon. It will let you develop a skill with an expert who can guide you towards a concrete goal.",
+    "mg": "Tsy ho ela dia hisokatra izy. Ahafahanao mampivelatra fahaiza-manao miaraka amin'ny manam-pahaizana afaka manatitra anao mankany amin'ny tanjona mazava.",
+    "ar": "سيكون متاحًا قريبًا. وسيتيح لك تطوير مهارة مع خبير قادر على مرافقتك نحو هدف ملموس."
+  },
+  "Quels domaines seront proposés ?": {
+    "en": "Which fields will be offered?",
+    "mg": "Inona ireo sehatra hatolotra?",
+    "ar": "ما المجالات التي ستُقدَّم؟"
+  },
+  "Nous démarrerons avec la bureautique, la data et la communication, puis nous élargirons l'offre selon les besoins.": {
+    "en": "We will start with office software, data and communication, then broaden the offer according to needs.",
+    "mg": "Hanomboka amin'ny birao, ny data ary ny serasera izahay, avy eo hamelatra arakaraka ny filana.",
+    "ar": "سنبدأ ببرامج المكتب والبيانات والتواصل، ثم نوسّع العرض بحسب الاحتياجات."
+  },
+  "Recrutement et collaboration": {
+    "en": "Recruitment and collaboration",
+    "mg": "Fandraisana mpiasa sy fiaraha-miasa",
+    "ar": "التوظيف والتعاون"
+  },
+  "Rejoindre Care4Success et enseigner à votre rythme.": {
+    "en": "Join Care4Success and teach at your own pace.",
+    "mg": "Miaraha amin'ny Care4Success ary mampianara araka ny hafainganamanao.",
+    "ar": "انضمّ إلى Care4Success وعلّم بإيقاعك الخاص."
+  },
+  "Dois-je avoir un diplôme d'enseignement pour postuler ?": {
+    "en": "Do I need a teaching qualification to apply?",
+    "mg": "Mila diplaoma fampianarana ve aho vao afaka mangataka?",
+    "ar": "هل أحتاج إلى شهادة في التدريس للترشّح؟"
+  },
+  "Non. Nous recrutons sur la compétence et la pédagogie. Un diplôme universitaire (licence ou plus) dans votre matière et une expérience d'enseignement ou de tutorat suffisent pour candidater.": {
+    "en": "No. We recruit on skill and teaching ability. A university degree (bachelor's or higher) in your subject and teaching or tutoring experience are enough to apply.",
+    "mg": "Tsia. Mifidy araka ny fahaizana sy ny fomba fampianarana izahay. Ampy ny diplaoma anjerimanontolo (lisansy na mihoatra) amin'ny taranjanao sy ny traikefa amin'ny fampianarana na fanaraha-mianatra mba hangatahana.",
+    "ar": "لا. نوظّف على أساس الكفاءة والأسلوب التربوي. تكفي شهادة جامعية (إجازة فما فوق) في مادتك وخبرة في التدريس أو المرافقة الدراسية للترشّح."
+  },
+  "Dans quelle devise suis-je payé ?": {
+    "en": "In which currency am I paid?",
+    "mg": "Inona ny vola ampiasaina amin'ny fandoavana ahy?",
+    "ar": "بأي عملة أتقاضى أجري؟"
+  },
+  "Selon votre pays : FCFA (XOF ou XAF), GHS, KES, NGN, MGA... Les paiements se font par Mobile Money, CinetPay ou virement bancaire local.": {
+    "en": "Depending on your country: FCFA (XOF or XAF), GHS, KES, NGN, MGA... Payments are made by Mobile Money, CinetPay or local bank transfer.",
+    "mg": "Arakaraka ny taninao: FCFA (XOF na XAF), GHS, KES, NGN, MGA... Atao amin'ny Mobile Money, CinetPay na fanindronana banky eo an-toerana ny fandoavana.",
+    "ar": "بحسب بلدك: الفرنك الإفريقي (XOF أو XAF) أو GHS أو KES أو NGN أو MGA... وتتم المدفوعات عبر Mobile Money أو CinetPay أو تحويل بنكي محلي."
+  },
+  "Y a-t-il une période d'essai ?": {
+    "en": "Is there a trial period?",
+    "mg": "Misy vanim-potoana fitsapana ve?",
+    "ar": "هل توجد فترة تجريبية؟"
+  },
+  "Oui, une période de 30 jours pendant laquelle nous suivons ensemble vos premières missions. C'est aussi l'occasion de bénéficier d'un coaching pédagogique personnalisé.": {
+    "en": "Yes, a 30-day period during which we follow your first assignments together. It is also an opportunity to benefit from personalised teaching coaching.",
+    "mg": "Eny, vanim-potoana 30 andro izay arahinay miaraka ny iraka voalohany anao. Fotoana mety ihany koa hahazoana fanazarana manokana amin'ny fampianarana.",
+    "ar": "نعم، فترة 30 يومًا نتابع خلالها معًا مهامك الأولى. وهي أيضًا فرصة للاستفادة من تدريب تربوي مخصّص."
+  },
+  "Compte et paiement": {
+    "en": "Account and payment",
+    "mg": "Kaonty sy fandoavam-bola",
+    "ar": "الحساب والدفع"
+  },
+  "Inscription, abonnements": {
+    "en": "Registration, subscriptions",
+    "mg": "Fisoratana anarana, fandoavam-bola isam-bolana",
+    "ar": "التسجيل والاشتراكات"
+  },
+  "Créer votre compte et régler vos cours en toute simplicité.": {
+    "en": "Create your account and pay for your lessons with ease.",
+    "mg": "Mamorona ny kaontinao ary mandoa ny lesonao tsotra dia tsotra.",
+    "ar": "أنشئ حسابك وادفع ثمن دروسك بكل سهولة."
+  },
+  "Y a-t-il des frais d'inscription ou un abonnement ?": {
+    "en": "Are there registration fees or a subscription?",
+    "mg": "Misy hetra fisoratana anarana na fandoavam-bola isam-bolana ve?",
+    "ar": "هل توجد رسوم تسجيل أو اشتراك؟"
+  },
+  "Non. Il n'y a ni frais d'inscription, ni abonnement, ni frais cachés. Vous payez uniquement les heures de cours effectivement dispensées.": {
+    "en": "No. There are no registration fees, no subscription and no hidden charges. You only pay for the lesson hours actually delivered.",
+    "mg": "Tsia. Tsy misy hetra fisoratana anarana, tsy misy fandoavam-bola isam-bolana, tsy misy vola miafina. Ny ora lesona nozarain'ny mpanazatra ihany no aloanao.",
+    "ar": "لا. لا توجد رسوم تسجيل ولا اشتراك ولا رسوم مخفية. تدفع فقط ثمن ساعات الدروس التي أُعطيت فعلًا."
+  },
+  "Quels moyens de paiement acceptez-vous ?": {
+    "en": "Which payment methods do you accept?",
+    "mg": "Inona ireo fomba fandoavam-bola ekenareo?",
+    "ar": "ما وسائل الدفع التي تقبلونها؟"
+  },
+  "Orange Money, MTN MoMo, MVola, Visa et Mastercard. Vos paiements sont sécurisés et votre coach est payé automatiquement.": {
+    "en": "Orange Money, MTN MoMo, MVola, Visa and Mastercard. Your payments are secure and your coach is paid automatically.",
+    "mg": "Orange Money, MTN MoMo, MVola, Visa ary Mastercard. Azo antoka ny fandoavanao ary mahazo vola ho azy ny mpanazatra anao.",
+    "ar": "Orange Money وMTN MoMo وMVola وVisa وMastercard. مدفوعاتك آمنة ويحصل مدرّبك على أجره تلقائيًا."
+  },
+  "Y a-t-il un engagement de durée ?": {
+    "en": "Is there a minimum commitment?",
+    "mg": "Misy fanoloran-tena farafahakeliny ve?",
+    "ar": "هل هناك التزام بمدة معيّنة؟"
+  },
+  "Aucun. Vous pouvez arrêter à tout moment, sans préavis ni pénalité.": {
+    "en": "None. You can stop at any time, without notice or penalty.",
+    "mg": "Tsia. Afaka mijanona amin'ny fotoana rehetra ianao, tsy misy fampandrenesana na sazy.",
+    "ar": "لا يوجد. يمكنك التوقف في أي وقت، دون إشعار مسبق ولا غرامة."
+  },
+  "Cours en ligne": {
+    "en": "Online lessons",
+    "mg": "Lesona an-tserasera",
+    "ar": "الدروس عبر الإنترنت"
+  },
+  "Fonctionnement et outils": {
+    "en": "How it works and tools",
+    "mg": "Fiasa sy fitaovana",
+    "ar": "طريقة العمل والأدوات"
+  },
+  "Comment se passent les cours en visioconférence.": {
+    "en": "How video lessons work.",
+    "mg": "Ahoana ny fandehan'ny lesona amin'ny horonan-tsary.",
+    "ar": "كيف تجري الدروس عبر الفيديو."
+  },
+  "Comment se déroule un cours en ligne ?": {
+    "en": "How does an online lesson work?",
+    "mg": "Ahoana ny fandehan'ny lesona an-tserasera?",
+    "ar": "كيف يجري الدرس عبر الإنترنت؟"
+  },
+  "Votre coach vous retrouve dans notre salle de classe virtuelle intégrée : visioconférence sécurisée, tableau interactif et partage de documents, sans installation de logiciel supplémentaire.": {
+    "en": "Your coach meets you in our built-in virtual classroom: secure video conferencing, interactive whiteboard and document sharing, with no extra software to install.",
+    "mg": "Mihaona aminao ny mpanazatra anao ao amin'ny efitrano fianarana virtoaly ananay: fihaonana amin'ny horonan-tsary azo antoka, tabilao mifampiresaka ary fizarana rakitra, tsy mila mametraka rindrambaiko hafa.",
+    "ar": "يلتقي بك مدرّبك في فصلنا الافتراضي المدمج: مؤتمر فيديو آمن وسبورة تفاعلية ومشاركة للمستندات، دون تثبيت أي برنامج إضافي."
+  },
+  "De quoi ai-je besoin pour suivre un cours en ligne ?": {
+    "en": "What do I need to follow an online lesson?",
+    "mg": "Inona no ilaina hanaraka lesona an-tserasera?",
+    "ar": "ماذا أحتاج لمتابعة درس عبر الإنترنت؟"
+  },
+  "D'un ordinateur, d'une tablette ou d'un téléphone avec une connexion internet stable, d'une caméra et d'un micro.": {
+    "en": "A computer, tablet or phone with a stable internet connection, a camera and a microphone.",
+    "mg": "Ordinatera, tablette na finday misy connexion internet miaro, fakan-tsary ary mikrô.",
+    "ar": "حاسوب أو لوح أو هاتف مع اتصال إنترنت مستقر وكاميرا وميكروفون."
+  },
+  "Cours en présentiel": {
+    "en": "In-person lessons",
+    "mg": "Lesona ao an-toerana",
+    "ar": "الدروس الحضورية"
+  },
+  "Organisation et sécurité": {
+    "en": "Organisation and safety",
+    "mg": "Fandaminana sy fiarovana",
+    "ar": "التنظيم والسلامة"
+  },
+  "Organisation des cours à domicile ou en présentiel.": {
+    "en": "How home or in-person lessons are organised.",
+    "mg": "Ahoana ny fandaminana ny lesona an-trano na ao an-toerana.",
+    "ar": "كيف تُنظَّم الدروس المنزلية أو الحضورية."
+  },
+  "Où ont lieu les cours en présentiel ?": {
+    "en": "Where do in-person lessons take place?",
+    "mg": "Aiza no hatao ny lesona ao an-toerana?",
+    "ar": "أين تُعقد الدروس الحضورية؟"
+  },
+  "En présentiel, le coach se déplace chez la famille, dans sa ville. Le lieu et l'horaire sont fixés avec lui au moment de la réservation.": {
+    "en": "For in-person lessons, the coach travels to the family's home, in their city. The place and time are set with them when you book.",
+    "mg": "Amin'ny lesona ao an-toerana, mankany amin'ny tokantranon'ny fianakaviana ny mpanazatra, ao amin'ny tanànany. Ny toerana sy ny ora dia iarahana aminy rehefa mandray fotoana.",
+    "ar": "في الدروس الحضورية، ينتقل المدرّب إلى منزل الأسرة في مدينتها. ويُتفق معه على المكان والوقت عند الحجز."
+  },
+  "Les coachs qui se déplacent sont-ils vérifiés ?": {
+    "en": "Are coaches who travel verified?",
+    "mg": "Voamarina ve ireo mpanazatra mankany an-toerana?",
+    "ar": "هل يتم التحقق من المدرّبين الذين يتنقّلون؟"
+  },
+  "Oui. Tous les coachs sont examinés par notre équipe avant de donner leur premier cours, en ligne comme en présentiel.": {
+    "en": "Yes. All coaches are reviewed by our team before giving their first lesson, online or in person.",
+    "mg": "Eny. Ny mpanazatra rehetra dia dinihin'ny ekipanay alohan'ny hanaovany ny lesona voalohany, na an-tserasera na ao an-toerana.",
+    "ar": "نعم. يخضع جميع المدرّبين لمراجعة فريقنا قبل إعطاء درسهم الأول، سواء عبر الإنترنت أو حضوريًا."
+  }
+}

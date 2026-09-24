@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Mono:wght@400;700&family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;1,700;1,800&family=Caveat:wght@500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Mono:wght@400;700&family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;1,700;1,800&family=Caveat:wght@500;600&family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=Noto+Naskh+Arabic:wght@500;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -403,3 +403,32 @@ CARE 4 SUCCESS — Charte graphique
   .hero-sheen::before { animation: none; opacity: 0; }
   .text-gold-shimmer { animation: none; background-image: none; -webkit-text-fill-color: currentColor; }
 }
+
+/* ── Multilingue : arabe (écriture de droite à gauche) ────────────────────────
+   Les positions et marges utilisent des propriétés logiques (ps-, pe-, ms-, me-,
+   start-, end-) qui suivent html[dir]. Ci-dessous, ce qui ne se retourne pas seul. */
+
+/* Polices : les polices latines du site n'ont pas de glyphes arabes */
+html[lang="ar"] body,
+html[lang="ar"] [style*="Nunito"],
+html[lang="ar"] [style*="Ubuntu"] { font-family: "Noto Sans Arabic", "Noto Sans", system-ui, sans-serif !important; }
+html[lang="ar"] [style*="Playfair"] { font-family: "Noto Naskh Arabic", "Noto Sans Arabic", serif !important; }
+html[lang="ar"] [style*="Caveat"] { font-family: "Noto Sans Arabic", system-ui, sans-serif !important; font-weight: 500; }
+
+/* L'espacement entre lettres et l'italique cassent la liaison des lettres arabes */
+html[lang="ar"] * { letter-spacing: 0 !important; }
+html[lang="ar"] .italic, html[lang="ar"] em { font-style: normal !important; }
+
+/* Flèches et chevrons de navigation : inversés en RTL */
+[dir="rtl"] svg.lucide-arrow-right,
+[dir="rtl"] svg.lucide-chevron-right,
+[dir="rtl"] svg.lucide-chevron-left { transform: scaleX(-1); }
+
+/* Fondu horizontal des photos : le sens est écrit "to right" dans le style inline */
+[dir="rtl"] [style*="to right, transparent 0%, #000 12%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 12%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 12%) !important; }
+[dir="rtl"] [style*="to right, transparent 0%, #000 14%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 14%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 14%) !important; }
+[dir="rtl"] [style*="to right, transparent 0%, #000 15%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 15%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 15%) !important; }
+[dir="rtl"] [style*="to right, transparent 0%, #000 16%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 16%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 16%) !important; }
+[dir="rtl"] [style*="to right, transparent 0%, #000 22%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 22%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 22%) !important; }
+[dir="rtl"] [style*="to right, transparent 0%, #000 26%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 26%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 26%) !important; }
+[dir="rtl"] [style*="to right, transparent 0%, #000 30%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 30%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 30%) !important; }

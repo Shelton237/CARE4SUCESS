@@ -1,0 +1,307 @@
+{
+  "Formulaire": {
+    "en": "Form",
+    "mg": "Taratasy",
+    "ar": "النموذج"
+  },
+  "2 minutes": {
+    "en": "2 minutes",
+    "mg": "2 minitra",
+    "ar": "دقيقتان"
+  },
+  "Évaluation": {
+    "en": "Assessment",
+    "mg": "Fanombanana",
+    "ar": "التقييم"
+  },
+  "24-48h": {
+    "en": "24-48h",
+    "mg": "24-48 ora",
+    "ar": "24-48 ساعة"
+  },
+  "Coach proposé": {
+    "en": "Coach suggested",
+    "mg": "Mpanazatra naroso",
+    "ar": "اقتراح المدرّب"
+  },
+  "Vous décidez": {
+    "en": "You decide",
+    "mg": "Ianao no mandray fanapahan-kevitra",
+    "ar": "القرار لك"
+  },
+  "Premier cours": {
+    "en": "First lesson",
+    "mg": "Lesona voalohany",
+    "ar": "الدرس الأول"
+  },
+  "C'est parti": {
+    "en": "Let's go",
+    "mg": "Andao hanomboka",
+    "ar": "لننطلق"
+  },
+  "Camerounais (BEPC / BAC)": {
+    "en": "Cameroonian (BEPC / BAC)",
+    "mg": "Kameroney (BEPC / BAC)",
+    "ar": "الكاميروني (BEPC / BAC)"
+  },
+  "Britannique (IB / Cambridge)": {
+    "en": "British (IB / Cambridge)",
+    "mg": "Britanika (IB / Cambridge)",
+    "ar": "البريطاني (IB / Cambridge)"
+  },
+  "Américain": {
+    "en": "American",
+    "mg": "Amerikana",
+    "ar": "الأمريكي"
+  },
+  "Autre": {
+    "en": "Other",
+    "mg": "Hafa",
+    "ar": "آخر"
+  },
+  "En ligne (visioconférence)": {
+    "en": "Online (video call)",
+    "mg": "An-tserasera (horonan-tsary)",
+    "ar": "عبر الإنترنت (مكالمة فيديو)"
+  },
+  "Présentiel (à domicile)": {
+    "en": "In person (at home)",
+    "mg": "Ao an-toerana (an-trano)",
+    "ar": "حضوري (في المنزل)"
+  },
+  "Hybride": {
+    "en": "Hybrid",
+    "mg": "Mifangaro",
+    "ar": "مختلط"
+  },
+  "Pas d'urgence particulière": {
+    "en": "No particular urgency",
+    "mg": "Tsy misy hamehana manokana",
+    "ar": "لا استعجال خاصًا"
+  },
+  "Dans les 2 semaines": {
+    "en": "Within 2 weeks",
+    "mg": "Ao anatin'ny 2 herinandro",
+    "ar": "خلال أسبوعين"
+  },
+  "Cette semaine": {
+    "en": "This week",
+    "mg": "Ity herinandro ity",
+    "ar": "هذا الأسبوع"
+  },
+  "Urgent (sous 48h)": {
+    "en": "Urgent (within 48h)",
+    "mg": "Faingana (ao anatin'ny 48 ora)",
+    "ar": "عاجل (خلال 48 ساعة)"
+  },
+  "Réseaux sociaux": {
+    "en": "Social media",
+    "mg": "Tambajotra sosialy",
+    "ar": "وسائل التواصل الاجتماعي"
+  },
+  "Recommandation d'un proche": {
+    "en": "Recommendation from someone close",
+    "mg": "Nanoro ny olona akaiky",
+    "ar": "توصية من شخص مقرّب"
+  },
+  "Recherche Google": {
+    "en": "Google search",
+    "mg": "Fikarohana Google",
+    "ar": "بحث في Google"
+  },
+  "Publicité": {
+    "en": "Advertising",
+    "mg": "Dokambarotra",
+    "ar": "إعلان"
+  },
+  "Champs manquants": {
+    "en": "Missing fields",
+    "mg": "Tsy feno ny saha",
+    "ar": "حقول ناقصة"
+  },
+  "Merci de renseigner votre prénom, nom, email et téléphone.": {
+    "en": "Please fill in your first name, last name, email and phone.",
+    "mg": "Fenoy ny anaranao, ny fanampiny, ny mailaka ary ny telefaonina.",
+    "ar": "يرجى إدخال اسمك الأول واسم العائلة والبريد الإلكتروني والهاتف."
+  },
+  "Merci de compléter le prénom, la classe, le système scolaire et les matières.": {
+    "en": "Please complete the first name, class, school system and subjects.",
+    "mg": "Fenoy ny anarana, ny kilasy, ny rafi-pianarana ary ny taranja.",
+    "ar": "يرجى إكمال الاسم الأول والصف والنظام الدراسي والمواد."
+  },
+  "Trouvons ensemble\n<s1>le bon coach.</s1>": {
+    "en": "Let's find together\n<s1>the right coach.</s1>",
+    "mg": "Andeha hitady miaraka\n<s1>ny mpanazatra mety.</s1>",
+    "ar": "لنجد معًا\n<s1>المدرّب المناسب.</s1>"
+  },
+  "Un bilan gratuit et sans engagement,{md}pour un coach proposé sous 48h.": {
+    "en": "A free assessment with no obligation,{md}for a coach suggested within 48h.",
+    "mg": "Fanombanana maimaim-poana tsy misy fanerena,{md}ho an'ny mpanazatra naroso ao anatin'ny 48 ora.",
+    "ar": "تقييم مجاني بلا التزام،{md}لمدرّب يُقترح خلال 48 ساعة."
+  },
+  "Commencer l'évaluation": {
+    "en": "Start the assessment",
+    "mg": "Atombohy ny fanombanana",
+    "ar": "ابدأ التقييم"
+  },
+  "Gratuit et sans engagement": {
+    "en": "Free and no obligation",
+    "mg": "Maimaim-poana ary tsy misy fanerena",
+    "ar": "مجاني وبلا التزام"
+  },
+  "Coach proposé sous 48h": {
+    "en": "Coach suggested within 48h",
+    "mg": "Mpanazatra naroso ao anatin'ny 48 ora",
+    "ar": "اقتراح مدرّب خلال 48 ساعة"
+  },
+  "Remplissez ce formulaire. Notre équipe évalue le profil de votre enfant et vous propose le coach idéal sous 48h.": {
+    "en": "Fill in this form. Our team assesses your child's profile and suggests the ideal coach within 48h.",
+    "mg": "Fenoy ity taratasy ity. Manombana ny mombamomban'ny zanakao ny ekipanay ary manolotra ny mpanazatra mety indrindra ao anatin'ny 48 ora.",
+    "ar": "املأ هذا النموذج. يقيّم فريقنا ملف طفلك ويقترح عليك المدرّب المثالي خلال 48 ساعة."
+  },
+  "Demande envoyée": {
+    "en": "Request sent",
+    "mg": "Nalefa ny fangatahana",
+    "ar": "تم إرسال الطلب"
+  },
+  "Notre équipe évalue le profil de votre enfant et vous propose le coach le plus adapté sous 48h. Vous recevrez un email de confirmation.": {
+    "en": "Our team assesses your child's profile and suggests the most suitable coach within 48h. You will receive a confirmation email.",
+    "mg": "Manombana ny mombamomban'ny zanakao ny ekipanay ary manolotra ny mpanazatra mety indrindra ao anatin'ny 48 ora. Handray mailaka fanamarinana ianao.",
+    "ar": "يقيّم فريقنا ملف طفلك ويقترح المدرّب الأنسب خلال 48 ساعة. ستصلك رسالة تأكيد عبر البريد الإلكتروني."
+  },
+  "Retour à l'accueil": {
+    "en": "Back to home",
+    "mg": "Miverina any amin'ny fandraisana",
+    "ar": "العودة إلى الرئيسية"
+  },
+  "Découvrir l'espace parents": {
+    "en": "Discover the parents area",
+    "mg": "Fantaro ny toeran'ny ray aman-dreny",
+    "ar": "اكتشف فضاء أولياء الأمور"
+  },
+  "Votre prénom": {
+    "en": "Your first name",
+    "mg": "Ny anaranao",
+    "ar": "اسمك الأول"
+  },
+  "Prénom du parent": {
+    "en": "Parent's first name",
+    "mg": "Anaran'ny ray aman-dreny",
+    "ar": "الاسم الأول لولي الأمر"
+  },
+  "Votre nom": {
+    "en": "Your last name",
+    "mg": "Ny fanampin'anaranao",
+    "ar": "اسم عائلتك"
+  },
+  "Nom de famille": {
+    "en": "Family name",
+    "mg": "Anarana fanampiny",
+    "ar": "اسم العائلة"
+  },
+  "parent@email.com": {
+    "en": "parent@email.com",
+    "mg": "ray-aman-dreny@mailaka.com",
+    "ar": "parent@email.com"
+  },
+  "Ville": {
+    "en": "City",
+    "mg": "Tanàna",
+    "ar": "المدينة"
+  },
+  "Ex : Antananarivo, Douala...": {
+    "en": "E.g. Antananarivo, Douala...",
+    "mg": "Oh: Antananarivo, Douala...",
+    "ar": "مثال: أنتاناناريفو، دوالا..."
+  },
+  "Continuer": {
+    "en": "Continue",
+    "mg": "Tohizo",
+    "ar": "متابعة"
+  },
+  "Prénom de l'enfant": {
+    "en": "Child's first name",
+    "mg": "Anaran'ny zaza",
+    "ar": "الاسم الأول للطفل"
+  },
+  "Classe / niveau": {
+    "en": "Class / level",
+    "mg": "Kilasy / haavo",
+    "ar": "الصف / المستوى"
+  },
+  "Ex : 3ème, Grade 10...": {
+    "en": "E.g. Year 9, Grade 10...",
+    "mg": "Oh: 3ème, Grade 10...",
+    "ar": "مثال: الثالثة إعدادي، Grade 10..."
+  },
+  "Système scolaire": {
+    "en": "School system",
+    "mg": "Rafi-pianarana",
+    "ar": "النظام الدراسي"
+  },
+  "École actuelle (optionnel)": {
+    "en": "Current school (optional)",
+    "mg": "Sekoly ampiasaina ankehitriny (tsy voatery)",
+    "ar": "المدرسة الحالية (اختياري)"
+  },
+  "Ex : Lycée Français, ESCA...": {
+    "en": "E.g. Lycée Français, ESCA...",
+    "mg": "Oh: Lycée Français, ESCA...",
+    "ar": "مثال: Lycée Français، ESCA..."
+  },
+  "Matière(s) souhaitée(s)": {
+    "en": "Subject(s) wanted",
+    "mg": "Taranja irina",
+    "ar": "المادة أو المواد المطلوبة"
+  },
+  "Ex : Mathématiques, Physique, Anglais...": {
+    "en": "E.g. Maths, Physics, English...",
+    "mg": "Oh: Matematika, Fizika, Anglisy...",
+    "ar": "مثال: الرياضيات، الفيزياء، الإنجليزية..."
+  },
+  "Format souhaité": {
+    "en": "Preferred format",
+    "mg": "Fomba tianao",
+    "ar": "الصيغة المفضّلة"
+  },
+  "← Retour": {
+    "en": "← Back",
+    "mg": "← Miverina",
+    "ar": "→ رجوع"
+  },
+  "Décrivez les besoins de votre enfant": {
+    "en": "Describe your child's needs",
+    "mg": "Ambarao ny filan'ny zanakao",
+    "ar": "صف احتياجات طفلك"
+  },
+  "Ex : Mon fils a des difficultés en maths depuis la 4ème. Il prépare le brevet en juin...": {
+    "en": "E.g. My son has struggled with maths since Year 9. He is preparing for his exam in June...",
+    "mg": "Oh: Sahirana amin'ny matematika ny zanako lahy hatramin'ny 3ème. Miomana amin'ny fanadinana amin'ny Jona izy...",
+    "ar": "مثال: يعاني ابني من صعوبات في الرياضيات منذ الثالثة إعدادي. وهو يستعد للامتحان في يونيو..."
+  },
+  "Urgence": {
+    "en": "Urgency",
+    "mg": "Hamehana",
+    "ar": "درجة الاستعجال"
+  },
+  "Disponibilités souhaitées": {
+    "en": "Preferred availability",
+    "mg": "Fotoana malalaka tianao",
+    "ar": "الأوقات المفضّلة"
+  },
+  "Ex : Lundi et jeudi après 16h, samedi matin...": {
+    "en": "E.g. Monday and Thursday after 4pm, Saturday morning...",
+    "mg": "Oh: Alatsinainy sy Alakamisy aorian'ny 16 ora, Asabotsy maraina...",
+    "ar": "مثال: الاثنين والخميس بعد الرابعة مساءً، وصباح السبت..."
+  },
+  "Comment avez-vous entendu parler de nous ?": {
+    "en": "How did you hear about us?",
+    "mg": "Ahoana no nahafantaranao anay?",
+    "ar": "كيف سمعت عنّا؟"
+  },
+  "Envoyer ma demande": {
+    "en": "Send my request",
+    "mg": "Alefaso ny fangatahako",
+    "ar": "أرسل طلبي"
+  }
+}

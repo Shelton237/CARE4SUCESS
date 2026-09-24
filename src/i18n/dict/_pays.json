@@ -1,0 +1,10 @@
+{
+  "Cameroun": { "en": "Cameroon", "mg": "Kamerona", "ar": "الكاميرون" },
+  "Madagascar": { "en": "Madagascar", "mg": "Madagasikara", "ar": "مدغشقر" },
+  "Tchad": { "en": "Chad", "mg": "Tsady", "ar": "تشاد" },
+  "Gabon": { "en": "Gabon", "mg": "Gabon", "ar": "الغابون" },
+  "Comores": { "en": "Comoros", "mg": "Komoro", "ar": "جزر القمر" },
+  "Côte d'Ivoire": { "en": "Côte d'Ivoire", "mg": "Côte d'Ivoire", "ar": "ساحل العاج" },
+  "Sénégal": { "en": "Senegal", "mg": "Senegaly", "ar": "السنغال" },
+  "Autres": { "en": "Other", "mg": "Hafa", "ar": "أخرى" }
+}

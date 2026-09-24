@@ -11,12 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { submitEvaluationRequest } from "@/api/public";
 import { ROUTE_PATHS } from "@/lib/index";
 import { ShieldFilled, UsersOutline } from "@/components/decor";
+import { useT, tt, rich } from "@/i18n";
 
 const STAGES = [
-  { label: "Formulaire", sub: "2 minutes" },
-  { label: "Évaluation", sub: "24-48h" },
-  { label: "Coach proposé", sub: "Vous décidez" },
-  { label: "Premier cours", sub: "C'est parti" },
+  { label: tt("Formulaire"), sub: tt("2 minutes") },
+  { label: tt("Évaluation"), sub: tt("24-48h") },
+  { label: tt("Coach proposé"), sub: tt("Vous décidez") },
+  { label: tt("Premier cours"), sub: tt("C'est parti") },
 ];
 
 const COUNTRIES = [
@@ -31,32 +32,32 @@ const COUNTRIES = [
 ];
 
 const SCHOOL_SYSTEMS = [
-  { value: "camerounais", label: "Camerounais (BEPC / BAC)" },
-  { value: "francais", label: "Français" },
-  { value: "britannique", label: "Britannique (IB / Cambridge)" },
-  { value: "americain", label: "Américain" },
-  { value: "autre", label: "Autre" },
+  { value: "camerounais", label: tt("Camerounais (BEPC / BAC)") },
+  { value: "francais", label: tt("Français") },
+  { value: "britannique", label: tt("Britannique (IB / Cambridge)") },
+  { value: "americain", label: tt("Américain") },
+  { value: "autre", label: tt("Autre") },
 ];
 
 const FORMATS = [
-  { value: "en-ligne", label: "En ligne (visioconférence)" },
-  { value: "presentiel", label: "Présentiel (à domicile)" },
-  { value: "hybride", label: "Hybride" },
+  { value: "en-ligne", label: tt("En ligne (visioconférence)") },
+  { value: "presentiel", label: tt("Présentiel (à domicile)") },
+  { value: "hybride", label: tt("Hybride") },
 ];
 
 const URGENCY_OPTIONS = [
-  { value: "aucune", label: "Pas d'urgence particulière" },
-  { value: "2-semaines", label: "Dans les 2 semaines" },
-  { value: "cette-semaine", label: "Cette semaine" },
-  { value: "urgent", label: "Urgent (sous 48h)" },
+  { value: "aucune", label: tt("Pas d'urgence particulière") },
+  { value: "2-semaines", label: tt("Dans les 2 semaines") },
+  { value: "cette-semaine", label: tt("Cette semaine") },
+  { value: "urgent", label: tt("Urgent (sous 48h)") },
 ];
 
 const HOW_HEARD_OPTIONS = [
-  { value: "reseaux-sociaux", label: "Réseaux sociaux" },
-  { value: "recommandation", label: "Recommandation d'un proche" },
-  { value: "recherche", label: "Recherche Google" },
-  { value: "publicite", label: "Publicité" },
-  { value: "autre", label: "Autre" },
+  { value: "reseaux-sociaux", label: tt("Réseaux sociaux") },
+  { value: "recommandation", label: tt("Recommandation d'un proche") },
+  { value: "recherche", label: tt("Recherche Google") },
+  { value: "publicite", label: tt("Publicité") },
+  { value: "autre", label: tt("Autre") },
 ];
 
 const defaultForm = () => ({
@@ -66,6 +67,7 @@ const defaultForm = () => ({
 });
 
 export default function EvaluationGratuite() {
+  const { t } = useT();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
@@ -93,20 +95,20 @@ export default function EvaluationGratuite() {
     mutationFn: submitEvaluationRequest,
     onSuccess: () => setSubmitted(true),
     onError: (error: Error) => {
-      toast({ title: "Erreur lors de l'envoi", description: error.message, variant: "destructive" });
+      toast({ title: t("Erreur lors de l'envoi"), description: error.message, variant: "destructive" });
     },
   });
 
   const goNext = () => {
     if (step === 1) {
       if (!form.parentFirstName || !form.parentLastName || !form.email || !form.phone) {
-        toast({ title: "Champs manquants", description: "Merci de renseigner votre prénom, nom, email et téléphone.", variant: "destructive" });
+        toast({ title: t("Champs manquants"), description: t("Merci de renseigner votre prénom, nom, email et téléphone."), variant: "destructive" });
         return;
       }
     }
     if (step === 2) {
       if (!form.childFirstName || !form.level || !form.schoolSystem || !form.subjects) {
-        toast({ title: "Champs manquants", description: "Merci de compléter le prénom, la classe, le système scolaire et les matières.", variant: "destructive" });
+        toast({ title: t("Champs manquants"), description: t("Merci de compléter le prénom, la classe, le système scolaire et les matières."), variant: "destructive" });
         return;
       }
     }
@@ -142,7 +144,7 @@ export default function EvaluationGratuite() {
       {/* ── HERO ── */}
       <section className="relative overflow-hidden bg-[#012B54] xl:h-[467px]">
         {/* Photo dans public/images/soutien/fille.jpg (texte manuscrit et bulle inclus) */}
-        <div className="hidden lg:block absolute top-0 right-0 w-[44%] h-full">
+        <div className="hidden lg:block absolute top-0 end-0 w-[44%] h-full">
           <img
             src="/images/soutien/fille.jpg"
             alt=""
@@ -156,27 +158,20 @@ export default function EvaluationGratuite() {
         <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 22%)", maskImage: "linear-gradient(to right, transparent 0%, #000 22%)" }} />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.15%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.15%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
 
-          <p className="text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">Évaluation gratuite</p>
+          <p className="text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">{t("Évaluation gratuite")}</p>
           <h1
             className="mt-2 xl:mt-[8px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[58px] leading-[1.12] xl:leading-[60px]"
             style={{ fontFamily: "'Playfair Display', serif" }}
-          >
-            Trouvons ensemble<br />
-            <span className="italic text-gold-shimmer">le bon coach.</span>
-          </h1>
-          <p className="mt-5 xl:mt-[24px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[640px]">
-            Un bilan gratuit et sans engagement,<br className="hidden md:block" />{" "}
-            pour un coach proposé sous 48h.
-          </p>
+          >{rich(t("Trouvons ensemble\n<s1>le bon coach.</s1>"), { s1: c => <span className="italic text-gold-shimmer">{c}</span> })}</h1>
+          <p className="mt-5 xl:mt-[24px] text-white/90 text-lg xl:text-[20px] leading-snug xl:leading-[28px] max-w-[520px] xl:max-w-[640px]">{rich(t("Un bilan gratuit et sans engagement,{md}pour un coach proposé sous 48h."))}</p>
 
           <div className="mt-8 xl:mt-[34px]">
             <a
               href="#formulaire"
               className="inline-flex items-center gap-2.5 h-14 xl:h-[53px] px-7 xl:px-[28px] rounded-xl xl:rounded-[10px] bg-[#0F9B8E] text-white font-extrabold xl:text-[17.2px] hover:bg-[#0c857a] transition-colors"
-            >
-              Commencer l'évaluation <ArrowRight className="w-4 h-4" />
+            >{t("Commencer l'évaluation")}{" "}<ArrowRight className="w-4 h-4" />
             </a>
           </div>
 
@@ -189,13 +184,13 @@ export default function EvaluationGratuite() {
 
           <ul className="flex flex-wrap gap-x-8 xl:gap-x-[28px] gap-y-3 mt-8 xl:mt-[40px]">
             {[
-              { icon: ShieldFilled, label: "Gratuit et sans engagement" },
-              { icon: Clock, label: "Coach proposé sous 48h" },
-              { icon: UsersOutline, label: "Vous décidez" },
+              { icon: ShieldFilled, label: t("Gratuit et sans engagement") },
+              { icon: Clock, label: t("Coach proposé sous 48h") },
+              { icon: UsersOutline, label: t("Vous décidez") },
             ].map(({ icon: Icon, label }) => (
               <li key={label} className="flex items-center gap-2.5 text-sm xl:text-[15.2px] text-white/90">
                 <Icon className="w-6 h-6 xl:w-[27px] xl:h-[27px] text-[#2BB3A3]" />
-                {label}
+                {t(label)}
               </li>
             ))}
           </ul>
@@ -210,9 +205,9 @@ export default function EvaluationGratuite() {
             {STAGES.map((s, i) => (
               <div key={s.label}>
                 <p className={`text-sm font-bold ${i === 0 ? "text-[#0D2D5A]" : "text-gray-400"}`}>
-                  {i + 1}. {s.label}
+                  {i + 1}. {t(s.label)}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{t(s.sub)}</p>
               </div>
             ))}
           </div>
@@ -233,11 +228,9 @@ export default function EvaluationGratuite() {
             </div>
           )}
 
-          <h2 className="text-2xl font-bold text-[#0D2D5A] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Évaluation gratuite
+          <h2 className="text-2xl font-bold text-[#0D2D5A] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>{t("Évaluation gratuite")}
           </h2>
-          <p className="text-sm text-gray-500 mb-8">
-            Remplissez ce formulaire. Notre équipe évalue le profil de votre enfant et vous propose le coach idéal sous 48h.
+          <p className="text-sm text-gray-500 mb-8">{t("Remplissez ce formulaire. Notre équipe évalue le profil de votre enfant et vous propose le coach idéal sous 48h.")}
           </p>
 
           {submitted ? (
@@ -245,18 +238,14 @@ export default function EvaluationGratuite() {
               <div className="w-16 h-16 rounded-full bg-[#0F9B8E] flex items-center justify-center mx-auto mb-5">
                 <CheckCircle2 className="w-8 h-8 text-white" />
               </div>
-              <h2 className="text-xl font-bold text-[#0D2D5A] mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
-                Demande envoyée
+              <h2 className="text-xl font-bold text-[#0D2D5A] mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>{t("Demande envoyée")}
               </h2>
-              <p className="text-sm text-gray-500 max-w-sm mx-auto mb-8">
-                Notre équipe évalue le profil de votre enfant et vous propose le coach le plus adapté sous 48h. Vous recevrez un email de confirmation.
+              <p className="text-sm text-gray-500 max-w-sm mx-auto mb-8">{t("Notre équipe évalue le profil de votre enfant et vous propose le coach le plus adapté sous 48h. Vous recevrez un email de confirmation.")}
               </p>
               <div className="flex flex-wrap gap-3 justify-center">
-                <NavLink to={ROUTE_PATHS.HOME} className="px-6 py-3 rounded-xl bg-[#0D2D5A] text-white text-sm font-bold hover:bg-[#0B2545] transition-colors">
-                  Retour à l'accueil
+                <NavLink to={ROUTE_PATHS.HOME} className="px-6 py-3 rounded-xl bg-[#0D2D5A] text-white text-sm font-bold hover:bg-[#0B2545] transition-colors">{t("Retour à l'accueil")}
                 </NavLink>
-                <NavLink to="/inscription" className="px-6 py-3 rounded-xl border border-gray-200 text-[#0D2D5A] text-sm font-bold hover:bg-gray-50 transition-colors">
-                  Découvrir l'espace parents
+                <NavLink to="/inscription" className="px-6 py-3 rounded-xl border border-gray-200 text-[#0D2D5A] text-sm font-bold hover:bg-gray-50 transition-colors">{t("Découvrir l'espace parents")}
                 </NavLink>
               </div>
             </div>
@@ -266,21 +255,21 @@ export default function EvaluationGratuite() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="parentFirstName">Votre prénom</Label>
-                      <Input id="parentFirstName" placeholder="Prénom du parent" value={form.parentFirstName} onChange={e => set("parentFirstName")(e.target.value)} />
+                      <Label htmlFor="parentFirstName">{t("Votre prénom")}</Label>
+                      <Input id="parentFirstName" placeholder={t("Prénom du parent")} value={form.parentFirstName} onChange={e => set("parentFirstName")(e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="parentLastName">Votre nom</Label>
-                      <Input id="parentLastName" placeholder="Nom de famille" value={form.parentLastName} onChange={e => set("parentLastName")(e.target.value)} />
+                      <Label htmlFor="parentLastName">{t("Votre nom")}</Label>
+                      <Input id="parentLastName" placeholder={t("Nom de famille")} value={form.parentLastName} onChange={e => set("parentLastName")(e.target.value)} />
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="parent@email.com" value={form.email} onChange={e => set("email")(e.target.value)} />
+                    <Label htmlFor="email">{t("Email")}</Label>
+                    <Input id="email" type="email" placeholder={t("parent@email.com")} value={form.email} onChange={e => set("email")(e.target.value)} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="phone">Téléphone</Label>
+                      <Label htmlFor="phone">{t("Téléphone")}</Label>
                       <Input
                         id="phone"
                         placeholder={`${COUNTRIES.find(c => c.name === form.country)?.code || "+237"} XX XXX XXX`}
@@ -289,21 +278,20 @@ export default function EvaluationGratuite() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Pays</Label>
+                      <Label>{t("Pays")}</Label>
                       <Select value={form.country} onValueChange={handleCountryChange}>
-                        <SelectTrigger><SelectValue placeholder="Choisissez..." /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder={t("Choisissez...")} /></SelectTrigger>
                         <SelectContent>
-                          {COUNTRIES.map(c => <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>)}
+                          {COUNTRIES.map(c => <SelectItem key={c.name} value={c.name}>{t(c.name)}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="city">Ville</Label>
-                    <Input id="city" placeholder="Ex : Antananarivo, Douala..." value={form.city} onChange={e => set("city")(e.target.value)} />
+                    <Label htmlFor="city">{t("Ville")}</Label>
+                    <Input id="city" placeholder={t("Ex : Antananarivo, Douala...")} value={form.city} onChange={e => set("city")(e.target.value)} />
                   </div>
-                  <Button onClick={goNext} className="w-full bg-[#0D2D5A] hover:bg-[#0B2545] text-white h-12 text-base font-bold mt-2">
-                    Continuer <ArrowRight className="w-4 h-4 ml-1" />
+                  <Button onClick={goNext} className="w-full bg-[#0D2D5A] hover:bg-[#0B2545] text-white h-12 text-base font-bold mt-2">{t("Continuer")}{" "}<ArrowRight className="w-4 h-4 ms-1" />
                   </Button>
                 </>
               )}
@@ -312,46 +300,44 @@ export default function EvaluationGratuite() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="childFirstName">Prénom de l'enfant</Label>
-                      <Input id="childFirstName" placeholder="Prénom" value={form.childFirstName} onChange={e => set("childFirstName")(e.target.value)} />
+                      <Label htmlFor="childFirstName">{t("Prénom de l'enfant")}</Label>
+                      <Input id="childFirstName" placeholder={t("Prénom")} value={form.childFirstName} onChange={e => set("childFirstName")(e.target.value)} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="level">Classe / niveau</Label>
-                      <Input id="level" placeholder="Ex : 3ème, Grade 10..." value={form.level} onChange={e => set("level")(e.target.value)} />
+                      <Label htmlFor="level">{t("Classe / niveau")}</Label>
+                      <Input id="level" placeholder={t("Ex : 3ème, Grade 10...")} value={form.level} onChange={e => set("level")(e.target.value)} />
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Système scolaire</Label>
+                    <Label>{t("Système scolaire")}</Label>
                     <Select value={form.schoolSystem} onValueChange={set("schoolSystem")}>
-                      <SelectTrigger><SelectValue placeholder="Choisissez..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t("Choisissez...")} /></SelectTrigger>
                       <SelectContent>
-                        {SCHOOL_SYSTEMS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                        {SCHOOL_SYSTEMS.map(s => <SelectItem key={s.value} value={s.value}>{t(s.label)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="currentSchool">École actuelle (optionnel)</Label>
-                    <Input id="currentSchool" placeholder="Ex : Lycée Français, ESCA..." value={form.currentSchool} onChange={e => set("currentSchool")(e.target.value)} />
+                    <Label htmlFor="currentSchool">{t("École actuelle (optionnel)")}</Label>
+                    <Input id="currentSchool" placeholder={t("Ex : Lycée Français, ESCA...")} value={form.currentSchool} onChange={e => set("currentSchool")(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="subjects">Matière(s) souhaitée(s)</Label>
-                    <Input id="subjects" placeholder="Ex : Mathématiques, Physique, Anglais..." value={form.subjects} onChange={e => set("subjects")(e.target.value)} />
+                    <Label htmlFor="subjects">{t("Matière(s) souhaitée(s)")}</Label>
+                    <Input id="subjects" placeholder={t("Ex : Mathématiques, Physique, Anglais...")} value={form.subjects} onChange={e => set("subjects")(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Format souhaité</Label>
+                    <Label>{t("Format souhaité")}</Label>
                     <Select value={form.format} onValueChange={set("format")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {FORMATS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                        {FORMATS.map(f => <SelectItem key={f.value} value={f.value}>{t(f.label)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex gap-3 mt-2">
-                    <Button variant="outline" onClick={goBack} className="flex-1 border-gray-200 h-12 text-base font-bold">
-                      ← Retour
+                    <Button variant="outline" onClick={goBack} className="flex-1 border-gray-200 h-12 text-base font-bold">{t("← Retour")}
                     </Button>
-                    <Button onClick={goNext} className="flex-1 bg-[#0D2D5A] hover:bg-[#0B2545] text-white h-12 text-base font-bold">
-                      Continuer <ArrowRight className="w-4 h-4 ml-1" />
+                    <Button onClick={goNext} className="flex-1 bg-[#0D2D5A] hover:bg-[#0B2545] text-white h-12 text-base font-bold">{t("Continuer")}{" "}<ArrowRight className="w-4 h-4 ms-1" />
                     </Button>
                   </div>
                 </>
@@ -360,47 +346,46 @@ export default function EvaluationGratuite() {
               {step === 3 && (
                 <>
                   <div className="space-y-1.5">
-                    <Label htmlFor="needs">Décrivez les besoins de votre enfant</Label>
+                    <Label htmlFor="needs">{t("Décrivez les besoins de votre enfant")}</Label>
                     <Textarea
                       id="needs"
                       rows={4}
-                      placeholder="Ex : Mon fils a des difficultés en maths depuis la 4ème. Il prépare le brevet en juin..."
+                      placeholder={t("Ex : Mon fils a des difficultés en maths depuis la 4ème. Il prépare le brevet en juin...")}
                       value={form.needs}
                       onChange={e => set("needs")(e.target.value)}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Urgence</Label>
+                    <Label>{t("Urgence")}</Label>
                     <Select value={form.urgency} onValueChange={set("urgency")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {URGENCY_OPTIONS.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                        {URGENCY_OPTIONS.map(u => <SelectItem key={u.value} value={u.value}>{t(u.label)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="availability">Disponibilités souhaitées</Label>
-                    <Input id="availability" placeholder="Ex : Lundi et jeudi après 16h, samedi matin..." value={form.availability} onChange={e => set("availability")(e.target.value)} />
+                    <Label htmlFor="availability">{t("Disponibilités souhaitées")}</Label>
+                    <Input id="availability" placeholder={t("Ex : Lundi et jeudi après 16h, samedi matin...")} value={form.availability} onChange={e => set("availability")(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Comment avez-vous entendu parler de nous ?</Label>
+                    <Label>{t("Comment avez-vous entendu parler de nous ?")}</Label>
                     <Select value={form.howHeard} onValueChange={set("howHeard")}>
-                      <SelectTrigger><SelectValue placeholder="Choisissez..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t("Choisissez...")} /></SelectTrigger>
                       <SelectContent>
-                        {HOW_HEARD_OPTIONS.map(h => <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>)}
+                        {HOW_HEARD_OPTIONS.map(h => <SelectItem key={h.value} value={h.value}>{t(h.label)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex gap-3 mt-2">
-                    <Button variant="outline" onClick={goBack} disabled={mutation.isPending} className="flex-1 border-gray-200 h-12 text-base font-bold">
-                      ← Retour
+                    <Button variant="outline" onClick={goBack} disabled={mutation.isPending} className="flex-1 border-gray-200 h-12 text-base font-bold">{t("← Retour")}
                     </Button>
                     <Button
                       onClick={handleSubmit}
                       disabled={mutation.isPending}
                       className="flex-1 bg-[#F5A623] hover:bg-[#e09520] text-[#0D2D5A] h-12 text-base font-bold"
                     >
-                      {mutation.isPending ? "Envoi..." : <>Envoyer ma demande <ArrowRight className="w-4 h-4 ml-1" /></>}
+                      {mutation.isPending ? "Envoi..." : <>{t("Envoyer ma demande")}{" "}<ArrowRight className="w-4 h-4 ms-1" /></>}
                     </Button>
                   </div>
                 </>
