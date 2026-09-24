@@ -54,7 +54,7 @@ export default function Login() {
 
     const handleForgotPassword = async () => {
         if (!email) {
-            setError("Veuillez saisir votre adresse email pour recevoir vos identifiants.");
+            setError("Saisissez votre adresse email ci-dessus, puis cliquez de nouveau sur « Mot de passe oublié ? » pour recevoir un lien de réinitialisation.");
             return;
         }
         

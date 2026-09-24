@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    User, Mail, Phone, MapPin, Globe, Camera, Shield,
+    User, Mail, Phone, MapPin, Globe, Camera,
     Bell, CreditCard, Save, Loader2, Calendar, Briefcase,
     BadgeCheck, ShieldCheck, ChevronRight, UserCircle2, ArrowLeft
 } from "lucide-react";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import PublicProfileEditor from "@/pages/teacher/PublicProfileEditor";
+import { ChangePasswordForm } from "@/components/account/ChangePasswordForm";
 
 export default function TeacherProfile() {
     const { user: authUser } = useAuth();
@@ -152,7 +153,7 @@ export default function TeacherProfile() {
                                     : activeTab === 'public' ? 'Ma page publique'
                                     : activeTab === 'banking' ? 'Coordonnées de Reversement' : 'Sécurité du compte'}
                             </h2>
-                            {activeTab !== 'public' && (
+                            {activeTab !== 'public' && activeTab !== 'security' && (
                             <Button
                                 onClick={handleSave}
                                 className="bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black h-8 px-4 rounded-none shadow-none text-[10px] uppercase tracking-widest gap-2"
@@ -244,25 +245,12 @@ export default function TeacherProfile() {
                                 </div>
                             )}
 
-                            {activeTab === 'security' && (
-                                <div className="space-y-4">
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                                        Pour modifier votre mot de passe, merci de contacter l'administrateur.
+                            {activeTab === 'security' && authUser?.id && (
+                                <div className="max-w-md space-y-4">
+                                    <p className="text-sm text-slate-500">
+                                        Modifiez votre mot de passe. Si vous l'avez oublié, recevez un lien de réinitialisation par email.
                                     </p>
-                                    <div className="flex items-center gap-3 p-3 border border-slate-200 bg-slate-50/30">
-                                        <Shield className="w-4 h-4 text-emerald-500 shrink-0" />
-                                        <div>
-                                            <p className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-tight">
-                                                Authentification à deux facteurs
-                                            </p>
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                                                Renforcez la sécurité de votre compte.
-                                            </p>
-                                        </div>
-                                        <Button variant="outline" size="sm" className="ml-auto text-[9px] h-7 border-slate-200 rounded-none shadow-none font-black uppercase">
-                                            Activer
-                                        </Button>
-                                    </div>
+                                    <ChangePasswordForm userId={authUser.id} email={profile?.email ?? authUser.email} />
                                 </div>
                             )}
                         </div>

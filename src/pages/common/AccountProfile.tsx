@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Bell, Camera, CheckCircle2, Globe, Loader2, MapPin, Phone, ShieldCheck, UserCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { fetchUserProfile, updateUserPassword, updateUserProfile, uploadUserAvatar, UpdateUserProfilePayload } from "@/api/backoffice";
+import { fetchUserProfile, updateUserProfile, uploadUserAvatar, UpdateUserProfilePayload } from "@/api/backoffice";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import PublicProfileEditor from "@/pages/teacher/PublicProfileEditor";
+import { ChangePasswordForm } from "@/components/account/ChangePasswordForm";
 
 type ProfileFormState = Required<Pick<UpdateUserProfilePayload, "name" | "phone" | "avatar" | "location" | "timezone" | "language" | "bio" | "notifyEmail" | "notifySms" | "notifyWhatsapp">>;
 
@@ -46,11 +47,6 @@ export default function AccountProfile() {
         notifyWhatsapp: user?.notifyWhatsapp ?? false,
     }));
 
-    const [passwordForm, setPasswordForm] = useState({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-    });
 
     const userId = user?.id;
 
@@ -117,28 +113,6 @@ export default function AccountProfile() {
         },
     });
 
-    const passwordMutation = useMutation({
-        mutationFn: () =>
-            updateUserPassword(userId!, {
-                currentPassword: passwordForm.currentPassword,
-                newPassword: passwordForm.newPassword,
-            }),
-        onSuccess: () => {
-            toast({
-                title: "Mot de passe mis à jour",
-                description: "Vous pouvez désormais utiliser votre nouveau mot de passe.",
-            });
-            setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-        },
-        onError: (error: Error) => {
-            toast({
-                title: "Impossible de modifier le mot de passe",
-                description: error.message,
-                variant: "destructive",
-            });
-        },
-    });
-
     const fullNameInitials = useMemo(() => {
         return (profileForm.avatar || profileForm.name || "C4S")
             .slice(0, 2)
@@ -152,19 +126,6 @@ export default function AccountProfile() {
     const handleProfileSubmit = (event: React.FormEvent) => {
         event.preventDefault();
         profileMutation.mutate(profileForm);
-    };
-
-    const handlePasswordSubmit = (event: React.FormEvent) => {
-        event.preventDefault();
-        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            toast({
-                title: "Les mots de passe ne correspondent pas",
-                description: "Merci de vérifier la confirmation.",
-                variant: "destructive",
-            });
-            return;
-        }
-        passwordMutation.mutate();
     };
 
     const handleAvatarClick = () => {
@@ -474,68 +435,7 @@ export default function AccountProfile() {
                                     <p className="text-sm text-gray-500">Mettez à jour votre mot de passe</p>
                                 </div>
                             </div>
-                            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-                                        Mot de passe actuel
-                                    </label>
-                                    <Input
-                                        type="password"
-                                        value={passwordForm.currentPassword}
-                                        onChange={(event) =>
-                                            setPasswordForm((state) => ({ ...state, currentPassword: event.target.value }))
-                                        }
-                                        required
-                                        autoComplete="current-password"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-                                        Nouveau mot de passe
-                                    </label>
-                                    <Input
-                                        type="password"
-                                        value={passwordForm.newPassword}
-                                        onChange={(event) =>
-                                            setPasswordForm((state) => ({ ...state, newPassword: event.target.value }))
-                                        }
-                                        required
-                                        minLength={8}
-                                        autoComplete="new-password"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-                                        Confirmation
-                                    </label>
-                                    <Input
-                                        type="password"
-                                        value={passwordForm.confirmPassword}
-                                        onChange={(event) =>
-                                            setPasswordForm((state) => ({ ...state, confirmPassword: event.target.value }))
-                                        }
-                                        required
-                                        minLength={8}
-                                    />
-                                </div>
-                                <div className="flex justify-end">
-                                    <Button
-                                        type="submit"
-                                        variant="outline"
-                                        className="text-[#22c55e] border-[#22c55e] hover:bg-[#22c55e]/10 min-w-[160px]"
-                                        disabled={passwordMutation.isPending}
-                                    >
-                                        {passwordMutation.isPending ? (
-                                            <span className="flex items-center gap-2">
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                Mise à jour...
-                                            </span>
-                                        ) : (
-                                            "Mettre à jour"
-                                        )}
-                                    </Button>
-                                </div>
-                            </form>
+                            <ChangePasswordForm userId={userId} email={user?.email ?? profileQuery.data?.email} />
                         </section>
                     </div>
 

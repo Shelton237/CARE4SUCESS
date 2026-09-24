@@ -992,3 +992,9 @@ export const forgotPassword = (email: string) =>
         body: JSON.stringify({ email }),
     });
 
+
+export const resetPasswordWithToken = (token: string, newPassword: string) =>
+    request<{ success: boolean; message: string }>("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, newPassword }),
+    });

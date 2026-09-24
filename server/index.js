@@ -6258,38 +6258,122 @@ app.post("/api/admin/reset-user-password", authenticateRequest, async (req, res)
   }
 });
 
+// ─── Réinitialisation du mot de passe par lien à usage unique ────────────────
+// Le mot de passe n'est jamais modifié tant que l'utilisateur n'a pas cliqué sur
+// le lien reçu par email : personne ne peut verrouiller le compte d'un autre.
+const PASSWORD_RESET_TTL_MINUTES = 60;
+const PASSWORD_RESET_MIN_INTERVAL_SECONDS = 60;
+
+const ensurePasswordResetTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id VARCHAR(255) NOT NULL,
+      token_hash CHAR(64) NOT NULL UNIQUE,
+      expires_at DATETIME NOT NULL,
+      used_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_prt_user (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+};
+
+const hashResetToken = (token) => crypto.createHash("sha256").update(String(token)).digest("hex");
+
+// Limiteur simple en mémoire (par IP) pour les deux routes de réinitialisation.
+const resetAttempts = new Map();
+const tooManyResetAttempts = (req) => {
+  // Derrière Apache (ProxyPass) : la dernière adresse de X-Forwarded-For est celle ajoutée par le proxy.
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",").map((v) => v.trim()).filter(Boolean);
+  const key = forwarded[forwarded.length - 1] || req.socket?.remoteAddress || "unknown";
+  const now = Date.now();
+  const recent = (resetAttempts.get(key) || []).filter((t) => now - t < 15 * 60 * 1000);
+  recent.push(now);
+  resetAttempts.set(key, recent);
+  return recent.length > 10;
+};
+
 app.post("/api/auth/forgot-password", async (req, res) => {
-  const { email } = req.body;
+  const email = typeof req.body?.email === "string" ? req.body.email.trim() : "";
   if (!email) return res.status(400).json({ message: "Email requis." });
+  if (tooManyResetAttempts(req)) {
+    return res.status(429).json({ message: "Trop de tentatives. Réessayez dans quelques minutes." });
+  }
+
+  const genericReply = {
+    success: true,
+    message: "Si un compte existe avec cette adresse, un lien de réinitialisation vient d'être envoyé par email.",
+  };
 
   try {
     await ensureUsersTable();
-    const [rows] = await pool.query("SELECT id, name, role FROM users WHERE email = ?", [email]);
-    if (rows.length === 0) {
-      // Pour la sécurité, on dit quand même que c'est envoyé (ou on dit non trouvé selon le besoin métier)
-      return res.json({ success: true, message: "Si cet email existe, les identifiants ont été envoyés." });
-    }
+    await ensurePasswordResetTable();
+    const [rows] = await pool.query("SELECT id, name FROM users WHERE email = ?", [email]);
+    if (rows.length === 0) return res.json(genericReply);
 
     const user = rows[0];
-    const newPassword = Math.random().toString(36).slice(-8); // Génère un pass de 8 char
-    const hashedPassword = bcrypt.hashSync(newPassword, 10);
-    await pool.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, user.id]);
+    const [recent] = await pool.query(
+      "SELECT id FROM password_reset_tokens WHERE user_id = ? AND created_at > (NOW() - INTERVAL ? SECOND) LIMIT 1",
+      [user.id, PASSWORD_RESET_MIN_INTERVAL_SECONDS]
+    );
+    if (recent.length > 0) return res.json(genericReply);
+
+    await pool.query("UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL", [user.id]);
+    const token = crypto.randomBytes(32).toString("hex");
+    await pool.query(
+      "INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, NOW() + INTERVAL ? MINUTE)",
+      [user.id, hashResetToken(token), PASSWORD_RESET_TTL_MINUTES]
+    );
 
     await sendMail({
       to: email,
-      subject: "Récupération de vos identifiants — Care4Success",
-      html: tplAccountCreated({ 
-        name: user.name, 
-        email, 
-        password: newPassword, 
-        role: user.role 
-      })
+      subject: "Réinitialisation de votre mot de passe — Care4Success",
+      html: tplPasswordReset({
+        name: user.name,
+        link: `${SITE_ORIGIN}/reset-password?token=${token}`,
+        minutes: PASSWORD_RESET_TTL_MINUTES,
+      }),
     });
 
-    res.json({ success: true, message: "Vos nouveaux identifiants ont été envoyés par email." });
+    res.json(genericReply);
   } catch (err) {
     console.error("Forgot pass error:", err);
     res.status(500).json({ message: "Erreur lors de la récupération." });
+  }
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body ?? {};
+  if (typeof token !== "string" || !token || typeof newPassword !== "string" || !newPassword) {
+    return res.status(400).json({ message: "Lien et nouveau mot de passe requis." });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ message: "Le nouveau mot de passe doit contenir au moins 8 caractères." });
+  }
+  if (tooManyResetAttempts(req)) {
+    return res.status(429).json({ message: "Trop de tentatives. Réessayez dans quelques minutes." });
+  }
+
+  try {
+    await ensureUsersTable();
+    await ensurePasswordResetTable();
+    const [rows] = await pool.query(
+      "SELECT id, user_id FROM password_reset_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW() LIMIT 1",
+      [hashResetToken(token)]
+    );
+    if (rows.length === 0) {
+      return res.status(400).json({ message: "Ce lien est invalide ou a expiré. Demandez un nouveau lien depuis la page de connexion." });
+    }
+
+    const { id: tokenId, user_id: userId } = rows[0];
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await pool.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
+    await pool.query("UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL", [userId]);
+    console.log(`[auth] password reset via link for user ${userId} (token ${tokenId})`);
+    res.json({ success: true, message: "Votre mot de passe a été modifié. Vous pouvez vous connecter." });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    res.status(500).json({ message: "Impossible de modifier le mot de passe." });
   }
 });
 
@@ -10024,6 +10108,25 @@ function tplAccountCreated({ name, email, password, role, viaGoogle = false }) {
         ${credentialsBlock}
         <p style="font-size:14px">Vous pouvez vous connecter dès maintenant sur : <a href="https://care4success.usra-care.com" style="color:#1A6CC8;text-decoration:none;font-weight:bold">https://care4success.usra-care.com</a></p>
         ${viaGoogle ? "" : `<p style="font-size:13px;color:#6b7280;margin-top:24px">Nous vous recommandons de changer votre mot de passe dès votre première connexion.</p>`}
+        <p style="font-size:13px;color:#6b7280;margin-top:20px">L'équipe Care4Success</p>
+      </div>
+    </div>`;
+}
+function tplPasswordReset({ name, link, minutes }) {
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A;background:#f9fafb;padding:20px;border-radius:16px">
+      <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+        <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+        <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Réinitialisation de votre mot de passe</p>
+      </div>
+      <div style="padding:32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:15px">Bonjour <strong>${name}</strong>,</p>
+        <p>Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau.</p>
+        <div style="text-align:center;margin:28px 0">
+          <a href="${link}" style="background:#0D2D5A;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:14px">Choisir un nouveau mot de passe</a>
+        </div>
+        <p style="font-size:13px;color:#6b7280">Ce lien est valable ${minutes} minutes et ne peut être utilisé qu'une seule fois. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br><span style="word-break:break-all">${link}</span></p>
+        <p style="font-size:13px;color:#6b7280;margin-top:20px">Vous n'êtes pas à l'origine de cette demande ? Ignorez simplement cet email : votre mot de passe actuel reste inchangé.</p>
         <p style="font-size:13px;color:#6b7280;margin-top:20px">L'équipe Care4Success</p>
       </div>
     </div>`;

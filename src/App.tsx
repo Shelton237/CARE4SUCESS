@@ -29,6 +29,7 @@ import About from "@/pages/About";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import NotFound from "./pages/not-found/Index";
 import Login from "@/pages/auth/Login";
+import ResetPassword from "@/pages/auth/ResetPassword";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import TeacherLayout from "@/pages/teacher/TeacherLayout";
 import ParentLayout from "@/pages/parent/ParentLayout";
@@ -80,6 +81,7 @@ const App = () => (
 
               {/* Auth */}
               <Route path="/login" element={<Login />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* Backoffice — protected routes, each with its own layout */}
               <Route
