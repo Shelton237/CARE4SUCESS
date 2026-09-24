@@ -5,7 +5,6 @@ import { Search, Star, ArrowRight } from "lucide-react";
 import { fetchPublicTeachers, type PublicTeacher } from "@/api/public";
 import { formatMoney } from "@/lib/money";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Breadcrumb } from "@/components/Layout";
 import { IMAGES } from "@/assets/images";
 
 // Les langues réellement proposées aujourd'hui sur la plateforme — limité
@@ -115,8 +114,6 @@ export default function CoursDeLangues() {
           </div>
         </div>
       </section>
-
-      <Breadcrumb />
 
       {/* ── RÉSULTATS ── */}
       <section className="py-10">

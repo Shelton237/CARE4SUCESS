@@ -2,7 +2,6 @@ import { NavLink } from "react-router-dom";
 import { ArrowRight, GraduationCap, Globe, Briefcase } from "lucide-react";
 import { IMAGES } from "@/assets/images";
 import { ROUTE_PATHS } from "@/lib/index";
-import { Breadcrumb } from "@/components/Layout";
 
 const OBJECTIVE_CARDS = [
   {
@@ -55,8 +54,6 @@ export default function Professeurs() {
           </p>
         </div>
       </section>
-
-      <Breadcrumb />
 
       {/* ── QUEL EST VOTRE OBJECTIF ── */}
       <section className="py-20 md:py-24 bg-white">

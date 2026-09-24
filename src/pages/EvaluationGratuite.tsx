@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { NavLink } from "react-router-dom";
-import { CheckCircle2, ArrowRight, ChevronRight, Clock } from "lucide-react";
+import { CheckCircle2, ArrowRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -156,16 +156,9 @@ export default function EvaluationGratuite() {
         <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 22%)", maskImage: "linear-gradient(to right, transparent 0%, #000 22%)" }} />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.15%] relative z-10 pt-8 pb-10 xl:pt-[19px] xl:pb-0">
-          <nav aria-label="Fil d'Ariane" className="flex flex-wrap items-center gap-2 text-sm xl:text-[14.6px] text-white/85">
-            <NavLink to={ROUTE_PATHS.HOME} className="hover:text-white transition-colors">Accueil</NavLink>
-            <ChevronRight className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-white/60" />
-            <NavLink to={ROUTE_PATHS.PROFESSEURS} className="hover:text-white transition-colors">Trouver un coach</NavLink>
-            <ChevronRight className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-white/60" />
-            <span>Évaluation gratuite</span>
-          </nav>
+        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.15%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
 
-          <p className="mt-4 xl:mt-[16px] text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">Évaluation gratuite</p>
+          <p className="text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">Évaluation gratuite</p>
           <h1
             className="mt-2 xl:mt-[8px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[58px] leading-[1.12] xl:leading-[60px]"
             style={{ fontFamily: "'Playfair Display', serif" }}

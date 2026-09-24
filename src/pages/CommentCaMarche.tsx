@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
-  ArrowRight, Briefcase, ChevronRight, CircleUser, ClipboardList, GraduationCap, UserRound, UsersRound,
+  ArrowRight, Briefcase, CircleUser, ClipboardList, GraduationCap, UserRound, UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
@@ -77,14 +77,9 @@ export default function CommentCaMarche() {
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012853] to-transparent" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.35%] relative z-10 pt-8 pb-10 xl:pt-[17px] xl:pb-0">
-          <nav aria-label="Fil d'Ariane" className="flex items-center gap-2 text-sm xl:text-[14.6px] text-white/85">
-            <NavLink to={ROUTE_PATHS.HOME} className="hover:text-white transition-colors">Accueil</NavLink>
-            <ChevronRight className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-white/60" />
-            <span>Comment ça marche</span>
-          </nav>
+        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.35%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
 
-          <p className="mt-4 xl:mt-[16px] text-[#F5A623] text-sm xl:text-[15px] font-bold uppercase tracking-[0.14em]">Comment ça marche</p>
+          <p className="text-[#F5A623] text-sm xl:text-[15px] font-bold uppercase tracking-[0.14em]">Comment ça marche</p>
           <h1
             className="mt-2 xl:mt-[8px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[64px] leading-[1.12] xl:leading-[63px]"
             style={SERIF}

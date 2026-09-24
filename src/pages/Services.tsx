@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   ArrowRight, BadgeCheck, BookOpen, CirclePlay, ClipboardCheck, ClipboardList, GraduationCap,
-  School, Star, TrendingUp, UserCog, UsersRound, ShieldCheck, Heart, ChevronRight, type LucideIcon,
+  School, Star, TrendingUp, UserCog, UsersRound, ShieldCheck, Heart, type LucideIcon,
 } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { BarsFilled, BarsOutline, HandUnderline, ShieldFilled, UsersFilled, type FilledIcon } from "@/components/decor";
@@ -75,14 +75,9 @@ export default function Services() {
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012B54] to-transparent" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.15%] relative z-10 pt-8 pb-10 xl:pt-[19px] xl:pb-0">
-          <nav aria-label="Fil d'Ariane" className="flex items-center gap-2 text-sm xl:text-[14.6px] text-white/85">
-            <NavLink to={ROUTE_PATHS.HOME} className="hover:text-white transition-colors">Accueil</NavLink>
-            <ChevronRight className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-white/60" />
-            <span>Soutien scolaire</span>
-          </nav>
+        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.15%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
 
-          <p className="mt-4 xl:mt-[14px] text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">Soutien scolaire</p>
+          <p className="text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">Soutien scolaire</p>
           <h1
             className="mt-2 xl:mt-[7px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[66px] leading-[1.12] xl:leading-[62px]"
             style={SERIF}

@@ -4,7 +4,6 @@ import { ArrowRight, BookOpen, Check } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { IMAGES } from "@/assets/images";
-import { Breadcrumb } from "@/components/Layout";
 
 const LEVELS = [
   {
@@ -93,8 +92,6 @@ export default function Niveaux() {
           </motion.div>
         </div>
       </section>
-
-      <Breadcrumb />
 
       {/* ── STATS ── */}
       <section className="bg-white border-b border-gray-100">

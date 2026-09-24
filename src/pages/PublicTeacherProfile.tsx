@@ -18,7 +18,6 @@ import {
 } from "@/api/public";
 import { formatMoney } from "@/lib/money";
 import { ROUTE_PATHS } from "@/lib/index";
-import { Breadcrumb } from "@/components/Layout";
 import { IMAGES } from "@/assets/images";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -663,7 +662,6 @@ export default function PublicTeacherProfile() {
     if (isLoading) {
         return (
             <div className="min-h-screen bg-[#F4F2ED]">
-                <Breadcrumb />
                 <div className="flex flex-col items-center gap-3 py-32">
                     <Loader2 className="w-8 h-8 animate-spin text-[#1A6CC8]" />
                     <p className="text-sm text-gray-400">Chargement du profil...</p>
@@ -675,7 +673,6 @@ export default function PublicTeacherProfile() {
     if (isError || !teacher) {
         return (
             <div className="min-h-screen bg-[#F4F2ED]">
-                <Breadcrumb />
                 <div className="flex flex-col items-center justify-center gap-4 text-center px-6 py-32">
                     <p className="text-xl font-bold text-[#0D2D5A]">Enseignant introuvable</p>
                     <NavLink to={ROUTE_PATHS.ANNUAIRE_COACHS} className="text-[#1A6CC8] font-semibold hover:underline text-sm">
@@ -747,8 +744,6 @@ export default function PublicTeacherProfile() {
                     </div>
                 </div>
             </section>
-
-            <Breadcrumb />
 
             {/* ── Contenu principal ── */}
             <section className="mx-auto max-w-[1108px] px-6 py-9 pb-16">

@@ -84,14 +84,9 @@ export default function LanguesLanding() {
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#002A53] to-transparent" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.05%] relative z-10 pt-8 pb-10 xl:pt-[15px] xl:pb-0">
-          <nav aria-label="Fil d'Ariane" className="flex items-center gap-2 text-sm xl:text-[14.6px] text-white/85">
-            <NavLink to={ROUTE_PATHS.HOME} className="hover:text-white transition-colors">Accueil</NavLink>
-            <ChevronRight className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-white/60" />
-            <span>Langues</span>
-          </nav>
+        <div className="mx-auto max-w-[1920px] px-6 xl:pl-[6.05%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
 
-          <p className="mt-4 xl:mt-[13px] text-[#F5A623] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">Langues</p>
+          <p className="text-[#F5A623] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">Langues</p>
           <h1
             className="mt-2 xl:mt-[5px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[70px] leading-[1.1] xl:leading-[63px]"
             style={SERIF}

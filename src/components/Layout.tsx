@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Menu, X, ArrowRight, ChevronRight, ChevronDown, Home as HomeIcon, User } from "lucide-react";
+import { Menu, X, ArrowRight, ChevronDown, User } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -90,106 +90,6 @@ function LanguageSelector() {
           <li role="option" aria-disabled className="px-3 py-2 text-gray-400">English (bientôt)</li>
         </ul>
       )}
-    </div>
-  );
-}
-
-// Libellés du fil d'Ariane par route statique. Les routes dynamiques
-// (/professeurs/:id, /cours-groupe/:id) sont gérées à part car leur
-// dernier segment n'est pas un libellé lisible.
-const BREADCRUMB_LABELS: Record<string, string> = {
-  [ROUTE_PATHS.SERVICES]: "Services",
-  [ROUTE_PATHS.NIVEAUX]: "Niveaux",
-  [ROUTE_PATHS.PROFESSEURS]: "Trouver un coach",
-  [ROUTE_PATHS.ANNUAIRE_COACHS]: "Nos coachs",
-  [ROUTE_PATHS.DEVENIR_PROFESSEUR]: "Devenir coach",
-  [ROUTE_PATHS.COMMENT_CA_MARCHE]: "Comment ça marche",
-  [ROUTE_PATHS.FAQ]: "FAQ",
-  [ROUTE_PATHS.COMPETENCES]: "Compétences et carrière",
-  "/recrutement": "Devenir coach",
-  [ROUTE_PATHS.CONTACT]: "Contact",
-  "/inscription": "Inscription",
-  [ROUTE_PATHS.A_PROPOS]: "À propos",
-  [ROUTE_PATHS.POLITIQUE_CONFIDENTIALITE]: "Politique de confidentialité",
-};
-
-function getBreadcrumbTrail(pathname: string): { label: string; to?: string }[] {
-  if (pathname === ROUTE_PATHS.HOME) return [];
-
-  if (pathname.startsWith("/professeurs/")) {
-    return [
-      { label: "Nos coachs", to: ROUTE_PATHS.ANNUAIRE_COACHS },
-      { label: "Profil du coach" },
-    ];
-  }
-  if (pathname.startsWith("/cours-groupe/")) {
-    return [{ label: "Cours groupé" }];
-  }
-  if (pathname === ROUTE_PATHS.EVALUATION_GRATUITE) {
-    return [
-      { label: "Trouver un coach", to: ROUTE_PATHS.PROFESSEURS },
-      { label: "Évaluation gratuite" },
-    ];
-  }
-  if (pathname === ROUTE_PATHS.COACHS_LANGUES) {
-    return [
-      { label: "Langues", to: ROUTE_PATHS.COURS_DE_LANGUES },
-      { label: "Nos coachs de langue" },
-    ];
-  }
-
-  const label = BREADCRUMB_LABELS[pathname];
-  if (label) return [{ label }];
-
-  return [{ label: "Page introuvable" }];
-}
-
-// Pages avec un hero photo : elles importent Breadcrumb et le placent
-// elles-mêmes juste en dessous de leur section hero, donc le rendu global
-// de Layout est sauté sur ces routes pour ne pas le dupliquer au-dessus du hero.
-const SELF_RENDERED_BREADCRUMB_ROUTES = new Set<string>([
-  ROUTE_PATHS.SERVICES,
-  ROUTE_PATHS.NIVEAUX,
-  ROUTE_PATHS.PROFESSEURS,
-  ROUTE_PATHS.ANNUAIRE_COACHS,
-  ROUTE_PATHS.COURS_DE_LANGUES,
-  ROUTE_PATHS.COACHS_LANGUES,
-  ROUTE_PATHS.DEVENIR_PROFESSEUR,
-  "/recrutement",
-  ROUTE_PATHS.COMMENT_CA_MARCHE,
-  ROUTE_PATHS.FAQ,
-  ROUTE_PATHS.COMPETENCES,
-  ROUTE_PATHS.CONTACT,
-  ROUTE_PATHS.EVALUATION_GRATUITE,
-  ROUTE_PATHS.A_PROPOS,
-]);
-
-export function Breadcrumb() {
-  const { pathname } = useLocation();
-  const trail = getBreadcrumbTrail(pathname);
-  if (trail.length === 0) return null;
-
-  return (
-    <div className="bg-[#F4F2ED] border-t border-[#0D2D5A]/5">
-      <div className="container mx-auto px-6 max-w-5xl py-4">
-        <nav aria-label="Fil d'Ariane" className="flex items-center flex-wrap gap-2 text-sm font-semibold text-[#0D2D5A]/60">
-          <NavLink to={ROUTE_PATHS.HOME} className="flex items-center gap-1.5 hover:text-[#0D2D5A] transition-colors">
-            <HomeIcon className="w-4 h-4" /> Accueil
-          </NavLink>
-          {trail.map((item, i) => (
-            <span key={item.label} className="flex items-center gap-2">
-              <ChevronRight className="w-3.5 h-3.5 text-[#0D2D5A]/30" />
-              {item.to ? (
-                <NavLink to={item.to} className="hover:text-[#0D2D5A] transition-colors">
-                  {item.label}
-                </NavLink>
-              ) : (
-                <span className={i === trail.length - 1 ? "text-[#0D2D5A]" : ""}>{item.label}</span>
-              )}
-            </span>
-          ))}
-        </nav>
-      </div>
     </div>
   );
 }
@@ -310,8 +210,6 @@ export function Layout({ children }: LayoutProps) {
           )}
         </AnimatePresence>
       </header>
-
-      {!SELF_RENDERED_BREADCRUMB_ROUTES.has(pathname) && !pathname.startsWith("/professeurs/") && <Breadcrumb />}
 
       {/* MAIN */}
       <main className="flex-1">{children}</main>

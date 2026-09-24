@@ -10,7 +10,6 @@ import { ALL_SUBJECTS } from "@/lib/education";
 import { COACH_CATEGORIES, SUBJECT_TO_CATEGORY } from "@/lib/coachCategories";
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
-import { Breadcrumb } from "@/components/Layout";
 
 const STATS = [
   { value: "500+", label: "coachs actifs",       icon: Users },
@@ -74,8 +73,6 @@ export default function AnnuaireCoachs() {
           </motion.div>
         </div>
       </section>
-
-      <Breadcrumb />
 
       {/* ── STATS ── */}
       <section className="bg-white border-b border-gray-100">
