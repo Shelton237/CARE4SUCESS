@@ -452,6 +452,7 @@ export default function VirtualClassroom() {
             if (ev.t === 'grant') {
                 setBoardAccess(ev.allow ? 'granted' : 'none');
                 if (ev.allow) toast.success("L'enseignant vous a donné la main sur le tableau.");
+                else if (ev.reason === 'replaced') toast("L'enseignant a donné la main à un autre participant.");
                 else toast("L'enseignant a repris la main sur le tableau.");
                 return;
             }
@@ -865,10 +866,8 @@ export default function VirtualClassroom() {
         try {
             await answerBoardRequest(sessionId, token, target.cid, allow);
             setBoardRequests((prev) => prev.filter((r) => r.cid !== target.cid));
-            setBoardAllowed((prev) => {
-                const rest = prev.filter((r) => r.cid !== target.cid);
-                return allow ? [...rest, target] : rest;
-            });
+            // Un seul participant a la main à la fois : accepter remplace le précédent.
+            setBoardAllowed((prev) => (allow ? [target] : prev.filter((r) => r.cid !== target.cid)));
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Impossible de répondre à la demande.");
         }

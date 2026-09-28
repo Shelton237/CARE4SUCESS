@@ -3826,6 +3826,12 @@ app.post("/api/sessions/:id/board-grant", optionalAuth, async (req, res) => {
     if (allow) {
       let grants = boardGrants.get(id);
       if (!grants) { grants = new Set(); boardGrants.set(id, grants); }
+      // Un seul spectateur à la fois : donner la main à l'un la retire à celui qui l'avait.
+      for (const other of [...grants]) {
+        if (other === cid) continue;
+        grants.delete(other);
+        notifyBoardClient(id, other, { t: "grant", allow: false, reason: "replaced" });
+      }
       grants.add(cid);
     } else {
       boardGrants.get(id)?.delete(cid);

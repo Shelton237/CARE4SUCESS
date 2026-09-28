@@ -14,7 +14,8 @@ export type BoardEvent =
     | { t: "req"; cid: string; name: string }
     | { t: "req-cancel"; cid: string }
     // Reçu par le spectateur concerné : la main est accordée / retirée.
-    | { t: "grant"; allow: boolean };
+    // `reason: "replaced"` = la main est passée à un autre spectateur (un seul à la fois).
+    | { t: "grant"; allow: boolean; reason?: "replaced" };
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const FLUSH_DELAY_MS = 60;
