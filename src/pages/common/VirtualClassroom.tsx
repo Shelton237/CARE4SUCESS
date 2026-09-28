@@ -7,7 +7,10 @@ import { fetchScheduleByRole, fetchPublicSession, fetchCourseDetails, uploadMess
 import { jsPDF } from "jspdf";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { createBoardPublisher, subscribeBoard, type BoardEvent } from "@/lib/boardLive";
+import {
+    createBoardPublisher, subscribeBoard, getBoardClientId, requestBoardAccess, answerBoardRequest,
+    type BoardEvent,
+} from "@/lib/boardLive";
 import {
     Loader2,
     X,
@@ -22,6 +25,8 @@ import {
     Palette,
     Code2,
     Eraser,
+    Hand,
+    Pencil,
     Share2,
     Video,
     CheckCircle2,
@@ -206,6 +211,14 @@ export default function VirtualClassroom() {
     const lastBoardAppliedRef = useRef<string | null>(null);
     const viewerLastPointRef = useRef<{ x: number; y: number } | null>(null);
     const [boardLive, setBoardLive] = useState(false);
+    // Demande de la main : un élève / invité demande à dessiner, l'enseignant décide.
+    const boardCid = useMemo(() => (sessionId ? getBoardClientId(sessionId) : ""), [sessionId]);
+    const guestNameRef = useRef<string | undefined>(undefined);
+    const [boardAccess, setBoardAccess] = useState<'none' | 'pending' | 'granted'>('none');
+    const [boardRequests, setBoardRequests] = useState<{ cid: string; name: string }[]>([]);
+    const [boardAllowed, setBoardAllowed] = useState<{ cid: string; name: string }[]>([]);
+    const remotePersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const workspaceUpdateRef = useRef<((type: 'notes' | 'code' | 'whiteboard' | 'whiteboardItems', value: any) => void) | null>(null);
     const [drawColor, setDrawColor] = useState("#1A6CC8");
     const [strokeWidth, setStrokeWidth] = useState(4);
     const [tool, setTool] = useState<DrawTool>("pen");
@@ -286,6 +299,9 @@ export default function VirtualClassroom() {
         !isCompleted &&
         user && (user.role === "admin" || (user.role === "teacher" && user.id === currentSession?.teacherId))
     );
+    // Dessiner sur le tableau : l'enseignant, ou un spectateur à qui il a donné la main.
+    // (Notes, code et pièces jointes restent réservés à l'enseignant.)
+    const canDraw = canEdit || (boardAccess === 'granted' && !isCompleted);
 
     // Séance terminée : pas d'appel vidéo à rejoindre, on ouvre directement
     // sur les Notes plutôt que sur un onglet "video" vide (par défaut sur mobile).
@@ -362,7 +378,8 @@ export default function VirtualClassroom() {
             if (currentSession.whiteboardData && canvasRef.current) {
                 // Spectateur relié au flux temps réel : son canvas est déjà à jour,
                 // sauf au tout premier chargement (contenu existant avant l'arrivée).
-                const liveHandlesIt = !canEdit && liveConnectedRef.current && initialCanvasLoadedRef.current;
+                // L'enseignant, lui, est la source de vérité une fois le tableau chargé.
+                const liveHandlesIt = initialCanvasLoadedRef.current && (canEdit || liveConnectedRef.current);
                 if (!liveHandlesIt && currentSession.whiteboardData !== lastBoardAppliedRef.current) {
                     lastBoardAppliedRef.current = currentSession.whiteboardData;
                     const canvas = canvasRef.current;
@@ -381,21 +398,23 @@ export default function VirtualClassroom() {
         }
     }, [currentSession]);
 
-    // Temps réel — enseignant : file d'envoi des traits vers les spectateurs.
+    // Temps réel : file d'envoi des traits, pour l'enseignant et pour un spectateur
+    // à qui l'enseignant a donné la main.
     useEffect(() => {
-        if (!sessionId || !canEdit) return;
-        const publisher = createBoardPublisher(sessionId, () => tokenRef.current);
+        if (!sessionId || !canDraw || !boardCid) return;
+        const publisher = createBoardPublisher(sessionId, () => tokenRef.current, boardCid);
         publisherRef.current = publisher;
         return () => {
             publisher.dispose();
             publisherRef.current = null;
             if (snapTimerRef.current) { clearTimeout(snapTimerRef.current); snapTimerRef.current = null; }
         };
-    }, [sessionId, canEdit]);
+    }, [sessionId, canDraw, boardCid]);
 
-    // Temps réel — spectateur (élève, parent, invité) : reçoit les traits en direct.
+    // Temps réel — tout le monde : reçoit les traits en direct ; l'enseignant reçoit
+    // en plus les demandes de main, et le spectateur la réponse de l'enseignant.
     useEffect(() => {
-        if (!sessionId || canEdit || isCompleted) return;
+        if (!sessionId || isCompleted || !boardCid) return;
         const loadSnapshot = (dataUrl: string) => new Promise<void>((resolve) => {
             const canvas = canvasRef.current;
             const ctx = canvas?.getContext('2d');
@@ -409,13 +428,40 @@ export default function VirtualClassroom() {
             img.onerror = () => resolve();
             img.src = dataUrl;
         });
+        // L'enseignant reste la seule source de vérité enregistrée : ce qu'un élève
+        // autorisé dessine est rejoué chez lui, puis sauvegardé avec le reste.
+        const persistRemoteDrawing = () => {
+            if (!canEdit) return;
+            if (remotePersistTimerRef.current) clearTimeout(remotePersistTimerRef.current);
+            remotePersistTimerRef.current = setTimeout(() => {
+                const c = canvasRef.current;
+                if (c) workspaceUpdateRef.current?.('whiteboard', c.toDataURL());
+            }, 1500);
+        };
         const applyEvent = async (ev: BoardEvent) => {
+            if (ev.t === 'req') {
+                setBoardRequests((prev) => (prev.some((r) => r.cid === ev.cid) ? prev : [...prev, { cid: ev.cid, name: ev.name }]));
+                toast(`${ev.name} demande la main sur le tableau`);
+                return;
+            }
+            if (ev.t === 'req-cancel') {
+                setBoardRequests((prev) => prev.filter((r) => r.cid !== ev.cid));
+                setBoardAllowed((prev) => prev.filter((r) => r.cid !== ev.cid));
+                return;
+            }
+            if (ev.t === 'grant') {
+                setBoardAccess(ev.allow ? 'granted' : 'none');
+                if (ev.allow) toast.success("L'enseignant vous a donné la main sur le tableau.");
+                else toast("L'enseignant a repris la main sur le tableau.");
+                return;
+            }
             const canvas = canvasRef.current;
             const ctx = canvas?.getContext('2d');
             if (!canvas || !ctx) return;
             if (ev.t === 'snap') {
                 viewerLastPointRef.current = null;
                 await loadSnapshot(ev.d);
+                persistRemoteDrawing();
                 return;
             }
             if (ev.t !== 's' || ev.p.length === 0) return;
@@ -433,6 +479,7 @@ export default function VirtualClassroom() {
             ctx.restore();
             const last = ev.p[ev.p.length - 1];
             viewerLastPointRef.current = { x: last[0], y: last[1] };
+            persistRemoteDrawing();
         };
         // Les événements sont appliqués dans l'ordre : un instantané (asynchrone)
         // ne doit pas écraser des traits arrivés juste après lui.
@@ -440,6 +487,7 @@ export default function VirtualClassroom() {
         const unsubscribe = subscribeBoard(
             sessionId,
             token,
+            boardCid,
             (ev) => { chain = chain.then(() => applyEvent(ev)).catch((): void => undefined); },
             (connected) => { liveConnectedRef.current = connected; setBoardLive(connected); },
         );
@@ -447,8 +495,9 @@ export default function VirtualClassroom() {
             unsubscribe();
             liveConnectedRef.current = false;
             setBoardLive(false);
+            if (remotePersistTimerRef.current) { clearTimeout(remotePersistTimerRef.current); remotePersistTimerRef.current = null; }
         };
-    }, [sessionId, canEdit, isCompleted, token]);
+    }, [sessionId, canEdit, isCompleted, token, boardCid]);
 
     // Mutations
     const checkInMutation = useMutation({
@@ -512,6 +561,8 @@ export default function VirtualClassroom() {
             });
         }, 1500);
     };
+
+    workspaceUpdateRef.current = handleWorkspaceUpdate;
 
     const handleAddYoutubeVideo = () => {
         const videoId = previewYoutubeId;
@@ -787,6 +838,42 @@ export default function VirtualClassroom() {
         snapTimerRef.current = setTimeout(publishSnapshot, 1200);
     };
 
+    // Demande de la main (élève / invité) et réponse de l'enseignant.
+    const boardDisplayName = () => guestNameRef.current || user?.name || "Invité";
+    const handleRequestBoard = async () => {
+        if (!sessionId) return;
+        setBoardAccess('pending');
+        try {
+            await requestBoardAccess(sessionId, token, boardCid, boardDisplayName());
+            toast("Demande envoyée à l'enseignant.");
+        } catch (err) {
+            setBoardAccess('none');
+            toast.error(err instanceof Error ? err.message : "Impossible d'envoyer la demande.");
+        }
+    };
+    const handleReleaseBoard = async () => {
+        if (!sessionId) return;
+        const wasGranted = boardAccess === 'granted';
+        setBoardAccess('none');
+        try {
+            await requestBoardAccess(sessionId, token, boardCid, boardDisplayName(), true);
+            if (wasGranted) toast("Vous avez rendu la main.");
+        } catch { /* la main est déjà rendue côté écran */ }
+    };
+    const handleAnswerRequest = async (target: { cid: string; name: string }, allow: boolean) => {
+        if (!sessionId) return;
+        try {
+            await answerBoardRequest(sessionId, token, target.cid, allow);
+            setBoardRequests((prev) => prev.filter((r) => r.cid !== target.cid));
+            setBoardAllowed((prev) => {
+                const rest = prev.filter((r) => r.cid !== target.cid);
+                return allow ? [...rest, target] : rest;
+            });
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Impossible de répondre à la demande.");
+        }
+    };
+
     const restoreCanvasFromDataUrl = (dataUrl: string) => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
@@ -830,7 +917,7 @@ export default function VirtualClassroom() {
     };
 
     const startDrawing = (e: any) => {
-        if (!canEdit) return;
+        if (!canDraw) return;
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
         if (!canvas || !ctx) return;
@@ -1051,6 +1138,7 @@ export default function VirtualClassroom() {
                 // ce que la personne a réellement saisi ; user?.name ne sert que de
                 // repli pour les comptes connectés si l'événement ne le fournit pas.
                 const joinedDisplayName = event?.displayName || user?.name;
+                guestNameRef.current = joinedDisplayName || undefined;
                 logSessionParticipantJoin(sessionId!, joinedDisplayName)
                     .then((r) => { participantIdRef.current = r.id; })
                     .catch(() => {});
@@ -1371,7 +1459,7 @@ export default function VirtualClassroom() {
 
                         {/* Whiteboard View */}
                         <div className={cn("flex-1 flex flex-col p-4 md:p-6 gap-4", activeTab !== 'whiteboard' && "hidden")}>
-                            {canEdit && (
+                            {canDraw && (
                             <div className="flex flex-col gap-2">
                                 {/* Rangée 1 : outils de dessin + historique */}
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1389,11 +1477,14 @@ export default function VirtualClassroom() {
                                         <div className="w-px h-5 bg-slate-100 mx-1" />
                                         <button onClick={() => setTool('text')} className={`p-2 rounded-xl transition-all ${tool === 'text' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Texte (idéal pour le vocabulaire, les corrections de langue)"><Type className="w-4 h-4" /></button>
                                     </div>
+                                    {/* Annuler / effacer tout : réservés à l'enseignant (un élève dispose de la gomme) */}
+                                    {canEdit && (
                                     <div className="flex items-center gap-1">
                                         <button onClick={handleUndo} disabled={!history.length} className="p-2 rounded-xl bg-slate-50 text-slate-400 disabled:opacity-30 transition-all" title="Annuler"><Undo2 className="w-4 h-4" /></button>
                                         <button onClick={handleRedo} disabled={!redoStack.length} className="p-2 rounded-xl bg-slate-50 text-slate-400 disabled:opacity-30 transition-all" title="Rétablir"><Redo2 className="w-4 h-4" /></button>
                                         <button onClick={handleClearBoard} className="p-2 rounded-xl bg-slate-50 text-red-400 hover:bg-red-50 transition-all" title="Effacer tout le tableau"><Trash2 className="w-4 h-4" /></button>
                                     </div>
+                                    )}
                                 </div>
 
                                 {/* Rangée 2 : couleurs, épaisseur, grille (maths/physique), import, agrandir */}
@@ -1432,6 +1523,7 @@ export default function VirtualClassroom() {
                                         </button>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {canEdit && (<>
                                         <button onClick={() => setShowYoutubeInput(v => !v)} className={`p-2 rounded-xl transition-all ${showYoutubeInput ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`} title="Importer une vidéo YouTube"><Youtube className="w-4 h-4" /></button>
                                         <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} className="p-2 rounded-xl transition-all bg-slate-50 text-slate-400 disabled:opacity-50" title="Importer un PDF">
                                             {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
@@ -1441,6 +1533,7 @@ export default function VirtualClassroom() {
                                             {uploadingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <Headphones className="w-4 h-4" />}
                                         </button>
                                         <input ref={audioInputRef} type="file" accept="audio/*" onChange={handleAudioSelected} className="hidden" />
+                                        </>)}
                                         <button
                                             onClick={() => setBoardExpanded(v => !v)}
                                             className={`hidden md:flex p-2 rounded-xl transition-all ${boardExpanded ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}
@@ -1558,10 +1651,53 @@ export default function VirtualClassroom() {
                                 } : undefined}
                             >
                                 {!canEdit && boardLive && !isCompleted && (
-                                    <span className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-600 shadow-sm">
-                                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                                        En direct
-                                    </span>
+                                    <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
+                                        <span className="flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-600 shadow-sm">
+                                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                                            En direct
+                                        </span>
+                                        {boardAccess === 'none' && (
+                                            <button
+                                                type="button"
+                                                onClick={handleRequestBoard}
+                                                className="flex items-center gap-1.5 rounded-full bg-[#0D2D5A] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white shadow-md transition-all hover:bg-[#1A6CC8] active:scale-95"
+                                            >
+                                                <Hand className="h-3.5 w-3.5" /> Demander la main
+                                            </button>
+                                        )}
+                                        {boardAccess === 'pending' && (
+                                            <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-[10px] font-bold text-amber-700 shadow-sm">
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                En attente de l'enseignant
+                                                <button type="button" onClick={handleReleaseBoard} className="ml-1 underline underline-offset-2">Annuler</button>
+                                            </div>
+                                        )}
+                                        {boardAccess === 'granted' && (
+                                            <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-bold text-emerald-700 shadow-sm">
+                                                <Hand className="h-3.5 w-3.5" /> Vous avez la main
+                                                <button type="button" onClick={handleReleaseBoard} className="ml-1 underline underline-offset-2">Rendre la main</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {canEdit && (boardRequests.length > 0 || boardAllowed.length > 0) && (
+                                    <div className="absolute top-3 left-3 z-10 flex max-w-[16rem] flex-col gap-2">
+                                        {boardRequests.map((req) => (
+                                            <div key={req.cid} className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 shadow-lg ring-1 ring-slate-100">
+                                                <Hand className="h-4 w-4 shrink-0 text-[#F5A623]" />
+                                                <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-[#0D2D5A]" title={req.name}>{req.name}</span>
+                                                <button type="button" onClick={() => handleAnswerRequest(req, true)} className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-black uppercase text-white hover:bg-emerald-600">Accepter</button>
+                                                <button type="button" onClick={() => handleAnswerRequest(req, false)} className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-500 hover:bg-slate-200">Refuser</button>
+                                            </div>
+                                        ))}
+                                        {boardAllowed.map((who) => (
+                                            <div key={who.cid} className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-3 py-2 shadow ring-1 ring-emerald-100">
+                                                <Pencil className="h-4 w-4 shrink-0 text-emerald-600" />
+                                                <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-emerald-800" title={who.name}>{who.name} dessine</span>
+                                                <button type="button" onClick={() => handleAnswerRequest(who, false)} className="rounded-lg bg-white px-2 py-1 text-[10px] font-black uppercase text-red-500 hover:bg-red-50">Retirer</button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 )}
                                 <canvas
                                     ref={canvasRef}
@@ -1569,10 +1705,10 @@ export default function VirtualClassroom() {
                                     height={1600}
                                     className={cn(
                                         "w-full h-full",
-                                        !canEdit ? "cursor-default" : tool === 'text' ? "cursor-text" : "cursor-crosshair"
+                                        !canDraw ? "cursor-default" : tool === 'text' ? "cursor-text" : "cursor-crosshair"
                                     )}
                                     // touch-action: none — sinon le doigt fait défiler la page au lieu de dessiner.
-                                    style={!canEdit ? { pointerEvents: "none" } : { touchAction: "none" }}
+                                    style={!canDraw ? { pointerEvents: "none" } : { touchAction: "none" }}
                                     onPointerDown={(e) => {
                                         if (e.pointerType === 'mouse' && e.button !== 0) return;
                                         if (e.pointerType === 'touch' && !e.isPrimary) return; // 2e doigt : ignoré

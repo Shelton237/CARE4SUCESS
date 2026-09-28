@@ -3,16 +3,44 @@
 // Server-Sent Events (SSE). SSE passe par le proxy HTTP existant, sans
 // configuration serveur supplémentaire. On utilise fetch + ReadableStream plutôt
 // qu'EventSource pour pouvoir envoyer l'en-tête Authorization.
+//
+// Un spectateur peut demander la main : l'enseignant l'accepte ou la retire, et
+// le spectateur autorisé dessine à son tour (ses traits sont diffusés à tous).
 
 export type BoardEvent =
     | { t: "s"; k: "pen" | "eraser"; c: string; w: number; p: [number, number][]; f?: boolean }
-    | { t: "snap"; d: string };
+    | { t: "snap"; d: string }
+    // Reçus par l'enseignant : un spectateur demande / annule sa demande.
+    | { t: "req"; cid: string; name: string }
+    | { t: "req-cancel"; cid: string }
+    // Reçu par le spectateur concerné : la main est accordée / retirée.
+    | { t: "grant"; allow: boolean };
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 const FLUSH_DELAY_MS = 60;
 
-/** File d'attente côté enseignant : regroupe les points d'un même trait et envoie par lots. */
-export function createBoardPublisher(sessionId: string, getToken: () => string | null | undefined) {
+const authHeaders = (token?: string | null): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {});
+
+/** Identifiant propre à cet onglet et à cette séance, conservé au rechargement de la page. */
+export function getBoardClientId(sessionId: string): string {
+    const key = `c4s-board-cid:${sessionId}`;
+    try {
+        const existing = sessionStorage.getItem(key);
+        if (existing) return existing;
+        const created = crypto.randomUUID();
+        sessionStorage.setItem(key, created);
+        return created;
+    } catch {
+        return crypto.randomUUID();
+    }
+}
+
+/** File d'attente d'envoi : regroupe les points d'un même trait et envoie par lots. */
+export function createBoardPublisher(
+    sessionId: string,
+    getToken: () => string | null | undefined,
+    cid: string,
+) {
     let queue: BoardEvent[] = [];
     let timer: ReturnType<typeof setTimeout> | null = null;
     let sending = false;
@@ -25,11 +53,10 @@ export function createBoardPublisher(sessionId: string, getToken: () => string |
         queue = [];
         sending = true;
         try {
-            const token = getToken();
             await fetch(`${API_BASE}/sessions/${sessionId}/board-events`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                body: JSON.stringify({ events }),
+                headers: { "Content-Type": "application/json", ...authHeaders(getToken()) },
+                body: JSON.stringify({ events, cid }),
             });
         } catch {
             // Réseau : les points de trait perdus seront corrigés par le prochain instantané.
@@ -63,6 +90,34 @@ export function createBoardPublisher(sessionId: string, getToken: () => string |
     };
 }
 
+async function postJson(path: string, token: string | null | undefined, body: unknown) {
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders(token) },
+        body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data as { message?: string }).message || "Requête refusée.");
+    return data;
+}
+
+/** Spectateur : demande la main (ou annule sa demande / rend la main avec `cancel`). */
+export const requestBoardAccess = (
+    sessionId: string,
+    token: string | null | undefined,
+    cid: string,
+    name: string,
+    cancel = false,
+) => postJson(`/sessions/${sessionId}/board-request`, token, { cid, name, cancel });
+
+/** Enseignant : accorde ou retire la main à un spectateur. */
+export const answerBoardRequest = (
+    sessionId: string,
+    token: string | null | undefined,
+    cid: string,
+    allow: boolean,
+) => postJson(`/sessions/${sessionId}/board-grant`, token, { cid, allow });
+
 /**
  * Écoute le flux du tableau. Se reconnecte tout seul (délai croissant, plafonné à 10 s).
  * Retourne une fonction qui arrête l'écoute.
@@ -70,6 +125,7 @@ export function createBoardPublisher(sessionId: string, getToken: () => string |
 export function subscribeBoard(
     sessionId: string,
     token: string | null | undefined,
+    cid: string,
     onEvent: (event: BoardEvent) => void,
     onStatus?: (connected: boolean) => void,
 ): () => void {
@@ -85,8 +141,8 @@ export function subscribeBoard(
         let retry = 1000;
         while (!stopped) {
             try {
-                const res = await fetch(`${API_BASE}/sessions/${sessionId}/board-stream`, {
-                    headers: { Accept: "text/event-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                const res = await fetch(`${API_BASE}/sessions/${sessionId}/board-stream?cid=${encodeURIComponent(cid)}`, {
+                    headers: { Accept: "text/event-stream", ...authHeaders(token) },
                     signal: controller.signal,
                 });
                 if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);

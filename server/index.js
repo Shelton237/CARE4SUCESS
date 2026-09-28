@@ -3641,11 +3641,19 @@ app.patch("/api/sessions/:id/sync", optionalAuth, async (req, res) => {
 // à un WebSocket). Le contenu reste persisté par PATCH /sessions/:id/sync ; les
 // événements ne servent qu'à l'affichage instantané.
 // ─────────────────────────────────────────────────────────────────────────────
-const boardSubscribers = new Map(); // sessionId -> Set<res>
+// Abonnés au flux : { res, cid, canWrite }. `cid` = identifiant aléatoire du navigateur
+// (jamais montré aux autres spectateurs) ; `canWrite` = titulaire de la séance ou admin.
+const boardSubscribers = new Map(); // sessionId -> Set<{ res, cid, canWrite }>
+const boardGrants = new Map();      // sessionId -> Set<cid> : spectateurs autorisés à dessiner
+const boardPending = new Map();     // sessionId -> Map<cid, { name, at }> : demandes en attente
+const boardRequestTimes = new Map(); // cid -> dernière demande (anti-spam)
 const BOARD_MAX_SUBSCRIBERS = 60;
 const BOARD_MAX_EVENTS_PER_POST = 300;
 const BOARD_MAX_SNAPSHOT_CHARS = 6_000_000;
 const boardWriterCache = new Map(); // `${sessionId}:${userId}` -> { result, until }
+const boardOpenCache = new Map();   // sessionId -> { open, until }
+
+const isValidCid = (cid) => typeof cid === "string" && /^[A-Za-z0-9-]{8,64}$/.test(cid);
 
 const canWriteBoard = async (sessionId, user) => {
   if (!user?.sub) return { ok: false, status: 403, message: "Seul l'enseignant peut modifier ce tableau." };
@@ -3662,6 +3670,16 @@ const canWriteBoard = async (sessionId, user) => {
   return result;
 };
 
+// Séance encore ouverte ? (vérifié pour les spectateurs autorisés à dessiner)
+const isBoardSessionOpen = async (sessionId) => {
+  const cached = boardOpenCache.get(sessionId);
+  if (cached && cached.until > Date.now()) return cached.open;
+  const [[session]] = await pool.query("SELECT status FROM sessions WHERE id = ?", [sessionId]);
+  const open = Boolean(session) && session.status !== "effectué" && session.status !== "completed";
+  boardOpenCache.set(sessionId, { open, until: Date.now() + 20_000 });
+  return open;
+};
+
 const isValidBoardEvent = (ev) => {
   if (!ev || typeof ev !== "object") return false;
   if (ev.t === "snap") return typeof ev.d === "string" && ev.d.startsWith("data:image/") && ev.d.length <= BOARD_MAX_SNAPSHOT_CHARS;
@@ -3675,11 +3693,24 @@ const isValidBoardEvent = (ev) => {
   return false;
 };
 
+const sendBoardFrame = (client, events) => {
+  try { client.res.write(events.map((ev) => `data: ${JSON.stringify(ev)}\n\n`).join("")); } catch { /* client parti */ }
+};
+const notifyBoardTeachers = (sessionId, event) => {
+  for (const client of boardSubscribers.get(sessionId) ?? []) if (client.canWrite) sendBoardFrame(client, [event]);
+};
+const notifyBoardClient = (sessionId, cid, event) => {
+  for (const client of boardSubscribers.get(sessionId) ?? []) if (client.cid === cid) sendBoardFrame(client, [event]);
+};
+
 app.get("/api/sessions/:id/board-stream", optionalAuth, async (req, res) => {
   const { id } = req.params;
+  const cid = isValidCid(req.query.cid) ? req.query.cid : null;
+  let canWrite = false;
   try {
     const [[session]] = await pool.query("SELECT id FROM sessions WHERE id = ?", [id]);
     if (!session) return res.status(404).json({ message: "Séance introuvable." });
+    canWrite = (await canWriteBoard(id, req.user)).ok;
   } catch (error) {
     console.error("[board-stream]", error);
     return res.status(500).json({ message: "Impossible d'ouvrir le flux du tableau." });
@@ -3695,34 +3726,115 @@ app.get("/api/sessions/:id/board-stream", optionalAuth, async (req, res) => {
     "X-Accel-Buffering": "no",
   });
   res.write("retry: 2000\n\n: connected\n\n");
-  subscribers.add(res);
+  const client = { res, cid, canWrite };
+  subscribers.add(client);
+  // Un enseignant qui (re)vient retrouve les demandes déjà en attente ; un
+  // spectateur qui se reconnecte retrouve son autorisation.
+  if (canWrite) {
+    for (const [pendingCid, info] of boardPending.get(id) ?? []) sendBoardFrame(client, [{ t: "req", cid: pendingCid, name: info.name }]);
+  } else if (cid && boardGrants.get(id)?.has(cid)) {
+    sendBoardFrame(client, [{ t: "grant", allow: true }]);
+  }
   const heartbeat = setInterval(() => { try { res.write(": ping\n\n"); } catch { /* fermé */ } }, 20_000);
   req.on("close", () => {
     clearInterval(heartbeat);
-    subscribers.delete(res);
-    if (subscribers.size === 0) boardSubscribers.delete(id);
+    subscribers.delete(client);
+    if (subscribers.size === 0) {
+      boardSubscribers.delete(id);
+      boardGrants.delete(id);
+      boardPending.delete(id);
+    }
   });
 });
 
 app.post("/api/sessions/:id/board-events", optionalAuth, async (req, res) => {
   const { id } = req.params;
   const events = Array.isArray(req.body?.events) ? req.body.events : null;
+  const cid = isValidCid(req.body?.cid) ? req.body.cid : null;
   if (!events || events.length === 0 || events.length > BOARD_MAX_EVENTS_PER_POST) {
     return res.status(400).json({ message: "Événements invalides." });
   }
   try {
-    const permission = await canWriteBoard(id, req.user);
-    if (!permission.ok) return res.status(permission.status).json({ message: permission.message });
+    // Autorisé : l'enseignant titulaire (ou admin), ou un spectateur à qui il a donné la main.
+    const teacher = await canWriteBoard(id, req.user);
+    const granted = !teacher.ok && cid && boardGrants.get(id)?.has(cid) && (await isBoardSessionOpen(id));
+    if (!teacher.ok && !granted) {
+      return res.status(teacher.status === 404 ? 404 : 403).json({ message: teacher.ok ? "Accès refusé." : (cid ? "Vous n'avez pas la main sur ce tableau." : teacher.message) });
+    }
     const valid = events.filter(isValidBoardEvent);
     const subscribers = boardSubscribers.get(id);
+    let delivered = 0;
     if (subscribers && valid.length > 0) {
-      const frame = valid.map((ev) => `data: ${JSON.stringify(ev)}\n\n`).join("");
-      for (const client of subscribers) { try { client.write(frame); } catch { /* client parti */ } }
+      for (const client of subscribers) {
+        if (cid && client.cid === cid) continue; // l'émetteur a déjà le tracé chez lui
+        sendBoardFrame(client, valid);
+        delivered++;
+      }
     }
-    res.json({ success: true, delivered: subscribers?.size ?? 0 });
+    res.json({ success: true, delivered });
   } catch (error) {
     console.error("[board-events]", error);
     res.status(500).json({ message: "Impossible de diffuser le tableau." });
+  }
+});
+
+// Un élève / invité demande la main (ou la rend, ou annule sa demande) : l'enseignant
+// reçoit la demande en direct et décide.
+app.post("/api/sessions/:id/board-request", optionalAuth, async (req, res) => {
+  const { id } = req.params;
+  const { cid, cancel } = req.body ?? {};
+  const name = String(req.body?.name ?? "").replace(/[\r\n<>]/g, " ").trim().slice(0, 60) || "Invité";
+  if (!isValidCid(cid)) return res.status(400).json({ message: "Identifiant invalide." });
+  try {
+    if (!(await isBoardSessionOpen(id))) return res.status(403).json({ message: "Cette séance est terminée." });
+    if (cancel) {
+      boardPending.get(id)?.delete(cid);
+      boardGrants.get(id)?.delete(cid);
+      notifyBoardTeachers(id, { t: "req-cancel", cid });
+      return res.json({ success: true });
+    }
+    const last = boardRequestTimes.get(cid) ?? 0;
+    if (Date.now() - last < 3000) return res.status(429).json({ message: "Patientez quelques secondes avant de redemander." });
+    boardRequestTimes.set(cid, Date.now());
+    if (boardRequestTimes.size > 2000) boardRequestTimes.clear();
+
+    let teachersOnline = 0;
+    for (const client of boardSubscribers.get(id) ?? []) if (client.canWrite) teachersOnline++;
+    if (teachersOnline === 0) return res.status(409).json({ message: "L'enseignant n'est pas connecté au tableau." });
+
+    let pending = boardPending.get(id);
+    if (!pending) { pending = new Map(); boardPending.set(id, pending); }
+    if (pending.size >= 30 && !pending.has(cid)) return res.status(429).json({ message: "Trop de demandes en attente." });
+    pending.set(cid, { name, at: Date.now() });
+    notifyBoardTeachers(id, { t: "req", cid, name });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[board-request]", error);
+    res.status(500).json({ message: "Impossible d'envoyer la demande." });
+  }
+});
+
+// L'enseignant accepte ou retire la main.
+app.post("/api/sessions/:id/board-grant", optionalAuth, async (req, res) => {
+  const { id } = req.params;
+  const { cid, allow } = req.body ?? {};
+  if (!isValidCid(cid)) return res.status(400).json({ message: "Identifiant invalide." });
+  try {
+    const permission = await canWriteBoard(id, req.user);
+    if (!permission.ok) return res.status(permission.status).json({ message: permission.message });
+    boardPending.get(id)?.delete(cid);
+    if (allow) {
+      let grants = boardGrants.get(id);
+      if (!grants) { grants = new Set(); boardGrants.set(id, grants); }
+      grants.add(cid);
+    } else {
+      boardGrants.get(id)?.delete(cid);
+    }
+    notifyBoardClient(id, cid, { t: "grant", allow: Boolean(allow) });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[board-grant]", error);
+    res.status(500).json({ message: "Impossible de modifier l'autorisation." });
   }
 });
 
