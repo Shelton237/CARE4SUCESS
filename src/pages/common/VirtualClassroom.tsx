@@ -7,6 +7,7 @@ import { fetchScheduleByRole, fetchPublicSession, fetchCourseDetails, uploadMess
 import { jsPDF } from "jspdf";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import { createBoardPublisher, subscribeBoard, type BoardEvent } from "@/lib/boardLive";
 import {
     Loader2,
     X,
@@ -191,7 +192,20 @@ export default function VirtualClassroom() {
 
     // Whiteboard state
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [isDrawing, setIsDrawing] = useState(false);
+    // Ref (et non state) : l'état "je dessine" doit être vrai dès le pointerdown,
+    // avant le prochain rendu, sinon le premier point du trait est perdu.
+    const drawingRef = useRef(false);
+    // Temps réel : l'enseignant publie ses traits, les spectateurs les reçoivent.
+    const tokenRef = useRef(token);
+    tokenRef.current = token;
+    const publisherRef = useRef<ReturnType<typeof createBoardPublisher> | null>(null);
+    const strokeFirstRef = useRef(false);
+    const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const liveConnectedRef = useRef(false);
+    const initialCanvasLoadedRef = useRef(false);
+    const lastBoardAppliedRef = useRef<string | null>(null);
+    const viewerLastPointRef = useRef<{ x: number; y: number } | null>(null);
+    const [boardLive, setBoardLive] = useState(false);
     const [drawColor, setDrawColor] = useState("#1A6CC8");
     const [strokeWidth, setStrokeWidth] = useState(4);
     const [tool, setTool] = useState<DrawTool>("pen");
@@ -346,13 +360,95 @@ export default function VirtualClassroom() {
             if (Array.isArray(currentSession.whiteboardItems)) setWhiteboardItems(normalizeWhiteboardItems(currentSession.whiteboardItems));
 
             if (currentSession.whiteboardData && canvasRef.current) {
-                const ctx = canvasRef.current.getContext('2d');
-                const img = new Image();
-                img.onload = () => ctx?.drawImage(img, 0, 0);
-                img.src = currentSession.whiteboardData;
+                // Spectateur relié au flux temps réel : son canvas est déjà à jour,
+                // sauf au tout premier chargement (contenu existant avant l'arrivée).
+                const liveHandlesIt = !canEdit && liveConnectedRef.current && initialCanvasLoadedRef.current;
+                if (!liveHandlesIt && currentSession.whiteboardData !== lastBoardAppliedRef.current) {
+                    lastBoardAppliedRef.current = currentSession.whiteboardData;
+                    const canvas = canvasRef.current;
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.onload = () => {
+                        // Un spectateur repart d'un canvas vierge : sinon ce que
+                        // l'enseignant a effacé resterait affiché.
+                        if (!canEdit) ctx?.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx?.drawImage(img, 0, 0);
+                    };
+                    img.src = currentSession.whiteboardData;
+                }
+                initialCanvasLoadedRef.current = true;
             }
         }
     }, [currentSession]);
+
+    // Temps réel — enseignant : file d'envoi des traits vers les spectateurs.
+    useEffect(() => {
+        if (!sessionId || !canEdit) return;
+        const publisher = createBoardPublisher(sessionId, () => tokenRef.current);
+        publisherRef.current = publisher;
+        return () => {
+            publisher.dispose();
+            publisherRef.current = null;
+            if (snapTimerRef.current) { clearTimeout(snapTimerRef.current); snapTimerRef.current = null; }
+        };
+    }, [sessionId, canEdit]);
+
+    // Temps réel — spectateur (élève, parent, invité) : reçoit les traits en direct.
+    useEffect(() => {
+        if (!sessionId || canEdit || isCompleted) return;
+        const loadSnapshot = (dataUrl: string) => new Promise<void>((resolve) => {
+            const canvas = canvasRef.current;
+            const ctx = canvas?.getContext('2d');
+            if (!canvas || !ctx) { resolve(); return; }
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = dataUrl;
+        });
+        const applyEvent = async (ev: BoardEvent) => {
+            const canvas = canvasRef.current;
+            const ctx = canvas?.getContext('2d');
+            if (!canvas || !ctx) return;
+            if (ev.t === 'snap') {
+                viewerLastPointRef.current = null;
+                await loadSnapshot(ev.d);
+                return;
+            }
+            if (ev.t !== 's' || ev.p.length === 0) return;
+            ctx.save();
+            ctx.strokeStyle = ev.c;
+            ctx.lineWidth = ev.w;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            const from = ev.f ? null : viewerLastPointRef.current;
+            const first = ev.p[0];
+            ctx.moveTo(from ? from.x : first[0], from ? from.y : first[1]);
+            for (const [x, y] of ev.p) ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.restore();
+            const last = ev.p[ev.p.length - 1];
+            viewerLastPointRef.current = { x: last[0], y: last[1] };
+        };
+        // Les événements sont appliqués dans l'ordre : un instantané (asynchrone)
+        // ne doit pas écraser des traits arrivés juste après lui.
+        let chain: Promise<void> = Promise.resolve();
+        const unsubscribe = subscribeBoard(
+            sessionId,
+            token,
+            (ev) => { chain = chain.then(() => applyEvent(ev)).catch((): void => undefined); },
+            (connected) => { liveConnectedRef.current = connected; setBoardLive(connected); },
+        );
+        return () => {
+            unsubscribe();
+            liveConnectedRef.current = false;
+            setBoardLive(false);
+        };
+    }, [sessionId, canEdit, isCompleted, token]);
 
     // Mutations
     const checkInMutation = useMutation({
@@ -678,6 +774,19 @@ export default function VirtualClassroom() {
         setRedoStack([]);
     };
 
+    // Temps réel : instantané complet du tableau envoyé aux spectateurs (formes,
+    // texte, annuler/rétablir, effacer — tout ce qui ne se rejoue pas point à point).
+    const publishSnapshot = () => {
+        const canvas = canvasRef.current;
+        if (snapTimerRef.current) { clearTimeout(snapTimerRef.current); snapTimerRef.current = null; }
+        if (!canvas || !publisherRef.current) return;
+        publisherRef.current.push({ t: 'snap', d: canvas.toDataURL() });
+    };
+    const scheduleSnapshot = () => {
+        if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
+        snapTimerRef.current = setTimeout(publishSnapshot, 1200);
+    };
+
     const restoreCanvasFromDataUrl = (dataUrl: string) => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
@@ -687,6 +796,7 @@ export default function VirtualClassroom() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(img, 0, 0);
             handleWorkspaceUpdate('whiteboard', canvas.toDataURL());
+            publishSnapshot();
         };
         img.src = dataUrl;
     };
@@ -716,6 +826,7 @@ export default function VirtualClassroom() {
         pushHistory();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         handleWorkspaceUpdate('whiteboard', canvas.toDataURL());
+        publishSnapshot();
     };
 
     const startDrawing = (e: any) => {
@@ -734,6 +845,7 @@ export default function VirtualClassroom() {
                 ctx.textBaseline = 'top';
                 ctx.fillText(text.trim(), point.x, point.y);
                 handleWorkspaceUpdate('whiteboard', canvas.toDataURL());
+                publishSnapshot();
             } else {
                 setHistory(h => h.slice(0, -1)); // rien écrit : pas la peine de garder ce snapshot
             }
@@ -744,7 +856,7 @@ export default function VirtualClassroom() {
             pushHistory();
             shapeStartRef.current = point;
             shapeSnapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            setIsDrawing(true);
+            drawingRef.current = true;
             return;
         }
 
@@ -755,19 +867,22 @@ export default function VirtualClassroom() {
             pushHistory();
             highlighterPointsRef.current = [point];
             shapeSnapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            setIsDrawing(true);
+            drawingRef.current = true;
             return;
         }
 
         pushHistory();
-        setIsDrawing(true);
+        drawingRef.current = true;
+        strokeFirstRef.current = true;
         ctx.beginPath();
         ctx.moveTo(point.x, point.y);
         draw(e);
     };
 
     const stopDrawing = () => {
-        setIsDrawing(false);
+        if (!drawingRef.current) return;
+        drawingRef.current = false;
+        const incremental = tool === 'pen' || tool === 'eraser';
         shapeStartRef.current = null;
         shapeSnapshotRef.current = null;
         highlighterPointsRef.current = [];
@@ -775,11 +890,15 @@ export default function VirtualClassroom() {
         if (canvas) {
             canvas.getContext('2d')?.beginPath();
             handleWorkspaceUpdate('whiteboard', canvas.toDataURL());
+            // Stylo/gomme : les points ont déjà été diffusés, un instantané de
+            // contrôle suffit une fois l'écriture calmée. Formes et surligneur ne
+            // sont visibles des spectateurs qu'au relâchement : instantané immédiat.
+            if (incremental) scheduleSnapshot(); else publishSnapshot();
         }
     };
 
     const draw = (e: any) => {
-        if (!isDrawing || !canvasRef.current) return;
+        if (!drawingRef.current || !canvasRef.current) return;
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -845,13 +964,31 @@ export default function VirtualClassroom() {
             return;
         }
 
-        ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : drawColor;
-        ctx.lineWidth = tool === 'eraser' ? 24 : strokeWidth;
+        const strokeColor = tool === 'eraser' ? '#ffffff' : drawColor;
+        const strokeSize = tool === 'eraser' ? 24 : strokeWidth;
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = strokeSize;
         ctx.lineCap = 'round';
-        ctx.lineTo(point.x, point.y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(point.x, point.y);
+        ctx.lineJoin = 'round';
+        // Les navigateurs regroupent plusieurs positions par image : les relire
+        // toutes rend le trait lisse même quand on écrit vite au doigt ou au stylet.
+        const nativeEvent = e.nativeEvent ?? e;
+        const coalesced: any[] = typeof nativeEvent.getCoalescedEvents === 'function' ? nativeEvent.getCoalescedEvents() : [];
+        const samples = coalesced.length > 0 ? coalesced : [e];
+        const sent: [number, number][] = [];
+        for (const sample of samples) {
+            const p = getCanvasPoint(sample);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            sent.push([Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10]);
+        }
+        publisherRef.current?.push({
+            t: 's', k: tool === 'eraser' ? 'eraser' : 'pen', c: strokeColor, w: strokeSize, p: sent,
+            ...(strokeFirstRef.current ? { f: true } : {}),
+        });
+        strokeFirstRef.current = false;
     };
 
     // Keep a ref to currentSession to avoid stale closures in Jitsi events
@@ -1420,6 +1557,12 @@ export default function VirtualClassroom() {
                                     backgroundSize: "24px 24px",
                                 } : undefined}
                             >
+                                {!canEdit && boardLive && !isCompleted && (
+                                    <span className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-600 shadow-sm">
+                                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                                        En direct
+                                    </span>
+                                )}
                                 <canvas
                                     ref={canvasRef}
                                     width={1200}
@@ -1428,13 +1571,17 @@ export default function VirtualClassroom() {
                                         "w-full h-full",
                                         !canEdit ? "cursor-default" : tool === 'text' ? "cursor-text" : "cursor-crosshair"
                                     )}
-                                    style={!canEdit ? { pointerEvents: "none" } : undefined}
-                                    onMouseDown={startDrawing}
-                                    onMouseUp={stopDrawing}
-                                    onMouseMove={draw}
-                                    onTouchStart={startDrawing}
-                                    onTouchEnd={stopDrawing}
-                                    onTouchMove={draw}
+                                    // touch-action: none — sinon le doigt fait défiler la page au lieu de dessiner.
+                                    style={!canEdit ? { pointerEvents: "none" } : { touchAction: "none" }}
+                                    onPointerDown={(e) => {
+                                        if (e.pointerType === 'mouse' && e.button !== 0) return;
+                                        if (e.pointerType === 'touch' && !e.isPrimary) return; // 2e doigt : ignoré
+                                        e.currentTarget.setPointerCapture?.(e.pointerId);
+                                        startDrawing(e);
+                                    }}
+                                    onPointerMove={draw}
+                                    onPointerUp={stopDrawing}
+                                    onPointerCancel={stopDrawing}
                                 />
                             </div>
                         </div>

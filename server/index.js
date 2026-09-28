@@ -2201,7 +2201,10 @@ app.use(cors({ origin: corsOrigin }));
 // `verify` conserve le corps brut de la requête (req.rawBody) — nécessaire
 // pour recalculer la signature HMAC-SHA256 des webhooks Flutterwave, qui
 // porte sur les octets exacts reçus et non sur le JSON re-sérialisé.
+// Limite relevée (défaut Express : 100 ko) : le tableau interactif synchronise
+// une image PNG du canvas, qui dépasse vite 100 ko sur un tableau bien rempli.
 app.use(express.json({
+  limit: "8mb",
   verify: (req, _res, buf) => { req.rawBody = buf; },
 }));
 
@@ -3627,6 +3630,99 @@ app.patch("/api/sessions/:id/sync", optionalAuth, async (req, res) => {
   } catch (error) {
     console.error("Failed to sync session data", error);
     res.status(500).json({ message: "Impossible de synchroniser les données." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TABLEAU INTERACTIF EN TEMPS RÉEL
+// L'enseignant titulaire est le seul à écrire : ses traits sont diffusés aux
+// spectateurs (élève, parent, invité) par Server-Sent Events. SSE passe par le
+// ProxyPass HTTP existant, sans configuration Apache supplémentaire (contrairement
+// à un WebSocket). Le contenu reste persisté par PATCH /sessions/:id/sync ; les
+// événements ne servent qu'à l'affichage instantané.
+// ─────────────────────────────────────────────────────────────────────────────
+const boardSubscribers = new Map(); // sessionId -> Set<res>
+const BOARD_MAX_SUBSCRIBERS = 60;
+const BOARD_MAX_EVENTS_PER_POST = 300;
+const BOARD_MAX_SNAPSHOT_CHARS = 6_000_000;
+const boardWriterCache = new Map(); // `${sessionId}:${userId}` -> { result, until }
+
+const canWriteBoard = async (sessionId, user) => {
+  if (!user?.sub) return { ok: false, status: 403, message: "Seul l'enseignant peut modifier ce tableau." };
+  const key = `${sessionId}:${user.sub}`;
+  const cached = boardWriterCache.get(key);
+  if (cached && cached.until > Date.now()) return cached.result;
+  const [[session]] = await pool.query("SELECT teacher_id, status FROM sessions WHERE id = ?", [sessionId]);
+  let result;
+  if (!session) result = { ok: false, status: 404, message: "Séance introuvable." };
+  else if (session.status === "effectué" || session.status === "completed") result = { ok: false, status: 403, message: "Cette séance est terminée." };
+  else if (user.role === "admin" || (user.role === "teacher" && user.sub === session.teacher_id)) result = { ok: true };
+  else result = { ok: false, status: 403, message: "Seul l'enseignant peut modifier ce tableau." };
+  boardWriterCache.set(key, { result, until: Date.now() + 20_000 });
+  return result;
+};
+
+const isValidBoardEvent = (ev) => {
+  if (!ev || typeof ev !== "object") return false;
+  if (ev.t === "snap") return typeof ev.d === "string" && ev.d.startsWith("data:image/") && ev.d.length <= BOARD_MAX_SNAPSHOT_CHARS;
+  if (ev.t === "s") {
+    return (ev.k === "pen" || ev.k === "eraser")
+      && typeof ev.c === "string" && ev.c.length <= 20
+      && Number.isFinite(ev.w) && ev.w > 0 && ev.w <= 200
+      && Array.isArray(ev.p) && ev.p.length > 0 && ev.p.length <= 400
+      && ev.p.every((pt) => Array.isArray(pt) && pt.length === 2 && Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
+  }
+  return false;
+};
+
+app.get("/api/sessions/:id/board-stream", optionalAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[session]] = await pool.query("SELECT id FROM sessions WHERE id = ?", [id]);
+    if (!session) return res.status(404).json({ message: "Séance introuvable." });
+  } catch (error) {
+    console.error("[board-stream]", error);
+    return res.status(500).json({ message: "Impossible d'ouvrir le flux du tableau." });
+  }
+  let subscribers = boardSubscribers.get(id);
+  if (!subscribers) { subscribers = new Set(); boardSubscribers.set(id, subscribers); }
+  if (subscribers.size >= BOARD_MAX_SUBSCRIBERS) return res.status(429).json({ message: "Trop de spectateurs connectés." });
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.write("retry: 2000\n\n: connected\n\n");
+  subscribers.add(res);
+  const heartbeat = setInterval(() => { try { res.write(": ping\n\n"); } catch { /* fermé */ } }, 20_000);
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    subscribers.delete(res);
+    if (subscribers.size === 0) boardSubscribers.delete(id);
+  });
+});
+
+app.post("/api/sessions/:id/board-events", optionalAuth, async (req, res) => {
+  const { id } = req.params;
+  const events = Array.isArray(req.body?.events) ? req.body.events : null;
+  if (!events || events.length === 0 || events.length > BOARD_MAX_EVENTS_PER_POST) {
+    return res.status(400).json({ message: "Événements invalides." });
+  }
+  try {
+    const permission = await canWriteBoard(id, req.user);
+    if (!permission.ok) return res.status(permission.status).json({ message: permission.message });
+    const valid = events.filter(isValidBoardEvent);
+    const subscribers = boardSubscribers.get(id);
+    if (subscribers && valid.length > 0) {
+      const frame = valid.map((ev) => `data: ${JSON.stringify(ev)}\n\n`).join("");
+      for (const client of subscribers) { try { client.write(frame); } catch { /* client parti */ } }
+    }
+    res.json({ success: true, delivered: subscribers?.size ?? 0 });
+  } catch (error) {
+    console.error("[board-events]", error);
+    res.status(500).json({ message: "Impossible de diffuser le tableau." });
   }
 });
 
