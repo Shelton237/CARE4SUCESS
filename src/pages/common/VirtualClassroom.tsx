@@ -299,8 +299,9 @@ export default function VirtualClassroom() {
         !isCompleted &&
         user && (user.role === "admin" || (user.role === "teacher" && user.id === currentSession?.teacherId))
     );
-    // Dessiner sur le tableau : l'enseignant, ou un spectateur à qui il a donné la main.
-    // (Notes, code et pièces jointes restent réservés à l'enseignant.)
+    // Dessiner sur le tableau ET écrire dans les notes : l'enseignant, ou un
+    // spectateur à qui il a donné la main (une seule « main » pour les deux
+    // zones). Code et pièces jointes restent réservés à l'enseignant.
     const canDraw = canEdit || (boardAccess === 'granted' && !isCompleted);
 
     // Séance terminée : pas d'appel vidéo à rejoindre, on ouvre directement
@@ -544,7 +545,11 @@ export default function VirtualClassroom() {
     // Debounced sync for text-based fields
     const timerRef = useRef<any>(null);
     const handleWorkspaceUpdate = (type: 'notes' | 'code' | 'whiteboard' | 'whiteboardItems', value: any) => {
-        if (!canEdit) return;
+        // Les notes suivent la même autorisation que le tableau (canDraw) : un
+        // spectateur à qui l'enseignant a donné la main peut aussi écrire dedans.
+        // Code et pièces jointes restent réservés à l'enseignant (canEdit).
+        const allowed = type === 'notes' ? canDraw : canEdit;
+        if (!allowed) return;
         isEditingRef.current = true;
         if (type === 'code') setCode(value);
         if (type === 'whiteboardItems') setWhiteboardItems(value);
@@ -552,7 +557,7 @@ export default function VirtualClassroom() {
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
             const payload: any = {};
-            if (type === 'notes') payload.notes = value;
+            if (type === 'notes') { payload.notes = value; payload.cid = boardCid; }
             if (type === 'code') payload.codeData = value;
             if (type === 'whiteboard') payload.whiteboardData = value;
             if (type === 'whiteboardItems') payload.whiteboardItems = value;
@@ -1416,7 +1421,55 @@ export default function VirtualClassroom() {
                                         </div>
                                     </div>
                                 )}
-                                {canEdit && (
+                                {!canEdit && !isCompleted && (
+                                    <div className="mb-3 flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                                        {boardAccess === 'none' && (
+                                            <>
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Notes en lecture seule</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRequestBoard}
+                                                    className="flex items-center gap-1.5 rounded-full bg-[#0D2D5A] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#1A6CC8] active:scale-95"
+                                                >
+                                                    <Hand className="h-3.5 w-3.5" /> Demander la main
+                                                </button>
+                                            </>
+                                        )}
+                                        {boardAccess === 'pending' && (
+                                            <div className="flex items-center gap-2 text-[10px] font-bold text-amber-700">
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                En attente de l'enseignant
+                                                <button type="button" onClick={handleReleaseBoard} className="underline underline-offset-2">Annuler</button>
+                                            </div>
+                                        )}
+                                        {boardAccess === 'granted' && (
+                                            <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-700">
+                                                <Hand className="h-3.5 w-3.5" /> Vous avez la main
+                                                <button type="button" onClick={handleReleaseBoard} className="underline underline-offset-2">Rendre la main</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {canEdit && (boardRequests.length > 0 || boardAllowed.length > 0) && (
+                                    <div className="mb-3 flex flex-col gap-2">
+                                        {boardRequests.map((req) => (
+                                            <div key={req.cid} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow ring-1 ring-slate-100">
+                                                <Hand className="h-4 w-4 shrink-0 text-[#F5A623]" />
+                                                <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-[#0D2D5A]" title={req.name}>{req.name}</span>
+                                                <button type="button" onClick={() => handleAnswerRequest(req, true)} className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-black uppercase text-white hover:bg-emerald-600">Accepter</button>
+                                                <button type="button" onClick={() => handleAnswerRequest(req, false)} className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-500 hover:bg-slate-200">Refuser</button>
+                                            </div>
+                                        ))}
+                                        {boardAllowed.map((who) => (
+                                            <div key={who.cid} className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 shadow ring-1 ring-emerald-100">
+                                                <Pencil className="h-4 w-4 shrink-0 text-emerald-600" />
+                                                <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-emerald-800" title={who.name}>{who.name} peut écrire</span>
+                                                <button type="button" onClick={() => handleAnswerRequest(who, false)} className="rounded-lg bg-white px-2 py-1 text-[10px] font-black uppercase text-red-500 hover:bg-red-50">Retirer</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {canDraw && (
                                 <div className="flex items-center flex-wrap gap-y-1 gap-x-1 mb-3 pb-3 border-b border-slate-100">
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('bold')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Gras"><Bold className="w-3.5 h-3.5" /></button>
                                     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyNotesFormat('italic')} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#0D2D5A] transition-colors" title="Italique"><Italic className="w-3.5 h-3.5" /></button>
@@ -1444,14 +1497,14 @@ export default function VirtualClassroom() {
                                 )}
                                 <div
                                     ref={notesRef}
-                                    contentEditable={canEdit}
+                                    contentEditable={canDraw}
                                     suppressContentEditableWarning
                                     spellCheck
                                     lang="fr"
                                     onInput={(e) => { handleWorkspaceUpdate('notes', (e.target as HTMLDivElement).innerHTML); refreshNotesHeadings(); }}
                                     onPaste={handleNotesPaste}
                                     className="flex-1 w-full text-sm leading-relaxed text-slate-600 focus:outline-none overflow-y-auto [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h3]:text-base [&_h3]:font-black [&_h3]:text-[#0D2D5A] [&_h3]:uppercase [&_h3]:tracking-tight [&_h3]:mt-3 [&_h3]:mb-1 [&_blockquote]:border-l-2 [&_blockquote]:border-blue-200 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-slate-500 [&_a]:text-blue-600 [&_a]:underline empty:before:content-[attr(data-placeholder)] empty:before:italic empty:before:text-slate-400"
-                                    data-placeholder="Commencez à rédiger..."
+                                    data-placeholder={canDraw ? "Commencez à rédiger..." : "Aucune note pour le moment."}
                                 />
                             </div>
                         </div>

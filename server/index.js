@@ -3594,7 +3594,7 @@ app.post("/api/sessions", authenticateRequest, async (req, res) => {
 
 app.patch("/api/sessions/:id/sync", optionalAuth, async (req, res) => {
   const { id } = req.params;
-  const { notes, whiteboardData, whiteboardItems, codeData } = req.body ?? {};
+  const { notes, whiteboardData, whiteboardItems, codeData, cid } = req.body ?? {};
   try {
     const [[session]] = await pool.query(
       "SELECT teacher_id, student_id, parent_id, status FROM sessions WHERE id = ?",
@@ -3602,17 +3602,26 @@ app.patch("/api/sessions/:id/sync", optionalAuth, async (req, res) => {
     );
     if (!session) return res.status(404).json({ message: "Séance introuvable." });
     // Seul l'enseignant titulaire de la séance (ou un admin) peut modifier
-    // Notes/Board/Code — élève, parent et invité restent en lecture seule
-    // (ils continuent de voir le contenu via GET, juste plus l'écrire ici).
+    // Board/Code — élève, parent et invité restent en lecture seule sur ces
+    // deux-là. Les notes suivent la même autorisation que le tableau : un
+    // spectateur à qui l'enseignant a donné la main (boardGrants, cf. plus
+    // bas) peut aussi les modifier — c'est la même « main », pas une
+    // permission séparée par zone de travail.
     const { sub, role } = req.user ?? {};
     const isTeacherOwner = role === "admin" || (role === "teacher" && sub === session.teacher_id);
-    if (!isTeacherOwner) {
+    const isGrantedGuest = !isTeacherOwner && isValidCid(cid) && Boolean(boardGrants.get(id)?.has(cid));
+    if (!isTeacherOwner && !isGrantedGuest) {
       return res.status(403).json({ message: "Seul l'enseignant peut modifier cet espace." });
     }
     // Une séance terminée passe en consultation seule pour tout le monde,
     // enseignant inclus — l'espace de travail est figé une fois le cours clos.
     if (session.status === "effectué" || session.status === "completed") {
       return res.status(403).json({ message: "Cette séance est terminée, l'espace est en lecture seule." });
+    }
+    // Un spectateur autorisé peut écrire les notes et le tableau, jamais le
+    // code ni les pièces jointes (import PDF/audio/vidéo).
+    if (isGrantedGuest && (codeData !== undefined || whiteboardItems !== undefined)) {
+      return res.status(403).json({ message: "Seul l'enseignant peut modifier cet élément." });
     }
 
     const updates = [];
