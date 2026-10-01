@@ -1,4 +1,14 @@
 {
+  "Le bon coach\npeut tout changer": {
+    "en": "The right coach\ncan change everything",
+    "mg": "Ny mpanazatra mety\nafaka manova ny zava-drehetra",
+    "ar": "المدرّب المناسب\nيمكن أن يغيّر كل شيء"
+  },
+  "Des enfants\nplus confiants\ndemain": {
+    "en": "More confident\nchildren\ntomorrow",
+    "mg": "Ankizy matoky tena\nkokoa\nrahampitso",
+    "ar": "أطفال أكثر\nثقة\nغدًا"
+  },
   "Mathématiques": { "en": "Mathematics", "mg": "Matematika", "ar": "الرياضيات" },
   "Sciences": { "en": "Science", "mg": "Siansa", "ar": "العلوم" },
   "Physique-Chimie": { "en": "Physics and Chemistry", "mg": "Fizika sy Simia", "ar": "الفيزياء والكيمياء" },

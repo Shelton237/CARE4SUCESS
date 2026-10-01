@@ -77,6 +77,23 @@ export default function Competences() {
           />
           <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 14%)", maskImage: "linear-gradient(to right, transparent 0%, #000 14%)" }} />
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012C56] to-transparent" />
+
+          {/* Le texte manuscrit "De nouvelles compétences, des opportunités
+              réelles" et la bulle sont incrustés dans hero-competences.jpg
+              (figés, non traduisibles). On les recouvre d'un flou qui se fond
+              dans la photo, puis on les redessine en vrai texte, traduit. */}
+          <div className="hidden lg:block absolute right-0 top-0 w-[39%] h-[86%] rounded-[48px]" style={{ background: "#012C56" }} aria-hidden />
+          <div className="hidden lg:block absolute right-[4%] top-[12%] text-end z-10">
+            <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+              {lines(t("De nouvelles\ncompétences,\ndes opportunités\nréelles"))}
+            </p>
+            <HandUnderline className="w-[66px] h-3 mt-1 ms-auto" />
+          </div>
+          <div className="hidden lg:block absolute right-[4%] top-[58%] w-[140px] rounded-[14px] bg-white p-3.5 z-10">
+            <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
+              {lines(t("Apprendre\nÉvoluer\nSe démarquer"))}
+            </p>
+          </div>
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.25%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">

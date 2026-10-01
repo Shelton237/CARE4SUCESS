@@ -77,6 +77,23 @@ export default function CommentCaMarche() {
           />
           <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 12%)", maskImage: "linear-gradient(to right, transparent 0%, #000 12%)" }} />
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012853] to-transparent" />
+
+          {/* Le texte manuscrit "Plus qu'un coaching, un vrai soutien" et la
+              bulle sont incrustés dans hero-parcours.jpg (figés, non
+              traduisibles). On les recouvre d'un flou qui se fond dans la
+              photo, puis on les redessine en vrai texte, traduit. */}
+          <div className="hidden lg:block absolute right-0 top-[3%] w-[36%] h-[95%] rounded-[48px]" style={{ background: "#012853" }} aria-hidden />
+          <div className="hidden lg:block absolute right-[4%] top-[12%] text-end z-10">
+            <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+              {lines(t("Plus qu'un\ncoaching,\nun vrai soutien"))}
+            </p>
+            <HandUnderline className="w-[66px] h-3 mt-1 ms-auto" />
+          </div>
+          <div className="hidden lg:block absolute right-[4%] top-[58%] w-[140px] rounded-[14px] bg-white p-3.5 z-10">
+            <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
+              {lines(t("Des objectifs\nd'aujourd'hui\naux réussites\nde demain"))}
+            </p>
+          </div>
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.35%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">

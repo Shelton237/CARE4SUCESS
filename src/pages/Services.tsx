@@ -75,6 +75,23 @@ export default function Services() {
           />
           <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 15%)", maskImage: "linear-gradient(to right, transparent 0%, #000 15%)" }} />
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012B54] to-transparent" />
+
+          {/* Le texte manuscrit "Le bon coach peut tout changer" et la bulle sont
+              incrustés dans hero-soutien.jpg (figés, non traduisibles). On les
+              recouvre d'un flou qui se fond dans la photo, puis on les redessine
+              en vrai texte, traduit. */}
+          <div className="hidden lg:block absolute right-0 top-[3%] w-[31%] h-[89%] rounded-[48px]" style={{ background: "#012B54" }} aria-hidden />
+          <div className="hidden lg:block absolute right-[4%] top-[16%] text-end z-10">
+            <p className="text-[24px] xl:text-[27px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+              {lines(t("Le bon coach\npeut tout changer"))}
+            </p>
+            <HandUnderline className="w-[70px] h-3 mt-1 ms-auto" />
+          </div>
+          <div className="hidden lg:block absolute right-[4%] top-[66%] w-[150px] rounded-[14px] bg-white p-3.5 z-10">
+            <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
+              {lines(t("Des enfants\nplus confiants\ndemain"))}
+            </p>
+          </div>
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.15%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
