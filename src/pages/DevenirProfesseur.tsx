@@ -189,6 +189,10 @@ export default function DevenirProfesseur() {
           />
           <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)", maskImage: "linear-gradient(to right, transparent 0%, #000 16%)" }} />
           <div className="absolute inset-0 lg:hidden bg-[#022D58]/62" />
+          {/* hero-coach.jpg a un défaut de recadrage (un rectangle à la teinte
+              légèrement différente, visible en haut à droite) — on le couvre
+              d'un panneau de la couleur du fond, comme sur les autres heros. */}
+          <div className="hidden lg:block absolute right-0 top-0 w-[40%] h-[62%] rounded-[48px]" style={{ background: "#022D58" }} aria-hidden />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.05%] relative z-10 pt-12 pb-10 xl:pt-[48px] xl:pb-0">
