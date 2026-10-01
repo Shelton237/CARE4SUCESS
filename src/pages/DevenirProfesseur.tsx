@@ -184,7 +184,7 @@ export default function DevenirProfesseur() {
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-left"
+            className="w-full h-full object-cover object-right"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
