@@ -134,6 +134,18 @@ export default function LanguesLanding() {
             <img src={IMG.hero} alt="" className="w-full h-auto block" />
             <span className="hero-sheen" aria-hidden />
             <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#002A53] to-transparent" />
+            <div className="absolute right-0 top-0 w-[42%] h-[80%] rounded-[24px]" style={{ background: "#002A53" }} aria-hidden />
+            <div className="absolute right-[4%] top-[5%] text-end z-10">
+              <p className="text-[12px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+                {lines(t("Plus qu'une langue,\nde nouvelles\nopportunités"))}
+              </p>
+              <HandUnderline className="w-[38px] h-2.5 mt-0.5 ms-auto" />
+            </div>
+            <div className="absolute right-[4%] top-[48%] w-[84px] rounded-[10px] bg-white p-2 z-10">
+              <p className="text-[#0D2D5A] font-bold text-[8.5px] leading-[1.3]">
+                {lines(t("Communiquer\nExplorer\nÉvoluer"))}
+              </p>
+            </div>
           </div>
 
           <ul className="flex flex-wrap gap-x-8 xl:gap-x-[42px] gap-y-3 mt-8 xl:mt-[40px]">

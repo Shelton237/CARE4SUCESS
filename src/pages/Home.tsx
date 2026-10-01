@@ -286,6 +286,18 @@ export default function Home() {
               <span className="hero-sheen" aria-hidden />
               <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#07284B] to-transparent" />
               <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#07284B] to-transparent" />
+              <div className="absolute right-0 top-0 w-[48%] h-[88%] rounded-bl-[36px]" style={{ background: "#07284B" }} aria-hidden />
+              <div className="absolute right-[5%] top-[5%] text-end z-10">
+                <p className="text-[15px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+                  {lines(t("Apprendre\nProgresser\nRéussir"))}
+                </p>
+                <HandUnderline className="w-[44px] h-2.5 mt-0.5 ms-auto" />
+              </div>
+              <div className="absolute right-[5%] top-[42%] w-[100px] rounded-[10px] bg-white p-2 z-10">
+                <p className="text-[#0D2D5A] font-bold text-[9px] leading-[1.3]">
+                  {lines(t("De meilleures\nopportunités\ndemain"))}
+                </p>
+              </div>
             </div>
 
             <ul className="flex flex-wrap gap-x-10 xl:gap-x-[58px] gap-y-3 mt-8 xl:mt-[40px]">
