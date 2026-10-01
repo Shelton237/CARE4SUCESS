@@ -177,17 +177,27 @@ export default function DevenirProfesseur() {
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#022D58] xl:h-[464px]">
         <div className="absolute inset-y-0 end-0 w-full md:w-[47%] xl:w-[46%]">
+          {/* hero-coach.jpg a un raccord visible en haut à droite (reste du
+              recadrage de la maquette, une teinte plate — pas un flou photo —
+              qu'aucun flou CSS ne peut fondre naturellement) : on zoome
+              légèrement la photo pour que cette zone sorte du cadre visible,
+              sans ajouter aucune couleur sur la photo. */}
           <img
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-left"
+            className="w-full h-full object-cover object-left lg:scale-[1.4]"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
+              transformOrigin: "left center",
             }}
           />
-          <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)", maskImage: "linear-gradient(to right, transparent 0%, #000 16%)" }} />
+          <span
+            className="hero-sheen lg:scale-[1.4]"
+            aria-hidden
+            style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)", maskImage: "linear-gradient(to right, transparent 0%, #000 16%)", transformOrigin: "left center" }}
+          />
           <div className="absolute inset-0 lg:hidden bg-[#022D58]/62" />
         </div>
 
