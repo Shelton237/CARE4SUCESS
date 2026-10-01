@@ -186,7 +186,7 @@ export default function DevenirProfesseur() {
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-left lg:scale-[1.4]"
+            className="w-full h-full object-cover object-left lg:scale-[1.85]"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
@@ -194,7 +194,7 @@ export default function DevenirProfesseur() {
             }}
           />
           <span
-            className="hero-sheen lg:scale-[1.4]"
+            className="hero-sheen lg:scale-[1.85]"
             aria-hidden
             style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)", maskImage: "linear-gradient(to right, transparent 0%, #000 16%)", transformOrigin: "left center" }}
           />
