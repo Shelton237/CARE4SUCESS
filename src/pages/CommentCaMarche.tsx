@@ -64,40 +64,24 @@ export default function CommentCaMarche() {
 
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#012853] xl:h-[426px]">
-        <div className="hidden md:block absolute inset-y-0 end-0 w-[51.2%]">
+        <div className="absolute inset-y-0 end-0 w-full md:w-[51.2%]">
           <img
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-[center_28%]"
+            className="w-full h-full object-cover object-[58%_22%]"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 12%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 12%)",
             }}
           />
           <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 12%)", maskImage: "linear-gradient(to right, transparent 0%, #000 12%)" }} />
-          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012853] to-transparent" />
           <div
             className="absolute inset-0 hidden lg:block"
             style={{ background: "linear-gradient(to right, #012853 0%, rgba(1,40,83,0.55) 20%, transparent 50%)" }}
             aria-hidden
           />
-
-          {/* Le texte manuscrit "Plus qu'un coaching, un vrai soutien" et la bulle
-              étaient à l'origine incrustés dans hero-parcours.jpg (figés, non
-              traduisibles). La photo a été recadrée pour retirer ce texte brûlé ;
-              on le redessine ici en vrai texte, traduit. */}
-          <div className="hidden lg:block absolute end-[4%] top-[12%] text-end z-10">
-            <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
-              {lines(t("Plus qu'un\ncoaching,\nun vrai soutien"))}
-            </p>
-            <HandUnderline className="w-[66px] h-3 mt-1 ms-auto" />
-          </div>
-          <div className="hidden lg:block absolute end-[4%] top-[58%] w-[140px] rounded-[14px] bg-white p-3.5 z-10">
-            <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
-              {lines(t("Des objectifs\nd'aujourd'hui\naux réussites\nde demain"))}
-            </p>
-          </div>
+          <div className="absolute inset-0 lg:hidden bg-[#012853]/62" />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.35%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
@@ -116,29 +100,19 @@ export default function CommentCaMarche() {
             >{t("Commencer maintenant")}{" "}<ArrowRight className="w-4 h-4" />
             </NavLink>
           </div>
+        </div>
 
-          {/* Mobile : la photo passe sous le bouton */}
-          <div className="md:hidden relative -mx-6 mt-8">
-            <img src={IMG.hero} alt="" className="w-full h-auto block" />
-            <span className="hero-sheen" aria-hidden />
-            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012853] to-transparent" />
-            <div
-              className="absolute inset-0"
-              style={{ background: "linear-gradient(to right, #012853 0%, rgba(1,40,83,0.55) 20%, transparent 50%)" }}
-              aria-hidden
-            />
-            <div className="absolute end-[4%] top-[9%] text-end z-10">
-              <p className="text-[12px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
-                {lines(t("Plus qu'un\ncoaching,\nun vrai soutien"))}
-              </p>
-              <HandUnderline className="w-[38px] h-2.5 mt-0.5 ms-auto" />
-            </div>
-            <div className="absolute end-[4%] top-[56%] w-[84px] rounded-[10px] bg-white p-2 z-10">
-              <p className="text-[#0D2D5A] font-bold text-[8.5px] leading-[1.3]">
-                {lines(t("Des objectifs\nd'aujourd'hui\naux réussites\nde demain"))}
-              </p>
-            </div>
-          </div>
+        {/* Texte manuscrit + carte, posés sur la photo (même motif que /devenir-professeur) */}
+        <div className="hidden lg:block absolute end-[5.4%] top-[33px] xl:top-[36px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
+          <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+            {lines(t("Plus qu'un\ncoaching,\nun vrai soutien"))}
+          </p>
+          <HandUnderline className="w-[66px] h-3 mt-1 -ms-1" />
+        </div>
+        <div className="hidden lg:block absolute end-[2.6%] top-[187px] xl:top-[198px] w-[140px] rounded-[14px] bg-white p-3.5 z-10">
+          <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
+            {lines(t("Des objectifs\nd'aujourd'hui\naux réussites\nde demain"))}
+          </p>
         </div>
       </section>
 
