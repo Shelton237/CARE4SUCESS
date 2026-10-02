@@ -9129,7 +9129,9 @@ app.get("/api/advisors/:advisorId/dashboard", authenticateRequest, requireSelfOr
           '3e' as level, 
           s.teacher_name as teacher, 
           'suivi actif' as status 
-       FROM sessions s LIMIT 5`
+       FROM sessions s 
+       WHERE s.student_name IS NOT NULL AND TRIM(s.student_name) != ''
+       LIMIT 5`
     );
 
     const [recentRequests] = await pool.query(

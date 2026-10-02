@@ -110,14 +110,14 @@ export default function AdvisorDashboard() {
                         {families.length === 0 ? (
                             <p className="text-xs text-gray-400 italic py-4 text-center">Aucune famille assignée.</p>
                         ) : (
-                            families.map((f: any) => (
-                                <div key={f.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                            families.map((f: any, idx: number) => (
+                                <div key={f.id || `fam-${idx}`} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
                                     <div className="w-9 h-9 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-xs font-bold text-[#1A6CC8] flex-shrink-0">
-                                        {f.child[0]}
+                                        {f.child?.[0] || "?"}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-[#0D2D5A] text-sm">{f.child}</div>
-                                        <div className="text-xs text-gray-400">{f.level} · {f.teacher || "Enseignant à assigner"}</div>
+                                        <div className="font-semibold text-[#0D2D5A] text-sm">{f.child || "Élève non spécifié"}</div>
+                                        <div className="text-xs text-gray-400">{f.level || "-"} · {f.teacher || "Enseignant à assigner"}</div>
                                     </div>
                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[f.status] ?? "bg-gray-100 text-gray-500"}`}>{f.status}</span>
                                 </div>
@@ -133,13 +133,13 @@ export default function AdvisorDashboard() {
                         {requests.length === 0 ? (
                             <p className="text-xs text-gray-400 italic py-4 text-center">Aucune demande récente.</p>
                         ) : (
-                            requests.map((r: any) => (
-                                <div key={r.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                            requests.map((r: any, idx: number) => (
+                                <div key={r.id || `req-${idx}`} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
                                     <div className="w-9 h-9 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-xs font-bold text-[#1A6CC8] flex-shrink-0">
                                         {r.parent ? r.parent[0] : "?"}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-[#0D2D5A] text-sm">{r.child}</div>
+                                        <div className="font-semibold text-[#0D2D5A] text-sm">{r.child || "Élève non spécifié"}</div>
                                         <div className="text-xs text-gray-400">{r.level} · {r.subject} · {r.date}</div>
                                     </div>
                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${REQUEST_STATUS_COLOR[r.status] ?? "bg-gray-100 text-gray-500"}`}>{r.status}</span>

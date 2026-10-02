@@ -145,10 +145,10 @@ export default function AdvisorMatching() {
                         >
                             <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-[#0D2D5A]/3 to-transparent">
                                 <div className="w-12 h-12 rounded-2xl bg-[#1A6CC8]/10 flex items-center justify-center text-xl font-bold text-[#1A6CC8] flex-shrink-0">
-                                    {match.child[0]}
+                                    {match.child?.[0] || "?"}
                                 </div>
                                 <div className="flex-1">
-                                    <div className="font-bold text-[#0D2D5A] text-base">{match.child}</div>
+                                    <div className="font-bold text-[#0D2D5A] text-base">{match.child || "Élève non spécifié"}</div>
                                     <div className="text-sm text-gray-500">
                                         {match.level} · {match.subject}
                                     </div>
