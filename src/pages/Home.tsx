@@ -15,7 +15,7 @@ import { useT, tt, rich, lines } from "@/i18n";
    une meilleure définition, en gardant les mêmes noms. Les tailles ci-dessous
    (px à 1440 de large) sont celles de la maquette. */
 const HOME_IMAGES = {
-  hero: "/images/home/hero-coach.png",
+  hero: "/images/home/hero-coach.jpg",
   soutien: { src: "/images/home/card-soutien.png", w: 111, h: 294 },
   langues: { src: "/images/home/card-langues.png", w: 141, h: 204 },
   competences: { src: "/images/home/card-competences.png", w: 103, h: 204 },
@@ -228,24 +228,23 @@ export default function Home() {
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#07284B] xl:h-[448px]">
         {/* Photo à droite (positions de la maquette, en % de la largeur) */}
-        <div className="hidden md:block absolute top-0 start-[42.97%] w-[57.03%]">
-          <img src={HOME_IMAGES.hero} alt="" className="w-full h-auto block" />
+        <div className="hidden md:block absolute inset-y-0 start-[42.97%] w-[57.03%]">
+          <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-[58%_22%]" />
           <span className="hero-sheen" aria-hidden />
-          <div className="absolute inset-0 bg-gradient-to-r rtl:bg-gradient-to-l rtl:bg-gradient-to-r from-[#07284B] via-[#07284B]/10 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r rtl:bg-gradient-to-l from-[#07284B] via-[#07284B]/10 to-transparent" />
           <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#07284B] via-[#07284B]/80 to-transparent" />
 
           {/* Le texte manuscrit "Apprendre / Progresser / Réussir" et la bulle
-              sont incrustés dans hero-coach.png (texte figé, non traduisible).
-              On les recouvre d'un flou (qui se fond dans la photo, sans dépendre
-              de sa couleur) puis on les redessine en vrai texte, traduit. */}
-          <div className="hidden lg:block absolute right-0 top-0 w-[37%] h-[90%] rounded-[48px]" style={{ background: "#07284B" }} aria-hidden />
-          <div className="hidden lg:block absolute right-[3%] top-[6%] text-end z-10">
+              étaient à l'origine incrustés dans hero-coach.png (figés, non
+              traduisibles). La photo a été remplacée ; on redessine ce texte
+              ici en vrai texte, traduit. */}
+          <div className="hidden lg:block absolute end-[3%] top-[6%] w-[150px] text-end z-10">
             <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
               {lines(t("Apprendre\nProgresser\nRéussir"))}
             </p>
             <HandUnderline className="w-[64px] h-3 mt-1 ms-auto" />
           </div>
-          <div className="hidden lg:block absolute right-[3%] top-[44%] w-[140px] rounded-[14px] bg-white p-3.5 z-10">
+          <div className="hidden lg:block absolute end-[3%] top-[44%] w-[140px] rounded-[14px] bg-white p-3.5 z-10">
             <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
               {lines(t("De meilleures\nopportunités\ndemain"))}
             </p>
@@ -282,18 +281,18 @@ export default function Home() {
 
             {/* Mobile : la photo passe sous les boutons, en bloc net */}
             <div className="md:hidden relative -mx-6 mt-8 h-56">
-              <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-right-top" />
+              <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-[58%_22%]" />
               <span className="hero-sheen" aria-hidden />
               <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#07284B] to-transparent" />
               <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#07284B] to-transparent" />
-              <div className="absolute right-0 top-0 w-[48%] h-[88%] rounded-bl-[36px]" style={{ background: "#07284B" }} aria-hidden />
-              <div className="absolute right-[5%] top-[5%] text-end z-10">
+              <div className="absolute inset-0 bg-gradient-to-r rtl:bg-gradient-to-l from-[#07284B] via-[#07284B]/15 to-transparent" />
+              <div className="absolute end-[5%] top-[5%] w-[100px] text-end z-10">
                 <p className="text-[15px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
                   {lines(t("Apprendre\nProgresser\nRéussir"))}
                 </p>
                 <HandUnderline className="w-[44px] h-2.5 mt-0.5 ms-auto" />
               </div>
-              <div className="absolute right-[5%] top-[42%] w-[100px] rounded-[10px] bg-white p-2 z-10">
+              <div className="absolute end-[5%] top-[42%] w-[100px] rounded-[10px] bg-white p-2 z-10">
                 <p className="text-[#0D2D5A] font-bold text-[9px] leading-[1.3]">
                   {lines(t("De meilleures\nopportunités\ndemain"))}
                 </p>
