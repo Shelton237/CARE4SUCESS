@@ -191,13 +191,20 @@ export default function DevenirProfesseur() {
             }}
           />
           <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 12%)", maskImage: "linear-gradient(to right, transparent 0%, #000 12%)" }} />
-          {/* Le fondu ci-dessus ne fait que révéler le fond bleu derrière la
-              photo (transparence) : sur la portion claire de cette photo (le
-              mur), ça donne un halo brumeux plutôt qu'un vrai fondu. Ce
-              dégradé teinte en plus la photo elle-même en bleu à cet endroit
-              (classes Tailwind, pas de style inline : le sens suit rtl: tout
-              seul, sans dépendre des règles CSS calées sur "to right" exact). */}
-          <div className="absolute inset-0 hidden lg:block bg-gradient-to-r rtl:bg-gradient-to-l from-[#022D58] from-0% via-[#022D58]/55 via-20% to-transparent to-50%" aria-hidden />
+          {/* Le fondu du masque ci-dessus ne fait que révéler le fond bleu
+              derrière la photo (transparence) : sur une portion claire de la
+              photo, ça donne un halo brumeux plutôt qu'un vrai fondu. Ce
+              dégradé teinte en plus la photo elle-même en bleu à cet endroit.
+              Les classes Tailwind from-0%/via-20%/to-50% n'existent pas sans
+              crochets ([0%]) et sont silencieusement ignorées : vérifié par
+              recherche dans le CSS compilé, elles ne généraient aucune règle.
+              Style inline ici, avec le même mécanisme de bascule RTL que le
+              reste du fichier (règle ajoutée dans index.css). */}
+          <div
+            className="absolute inset-0 hidden lg:block"
+            style={{ background: "linear-gradient(to right, #022D58 0%, rgba(2,45,88,0.55) 20%, transparent 50%)" }}
+            aria-hidden
+          />
           <div className="absolute inset-0 lg:hidden bg-[#022D58]/62" />
         </div>
 

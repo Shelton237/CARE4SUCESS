@@ -432,3 +432,7 @@ html[lang="ar"] .italic, html[lang="ar"] em { font-style: normal !important; }
 [dir="rtl"] [style*="to right, transparent 0%, #000 22%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 22%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 22%) !important; }
 [dir="rtl"] [style*="to right, transparent 0%, #000 26%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 26%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 26%) !important; }
 [dir="rtl"] [style*="to right, transparent 0%, #000 30%"] { -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 30%) !important; mask-image: linear-gradient(to left, transparent 0%, #000 30%) !important; }
+
+/* Dégradé de teinte (couleur, pas juste un masque) sur la photo du hero
+   "Devenir coach" : même bascule de sens que ci-dessus. */
+[dir="rtl"] [style*="to right, #022D58 0%, rgba(2,45,88,0.55) 20%, transparent 50%"] { background: linear-gradient(to left, #022D58 0%, rgba(2,45,88,0.55) 20%, transparent 50%) !important; }
