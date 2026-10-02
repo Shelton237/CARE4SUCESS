@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
-  ArrowRight, Briefcase, CircleUser, ClipboardList, GraduationCap, UserRound, UsersRound,
+  ArrowRight, Briefcase, CircleUser, ClipboardList, GraduationCap, Target, UserRound, UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
@@ -109,10 +109,13 @@ export default function CommentCaMarche() {
           </p>
           <HandUnderline className="w-[66px] h-3 mt-1 -ms-1" />
         </div>
-        <div className="hidden lg:block absolute end-[2.6%] top-[187px] xl:top-[198px] w-[140px] rounded-[14px] bg-white p-3.5 z-10">
-          <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
-            {lines(t("Des objectifs\nd'aujourd'hui\naux réussites\nde demain"))}
-          </p>
+        <div className="hidden lg:block absolute end-[2.6%] xl:end-[2.34%] top-[187px] xl:top-[198px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
+          <div className="flex items-center gap-3 xl:gap-[12px]">
+            <Target className="w-6 h-6 xl:w-[31px] xl:h-[31px] text-[#0F9B8E] shrink-0" strokeWidth={1.6} />
+            <span className="text-[#0D2D5A] font-bold text-[12px] xl:text-[12.6px] leading-[1.25]">
+              {lines(t("Des objectifs\nd'aujourd'hui\naux réussites\nde demain"))}
+            </span>
+          </div>
         </div>
       </section>
 
