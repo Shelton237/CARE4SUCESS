@@ -186,11 +186,18 @@ export default function DevenirProfesseur() {
             onError={(e) => { e.currentTarget.style.display = "none"; }}
             className="w-full h-full object-cover object-right"
             style={{
-              WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
-              maskImage: "linear-gradient(to right, transparent 0%, #000 16%)",
+              WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 12%)",
+              maskImage: "linear-gradient(to right, transparent 0%, #000 12%)",
             }}
           />
-          <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 16%)", maskImage: "linear-gradient(to right, transparent 0%, #000 16%)" }} />
+          <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 12%)", maskImage: "linear-gradient(to right, transparent 0%, #000 12%)" }} />
+          {/* Le fondu ci-dessus ne fait que révéler le fond bleu derrière la
+              photo (transparence) : sur la portion claire de cette photo (le
+              mur), ça donne un halo brumeux plutôt qu'un vrai fondu. Ce
+              dégradé teinte en plus la photo elle-même en bleu à cet endroit
+              (classes Tailwind, pas de style inline : le sens suit rtl: tout
+              seul, sans dépendre des règles CSS calées sur "to right" exact). */}
+          <div className="absolute inset-0 hidden lg:block bg-gradient-to-r rtl:bg-gradient-to-l from-[#022D58] from-0% via-[#022D58]/55 via-20% to-transparent to-50%" aria-hidden />
           <div className="absolute inset-0 lg:hidden bg-[#022D58]/62" />
         </div>
 
