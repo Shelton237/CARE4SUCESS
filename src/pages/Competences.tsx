@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
-  ArrowRight, Briefcase, BriefcaseBusiness, CirclePlay, GraduationCap, Laptop, Megaphone, Search,
+  ArrowRight, Award, Briefcase, BriefcaseBusiness, CirclePlay, GraduationCap, Laptop, Megaphone, Search, TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
@@ -64,36 +64,24 @@ export default function Competences() {
 
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#012C56] xl:h-[470px]">
-        <div className="hidden md:block absolute top-0 end-0 w-[46.5%]">
+        <div className="absolute inset-y-0 end-0 w-full md:w-[46.5%]">
           <img
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-auto block"
+            className="w-full h-full object-cover object-[32%_38%]"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 14%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 14%)",
             }}
           />
           <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 14%)", maskImage: "linear-gradient(to right, transparent 0%, #000 14%)" }} />
-          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012C56] to-transparent" />
-
-          {/* Le texte manuscrit "De nouvelles compétences, des opportunités
-              réelles" et la bulle sont incrustés dans hero-competences.jpg
-              (figés, non traduisibles). On les recouvre d'un flou qui se fond
-              dans la photo, puis on les redessine en vrai texte, traduit. */}
-          <div className="hidden lg:block absolute right-0 top-0 w-[39%] h-[86%] rounded-[48px]" style={{ background: "#012C56" }} aria-hidden />
-          <div className="hidden lg:block absolute right-[4%] top-[12%] text-end z-10">
-            <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
-              {lines(t("De nouvelles\ncompétences,\ndes opportunités\nréelles"))}
-            </p>
-            <HandUnderline className="w-[66px] h-3 mt-1 ms-auto" />
-          </div>
-          <div className="hidden lg:block absolute right-[4%] top-[58%] w-[140px] rounded-[14px] bg-white p-3.5 z-10">
-            <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
-              {lines(t("Apprendre\nÉvoluer\nSe démarquer"))}
-            </p>
-          </div>
+          <div
+            className="absolute inset-0 hidden lg:block"
+            style={{ background: "linear-gradient(to right, #012C56 0%, rgba(1,44,86,0.55) 20%, transparent 50%)" }}
+            aria-hidden
+          />
+          <div className="absolute inset-0 lg:hidden bg-[#012C56]/62" />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.25%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
@@ -119,25 +107,6 @@ export default function Competences() {
             </NavLink>
           </div>
 
-          {/* Mobile : la photo passe sous les boutons */}
-          <div className="md:hidden relative -mx-6 mt-8">
-            <img src={IMG.hero} alt="" className="w-full h-auto block" />
-            <span className="hero-sheen" aria-hidden />
-            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012C56] to-transparent" />
-            <div className="absolute right-0 top-0 w-[40%] h-[82%] rounded-[24px]" style={{ background: "#012C56" }} aria-hidden />
-            <div className="absolute right-[4%] top-[6%] text-end z-10">
-              <p className="text-[12px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
-                {lines(t("De nouvelles\ncompétences,\ndes opportunités\nréelles"))}
-              </p>
-              <HandUnderline className="w-[38px] h-2.5 mt-0.5 ms-auto" />
-            </div>
-            <div className="absolute right-[4%] top-[54%] w-[84px] rounded-[10px] bg-white p-2 z-10">
-              <p className="text-[#0D2D5A] font-bold text-[8.5px] leading-[1.3]">
-                {lines(t("Apprendre\nÉvoluer\nSe démarquer"))}
-              </p>
-            </div>
-          </div>
-
           <ul className="flex flex-wrap gap-x-8 xl:gap-x-[42px] gap-y-3 mt-8 xl:mt-[40px]">
             {[
               { icon: BarsFilled, label: t("Compétences concrètes") },
@@ -151,6 +120,26 @@ export default function Competences() {
             ))}
           </ul>
         </div>
+
+        {/* Texte manuscrit + carte, posés sur la photo (même motif que /devenir-professeur) */}
+        <div className="hidden lg:block absolute end-[5.4%] top-[33px] xl:top-[36px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
+          <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+            {lines(t("De nouvelles\ncompétences,\ndes opportunités\nréelles"))}
+          </p>
+          <HandUnderline className="w-[66px] h-3 mt-1 -ms-1" />
+        </div>
+        <ul className="hidden lg:flex flex-col gap-3 xl:gap-[15px] absolute end-[2.6%] xl:end-[2.34%] top-[204px] xl:top-[221px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
+          {[
+            { icon: GraduationCap, label: t("Apprendre") },
+            { icon: TrendingUp, label: t("Évoluer") },
+            { icon: Award, label: t("Se démarquer") },
+          ].map(({ icon: Icon, label }) => (
+            <li key={label} className="flex items-center gap-3 xl:gap-[12px]">
+              <Icon className="w-6 h-6 xl:w-[28px] xl:h-[28px] text-[#0F9B8E] shrink-0" strokeWidth={1.6} />
+              <span className="text-[#0D2D5A] font-bold text-[12px] xl:text-[12.6px] leading-[1.25]">{label}</span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* ══════════ NOS DOMAINES ══════════ */}

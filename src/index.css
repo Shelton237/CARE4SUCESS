@@ -437,3 +437,4 @@ html[lang="ar"] .italic, html[lang="ar"] em { font-style: normal !important; }
    "Devenir coach" : même bascule de sens que ci-dessus. */
 [dir="rtl"] [style*="to right, #022D58 0%, rgba(2,45,88,0.55) 20%, transparent 50%"] { background: linear-gradient(to left, #022D58 0%, rgba(2,45,88,0.55) 20%, transparent 50%) !important; }
 [dir="rtl"] [style*="to right, #012853 0%, rgba(1,40,83,0.55) 20%, transparent 50%"] { background: linear-gradient(to left, #012853 0%, rgba(1,40,83,0.55) 20%, transparent 50%) !important; }
+[dir="rtl"] [style*="to right, #012C56 0%, rgba(1,44,86,0.55) 20%, transparent 50%"] { background: linear-gradient(to left, #012C56 0%, rgba(1,44,86,0.55) 20%, transparent 50%) !important; }
