@@ -76,7 +76,7 @@ export default function LanguesLanding() {
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-[36%_18%]"
+            className="w-full h-full object-cover object-[68%_10%] md:object-[100%_50%]"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
