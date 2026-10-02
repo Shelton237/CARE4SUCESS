@@ -69,7 +69,7 @@ export default function Competences() {
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-[32%_38%]"
+            className="w-full h-full object-cover object-[68%_10%] md:object-[100%_50%]"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 14%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 14%)",
@@ -122,13 +122,13 @@ export default function Competences() {
         </div>
 
         {/* Texte manuscrit + carte, posés sur la photo (même motif que /devenir-professeur) */}
-        <div className="hidden lg:block absolute end-[5.4%] top-[33px] xl:top-[36px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
+        <div className="hidden lg:block absolute end-[2.8%] top-[233px] xl:top-[248px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
           <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
             {lines(t("De nouvelles\ncompétences,\ndes opportunités\nréelles"))}
           </p>
           <HandUnderline className="w-[66px] h-3 mt-1 -ms-1" />
         </div>
-        <ul className="hidden lg:flex flex-col gap-3 xl:gap-[15px] absolute end-[2.6%] xl:end-[2.34%] top-[204px] xl:top-[221px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
+        <ul className="hidden lg:flex flex-col gap-3 xl:gap-[15px] absolute end-[2.6%] xl:end-[2.34%] top-[16px] xl:top-[18px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
           {[
             { icon: GraduationCap, label: t("Apprendre") },
             { icon: TrendingUp, label: t("Évoluer") },
