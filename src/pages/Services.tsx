@@ -62,36 +62,24 @@ export default function Services() {
 
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#012B54] xl:h-[472px]">
-        <div className="hidden md:block absolute top-0 end-0 w-[47.3%]">
+        <div className="absolute inset-y-0 end-0 w-full md:w-[47.3%]">
           <img
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-auto block"
+            className="w-full h-full object-cover object-[38%_20%]"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
             }}
           />
           <span className="hero-sheen" aria-hidden style={{ WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 15%)", maskImage: "linear-gradient(to right, transparent 0%, #000 15%)" }} />
-          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#012B54] to-transparent" />
-
-          {/* Le texte manuscrit "Le bon coach peut tout changer" et la bulle sont
-              incrustés dans hero-soutien.jpg (figés, non traduisibles). On les
-              recouvre d'un flou qui se fond dans la photo, puis on les redessine
-              en vrai texte, traduit. */}
-          <div className="hidden lg:block absolute right-0 top-[3%] w-[31%] h-[89%] rounded-[48px]" style={{ background: "#012B54" }} aria-hidden />
-          <div className="hidden lg:block absolute right-[4%] top-[16%] text-end z-10">
-            <p className="text-[24px] xl:text-[27px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
-              {lines(t("Le bon coach\npeut tout changer"))}
-            </p>
-            <HandUnderline className="w-[70px] h-3 mt-1 ms-auto" />
-          </div>
-          <div className="hidden lg:block absolute right-[4%] top-[66%] w-[150px] rounded-[14px] bg-white p-3.5 z-10">
-            <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
-              {lines(t("Des enfants\nplus confiants\ndemain"))}
-            </p>
-          </div>
+          <div
+            className="absolute inset-0 hidden lg:block"
+            style={{ background: "linear-gradient(to right, #012B54 0%, rgba(1,43,84,0.55) 20%, transparent 50%)" }}
+            aria-hidden
+          />
+          <div className="absolute inset-0 lg:hidden bg-[#012B54]/62" />
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.15%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
@@ -121,25 +109,6 @@ export default function Services() {
             </button>
           </div>
 
-          {/* Mobile : la photo passe sous les boutons */}
-          <div className="md:hidden relative -mx-6 mt-8">
-            <img src={IMG.hero} alt="" className="w-full h-auto block" />
-            <span className="hero-sheen" aria-hidden />
-            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#012B54] to-transparent" />
-            <div className="absolute right-0 top-[3%] w-[32%] h-[89%] rounded-[24px]" style={{ background: "#012B54" }} aria-hidden />
-            <div className="absolute right-[4%] top-[9%] text-end z-10">
-              <p className="text-[13px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
-                {lines(t("Le bon coach\npeut tout changer"))}
-              </p>
-              <HandUnderline className="w-[40px] h-2.5 mt-0.5 ms-auto" />
-            </div>
-            <div className="absolute right-[4%] top-[62%] w-[88px] rounded-[10px] bg-white p-2 z-10">
-              <p className="text-[#0D2D5A] font-bold text-[8.5px] leading-[1.3]">
-                {lines(t("Des enfants\nplus confiants\ndemain"))}
-              </p>
-            </div>
-          </div>
-
           <ul className="flex flex-wrap gap-x-8 xl:gap-x-[28px] gap-y-3 mt-8 xl:mt-[40px]">
             {TRUST.map(({ icon: Icon, label }) => (
               <li key={label} className="flex items-center gap-2.5 text-sm xl:text-[15.2px] text-white/90">
@@ -148,6 +117,20 @@ export default function Services() {
               </li>
             ))}
           </ul>
+        </div>
+
+        {/* Texte manuscrit + carte, posés sur la photo (même motif que /devenir-professeur) */}
+        <div className="hidden lg:block absolute end-[5.4%] top-[33px] xl:top-[36px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
+          <p className="text-[24px] xl:text-[27px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+            {lines(t("Le bon coach\npeut tout changer"))}
+          </p>
+          <HandUnderline className="w-[70px] h-3 mt-1 -ms-1" />
+        </div>
+        <div className="hidden lg:flex items-center gap-3 xl:gap-[12px] absolute end-[2.6%] xl:end-[2.34%] top-[204px] xl:top-[221px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
+          <Heart className="w-6 h-6 xl:w-[28px] xl:h-[28px] text-[#E2574C] shrink-0" strokeWidth={1.6} />
+          <p className="text-[#0D2D5A] font-bold text-[12px] xl:text-[12.6px] leading-[1.25]">
+            {lines(t("Des enfants\nplus confiants\ndemain"))}
+          </p>
         </div>
       </section>
 

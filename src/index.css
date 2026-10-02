@@ -439,3 +439,4 @@ html[lang="ar"] .italic, html[lang="ar"] em { font-style: normal !important; }
 [dir="rtl"] [style*="to right, #012853 0%, rgba(1,40,83,0.55) 20%, transparent 50%"] { background: linear-gradient(to left, #012853 0%, rgba(1,40,83,0.55) 20%, transparent 50%) !important; }
 [dir="rtl"] [style*="to right, #012C56 0%, rgba(1,44,86,0.55) 20%, transparent 50%"] { background: linear-gradient(to left, #012C56 0%, rgba(1,44,86,0.55) 20%, transparent 50%) !important; }
 [dir="rtl"] [style*="to right, #002A53 0%, rgba(0,42,83,0.55) 20%, transparent 50%"] { background: linear-gradient(to left, #002A53 0%, rgba(0,42,83,0.55) 20%, transparent 50%) !important; }
+[dir="rtl"] [style*="to right, #012B54 0%, rgba(1,43,84,0.55) 20%, transparent 50%"] { background: linear-gradient(to left, #012B54 0%, rgba(1,43,84,0.55) 20%, transparent 50%) !important; }
