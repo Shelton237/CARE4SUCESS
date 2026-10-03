@@ -235,7 +235,7 @@ export default function Home() {
 
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[14%] xl:pe-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[48px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[18.5%] xl:pe-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[48px] xl:pb-0">
           <div className="max-w-xl xl:max-w-none">
             <h1
               className="font-bold text-white leading-[1.02] text-[clamp(2.6rem,4.4vw,3.95rem)] xl:text-[69.5px] xl:leading-[60px]"
