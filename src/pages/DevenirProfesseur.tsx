@@ -208,7 +208,7 @@ export default function DevenirProfesseur() {
           <div className="absolute inset-0 lg:hidden bg-[#022D58]/62" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.05%] relative z-10 pt-12 pb-10 xl:pt-[48px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[18.5%] relative z-10 pt-12 pb-10 xl:pt-[48px] xl:pb-0">
           <p className="text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">{t("Devenir coach")}</p>
           <h1
             className="mt-3 xl:mt-[17px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[55.5px] leading-[1.12] xl:leading-[56px]"

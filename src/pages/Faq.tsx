@@ -81,7 +81,7 @@ export default function Faq() {
           <div className="absolute inset-0 md:hidden bg-[#0B2A55]/60" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.15%] relative z-10 pt-12 pb-14 xl:pt-[58px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[18.6%] relative z-10 pt-12 pb-14 xl:pt-[58px] xl:pb-0">
           <p className="text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.18em]">{t("FAQ")}</p>
           <h1
             className="mt-3 xl:mt-[14px] font-bold text-[clamp(2.6rem,5vw,4rem)] xl:text-[62px] leading-[1.06] xl:leading-[66px]"
