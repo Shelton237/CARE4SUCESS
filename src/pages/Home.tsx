@@ -233,21 +233,6 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-r rtl:bg-gradient-to-l from-[#07284B] via-[#07284B]/10 to-transparent" />
           <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#07284B] via-[#07284B]/80 to-transparent" />
 
-          {/* Le texte manuscrit "Apprendre / Progresser / Réussir" et la bulle
-              étaient à l'origine incrustés dans hero-coach.png (figés, non
-              traduisibles). La photo a été remplacée ; on redessine ce texte
-              ici en vrai texte, traduit. */}
-          <div className="hidden lg:block absolute end-[3%] top-[6%] w-[150px] text-end z-10">
-            <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
-              {lines(t("Apprendre\nProgresser\nRéussir"))}
-            </p>
-            <HandUnderline className="w-[64px] h-3 mt-1 ms-auto" />
-          </div>
-          <div className="hidden lg:block absolute end-[3%] top-[44%] w-[140px] rounded-[14px] bg-white p-3.5 z-10">
-            <p className="text-[#0D2D5A] font-bold text-[11.5px] leading-[1.3]">
-              {lines(t("De meilleures\nopportunités\ndemain"))}
-            </p>
-          </div>
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.05%] xl:pe-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[48px] xl:pb-0">
@@ -285,17 +270,6 @@ export default function Home() {
               <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#07284B] to-transparent" />
               <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#07284B] to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-r rtl:bg-gradient-to-l from-[#07284B] via-[#07284B]/15 to-transparent" />
-              <div className="absolute end-[5%] top-[5%] w-[100px] text-end z-10">
-                <p className="text-[15px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
-                  {lines(t("Apprendre\nProgresser\nRéussir"))}
-                </p>
-                <HandUnderline className="w-[44px] h-2.5 mt-0.5 ms-auto" />
-              </div>
-              <div className="absolute end-[5%] top-[42%] w-[100px] rounded-[10px] bg-white p-2 z-10">
-                <p className="text-[#0D2D5A] font-bold text-[9px] leading-[1.3]">
-                  {lines(t("De meilleures\nopportunités\ndemain"))}
-                </p>
-              </div>
             </div>
 
             <ul className="flex flex-wrap gap-x-10 xl:gap-x-[58px] gap-y-3 mt-8 xl:mt-[40px]">
@@ -307,6 +281,20 @@ export default function Home() {
               ))}
             </ul>
           </div>
+        </div>
+
+        {/* Texte manuscrit + carte, posés sur la photo (même motif que /devenir-professeur) */}
+        <div className="hidden lg:block absolute end-[5.4%] top-[33px] xl:top-[36px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
+          <p className="text-[22px] xl:text-[25px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+            {lines(t("Apprendre\nProgresser\nRéussir"))}
+          </p>
+          <HandUnderline className="w-[64px] h-3 mt-1 -ms-1" />
+        </div>
+        <div className="hidden lg:flex items-center gap-3 xl:gap-[12px] absolute end-[2.6%] xl:end-[2.34%] top-[204px] xl:top-[221px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
+          <TrendingUp className="w-6 h-6 xl:w-[28px] xl:h-[28px] text-[#0F9B8E] shrink-0" strokeWidth={1.6} />
+          <p className="text-[#0D2D5A] font-bold text-[12px] xl:text-[12.6px] leading-[1.25]">
+            {lines(t("De meilleures\nopportunités\ndemain"))}
+          </p>
         </div>
       </section>
 
