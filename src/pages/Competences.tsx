@@ -84,7 +84,7 @@ export default function Competences() {
           <div className="absolute inset-0 lg:hidden bg-[#012C56]/62" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[9.7%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[14.2%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
 
           <p className="text-[#F5A623] text-sm xl:text-[15px] font-bold uppercase tracking-[0.14em]">{t("Compétences et carrière")}</p>
           <h1
