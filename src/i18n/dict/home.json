@@ -49,6 +49,8 @@
   "Mobile Money et carte bancaire selon votre pays.": { "en": "Mobile Money and bank card depending on your country.", "mg": "Mobile Money sy karatra banky arakaraka ny firenenao.", "ar": "الدفع عبر الهاتف والبطاقة المصرفية حسب بلدك." },
   "Paiement sécurisé": { "en": "Secure payment", "mg": "Fandoavam-bola azo antoka", "ar": "دفع آمن" },
   "Zéro frais d'inscription": { "en": "No registration fees", "mg": "Tsy misy saram-pisoratana anarana", "ar": "بلا رسوم تسجيل" },
+  "En ligne": { "en": "Online", "mg": "Amin'ny internet", "ar": "عبر الإنترنت" },
+  "En présentiel": { "en": "In person", "mg": "Atrik'asa", "ar": "حضوريًا" },
   "Every genius\nneeds <gold>a coach</gold>": {
     "en": "Every genius\nneeds <gold>a coach</gold>",
     "mg": "Ny olona manan-talenta\nrehetra mila <gold>mpanazatra</gold>",

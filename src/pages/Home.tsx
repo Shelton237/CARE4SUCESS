@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import {
-  ArrowRight, CirclePlay, GraduationCap, ChartColumn, ShieldCheck, Heart,
+  ArrowRight, CirclePlay, GraduationCap, ShieldCheck,
   Globe, Briefcase, Clock, ClipboardList, Users, UserCog, TrendingUp, Search, Scale,
   CalendarDays, Laptop, BadgeCheck, type LucideIcon,
 } from "lucide-react";
@@ -213,10 +213,9 @@ const WHY: { icon: LucideIcon | FilledIcon; title: string; desc: string; round: 
 ];
 
 const TRUST = [
-  { icon: GraduationCap, label: tt("Coachs sélectionnés"), color: "#2BB3A3" },
-  { icon: ChartColumn, label: tt("Suivi de progression"), color: "#2BB3A3" },
+  { icon: Globe, label: tt("En ligne"), color: "#2BB3A3" },
+  { icon: Users, label: tt("En présentiel"), color: "#2BB3A3" },
   { icon: ShieldCheck, label: tt("Paiement sécurisé"), color: "#2BB3A3" },
-  { icon: Heart, label: tt("Zéro frais d'inscription"), color: "#F5A623" },
 ];
 
 /* ─── PAGE ───────────────────────────────────── */
