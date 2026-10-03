@@ -215,7 +215,7 @@ const WHY: { icon: LucideIcon | FilledIcon; title: string; desc: string; round: 
 const TRUST = [
   { icon: Globe, label: tt("En ligne"), color: "#2BB3A3" },
   { icon: Users, label: tt("En présentiel"), color: "#2BB3A3" },
-  { icon: ShieldCheck, label: tt("Paiement sécurisé"), color: "#2BB3A3" },
+  { icon: ShieldCheck, label: tt("Accompagnement personnalisé"), color: "#2BB3A3" },
 ];
 
 /* ─── PAGE ───────────────────────────────────── */
