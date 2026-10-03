@@ -67,7 +67,7 @@ export default function Services() {
             src={IMG.hero}
             alt=""
             onError={(e) => { e.currentTarget.style.display = "none"; }}
-            className="w-full h-full object-cover object-[38%_20%]"
+            className="w-full h-full object-cover object-[68%_10%] md:object-[82%_55%]"
             style={{
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
               maskImage: "linear-gradient(to right, transparent 0%, #000 15%)",
@@ -120,13 +120,13 @@ export default function Services() {
         </div>
 
         {/* Texte manuscrit + carte, posés sur la photo (même motif que /devenir-professeur) */}
-        <div className="hidden lg:block absolute end-[5.4%] top-[33px] xl:top-[36px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
+        <div className="hidden lg:block absolute end-[2.8%] top-[233px] xl:top-[248px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
           <p className="text-[24px] xl:text-[27px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
             {lines(t("Le bon coach\npeut tout changer"))}
           </p>
           <HandUnderline className="w-[70px] h-3 mt-1 -ms-1" />
         </div>
-        <div className="hidden lg:flex items-center gap-3 xl:gap-[12px] absolute end-[2.6%] xl:end-[2.34%] top-[204px] xl:top-[221px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
+        <div className="hidden lg:flex items-center gap-3 xl:gap-[12px] absolute end-[2.6%] xl:end-[2.34%] top-[16px] xl:top-[18px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
           <Heart className="w-6 h-6 xl:w-[28px] xl:h-[28px] text-[#E2574C] shrink-0" strokeWidth={1.6} />
           <p className="text-[#0D2D5A] font-bold text-[12px] xl:text-[12.6px] leading-[1.25]">
             {lines(t("Des enfants\nplus confiants\ndemain"))}
