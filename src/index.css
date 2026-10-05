@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Mono:wght@400;700&family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;1,700;1,800&family=Caveat:wght@500;600&family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=Noto+Naskh+Arabic:wght@500;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -389,19 +388,15 @@ CARE 4 SUCCESS — Charte graphique
 
 .text-gold-shimmer {
   color: #F5A623;
-  background-image: linear-gradient(100deg,
-      #F5A623 0%, #F5A623 38%, #FFF1C9 50%, #F5A623 62%, #F5A623 100%);
-  background-size: 260% 100%;
-  background-position: 130% 0;
+  background-image: linear-gradient(135deg, #F5A623 0%, #FFE29A 50%, #F5A623 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: gold-shimmer-pass 8s ease-in-out 0.4s infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-sheen::before { animation: none; opacity: 0; }
-  .text-gold-shimmer { animation: none; background-image: none; -webkit-text-fill-color: currentColor; }
+  .text-gold-shimmer { background-image: none; -webkit-text-fill-color: currentColor; }
 }
 
 /* ── Multilingue : arabe (écriture de droite à gauche) ────────────────────────

@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { ArrowRight, GraduationCap, Globe, Briefcase } from "lucide-react";
 import { IMAGES } from "@/assets/images";
 import { ROUTE_PATHS } from "@/lib/index";
+import { useSEO } from "@/hooks/useSEO";
 
 const OBJECTIVE_CARDS = [
   {
@@ -28,6 +29,11 @@ const OBJECTIVE_CARDS = [
 ];
 
 export default function Professeurs() {
+  useSEO({
+    title: "Trouver un Coach ou Enseignant Qualifié",
+    description: "Trouvez un coach scolaire ou enseignant particulier pour votre enfant ou vous-même : soutien scolaire, langues, compétences et méthodologie.",
+    canonicalPath: "/trouver-un-coach",
+  });
   return (
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 

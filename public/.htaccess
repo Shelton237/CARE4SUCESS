@@ -11,20 +11,32 @@ RewriteCond %{THE_REQUEST} ^[A-Z]+\ /professeurs/([^/?\ ]+)/?[?\ ]
 RewriteRule ^index\.html$ http://127.0.0.1:4002/api/share/professeurs/%1 [P,L]
 </IfModule>
 
+# Compression Gzip / Deflate pour réduire le poids des fichiers transférés
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/x-javascript application/json application/xml image/svg+xml font/woff font/woff2 application/font-woff2
+</IfModule>
+
 # Anti-cache : les pages HTML, le service worker et le manifeste sont toujours
 # revalidés (un déploiement est visible immédiatement, aucun visiteur ne reste
 # bloqué sur une ancienne version). Les fichiers /assets/ ont un nom à empreinte
 # (hash) qui change à chaque build : ils peuvent être gardés longtemps sans risque.
 <IfModule mod_headers.c>
-<FilesMatch "^(index\.html|sw\.js|registerSW\.js|manifest\.json|workbox-.*\.js)$">
+<FilesMatch "^(index\.html|sw\.js|registerSW\.js|manifest\.json|workbox-.*\.js|llms\.txt|ai-catalog\.json|ard\.json)$">
 Header always set Cache-Control "no-cache, no-store, must-revalidate"
 Header always set Pragma "no-cache"
 Header always set Expires "0"
 </FilesMatch>
+<FilesMatch "(ai-catalog\.json|ard\.json)$">
+Header set Content-Type "application/json; charset=utf-8"
+</FilesMatch>
+<FilesMatch "llms\.txt$">
+Header set Content-Type "text/plain; charset=utf-8"
+</FilesMatch>
 <If "%{REQUEST_URI} =~ m#^/assets/#">
 Header set Cache-Control "public, max-age=31536000, immutable"
 </If>
-<If "%{REQUEST_URI} =~ m#^/images/#">
-Header set Cache-Control "no-cache, must-revalidate"
+<If "%{REQUEST_URI} =~ m#^/(images|logo|payment-icons)/#">
+Header set Cache-Control "public, max-age=2592000, stale-while-revalidate=86400"
 </If>
 </IfModule>
+

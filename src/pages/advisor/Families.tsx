@@ -179,10 +179,13 @@ export default function AdvisorFamilies() {
         }
     });
 
-    const filteredFamilies = (Array.isArray(families) ? families : []).filter((f: any) =>
-        f.parentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        f.childName?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredFamilies = (Array.isArray(families) ? families : []).filter((f: any) => {
+        const pName = (f.parentName || f.parent || "").toLowerCase();
+        const cName = (f.childName || f.child || "").toLowerCase();
+        const term = searchTerm.trim().toLowerCase();
+        if (!term) return true;
+        return pName.includes(term) || cName.includes(term);
+    });
 
     if (isLoading) {
         return (
@@ -254,16 +257,16 @@ export default function AdvisorFamilies() {
                                     )}
                                 >
                                     <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-[#0D2D5A] shadow-inner group-hover:bg-white">
-                                        {f.parentName?.charAt(0)}
+                                        {(f.parentName || f.parent || "?").charAt(0)}
                                     </div>
                                     <div className="flex-1 min-w-0 text-center md:text-left">
                                         <div className="flex flex-col md:flex-row md:items-center gap-2">
-                                            <span className="font-bold text-[#0D2D5A] text-sm">{f.parentName}</span>
+                                            <span className="font-bold text-[#0D2D5A] text-sm">{f.parentName || f.parent}</span>
                                             <Badge variant="outline" className="w-fit mx-auto md:mx-0 border-gray-100 text-gray-400 font-bold text-[8px] px-1.5 rounded-md uppercase tracking-widest">Parent</Badge>
                                         </div>
                                         <div className="flex items-center justify-center md:justify-start gap-4 mt-1 text-[11px] text-gray-400 font-medium">
-                                            <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Élève : {f.childName}</span>
-                                            <span className="flex items-center gap-1 text-[#1A6CC8]"><Briefcase className="w-3 h-3" /> Tuteur : {f.teacherName || "Non assigné"}</span>
+                                            <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Élève : {f.childName || f.child}</span>
+                                            <span className="flex items-center gap-1 text-[#1A6CC8]"><Briefcase className="w-3 h-3" /> Tuteur : {f.teacherName || f.teacher || "Non assigné"}</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-8">
@@ -293,9 +296,9 @@ export default function AdvisorFamilies() {
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8 animate-in slide-in-from-right-4 duration-300">
                             <div className="p-4 md:p-8 text-center border-b border-gray-50 bg-gray-50/30">
                                 <div className="mx-auto w-20 h-20 rounded-2xl bg-[#0D2D5A] border-4 border-white shadow-lg flex items-center justify-center text-3xl font-bold text-white mb-4">
-                                    {selectedFamily.parentName?.charAt(0)}
+                                    {(selectedFamily.parentName || selectedFamily.parent || "?").charAt(0)}
                                 </div>
-                                <h2 className="text-lg font-bold text-[#0D2D5A]">{selectedFamily.parentName} & {selectedFamily.childName}</h2>
+                                <h2 className="text-lg font-bold text-[#0D2D5A]">{selectedFamily.parentName || selectedFamily.parent} & {selectedFamily.childName || selectedFamily.child}</h2>
                                 <p className="text-[10px] text-[#1A6CC8] font-bold uppercase tracking-[2px] mt-1">{selectedFamily.level || "Niveau non défini"}</p>
                             </div>
 
@@ -321,7 +324,7 @@ export default function AdvisorFamilies() {
                                             <UserCircle2 className="w-5 h-5" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold text-[#0D2D5A]">{selectedFamily.teacherName || "En attente d'affectation"}</p>
+                                            <p className="text-xs font-bold text-[#0D2D5A]">{selectedFamily.teacherName || selectedFamily.teacher || "En attente d'affectation"}</p>
                                             <p className="text-[9px] text-gray-400 italic">Matière : {selectedFamily.subject || "Multi-disciplines"}</p>
                                         </div>
                                     </div>

@@ -1,0 +1,25 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Care4Success",
+    "documentationUrl": "https://care4success.usra-care.com/a-propos",
+    "logoUrl": "https://care4success.usra-care.com/logo/Care%204%20Success-logo-Ok_large.png"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:care4success.usra-care.com:skills:tutoring-and-languages",
+      "displayName": "Care4Success Agent Skills & Services",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://care4success.usra-care.com/llms.txt",
+      "description": "Plateforme d'excellence scolaire, soutien scolaire personnalisé, cours de langues et bilan pédagogique.",
+      "tags": ["soutien-scolaire", "cours-particuliers", "cours-de-langues", "coaching"],
+      "capabilities": ["TutoringMatching", "LanguageCoaching", "FreeEvaluation"],
+      "representativeQueries": [
+        "trouver un professeur de soutien scolaire",
+        "cours particuliers en maths et francais",
+        "cours de langues anglais espagnol",
+        "evaluation gratuite niveau scolaire"
+      ]
+    }
+  ]
+}

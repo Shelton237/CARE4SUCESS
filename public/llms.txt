@@ -1,0 +1,19 @@
+# Care4Success
+
+> Care4Success est une plateforme d'excellence scolaire et d'accompagnement éducatif : soutien scolaire personnalisé, cours de langues, coaching méthodologique et orientation pour les élèves du primaire, collège, lycée et supérieur.
+
+## Services principaux
+- [Accueil](https://care4success.usra-care.com/): Présentation de la plateforme et des solutions d'excellence scolaire
+- [Soutien scolaire](https://care4success.usra-care.com/services): Accompagnement sur-mesure dans toutes les matières (Mathématiques, Français, Sciences, etc.)
+- [Niveaux scolaires](https://care4success.usra-care.com/niveaux): Du primaire aux études supérieures
+- [Cours de langues](https://care4success.usra-care.com/cours-de-langues): Cours d'anglais, français, espagnol avec coachs natifs ou bilingues
+- [Nos professeurs](https://care4success.usra-care.com/professeurs): Annuaire de professeurs et coachs certifiés
+- [Évaluation gratuite](https://care4success.usra-care.com/evaluation-gratuite): Bilan pédagogique personnalisé offert
+- [Devenir professeur](https://care4success.usra-care.com/devenir-professeur): Rejoindre notre réseau d'enseignants d'excellence
+
+## Informations pratiques
+- [Comment ça marche](https://care4success.usra-care.com/comment-ca-marche): Déroulement de l'accompagnement et méthodologie
+- [À propos](https://care4success.usra-care.com/a-propos): Mission, vision, équipe Euréka & Care4Success
+- [FAQ](https://care4success.usra-care.com/faq): Réponses aux questions fréquentes des parents et élèves
+- [Contact](https://care4success.usra-care.com/contact): Formulaire de contact et assistance
+- [Politique de confidentialité](https://care4success.usra-care.com/politique-confidentialite): Protection des données personnelles

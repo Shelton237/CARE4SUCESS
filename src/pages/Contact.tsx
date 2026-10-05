@@ -3,6 +3,7 @@ import { Phone, Mail, MapPin, Clock, CheckCircle, ArrowRight } from "lucide-reac
 import { ContactForm } from "@/components/ContactForm";
 import { IMAGES } from "@/assets/images";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
+import { useSEO } from "@/hooks/useSEO";
 
 const CONTACT_METHODS = [
   {
@@ -67,6 +68,11 @@ const CENTERS = [
 ];
 
 export default function Contact() {
+  useSEO({
+    title: "Contactez-nous & Demandez un Bilan Gratuit",
+    description: "Contactez un conseiller Care4Success. Réponse sous 24h pour définir le programme de soutien scolaire ou linguistique adapté à vos besoins.",
+    canonicalPath: "/contact",
+  });
   return (
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 

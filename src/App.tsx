@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,35 +11,43 @@ import { ROUTE_PATHS } from "@/lib/index";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Home from "@/pages/Home";
-import Services from "@/pages/Services";
-import Niveaux from "@/pages/Niveaux";
-import Professeurs from "@/pages/Professeurs";
-import AnnuaireCoachs from "@/pages/AnnuaireCoachs";
-import CoursDeLangues from "@/pages/CoursDeLangues";
-import LanguesLanding from "@/pages/LanguesLanding";
-import PublicTeacherProfile from "@/pages/PublicTeacherProfile";
-import GroupClassCheckout from "@/pages/GroupClassCheckout";
-import DevenirProfesseur from "@/pages/DevenirProfesseur";
-import CommentCaMarche from "@/pages/CommentCaMarche";
-import Faq from "@/pages/Faq";
-import Competences from "@/pages/Competences";
-import Contact from "@/pages/Contact";
-import EvaluationGratuite from "@/pages/EvaluationGratuite";
-import Inscription from "@/pages/Inscription";
-import About from "@/pages/About";
-import PrivacyPolicy from "@/pages/PrivacyPolicy";
-import NotFound from "./pages/not-found/Index";
-import Login from "@/pages/auth/Login";
-import ResetPassword from "@/pages/auth/ResetPassword";
-import AdminLayout from "@/pages/admin/AdminLayout";
-import TeacherLayout from "@/pages/teacher/TeacherLayout";
-import ParentLayout from "@/pages/parent/ParentLayout";
-import AdvisorLayout from "@/pages/advisor/AdvisorLayout";
-import StudentLayout from "@/pages/student/StudentLayout";
-import TutorLayout from "@/pages/tutor/TutorLayout";
-import VirtualClassroom from "@/pages/common/VirtualClassroom";
-import AccountProfile from "@/pages/common/AccountProfile";
-import Notifications from "@/pages/common/Notifications";
+
+// Lazy loading des pages secondaires et des backoffices pour optimiser les performances (FCP/LCP)
+const Services = lazy(() => import("@/pages/Services"));
+const Niveaux = lazy(() => import("@/pages/Niveaux"));
+const Professeurs = lazy(() => import("@/pages/Professeurs"));
+const AnnuaireCoachs = lazy(() => import("@/pages/AnnuaireCoachs"));
+const CoursDeLangues = lazy(() => import("@/pages/CoursDeLangues"));
+const LanguesLanding = lazy(() => import("@/pages/LanguesLanding"));
+const PublicTeacherProfile = lazy(() => import("@/pages/PublicTeacherProfile"));
+const GroupClassCheckout = lazy(() => import("@/pages/GroupClassCheckout"));
+const DevenirProfesseur = lazy(() => import("@/pages/DevenirProfesseur"));
+const CommentCaMarche = lazy(() => import("@/pages/CommentCaMarche"));
+const Faq = lazy(() => import("@/pages/Faq"));
+const Competences = lazy(() => import("@/pages/Competences"));
+const Contact = lazy(() => import("@/pages/Contact"));
+const EvaluationGratuite = lazy(() => import("@/pages/EvaluationGratuite"));
+const Inscription = lazy(() => import("@/pages/Inscription"));
+const About = lazy(() => import("@/pages/About"));
+const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const NotFound = lazy(() => import("./pages/not-found/Index"));
+const Login = lazy(() => import("@/pages/auth/Login"));
+const ResetPassword = lazy(() => import("@/pages/auth/ResetPassword"));
+const AdminLayout = lazy(() => import("@/pages/admin/AdminLayout"));
+const TeacherLayout = lazy(() => import("@/pages/teacher/TeacherLayout"));
+const ParentLayout = lazy(() => import("@/pages/parent/ParentLayout"));
+const AdvisorLayout = lazy(() => import("@/pages/advisor/AdvisorLayout"));
+const StudentLayout = lazy(() => import("@/pages/student/StudentLayout"));
+const TutorLayout = lazy(() => import("@/pages/tutor/TutorLayout"));
+const VirtualClassroom = lazy(() => import("@/pages/common/VirtualClassroom"));
+const AccountProfile = lazy(() => import("@/pages/common/AccountProfile"));
+const Notifications = lazy(() => import("@/pages/common/Notifications"));
+
+const PageLoading = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="w-8 h-8 border-4 border-[#0D2D5A]/20 border-t-[#0D2D5A] rounded-full animate-spin" />
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -57,7 +66,8 @@ const App = () => (
         <Sonner />
         <Router>
           <AuthProvider>
-            <Routes>
+            <Suspense fallback={<PageLoading />}>
+              <Routes>
               {/* Public pages — each with its own Layout (navbar + footer) */}
               <Route path={ROUTE_PATHS.HOME} element={<Layout><Home /></Layout>} />
               <Route path={ROUTE_PATHS.SERVICES} element={<Layout><Services /></Layout>} />
@@ -155,6 +165,7 @@ const App = () => (
 
               <Route path="*" element={<Layout><NotFound /></Layout>} />
             </Routes>
+            </Suspense>
           </AuthProvider>
         </Router>
       </MotionConfig>

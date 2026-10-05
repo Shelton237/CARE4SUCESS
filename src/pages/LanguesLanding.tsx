@@ -7,6 +7,7 @@ import {
 import { ROUTE_PATHS } from "@/lib/index";
 import { BarsFilled, HandUnderline, MedalFilled, ShieldFilled, TargetIcon, UsersOutline, type FilledIcon } from "@/components/decor";
 import { useT, tt, rich, lines } from "@/i18n";
+import { useSEO } from "@/hooks/useSEO";
 
 /* Images dans public/images/langues/ (découpées dans la maquette, texte manuscrit et
    bulles inclus dans les photos). Remplaçables par les originaux, mêmes noms de fichier. */
@@ -63,6 +64,11 @@ const TESTIMONIALS = [
 
 export default function LanguesLanding() {
   const { t } = useT();
+  useSEO({
+    title: "Cours de Langues Vivantes & Coaching Linguistique",
+    description: "Apprenez l'anglais, l'espagnol, l'allemand, l'arabe ou le français avec des coachs certifiés en ligne ou à domicile selon vos objectifs.",
+    canonicalPath: "/cours-de-langues",
+  });
   const [testimonial, setTestimonial] = useState(0);
   const current = TESTIMONIALS[testimonial];
 

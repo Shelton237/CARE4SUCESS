@@ -1,14 +1,37 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# Robots.txt for Care4Success (https://care4success.usra-care.com)
 
 User-agent: *
 Allow: /
+Allow: /services
+Allow: /niveaux
+Allow: /trouver-un-coach
+Allow: /annuaire-coachs
+Allow: /cours-de-langues
+Allow: /cours-de-langues/*
+Allow: /professeurs/*
+Allow: /devenir-professeur
+Allow: /comment-ca-marche
+Allow: /evaluation-gratuite
+Allow: /inscription
+Allow: /faq
+Allow: /competences
+Allow: /contact
+Allow: /a-propos
+Allow: /politique-confidentialite
+
+# Interdire le crawl des espaces privés, API et sessions
+Disallow: /admin/
+Disallow: /teacher/
+Disallow: /parent/
+Disallow: /student/
+Disallow: /advisor/
+Disallow: /tutor/
+Disallow: /api/
+Disallow: /login
+Disallow: /reset-password
+Disallow: /virtual-class/
+Disallow: /account
+Disallow: /notifications
+
+# Sitemap
+Sitemap: https://care4success.usra-care.com/sitemap.xml

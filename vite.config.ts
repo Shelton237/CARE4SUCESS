@@ -284,5 +284,8 @@ export default defineConfig(({ mode }) => {
           : process.env.VITE_ENABLE_ROUTE_MESSAGING !== 'false'
       ),
     },
+    build: {
+      chunkSizeWarningLimit: 1000,
+    },
   }
 });

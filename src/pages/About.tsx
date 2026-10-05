@@ -7,6 +7,7 @@ import {
 import { ROUTE_PATHS } from "@/lib/index";
 import { springPresets, staggerContainer, staggerItem } from "@/lib/motion";
 import { IMAGES } from "@/assets/images";
+import { useSEO } from "@/hooks/useSEO";
 
 const STATS = [
   { value: "10 ans",  label: "d'expérience",           icon: Award },
@@ -65,6 +66,11 @@ const AFRICAN_PRESENCE = [
 ];
 
 export default function About() {
+  useSEO({
+    title: "À Propos de Care4Success · Notre Histoire & Notre Mission",
+    description: "Découvrez Care4Success, leader panafricain de l'accompagnement éducatif et du soutien scolaire : notre vision, nos valeurs et nos engagements.",
+    canonicalPath: "/a-propos",
+  });
   return (
     <div className="min-h-screen" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 

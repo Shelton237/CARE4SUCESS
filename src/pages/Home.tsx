@@ -8,6 +8,7 @@ import {
 import { ROUTE_PATHS } from "@/lib/index";
 import { BarsFilled, UsersFilled, ShieldFilled, HandUnderline, type FilledIcon } from "@/components/decor";
 import { useT, tt, rich, lines } from "@/i18n";
+import { useSEO } from "@/hooks/useSEO";
 
 /* ─── IMAGES ─────────────────────────────────────
    Les photos vivent dans public/images/home/. Elles sont découpées dans la
@@ -15,10 +16,11 @@ import { useT, tt, rich, lines } from "@/i18n";
    une meilleure définition, en gardant les mêmes noms. Les tailles ci-dessous
    (px à 1440 de large) sont celles de la maquette. */
 const HOME_IMAGES = {
-  hero: "/images/home/hero-coach.jpg",
-  soutien: { src: "/images/home/card-soutien.png", w: 111, h: 294 },
-  langues: { src: "/images/home/card-langues.png", w: 141, h: 204 },
-  competences: { src: "/images/home/card-competences.png", w: 103, h: 204 },
+  hero: "/images/home/hero-coach.webp",
+  heroFallback: "/images/home/hero-coach.jpg",
+  soutien: { src: "/images/home/card-soutien.webp", w: 111, h: 294 },
+  langues: { src: "/images/home/card-langues.webp", w: 141, h: 204 },
+  competences: { src: "/images/home/card-competences.webp", w: 103, h: 204 },
 };
 
 /* Les valeurs préfixées xl: sont calibrées sur la maquette à 1440 px de large ;
@@ -115,6 +117,10 @@ function UniverseCardView({ card }: { card: UniverseCard }) {
         <img
           src={card.photo.src}
           alt=""
+          width={card.photo.w}
+          height={card.photo.h}
+          loading="lazy"
+          decoding="async"
           onError={(e) => { e.currentTarget.style.display = "none"; }}
           className="block w-full h-full"
           style={{
@@ -221,6 +227,11 @@ const TRUST = [
 /* ─── PAGE ───────────────────────────────────── */
 export default function Home() {
   const { t } = useT();
+  useSEO({
+    title: "Soutien Scolaire d'Excellence, Cours de Langues & Coaching",
+    description: "Care4Success accompagne familles, professeurs et conseillers avec une plateforme unifiée : soutien scolaire d'excellence, cours de langues, suivi personnalisé et matching.",
+    canonicalPath: "/",
+  });
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#F7FAFC]" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
 
@@ -228,11 +239,21 @@ export default function Home() {
       <section className="relative overflow-hidden bg-[#07284B] xl:h-[448px]">
         {/* Photo à droite (positions de la maquette, en % de la largeur) */}
         <div className="hidden md:block absolute inset-y-0 start-[42.97%] w-[57.03%]">
-          <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-[58%_22%]" />
+          <picture>
+            <source srcSet={HOME_IMAGES.hero} type="image/webp" />
+            <img
+              src={HOME_IMAGES.heroFallback}
+              alt="Professeur et élève en accompagnement scolaire"
+              width={820}
+              height={448}
+              fetchPriority="high"
+              decoding="async"
+              className="w-full h-full object-cover object-[58%_22%]"
+            />
+          </picture>
           <span className="hero-sheen" aria-hidden />
           <div className="absolute inset-0 bg-gradient-to-r rtl:bg-gradient-to-l from-[#07284B] via-[#07284B]/10 to-transparent" />
           <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#07284B] via-[#07284B]/80 to-transparent" />
-
         </div>
 
         <div className="mx-auto max-w-[1920px] px-6 xl:ps-[18.5%] xl:pe-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[48px] xl:pb-0">
@@ -265,7 +286,18 @@ export default function Home() {
 
             {/* Mobile : la photo passe sous les boutons, en bloc net */}
             <div className="md:hidden relative -mx-6 mt-8 h-56">
-              <img src={HOME_IMAGES.hero} alt="" className="w-full h-full object-cover object-[58%_22%]" />
+              <picture>
+                <source srcSet={HOME_IMAGES.hero} type="image/webp" />
+                <img
+                  src={HOME_IMAGES.heroFallback}
+                  alt="Professeur et élève en accompagnement scolaire"
+                  width={600}
+                  height={224}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="w-full h-full object-cover object-[58%_22%]"
+                />
+              </picture>
               <span className="hero-sheen" aria-hidden />
               <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#07284B] to-transparent" />
               <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#07284B] to-transparent" />

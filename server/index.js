@@ -4140,7 +4140,7 @@ app.patch("/api/sessions/:id/notes", authenticateRequest, async (req, res) => {
 });
 
 const allowedApplicationStatuses = new Set(["pending", "approved", "rejected"]);
-const allowedReviewerRoles = new Set(["admin", "advisor"]);
+const allowedReviewerRoles = new Set(["admin", "advisor", "tutor"]);
 const allowedFeedbackReviewerTypes = new Set(["parent", "student", "advisor"]);
 
 const DB_CONNECTION_ERROR_CODES = new Set([
@@ -4374,7 +4374,7 @@ app.post("/api/teacher-applications", upload.single("cv"), async (req, res) => {
   }
 });
 
-app.get("/api/teacher-applications", authenticateRequest, requireRole("admin", "tutor"), async (req, res) => {
+app.get("/api/teacher-applications", authenticateRequest, requireRole("admin", "advisor", "tutor"), async (req, res) => {
   const { status } = req.query;
   const statusFilter = typeof status === "string" ? status : undefined;
   const filters = [];
@@ -4407,7 +4407,7 @@ app.get("/api/teacher-applications", authenticateRequest, requireRole("admin", "
   }
 });
 
-app.patch("/api/teacher-applications/:id", authenticateRequest, requireRole("admin", "tutor"), async (req, res) => {
+app.patch("/api/teacher-applications/:id", authenticateRequest, requireRole("admin", "advisor", "tutor"), async (req, res) => {
   const { id } = req.params;
   const { status, reviewNotes, reviewerName, reviewerRole, rateType, negotiatedRate, currency, rateUnitMinutes } = req.body ?? {};
 
@@ -5624,6 +5624,8 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
          a.status          AS assignment_status,
          (SELECT email FROM users WHERE name = r.parent_name AND role = 'parent' LIMIT 1) AS parent_email,
          (SELECT email FROM users WHERE name = r.child_name AND role = 'student' LIMIT 1) AS child_email,
+         (SELECT id FROM users WHERE name = r.child_name AND role = 'student' LIMIT 1) AS student_id,
+         (SELECT location FROM users WHERE name = r.parent_name AND role = 'parent' LIMIT 1) AS parent_location,
          MIN(CASE WHEN DATE(s.session_date) >= CURDATE() THEN s.session_date END) AS next_date,
          MIN(CASE WHEN DATE(s.session_date) >= CURDATE() THEN s.session_time  END) AS next_time
        FROM requests r
@@ -5653,6 +5655,7 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
          u.created_at,
          p.name              AS parent_name,
          p.email             AS parent_email,
+         p.location          AS parent_location,
          st.teacher_id
        FROM users u
        LEFT JOIN users p ON p.id = u.parent_id
@@ -5674,13 +5677,19 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
 
     const directFamilies = directRows.map((row) => ({
       id: `no-request-${row.id}`,
+      studentId: row.id,
+      childId: row.id,
       parent: row.parent_name || "—",
+      parentName: row.parent_name || "—",
       parentEmail: row.parent_email,
       child: row.child_name,
+      childName: row.child_name,
       childEmail: row.child_email,
+      location: row.parent_location || null,
       level: null,
       subject: undefined,
       teacher: (row.teacher_id && directTeacherNames[row.teacher_id]) || "—",
+      teacherName: (row.teacher_id && directTeacherNames[row.teacher_id]) || "—",
       nextRdv: "—",
       status: "nouveau",
     }));
@@ -5716,13 +5725,19 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
 
       return {
         id: row.id,
+        studentId: row.student_id || null,
+        childId: row.student_id || null,
         parent: row.parent_name,
+        parentName: row.parent_name,
         parentEmail: row.parent_email,
         child: row.child_name,
+        childName: row.child_name,
         childEmail: row.child_email,
+        location: row.parent_location || null,
         level: row.level,
         subject: row.subject || undefined,
         teacher: row.selected_teacher || "—",
+        teacherName: row.selected_teacher || "—",
         nextRdv,
         status,
       };

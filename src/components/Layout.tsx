@@ -91,6 +91,8 @@ export function Layout({ children }: LayoutProps) {
               <img
                 src="/logo/Care 4 Success-logo-Ok_compact.png"
                 alt="Care4Success"
+                width={84}
+                height={70}
                 className="h-12 xl:h-[70px] w-auto object-contain -ms-[3px]"
               />
             </NavLink>
@@ -195,6 +197,10 @@ export function Layout({ children }: LayoutProps) {
               <img
                 src="/logo/care4success-compact-white.png"
                 alt="Care4Success"
+                width={90}
+                height={75}
+                loading="lazy"
+                decoding="async"
                 className="h-16 xl:h-[75px] w-auto object-contain mb-2.5 xl:mb-[8px] xl:-mt-[5px] xl:-ms-[5px]"
               />
               <p className="text-[13.5px] text-white/90 leading-[23px]">{t("Every genius needs a coach.")}</p>
@@ -202,14 +208,14 @@ export function Layout({ children }: LayoutProps) {
               </p>
               <div className="flex flex-wrap items-center gap-4 mt-5">
                 {[
-                  { label: "Orange Money", logo: "/payment-icons/orange-money.png" },
-                  { label: "MTN MoMo", logo: "/payment-icons/mtn-momo.png" },
-                  { label: "MVola", logo: "/payment-icons/mvola.png" },
-                  { label: "Visa", logo: "/payment-icons/visa.svg" },
-                  { label: "Mastercard", logo: "/payment-icons/mastercard.png" },
-                ].map(({ label, logo }) => (
+                  { label: "Orange Money", logo: "/payment-icons/orange-money.png", w: 177, h: 48 },
+                  { label: "MTN MoMo", logo: "/payment-icons/mtn-momo.png", w: 86, h: 48 },
+                  { label: "MVola", logo: "/payment-icons/mvola.png", w: 48, h: 48 },
+                  { label: "Visa", logo: "/payment-icons/visa.svg", w: 75, h: 48 },
+                  { label: "Mastercard", logo: "/payment-icons/mastercard.png", w: 80, h: 48 },
+                ].map(({ label, logo, w, h }) => (
                   <span key={label} className="h-12 flex items-center">
-                    <img src={logo} alt={label} className="h-12 w-auto object-contain" />
+                    <img src={logo} alt={label} width={w} height={h} loading="lazy" decoding="async" className="h-12 w-auto object-contain" />
                   </span>
                 ))}
               </div>

@@ -7,6 +7,7 @@ import {
 import { ROUTE_PATHS } from "@/lib/index";
 import { BarsFilled, BarsOutline, HandUnderline, ShieldFilled, UsersFilled, type FilledIcon } from "@/components/decor";
 import { useT, tt, rich, lines } from "@/i18n";
+import { useSEO } from "@/hooks/useSEO";
 
 /* Photos dans public/images/soutien/ (découpées dans la maquette, texte manuscrit et
    bulle inclus dans l'image). Remplaçables par les originaux, mêmes noms de fichier. */
@@ -52,6 +53,11 @@ const WHY: { icon: LucideIcon | FilledIcon; title: string; desc: string; round: 
 
 export default function Services() {
   const { t } = useT();
+  useSEO({
+    title: "Nos Services de Soutien Scolaire & Accompagnement",
+    description: "Découvrez nos offres de soutien scolaire personnalisé du primaire aux examens : mathématiques, français, sciences et suivi méthodique régulier.",
+    canonicalPath: "/services",
+  });
   const [level, setLevel] = useState(LEVELS[0].key);
   const active = LEVELS.find(l => l.key === level)!;
 
