@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Users, Search, Phone,
-    MessageCircle, FileText, Loader2, ChevronRight,
+    MessageCircle, FileText, Loader2, ChevronRight, ChevronLeft,
     SearchCheck, Briefcase, PlusCircle, AlertTriangle,
     ThumbsUp, Lightbulb, Eye, UserCircle2,
     ClipboardCheck, CalendarRange, Trash2,
@@ -39,6 +39,7 @@ const getFamilySubjects = (family: any): string[] => {
 };
 // Valeur par défaut des curseurs du diagnostic : partagée entre l'affichage et le payload envoyé
 const DEFAULT_DIAG_SCORE = 3;
+const PAGE_SIZE = 8;
 const NOT_PROVIDED = "Non renseigné";
 
 // Normalise une valeur d'affichage : vide ou tiret (valeurs de repli du serveur) => libellé neutre
@@ -429,6 +430,9 @@ export default function AdvisorFamilies() {
     // ──────────────────────────────────────────────────────────────────────
     const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
     const [bilanFamily, setBilanFamily] = useState<any>(null);
+    const [page, setPage] = useState(1);
+
+    useEffect(() => { setPage(1); }, [searchTerm, filterTab, sort]);
 
     const toggleSort = (key: SortKey) =>
         setSort(prev => (prev?.key === key && prev.dir === "asc" ? { key, dir: "desc" } : { key, dir: "asc" }));
@@ -469,6 +473,11 @@ export default function AdvisorFamilies() {
             return sort.dir === "asc" ? cmp : -cmp;
         })
         : filteredFamilies;
+
+    const totalPages = Math.max(1, Math.ceil(sortedFamilies.length / PAGE_SIZE));
+    const currentPage = Math.min(page, totalPages);
+    const pageStart = (currentPage - 1) * PAGE_SIZE;
+    const pagedFamilies = sortedFamilies.slice(pageStart, pageStart + PAGE_SIZE);
 
     const stats = useMemo(() => {
         const list = Array.isArray(families) ? families : [];
@@ -568,10 +577,17 @@ export default function AdvisorFamilies() {
 
                         {/* Tableau */}
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
+                            <table className="w-full min-w-[640px] table-fixed text-sm">
+                                <colgroup>
+                                    <col className="w-[31%]" />
+                                    <col className="w-[21%]" />
+                                    <col className="w-[19%]" />
+                                    <col className="w-[20%]" />
+                                    <col className="w-[9%]" />
+                                </colgroup>
                                 <thead>
                                     <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
-                                        <th aria-sort={ariaSort("family")} className="px-6 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
+                                        <th aria-sort={ariaSort("family")} className="pl-5 pr-3 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
                                             {sortButton("family", "Famille / Contact")}
                                         </th>
                                         <th aria-sort={ariaSort("child")} className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
@@ -585,7 +601,7 @@ export default function AdvisorFamilies() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {sortedFamilies.map((f: any) => {
+                                    {pagedFamilies.map((f: any) => {
                                         const fp = isProspect(f);
                                         const isSelected = selectedFamily?.id === f.id;
                                         return (
@@ -598,10 +614,10 @@ export default function AdvisorFamilies() {
                                                 )}
                                                 style={isSelected ? { boxShadow: "inset 3px 0 0 #0F9B8E" } : undefined}
                                             >
-                                                <td className="px-6 py-3.5">
-                                                    <div className="flex items-center gap-3">
+                                                <td className="pl-5 pr-3 py-3.5">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
                                                         <div className={cn(
-                                                            "w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
+                                                            "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
                                                             isSelected
                                                                 ? (fp ? "bg-[#F5A623] text-white" : "bg-[#0D2D5A] text-white")
                                                                 : "bg-gray-50 border border-gray-100 text-[#0D2D5A]"
@@ -609,30 +625,31 @@ export default function AdvisorFamilies() {
                                                             {displayOr(f.parentName || f.parent, "?").charAt(0)}
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-[#0D2D5A] truncate">{displayOr(f.parentName || f.parent, "Parent non renseigné")}</span>
+                                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                                <span className="font-bold text-[#0D2D5A] truncate" title={displayOr(f.parentName || f.parent, "Parent non renseigné")}>{displayOr(f.parentName || f.parent, "Parent non renseigné")}</span>
                                                                 {fp ? (
-                                                                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] px-1.5 rounded-md uppercase tracking-wide font-bold">Prospect</Badge>
+                                                                    <Badge className="shrink-0 bg-amber-100 text-amber-700 border-amber-200 text-[9px] px-1.5 rounded-md uppercase tracking-wide font-bold">Prospect</Badge>
                                                                 ) : (
-                                                                    <Badge variant="outline" className="border-gray-200 text-gray-400 font-bold text-[9px] px-1.5 rounded-md uppercase tracking-wide">Parent</Badge>
+                                                                    <Badge variant="outline" className="shrink-0 border-gray-200 text-gray-400 font-bold text-[9px] px-1.5 rounded-md uppercase tracking-wide">Parent</Badge>
                                                                 )}
                                                             </div>
-                                                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                                <MessageCircle className="w-3 h-3" /> {displayOr(f.parentEmail || f.email)}
+                                                            <span className="text-xs text-gray-400 flex items-center gap-1 min-w-0">
+                                                                <MessageCircle className="w-3 h-3 shrink-0" /> <span className="truncate">{displayOr(f.parentEmail || f.email)}</span>
                                                             </span>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3.5">
-                                                    <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
-                                                        <Users className="w-3.5 h-3.5 text-gray-300" /> {displayOr(f.childName || f.child, "(Non renseigné)")}
+                                                    <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium min-w-0">
+                                                        <Users className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                                                        <span className="truncate">{displayOr(f.childName || f.child, "(Non renseigné)")}</span>
                                                     </div>
-                                                    <div className="text-[11px] text-gray-400 mt-0.5">Niveau : {displayOr(f.level)}</div>
+                                                    <div className="text-[11px] text-gray-400 mt-0.5 truncate">Niveau : {displayOr(f.level)}</div>
                                                 </td>
                                                 <td className="px-4 py-3.5">
-                                                    <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
-                                                        <UserCircle2 className="w-3.5 h-3.5 text-gray-300" />
-                                                        {fp ? "Pas encore assigné" : displayOr(f.teacherName || f.teacher, "Non assigné")}
+                                                    <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium min-w-0">
+                                                        <UserCircle2 className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                                                        <span className="truncate">{fp ? "Non assigné" : displayOr(f.teacherName || f.teacher, "Non assigné")}</span>
                                                     </div>
                                                     <div className="text-[11px] text-gray-400 mt-0.5">{fp ? "Prospect" : "Tuteur"}</div>
                                                 </td>
@@ -642,7 +659,7 @@ export default function AdvisorFamilies() {
                                                         const BadgeIcon = badge.icon;
                                                         return (
                                                             <span
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap"
                                                                 style={{ background: badge.bg, color: badge.text }}
                                                             >
                                                                 <BadgeIcon className="w-3.5 h-3.5" /> {badge.label}
@@ -667,6 +684,48 @@ export default function AdvisorFamilies() {
                                 </div>
                             )}
                         </div>
+
+                        {sortedFamilies.length > PAGE_SIZE && (
+                            <nav aria-label="Pagination des familles" className="flex items-center justify-between gap-3 px-5 py-3 border-t border-gray-100">
+                                <p className="text-xs text-gray-400">
+                                    <span className="font-bold text-[#0D2D5A]">{pageStart + 1}-{Math.min(pageStart + PAGE_SIZE, sortedFamilies.length)}</span> sur {sortedFamilies.length} familles
+                                </p>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPage(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        aria-label="Page précédente"
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                                        <button
+                                            key={n}
+                                            type="button"
+                                            onClick={() => setPage(n)}
+                                            aria-current={n === currentPage ? "page" : undefined}
+                                            className={cn(
+                                                "min-w-8 h-8 px-2 rounded-full text-xs font-bold transition-colors",
+                                                n === currentPage ? "bg-[#0D2D5A] text-white" : "text-gray-500 hover:bg-gray-100"
+                                            )}
+                                        >
+                                            {n}
+                                        </button>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setPage(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        aria-label="Page suivante"
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </nav>
+                        )}
                     </div>
                 </div>
 

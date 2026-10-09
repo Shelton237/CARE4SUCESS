@@ -509,6 +509,25 @@ describe("AdvisorFamilies — Mes familles", () => {
       });
     });
 
+    it("pagination : 8 familles par page, navigation vers la page suivante", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue(
+        Array.from({ length: 10 }, (_, i) => ({ ...FAMILY, id: `fam-${i}`, parentName: `Parent ${String(i).padStart(2, "0")}` }))
+      );
+      vi.stubGlobal("fetch", mockFetchByUrl({ "/advisor-notes/": () => jsonResponse([]) }));
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await screen.findByText("Parent 00");
+
+      expect(screen.getAllByRole("row")).toHaveLength(1 + 8);
+      expect(screen.getByText(/sur 10 familles/)).toBeInTheDocument();
+      expect(screen.queryByText("Parent 08")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Page suivante" }));
+      expect(screen.getByText("Parent 08")).toBeInTheDocument();
+      expect(screen.getAllByRole("row")).toHaveLength(1 + 2);
+    });
+
     it("matières dynamiques : sans matière renseignée, la liste complète est proposée", async () => {
       (fetchAdvisorFamilies as any).mockResolvedValue([{ ...FAMILY, subject: "" }]);
       vi.stubGlobal("fetch", mockFetchByUrl({
