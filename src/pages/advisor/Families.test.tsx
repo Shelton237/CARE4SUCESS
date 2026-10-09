@@ -757,14 +757,14 @@ describe("AdvisorFamilies — Mes familles", () => {
       { id: "c", parentName: "Marc Petit", childName: "Anna", studentId: "s-c", status: "matching" },
     ];
 
-    it("tri par « Famille / Contact » : asc puis desc, indicateur aria-sort", async () => {
+    it("tri par « Parent / Contact » : asc puis desc, indicateur aria-sort", async () => {
       (fetchAdvisorFamilies as any).mockResolvedValue(PEOPLE);
       vi.stubGlobal("fetch", mockFetchByUrl({}));
       const user = userEvent.setup();
       renderFamilies();
       await screen.findByText("Zoe Martin");
 
-      const header = screen.getByRole("button", { name: /Famille \/ Contact/ });
+      const header = screen.getByRole("button", { name: /Parent \/ Contact/ });
       await user.click(header);
       let rows = rowsText();
       expect(rows[0]).toContain("Alice Durand");
@@ -778,14 +778,14 @@ describe("AdvisorFamilies — Mes familles", () => {
       expect(header.closest("th")).toHaveAttribute("aria-sort", "descending");
     });
 
-    it("tri par « Lien avec l'élève » et par « Statut »", async () => {
+    it("tri par « Élève » et par « Statut »", async () => {
       (fetchAdvisorFamilies as any).mockResolvedValue(PEOPLE);
       vi.stubGlobal("fetch", mockFetchByUrl({}));
       const user = userEvent.setup();
       renderFamilies();
       await screen.findByText("Zoe Martin");
 
-      await user.click(screen.getByRole("button", { name: /Lien avec l'élève/ }));
+      await user.click(screen.getByRole("button", { name: /^Élève/ }));
       expect(rowsText()[0]).toContain("Anna");
 
       await user.click(screen.getByRole("button", { name: /^Statut/ }));
@@ -806,7 +806,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       renderFamilies();
       await screen.findByText("Autre");
 
-      const header = screen.getByRole("button", { name: /Famille \/ Contact/ });
+      const header = screen.getByRole("button", { name: /Parent \/ Contact/ });
       await user.click(header);
       await user.click(header);
       const rows = rowsText();
@@ -823,7 +823,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       await screen.findByText("Zoe Martin");
 
       await user.type(screen.getByPlaceholderText(/Rechercher un parent, un élève/i), "a");
-      await user.click(screen.getByRole("button", { name: /Famille \/ Contact/ }));
+      await user.click(screen.getByRole("button", { name: /Parent \/ Contact/ }));
       const rows = rowsText();
       expect(rows).toHaveLength(3 - rows.filter(r => !/a/i.test(r)).length);
       expect(rows[0]).toContain("Alice Durand");

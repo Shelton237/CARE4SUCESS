@@ -119,7 +119,7 @@ const STEPS = [
 const FILTER_TABS = [
     { key: "toutes",      label: "Toutes" },
     { key: "prospects",   label: "Prospects" },
-    { key: "parents",     label: "Parents" },
+    { key: "parents",     label: "Inscrits" },
     { key: "a-qualifier", label: "À qualifier" },
 ] as const;
 
@@ -579,19 +579,19 @@ export default function AdvisorFamilies() {
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[640px] table-fixed text-sm">
                                 <colgroup>
-                                    <col className="w-[31%]" />
-                                    <col className="w-[21%]" />
+                                    <col className="w-[28%]" />
+                                    <col className="w-[24%]" />
                                     <col className="w-[19%]" />
                                     <col className="w-[20%]" />
                                     <col className="w-[9%]" />
                                 </colgroup>
                                 <thead>
                                     <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
-                                        <th aria-sort={ariaSort("family")} className="pl-5 pr-3 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
-                                            {sortButton("family", "Famille / Contact")}
+                                        <th aria-sort={ariaSort("child")} className="pl-5 pr-3 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
+                                            {sortButton("child", "Élève")}
                                         </th>
-                                        <th aria-sort={ariaSort("child")} className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
-                                            {sortButton("child", "Lien avec l'élève")}
+                                        <th aria-sort={ariaSort("family")} className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
+                                            {sortButton("family", "Parent / Contact")}
                                         </th>
                                         <th className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">Tuteur assigné</th>
                                         <th aria-sort={ariaSort("status")} className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
@@ -622,29 +622,29 @@ export default function AdvisorFamilies() {
                                                                 ? (fp ? "bg-[#F5A623] text-white" : "bg-[#0D2D5A] text-white")
                                                                 : "bg-gray-50 border border-gray-100 text-[#0D2D5A]"
                                                         )}>
-                                                            {displayOr(f.parentName || f.parent, "?").charAt(0)}
+                                                            {displayOr(f.childName || f.child, "?").charAt(0)}
                                                         </div>
                                                         <div className="min-w-0">
                                                             <div className="flex items-center gap-1.5 min-w-0">
-                                                                <span className="font-bold text-[#0D2D5A] truncate" title={displayOr(f.parentName || f.parent, "Parent non renseigné")}>{displayOr(f.parentName || f.parent, "Parent non renseigné")}</span>
+                                                                <span className="font-bold text-[#0D2D5A] truncate" title={displayOr(f.childName || f.child, "Élève non renseigné")}>{displayOr(f.childName || f.child, "Élève non renseigné")}</span>
                                                                 {fp ? (
                                                                     <Badge className="shrink-0 bg-amber-100 text-amber-700 border-amber-200 text-[9px] px-1.5 rounded-md uppercase tracking-wide font-bold">Prospect</Badge>
                                                                 ) : (
-                                                                    <Badge variant="outline" className="shrink-0 border-gray-200 text-gray-400 font-bold text-[9px] px-1.5 rounded-md uppercase tracking-wide">Parent</Badge>
+                                                                    <Badge variant="outline" className="shrink-0 border-gray-200 text-gray-400 font-bold text-[9px] px-1.5 rounded-md uppercase tracking-wide">Inscrit</Badge>
                                                                 )}
                                                             </div>
-                                                            <span className="text-xs text-gray-400 flex items-center gap-1 min-w-0">
-                                                                <MessageCircle className="w-3 h-3 shrink-0" /> <span className="truncate">{displayOr(f.parentEmail || f.email)}</span>
-                                                            </span>
+                                                            <span className="text-xs text-gray-400 block truncate">Niveau : {displayOr(f.level)}</span>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3.5">
                                                     <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium min-w-0">
                                                         <Users className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-                                                        <span className="truncate">{displayOr(f.childName || f.child, "(Non renseigné)")}</span>
+                                                        <span className="truncate" title={displayOr(f.parentName || f.parent, "Parent non renseigné")}>{displayOr(f.parentName || f.parent, "Parent non renseigné")}</span>
                                                     </div>
-                                                    <div className="text-[11px] text-gray-400 mt-0.5 truncate">Niveau : {displayOr(f.level)}</div>
+                                                    <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1 min-w-0">
+                                                        <MessageCircle className="w-3 h-3 shrink-0" /> <span className="truncate">{displayOr(f.parentEmail || f.email)}</span>
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3.5">
                                                     <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium min-w-0">
@@ -740,11 +740,11 @@ export default function AdvisorFamilies() {
                                         "w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white shrink-0",
                                         prospect ? "bg-[#F5A623]" : "bg-[#0D2D5A]"
                                     )}>
-                                        {displayOr(selectedFamily.parentName || selectedFamily.parent, "?").charAt(0)}
+                                        {displayOr(selectedFamily.childName || selectedFamily.child, "?").charAt(0)}
                                     </div>
                                     <div className="min-w-0">
                                         <h2 className="text-base font-bold text-[#0D2D5A] uppercase truncate">
-                                            {displayOr(selectedFamily.parentName || selectedFamily.parent, "Parent non renseigné")} & {displayOr(selectedFamily.childName || selectedFamily.child, "Élève non renseigné")}
+                                            {displayOr(selectedFamily.childName || selectedFamily.child, "Élève non renseigné")}
                                         </h2>
                                         <p className="text-sm text-gray-400 mt-0.5">
                                             {selectedFamily.level || "Niveau non défini"}{selectedFamily.subject ? ` · ${selectedFamily.subject}` : ""}
@@ -756,22 +756,22 @@ export default function AdvisorFamilies() {
                                     prospect ? "bg-[#F5A623]" : "bg-[#0F9B8E]"
                                 )}>
                                     {prospect && <AlertTriangle className="w-3.5 h-3.5" />}
-                                    {prospect ? "Prospect" : "Parent"}
+                                    {prospect ? "Prospect" : "Inscrit"}
                                 </span>
                             </div>
 
                             {/* Infos rapides : élève / tuteur / date */}
                             <div className="flex items-center flex-wrap gap-x-5 gap-y-3 px-5 pb-5 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
-                                    <UserCircle2 className="w-4 h-4 text-gray-300 shrink-0" />
-                                    <div>
-                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{displayOr(selectedFamily.childName || selectedFamily.child)}</p>
-                                        <p className="text-[10px] text-gray-400 leading-tight">Élève · {displayOr(selectedFamily.level)}</p>
+                                    <Users className="w-4 h-4 text-gray-300 shrink-0" />
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{displayOr(selectedFamily.parentName || selectedFamily.parent, "Parent non renseigné")}</p>
+                                        <p className="text-[10px] text-gray-400 leading-tight truncate">Parent · {displayOr(selectedFamily.parentEmail || selectedFamily.email)}</p>
                                     </div>
                                 </div>
                                 <div className="w-px h-8 bg-gray-100" />
                                 <div className="flex items-center gap-2">
-                                    <Users className="w-4 h-4 text-gray-300 shrink-0" />
+                                    <UserCircle2 className="w-4 h-4 text-gray-300 shrink-0" />
                                     <div>
                                         <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{prospect ? "Non assigné" : displayOr(selectedFamily.teacherName || selectedFamily.teacher, "Non assigné")}</p>
                                         <p className="text-[10px] text-gray-400 leading-tight">Tuteur assigné</p>
