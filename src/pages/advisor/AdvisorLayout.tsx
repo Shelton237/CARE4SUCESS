@@ -30,7 +30,7 @@ export default function AdvisorLayout() {
         || (location.pathname === "/advisor" ? "Tableau de bord" : "Care4Success");
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+        <div className="min-h-screen bg-[#F3F9FD] flex flex-col md:flex-row" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
             <DashboardSidebar items={NAV} roleLabel="Conseiller Care4Success" roleColor={ROLE_COLOR} />
 
             <main className="flex-1 md:ml-72 ml-0 min-h-screen pt-16 md:pt-0 overflow-y-auto w-full">

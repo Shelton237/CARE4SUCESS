@@ -29,7 +29,7 @@ export function DashboardTopbar({ homeTo, pageLabel, roleColor }: Props) {
     };
 
     return (
-        <div className="hidden md:flex items-center justify-between px-8 py-4 bg-white border-b border-gray-100">
+        <div className="hidden md:flex items-center justify-between px-8 pt-6 pb-2">
             <div className="flex items-center gap-2 text-sm">
                 <NavLink to={homeTo} end className="text-gray-400 hover:text-[#0D2D5A] transition-colors">
                     <Home className="w-4 h-4" />
@@ -44,14 +44,14 @@ export function DashboardTopbar({ homeTo, pageLabel, roleColor }: Props) {
                 <span className="text-[#0D2D5A] font-bold">{pageLabel}</span>
             </div>
 
-            <div className="flex items-center gap-4">
-                <div className="rounded-full p-1.5 hover:bg-gray-50 transition-colors">
+            <div className="flex items-center gap-3">
+                <div className="rounded-full p-2 bg-white shadow-sm hover:shadow transition-shadow">
                     <NotificationCenter />
                 </div>
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <button className="flex items-center gap-2.5 pl-1 pr-2 py-1 rounded-full hover:bg-gray-50 transition-colors">
+                        <button className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full bg-white shadow-sm hover:shadow transition-shadow">
                             <div
                                 className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
                                 style={{ background: roleColor }}
