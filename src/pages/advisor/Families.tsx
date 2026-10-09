@@ -1030,26 +1030,40 @@ export default function AdvisorFamilies() {
 
                             {/* Stepper de progression */}
                             <div className="px-5 pt-5">
-                                <div className="flex items-center">
-                                    {STEPS.map((s, i) => (
-                                        <div key={s.key} className="flex-1 flex items-center last:flex-none">
-                                            <div className="flex flex-col items-center gap-1.5">
-                                                <div className={cn(
-                                                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                                                    stepDone[i] ? "bg-[#0F9B8E] text-white" :
-                                                    i === activeStepIdx ? "bg-[#0F9B8E] text-white" :
-                                                    "bg-gray-100 text-gray-400"
+                                <ol className="grid grid-cols-5" aria-label="Avancement du dossier">
+                                    {STEPS.map((st, i) => {
+                                        const done = stepDone[i];
+                                        const current = !done && i === activeStepIdx;
+                                        return (
+                                            <li key={st.key} className="relative flex flex-col items-center gap-1.5" aria-current={current ? "step" : undefined}>
+                                                {/* Trait vers l'étape précédente : vert seulement si les deux étapes sont faites */}
+                                                {i > 0 && (
+                                                    <span
+                                                        aria-hidden
+                                                        className={cn(
+                                                            "absolute top-4 right-1/2 w-full h-0.5 -translate-y-1/2",
+                                                            stepDone[i - 1] && done ? "bg-[#0F9B8E]" : "bg-gray-200"
+                                                        )}
+                                                    />
+                                                )}
+                                                <span className={cn(
+                                                    "relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                                                    done ? "bg-[#0F9B8E] text-white"
+                                                        : current ? "bg-white text-[#0F9B8E] ring-2 ring-[#0F9B8E] shadow-[0_0_0_4px_rgba(15,155,142,0.12)]"
+                                                        : "bg-gray-100 text-gray-400"
                                                 )}>
-                                                    {stepDone[i] ? <Check className="w-4 h-4" /> : i + 1}
-                                                </div>
-                                                <span className="text-[10px] font-bold text-gray-500 text-center leading-tight max-w-[60px]">{s.label}</span>
-                                            </div>
-                                            {i < STEPS.length - 1 && (
-                                                <div className={cn("flex-1 h-0.5 mx-1 mb-4", stepDone[i] ? "bg-[#0F9B8E]" : "bg-gray-100")} />
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                                    {done ? <Check className="w-4 h-4" aria-label="terminée" /> : i + 1}
+                                                </span>
+                                                <span className={cn(
+                                                    "text-[11px] text-center whitespace-nowrap",
+                                                    done ? "font-semibold text-[#0D2D5A]" : current ? "font-bold text-[#0F9B8E]" : "font-medium text-gray-400"
+                                                )}>
+                                                    {st.label}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
+                                </ol>
                             </div>
 
                             <div className="p-4 md:p-5 space-y-4">

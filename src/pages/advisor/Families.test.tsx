@@ -171,6 +171,22 @@ describe("AdvisorFamilies — Mes familles", () => {
       expect(screen.queryByTestId("academic-file-stub")).not.toBeInTheDocument();
     });
 
+    it("stepper : l'étape en cours est distincte des étapes terminées, même si une étape suivante est faite", async () => {
+      vi.stubGlobal("fetch", mockFetchByUrl({
+        "/diagnostic": () => jsonResponse({ id: "d1", created_at: "2026-06-01", scores: { "Mathématiques": 3 } }),
+        "/advisor-notes/": () => jsonResponse([]),
+      }));
+      renderFamilies();
+      const stepper = await screen.findByRole("list", { name: "Avancement du dossier" });
+      await waitFor(() => expect(within(stepper).getAllByLabelText("terminée")).toHaveLength(2));
+
+      const steps = within(stepper).getAllByRole("listitem");
+      expect(steps[1]).toHaveAttribute("aria-current", "step");
+      expect(steps[1]).toHaveTextContent("Rendez-vous");
+      expect(steps[2]).not.toHaveAttribute("aria-current");
+      expect(within(steps[2]).getByLabelText("terminée")).toBeInTheDocument();
+    });
+
     it("par défaut, le premier élève du tableau est sélectionné", async () => {
       (fetchAdvisorFamilies as any).mockResolvedValue([
         { ...FAMILY, id: "f1", childName: "Premier Élève" },
