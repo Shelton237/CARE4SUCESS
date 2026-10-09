@@ -12,6 +12,7 @@ import nodemailer from "nodemailer";
 import cron from "node-cron";
 import { OAuth2Client } from "google-auth-library";
 import { resolveJwtSecret } from "./jwtSecret.js";
+import { parseJson, parseJsonObject } from "./parseJson.js";
 
 const rootDir = process.cwd();
 const envFiles = [".env.local", ".env"];
@@ -189,35 +190,7 @@ const formatDate = (value) => {
   }
 };
 
-// Colonne JSON contenant un objet {clé: texte} (mysql2 la renvoie déjà parsée).
-const parseJsonObject = (value) => {
-  let v = value;
-  if (typeof v === "string") {
-    try { v = JSON.parse(v); } catch { return {}; }
-  }
-  return v && typeof v === "object" && !Array.isArray(v) ? v : {};
-};
-
-const parseJson = (value, fallback) => {
-  if (!value) return fallback;
-  if (Array.isArray(value)) return value;
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed;
-      if (typeof parsed === "string") value = parsed;
-    } catch {
-      /* ignore */
-    }
-    if (value.includes(",")) {
-      return value.split(",").map((s) => s.trim()).filter(Boolean);
-    }
-    if (value.trim()) {
-      return [value.trim()];
-    }
-  }
-  return fallback;
-};
+// parseJson / parseJsonObject : voir ./parseJson.js
 
 const REQUEST_STATUS_ALIASES = new Map([
   ["reçu", "reçu"],
@@ -3521,7 +3494,7 @@ app.get("/api/requests/:id/diagnostic", authenticateRequest, requireRole("admin"
     if (!rows.length) return res.status(404).json({ message: "Demande introuvable." });
     const diag = rows[0].diagnostic;
     if (!diag) return res.json(null);
-    const parsed = typeof diag === "string" ? JSON.parse(diag) : diag;
+    const parsed = parseJsonObject(diag);
     res.json({ id, ...parsed });
   } catch (error) {
     console.error("Failed to fetch request diagnostic", error);
@@ -3566,7 +3539,7 @@ app.get("/api/requests/:id/plan", authenticateRequest, requireRole("admin", "adv
     if (!rows.length) return res.status(404).json({ message: "Demande introuvable." });
     const plan = rows[0].academic_plan;
     if (!plan) return res.json(null);
-    const parsed = typeof plan === "string" ? JSON.parse(plan) : plan;
+    const parsed = parseJsonObject(plan);
     res.json({ id, ...parsed });
   } catch (error) {
     console.error("Failed to fetch request plan", error);
@@ -3649,20 +3622,20 @@ app.post("/api/requests/:id/convert", authenticateRequest, requireRole("admin", 
     // Si un diagnostic était stocké sur la demande, le migrer vers academic_diagnostics
     if (r.diagnostic) {
       await ensureAcademicDiagnosticsTable();
-      const diag = typeof r.diagnostic === "string" ? JSON.parse(r.diagnostic) : r.diagnostic;
+      const diag = parseJsonObject(r.diagnostic);
       await pool.query(
         `INSERT INTO academic_diagnostics (student_id, student_name, evaluator_id, evaluator_name, scores, strengths, weaknesses) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [studentId, r.child_name, diag.evaluatorId || req.user.sub, diag.evaluatorName || "Conseillère", JSON.stringify(diag.scores), diag.strengths || null, diag.weaknesses || null]
+        [studentId, r.child_name, diag.evaluatorId || req.user.sub, diag.evaluatorName || "Conseillère", JSON.stringify(diag.scores ?? {}), diag.strengths || null, diag.weaknesses || null]
       );
     }
 
     // Si un plan était stocké sur la demande, le migrer vers academic_plans
     if (r.academic_plan) {
       await ensureAcademicPlansTable();
-      const plan = typeof r.academic_plan === "string" ? JSON.parse(r.academic_plan) : r.academic_plan;
+      const plan = parseJsonObject(r.academic_plan);
       await pool.query(
         `INSERT INTO academic_plans (student_id, student_name, created_by, title, weeks, start_date) VALUES (?, ?, ?, ?, ?, ?)`,
-        [studentId, r.child_name, plan.createdBy || req.user.sub, plan.title, JSON.stringify(plan.weeks), plan.start_date]
+        [studentId, r.child_name, plan.createdBy || req.user.sub, plan.title, JSON.stringify(plan.weeks ?? []), plan.start_date]
       );
     }
 
@@ -10460,7 +10433,7 @@ app.get("/api/students/:studentId/diagnostic", authenticateRequest, requireStude
     const d = rows[0];
     res.json({
       ...d,
-      scores: parseJson(d.scores, {}),
+      scores: parseJsonObject(d.scores),
       recommendedSubjects: parseJson(d.recommended_subjects, [])
     });
   } catch (error) {
@@ -10613,14 +10586,40 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
   }
   try {
     const { studentId } = req.params;
-    const [[student]] = await pool.query(
-      `SELECT u.name, u.id, r.subject, r.level
-       FROM users u
-       LEFT JOIN requests r ON r.parent_id = u.parent_id OR r.email = u.email
-       WHERE u.id = ?
-       LIMIT 1`,
+    // requests n'a pas de colonne parent_id : on relie la demande à l'élève via
+    // l'email du parent (users.parent_id, sinon parent_child) = requests.email.
+    // Requêtes séparées à paramètres (pas de jointure entre colonnes de tables
+    // aux collations potentiellement différentes). Sans lien fiable, subject et
+    // level restent null (dégradation propre) : pas de rapprochement par nom seul
+    // vers une autre famille.
+    const [[user]] = await pool.query(
+      `SELECT id, name, parent_id FROM users WHERE id = ? LIMIT 1`,
       [studentId]
     );
+    let student = null;
+    if (user) {
+      student = { id: user.id, name: user.name, subject: null, level: null };
+      let parentId = user.parent_id;
+      if (!parentId) {
+        const [[link]] = await pool.query(
+          `SELECT parent_id FROM parent_child WHERE child_id = ? LIMIT 1`,
+          [studentId]
+        );
+        parentId = link?.parent_id ?? null;
+      }
+      if (parentId) {
+        const [[parent]] = await pool.query(`SELECT email FROM users WHERE id = ? LIMIT 1`, [parentId]);
+        if (parent?.email) {
+          const [reqs] = await pool.query(
+            `SELECT subject, level, child_name FROM requests WHERE email = ? ORDER BY request_date DESC`,
+            [parent.email]
+          );
+          const norm = (v) => String(v ?? "").trim().toLowerCase();
+          const chosen = reqs.find((r) => norm(r.child_name) === norm(user.name)) ?? reqs[0];
+          if (chosen) { student.subject = chosen.subject; student.level = chosen.level; }
+        }
+      }
+    }
     if (!student) return res.status(404).json({ message: "Élève introuvable" });
 
     const [[diag]] = await pool.query(
@@ -10628,28 +10627,31 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
       [studentId]
     ).catch(() => [[null]]);
 
-    const diagScores = diag?.scores ? JSON.parse(diag.scores) : {};
+    const diagScores = parseJsonObject(diag?.scores);
     const weakSubjects = Object.entries(diagScores)
       .filter(([, s]) => Number(s) < 5)
       .map(([subj]) => subj);
 
     const [teachers] = await pool.query(
-      `SELECT t.id, u.name, t.subjects, t.levels, t.availability_json,
+      `SELECT t.id, u.name, t.subjects, t.levels, t.level, t.availability_json,
               COALESCE(t.performance_index, 3.0) AS perf,
               COALESCE(t.hourly_rate, 7500) AS rate,
               COALESCE(t.currency, 'XAF') AS currency,
               COUNT(s.id) AS sessionCount
        FROM teachers t
-       JOIN users u ON u.id = t.user_id
+       JOIN users u ON u.id = t.id
        LEFT JOIN sessions s ON s.teacher_id = t.id AND s.status = 'effectué'
        WHERE u.role IN ('teacher','tutor')
-       GROUP BY t.id`
+       GROUP BY t.id, u.name`
     );
 
     const scored = teachers.map(t => {
-      const subjs = t.subjects ? JSON.parse(t.subjects) : [];
-      const levels = t.levels ? JSON.parse(t.levels) : [];
-      const avail = t.availability_json ? JSON.parse(t.availability_json) : {};
+      const subjs = parseJson(t.subjects, []);
+      const levels = parseJson(t.levels, null) ?? parseJson(t.level, []);
+      // availability_json : liste de créneaux (tableau) ou objet
+      let avail = t.availability_json;
+      if (typeof avail === "string") { try { avail = JSON.parse(avail); } catch { avail = null; } }
+      if (!avail || typeof avail !== "object") avail = {};
 
       let score = Number(t.perf) * 20;
       if (student.subject && subjs.some((s) => s.toLowerCase().includes(student.subject?.toLowerCase()))) score += 30;
