@@ -166,6 +166,18 @@ const requireSelfOrAdmin = (param = "userId") => (req, res, next) => {
   return res.status(403).json({ message: "Accès refusé." });
 };
 
+// Le JWT ne porte que sub + role : le nom affiché (note, diagnostic) est relu en
+// base pour ne jamais dépendre d'une valeur fournie par le client.
+const getActorName = async (userId) => {
+  try {
+    const [rows] = await pool.query("SELECT name FROM users WHERE id = ? LIMIT 1", [userId]);
+    return rows[0]?.name || "";
+  } catch (error) {
+    console.warn("[actor] nom non récupérable :", error.message);
+    return "";
+  }
+};
+
 const formatDate = (value) => {
   if (!value) return value;
   try {
@@ -3520,9 +3532,12 @@ app.get("/api/requests/:id/diagnostic", authenticateRequest, requireRole("admin"
 // POST sauvegarder le diagnostic d'une demande
 app.post("/api/requests/:id/diagnostic", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
   const { id } = req.params;
-  const { scores, strengths, weaknesses, evaluatorId, evaluatorName } = req.body ?? {};
+  const { scores, strengths, weaknesses } = req.body ?? {};
   if (!scores) return res.status(400).json({ message: "Les scores sont obligatoires." });
   try {
+    // Identité de l'évaluateur issue du jeton, jamais du body.
+    const evaluatorId = req.user.sub;
+    const evaluatorName = await getActorName(req.user.sub);
     await ensureRequestsTable();
     const [rows] = await pool.query("SELECT id FROM requests WHERE id = ?", [id]);
     if (!rows.length) return res.status(404).json({ message: "Demande introuvable." });
@@ -3562,9 +3577,11 @@ app.get("/api/requests/:id/plan", authenticateRequest, requireRole("admin", "adv
 // POST sauvegarder le plan pédagogique d'une demande
 app.post("/api/requests/:id/plan", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
   const { id } = req.params;
-  const { title, startDate, weeks, createdBy } = req.body ?? {};
+  const { title, startDate, weeks } = req.body ?? {};
   if (!title || !startDate || !weeks) return res.status(400).json({ message: "Titre, date de début et semaines sont obligatoires." });
   try {
+    // Auteur issu du jeton, jamais du body.
+    const createdBy = req.user.sub;
     await ensureRequestsTable();
     const [rows] = await pool.query("SELECT id FROM requests WHERE id = ?", [id]);
     if (!rows.length) return res.status(404).json({ message: "Demande introuvable." });
@@ -10245,12 +10262,15 @@ app.get("/api/parents/:parentId/session-feedback", authenticateRequest, async (r
 // ─────────────────────────────────────────────
 // ADVISOR NOTES (observations conseiller)
 // ─────────────────────────────────────────────
-app.post("/api/advisor-notes", authenticateRequest, async (req, res) => {
-  const { studentId, studentName, advisorId, advisorName, noteType, content, isVisibleToParent } = req.body;
-  if (!studentId || !advisorId || !content) {
-    return res.status(400).json({ message: "studentId, advisorId, content sont requis." });
+app.post("/api/advisor-notes", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  // advisorId / advisorName éventuellement envoyés par le front sont ignorés.
+  const { studentId, studentName, noteType, content, isVisibleToParent } = req.body;
+  if (!studentId || !content) {
+    return res.status(400).json({ message: "studentId, content sont requis." });
   }
   try {
+    const advisorId = req.user.sub;
+    const advisorName = await getActorName(advisorId);
     await pool.query(
       `INSERT INTO advisor_notes
          (student_id, student_name, advisor_id, advisor_name, note_type, content, is_visible_to_parent)
@@ -10268,7 +10288,7 @@ app.post("/api/advisor-notes", authenticateRequest, async (req, res) => {
   }
 });
 
-app.get("/api/advisor-notes/:studentId", authenticateRequest, async (req, res) => {
+app.get("/api/advisor-notes/:studentId", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT * FROM advisor_notes WHERE student_id = ? ORDER BY created_at DESC`,
@@ -10280,9 +10300,13 @@ app.get("/api/advisor-notes/:studentId", authenticateRequest, async (req, res) =
   }
 });
 
-app.delete("/api/advisor-notes/:noteId", authenticateRequest, async (req, res) => {
+app.delete("/api/advisor-notes/:noteId", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
   try {
-    await pool.query(`DELETE FROM advisor_notes WHERE id = ?`, [req.params.noteId]);
+    // Un conseiller ne supprime que ses propres notes ; l'admin toutes.
+    const [result] = req.user.role === "admin"
+      ? await pool.query(`DELETE FROM advisor_notes WHERE id = ?`, [req.params.noteId])
+      : await pool.query(`DELETE FROM advisor_notes WHERE id = ? AND advisor_id = ?`, [req.params.noteId, req.user.sub]);
+    if (!result.affectedRows) return res.status(404).json({ message: "Note introuvable." });
     res.json({ message: "Note supprimée." });
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur." });
@@ -10292,12 +10316,15 @@ app.delete("/api/advisor-notes/:noteId", authenticateRequest, async (req, res) =
 // ─────────────────────────────────────────────
 // DIAGNOSTIC INITIAL (dossier académique)
 // ─────────────────────────────────────────────
-app.post("/api/students/:studentId/diagnostic", authenticateRequest, async (req, res) => {
-  const { studentName, evaluatorId, evaluatorName, scores, strengths, weaknesses, recommendedSubjects } = req.body;
-  if (!scores || !evaluatorId) {
-    return res.status(400).json({ message: "scores et evaluatorId sont requis." });
+app.post("/api/students/:studentId/diagnostic", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  // evaluatorId / evaluatorName éventuellement envoyés par le front sont ignorés.
+  const { studentName, scores, strengths, weaknesses, recommendedSubjects } = req.body;
+  if (!scores) {
+    return res.status(400).json({ message: "scores est requis." });
   }
   try {
+    const evaluatorId = req.user.sub;
+    const evaluatorName = await getActorName(evaluatorId);
     await pool.query(
       `INSERT INTO academic_diagnostics
          (student_id, student_name, evaluator_id, evaluator_name, scores, strengths, weaknesses, recommended_subjects)
@@ -10315,7 +10342,7 @@ app.post("/api/students/:studentId/diagnostic", authenticateRequest, async (req,
   }
 });
 
-app.get("/api/students/:studentId/diagnostic", authenticateRequest, async (req, res) => {
+app.get("/api/students/:studentId/diagnostic", authenticateRequest, requireStudentAccess("studentId"), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT * FROM academic_diagnostics WHERE student_id = ? ORDER BY created_at DESC LIMIT 1`,
@@ -10336,12 +10363,14 @@ app.get("/api/students/:studentId/diagnostic", authenticateRequest, async (req, 
 // ─────────────────────────────────────────────
 // PLAN PÉDAGOGIQUE
 // ─────────────────────────────────────────────
-app.post("/api/students/:studentId/academic-plan", authenticateRequest, async (req, res) => {
-  const { studentName, createdBy, title, weeks, startDate, endDate } = req.body;
-  if (!createdBy || !title || !weeks || !startDate) {
-    return res.status(400).json({ message: "createdBy, title, weeks, startDate sont requis." });
+app.post("/api/students/:studentId/academic-plan", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  // createdBy éventuellement envoyé par le front est ignoré.
+  const { studentName, title, weeks, startDate, endDate } = req.body;
+  if (!title || !weeks || !startDate) {
+    return res.status(400).json({ message: "title, weeks, startDate sont requis." });
   }
   try {
+    const createdBy = req.user.sub;
     // Archiver le plan actif précédent
     await pool.query(
       `UPDATE academic_plans SET status = 'completed' WHERE student_id = ? AND status = 'active'`,
@@ -10362,7 +10391,7 @@ app.post("/api/students/:studentId/academic-plan", authenticateRequest, async (r
   }
 });
 
-app.get("/api/students/:studentId/academic-plan", authenticateRequest, async (req, res) => {
+app.get("/api/students/:studentId/academic-plan", authenticateRequest, requireStudentAccess("studentId"), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT * FROM academic_plans WHERE student_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
