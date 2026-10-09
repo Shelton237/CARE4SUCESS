@@ -88,8 +88,20 @@ describe("AdvisorFamilies — Mes familles", () => {
     it("succès : affiche la liste des familles récupérées via fetchAdvisorFamilies", async () => {
       renderFamilies();
       expect(await screen.findByText("Mme Ba")).toBeInTheDocument();
-      expect(screen.getByText(/Idris Ba/)).toBeInTheDocument();
+      expect(within(screen.getByRole("table")).getByText(/Idris Ba/)).toBeInTheDocument();
       expect(fetchAdvisorFamilies).toHaveBeenCalledTimes(1);
+    });
+
+    it("par défaut, le premier élève du tableau est sélectionné", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([
+        { ...FAMILY, id: "f1", childName: "Premier Élève" },
+        { ...FAMILY, id: "f2", childName: "Second Élève" },
+      ]);
+      vi.stubGlobal("fetch", mockFetchByUrl({ "/advisor-notes/": () => jsonResponse([]) }));
+
+      renderFamilies();
+      expect(await screen.findByRole("heading", { level: 2, name: /Premier Élève/i })).toBeInTheDocument();
+      expect(screen.queryByText(/Sélectionnez un élève/)).not.toBeInTheDocument();
     });
 
     it("recherche : filtre la liste par nom de parent ou d'élève, message vide si aucun résultat", async () => {

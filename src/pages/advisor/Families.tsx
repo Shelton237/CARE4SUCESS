@@ -250,6 +250,9 @@ export default function AdvisorFamilies() {
             if (targetPanel && ["notes", "diagnostic", "plan", "matching"].includes(targetPanel)) {
                 setActivePanel(targetPanel as any);
             }
+        } else {
+            // Par défaut, la première ligne du tableau ; une sélection existante est conservée au rechargement.
+            setSelectedFamily((prev: any) => prev ?? families[0]);
         }
     }, [families, location.state, searchParams]);
 
