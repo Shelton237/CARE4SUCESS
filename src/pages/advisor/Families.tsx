@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Users, Search, Phone,
@@ -7,7 +7,7 @@ import {
     ThumbsUp, Lightbulb, Eye, UserCircle2,
     ClipboardCheck, CalendarRange, Trash2,
     Zap, Star, RefreshCw, UserPlus, GitMerge, CheckCircle2,
-    CalendarDays,
+    CalendarDays, TrendingUp, ArrowUpDown, Check, ChevronDown,
 } from "lucide-react";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,9 +23,39 @@ const SUBJECTS_DIAG = ["Mathématiques", "Français", "Anglais", "Physique", "SV
 const NOTE_TYPES = [
     { value: "observation",    label: "Observation",    icon: Eye,          color: "text-slate-500" },
     { value: "recommandation", label: "Recommandation", icon: Lightbulb,    color: "text-[#1A6CC8]" },
-    { value: "alerte",         label: "Alerte",         icon: AlertTriangle, color: "text-[#F5A623]" },
+    { value: "alerte",         label: "Alerte",          icon: AlertTriangle, color: "text-[#F5A623]" },
     { value: "positif",        label: "Positif",        icon: ThumbsUp,     color: "text-emerald-600" },
 ];
+
+const STEPS = [
+    { key: "compte",      label: "Compte élève" },
+    { key: "rdv",         label: "Rendez-vous" },
+    { key: "diagnostic",  label: "Diagnostic" },
+    { key: "plan",        label: "Plan" },
+    { key: "matching",    label: "Matching" },
+] as const;
+
+const FILTER_TABS = [
+    { key: "toutes",      label: "Toutes" },
+    { key: "prospects",   label: "Prospects" },
+    { key: "parents",     label: "Parents" },
+    { key: "a-qualifier", label: "À qualifier" },
+] as const;
+
+function StatCard({ icon: Icon, value, label, desc, bg }: { icon: any; value: string | number; label: string; desc: string; bg: string }) {
+    return (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: bg }}>
+                <Icon className="w-5 h-5 text-white" strokeWidth={2} />
+            </div>
+            <div className="min-w-0">
+                <div className="text-2xl font-bold text-[#0D2D5A] leading-tight">{value}</div>
+                <div className="text-sm font-bold text-[#0D2D5A]">{label}</div>
+                <div className="text-[11px] text-gray-400 leading-tight">{desc}</div>
+            </div>
+        </div>
+    );
+}
 
 export default function AdvisorFamilies() {
     const { user, token } = useAuth();
@@ -36,6 +66,7 @@ export default function AdvisorFamilies() {
 
     // Selection
     const [searchTerm, setSearchTerm] = useState("");
+    const [filterTab, setFilterTab] = useState<typeof FILTER_TABS[number]["key"]>("toutes");
     const [selectedFamily, setSelectedFamily] = useState<any>(null);
 
     // Notes
@@ -93,7 +124,7 @@ export default function AdvisorFamilies() {
             found = families.find((f: any) => String(f.id) === String(targetFamilyId) || String(f.studentId) === String(targetFamilyId));
         }
         if (!found && targetChild) {
-            found = families.find((f: any) => 
+            found = families.find((f: any) =>
                 (f.childName || f.child || "").toLowerCase().includes(targetChild.toLowerCase()) ||
                 (f.parentName || f.parent || "").toLowerCase().includes(targetChild.toLowerCase())
             );
@@ -283,20 +314,34 @@ export default function AdvisorFamilies() {
     });
 
     // ──────────────────────────────────────────────────────────────────────
-    // Filter
+    // Filtre (recherche + onglets)
     // ──────────────────────────────────────────────────────────────────────
     const filteredFamilies = (Array.isArray(families) ? families : []).filter((f: any) => {
         const pName = (f.parentName || f.parent || "").toLowerCase();
         const cName = (f.childName || f.child || "").toLowerCase();
         const term = searchTerm.trim().toLowerCase();
-        if (!term) return true;
-        return pName.includes(term) || cName.includes(term);
+        if (term && !pName.includes(term) && !cName.includes(term)) return false;
+
+        const fp = isProspect(f);
+        if (filterTab === "prospects" && !fp) return false;
+        if (filterTab === "parents" && fp) return false;
+        if (filterTab === "a-qualifier" && !fp) return false;
+        return true;
     });
+
+    const stats = useMemo(() => {
+        const list = Array.isArray(families) ? families : [];
+        return {
+            total: list.length,
+            toQualify: list.filter((f: any) => isProspect(f)).length,
+            activeFollowups: list.filter((f: any) => !isProspect(f) && f.status === "suivi actif").length,
+        };
+    }, [families]);
 
     if (isLoading) {
         return (
             <div className="p-4 md:p-8 flex flex-col items-center justify-center min-h-[400px]">
-                <Loader2 className="animate-spin text-[#1A6CC8] w-10 h-10" />
+                <Loader2 className="animate-spin text-[#0F9B8E] w-10 h-10" />
                 <p className="text-gray-400 text-sm mt-4">Chargement des familles...</p>
             </div>
         );
@@ -320,83 +365,153 @@ export default function AdvisorFamilies() {
 
     const prospect = isProspect(selectedFamily);
 
+    // Statut d'avancement du dossier sélectionné, pour le stepper du panneau de droite
+    const stepDone = selectedFamily ? [
+        !prospect,
+        !!selectedFamily.nextRdv && selectedFamily.nextRdv !== "—",
+        !!(diagnostic as any)?.id,
+        !!(activePlan as any)?.id,
+        !prospect && !!selectedFamily.teacherName && !["—", "Non assigné"].includes(selectedFamily.teacherName),
+    ] : [false, false, false, false, false];
+    const currentStepIdx = stepDone.findIndex(d => !d);
+    const activeStepIdx = currentStepIdx === -1 ? STEPS.length - 1 : currentStepIdx;
+
+    const STATUS_LABEL: Record<string, string> = {
+        "nouveau": "Nouveau",
+        "matching": "Matching",
+        "bilan planifié": "Bilan planifié",
+        "suivi actif": "Suivi actif",
+    };
+
     return (
-        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-[#0D2D5A]">Suivi des Familles</h1>
-                    <p className="text-gray-500 text-sm mt-1">Gérez les relations parents-élèves et les affectations de tuteurs.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2.5">
-                        <Users className="w-4 h-4 text-[#1A6CC8]" />
-                        <span className="text-sm font-bold text-[#0D2D5A]">{families.length} Familles</span>
-                    </div>
-                </div>
+            <div>
+                <h1 className="text-[28px] font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>Suivi des familles</h1>
+                <p className="text-gray-500 text-sm mt-1">Gérez les relations parents-élèves et les affectations de tuteurs.</p>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                {/* Liste des Familles */}
-                <div className="xl:col-span-8 flex flex-col gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                {/* Colonne gauche : stats + liste */}
+                <div className="xl:col-span-8 flex flex-col gap-5">
+                    {/* Cartes statistiques */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <StatCard icon={Users} value={stats.total} label="Familles" desc="Total des familles enregistrées" bg="#0D2D5A" />
+                        <StatCard icon={UserCircle2} value={stats.toQualify} label="À qualifier" desc="Nécessitent un suivi rapproché" bg="#F5A623" />
+                        <StatCard icon={TrendingUp} value={stats.activeFollowups} label="Suivis actifs" desc="En accompagnement" bg="#0F9B8E" />
+                    </div>
+
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                            <div className="relative flex-1 max-w-md">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 w-3.5 h-3.5" />
+                        {/* Recherche + onglets de filtre */}
+                        <div className="flex flex-col md:flex-row md:items-center gap-3 px-6 py-4 border-b border-gray-100">
+                            <div className="relative flex-1 max-w-sm">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
                                 <input
                                     type="text"
-                                    placeholder="Rechercher un parent ou un élève..."
+                                    placeholder="Rechercher un parent, un élève ou une famille..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1A6CC8]/20 transition-all font-medium"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#0F9B8E]/20 focus:border-[#0F9B8E] transition-all"
                                 />
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                {FILTER_TABS.map(tab => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => setFilterTab(tab.key)}
+                                        className={cn(
+                                            "px-3.5 py-2 rounded-full text-xs font-bold transition-colors whitespace-nowrap",
+                                            filterTab === tab.key
+                                                ? "bg-[#0D2D5A] text-white"
+                                                : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                                        )}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
-                        <div className="divide-y divide-gray-50">
-                            {filteredFamilies.map((f: any) => {
-                                const fp = isProspect(f);
-                                return (
-                                    <div
-                                        key={f.id}
-                                        onClick={() => { setSelectedFamily(f); setActivePanel("notes"); }}
-                                        className={cn(
-                                            "flex flex-col md:flex-row items-center gap-5 px-6 py-4 hover:bg-gray-50/50 transition-colors cursor-pointer group",
-                                            selectedFamily?.id === f.id ? "bg-blue-50/30 border-l-4 border-l-[#1A6CC8]" : ""
-                                        )}
-                                    >
-                                        <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-[#0D2D5A] shadow-inner group-hover:bg-white">
-                                            {(f.parentName || f.parent || "?").charAt(0)}
-                                        </div>
-                                        <div className="flex-1 min-w-0 text-center md:text-left">
-                                            <div className="flex flex-col md:flex-row md:items-center gap-2">
-                                                <span className="font-bold text-[#0D2D5A] text-sm">{f.parentName || f.parent}</span>
-                                                {fp && (
-                                                    <Badge className="w-fit mx-auto md:mx-0 bg-amber-100 text-amber-700 border-amber-200 text-[8px] px-1.5 rounded-md uppercase tracking-widest font-bold">
-                                                        Prospect
-                                                    </Badge>
+                        {/* Tableau */}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
+                                        <th className="px-6 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
+                                            <span className="inline-flex items-center gap-1">Famille / Contact <ArrowUpDown className="w-3 h-3" /></span>
+                                        </th>
+                                        <th className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
+                                            <span className="inline-flex items-center gap-1">Lien avec l'élève <ArrowUpDown className="w-3 h-3" /></span>
+                                        </th>
+                                        <th className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">Tuteur assigné</th>
+                                        <th className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
+                                            <span className="inline-flex items-center gap-1">Statut <ArrowUpDown className="w-3 h-3" /></span>
+                                        </th>
+                                        <th className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {filteredFamilies.map((f: any) => {
+                                        const fp = isProspect(f);
+                                        const isSelected = selectedFamily?.id === f.id;
+                                        return (
+                                            <tr
+                                                key={f.id}
+                                                onClick={() => { setSelectedFamily(f); setActivePanel("notes"); }}
+                                                className={cn(
+                                                    "cursor-pointer transition-colors hover:bg-gray-50/70",
+                                                    isSelected && "bg-[#0F9B8E]/[0.06]"
                                                 )}
-                                                {!fp && (
-                                                    <Badge variant="outline" className="w-fit mx-auto md:mx-0 border-gray-100 text-gray-400 font-bold text-[8px] px-1.5 rounded-md uppercase tracking-widest">Parent</Badge>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center justify-center md:justify-start gap-4 mt-1 text-[11px] text-gray-400 font-medium">
-                                                <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Élève : {f.childName || f.child}</span>
-                                                <span className="flex items-center gap-1 text-[#1A6CC8]"><Briefcase className="w-3 h-3" /> {fp ? "Pas encore assigné" : (f.teacherName || f.teacher || "Non assigné")}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-8">
-                                            <div className="hidden lg:block text-right">
-                                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Statut</p>
-                                                <p className="text-xs font-bold text-[#0D2D5A]">{fp ? "À qualifier" : (f.status || "—")}</p>
-                                            </div>
-                                            <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-[#0D2D5A] group-hover:text-white transition-all shadow-sm">
-                                                <ChevronRight className="w-4 h-4" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                                style={isSelected ? { boxShadow: "inset 3px 0 0 #0F9B8E" } : undefined}
+                                            >
+                                                <td className="px-6 py-3.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center text-xs font-bold text-[#0D2D5A] shrink-0">
+                                                            {(f.parentName || f.parent || "?").charAt(0)}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold text-[#0D2D5A] truncate">{f.parentName || f.parent}</span>
+                                                                {fp ? (
+                                                                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] px-1.5 rounded-md uppercase tracking-wide font-bold">Prospect</Badge>
+                                                                ) : (
+                                                                    <Badge variant="outline" className="border-gray-200 text-gray-400 font-bold text-[9px] px-1.5 rounded-md uppercase tracking-wide">Parent</Badge>
+                                                                )}
+                                                            </div>
+                                                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                                                                <MessageCircle className="w-3 h-3" /> {f.parentEmail || f.email || "—"}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3.5">
+                                                    <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
+                                                        <Users className="w-3.5 h-3.5 text-gray-300" /> {f.childName || f.child || "—"}
+                                                    </div>
+                                                    <div className="text-[11px] text-gray-400 mt-0.5">Niveau : {f.level || "—"}</div>
+                                                </td>
+                                                <td className="px-4 py-3.5">
+                                                    <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
+                                                        <UserCircle2 className="w-3.5 h-3.5 text-gray-300" />
+                                                        {fp ? "Pas encore assigné" : (f.teacherName || f.teacher || "Non assigné")}
+                                                    </div>
+                                                    <div className="text-[11px] text-gray-400 mt-0.5">{fp ? "—" : "Tuteur"}</div>
+                                                </td>
+                                                <td className="px-4 py-3.5">
+                                                    <span className="text-xs font-bold text-[#0D2D5A]">
+                                                        {fp ? "À qualifier" : (STATUS_LABEL[f.status] || f.status || "—")}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3.5 text-right">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 hover:bg-[#0D2D5A] hover:text-white transition-all ml-auto">
+                                                        <ChevronRight className="w-4 h-4" />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                             {filteredFamilies.length === 0 && (
                                 <div className="px-6 py-16 text-center">
                                     <SearchCheck className="w-12 h-12 text-gray-100 mx-auto mb-3" />
@@ -407,72 +522,109 @@ export default function AdvisorFamilies() {
                     </div>
                 </div>
 
-                {/* Sidebar Focus Famille */}
+                {/* Colonne droite : fiche détaillée */}
                 <div className="xl:col-span-4">
                     {selectedFamily ? (
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8 animate-in slide-in-from-right-4 duration-300">
                             {/* Header fiche */}
-                            <div className={cn(
-                                "p-4 md:p-6 text-center border-b border-gray-50",
-                                prospect ? "bg-amber-50/40" : "bg-gray-50/30"
-                            )}>
-                                <div className={cn(
-                                    "mx-auto w-16 h-16 rounded-2xl border-4 border-white shadow-lg flex items-center justify-center text-2xl font-bold text-white mb-3",
-                                    prospect ? "bg-amber-500" : "bg-[#0D2D5A]"
-                                )}>
-                                    {(selectedFamily.parentName || selectedFamily.parent || "?").charAt(0)}
-                                </div>
-                                <h2 className="text-base font-bold text-[#0D2D5A]">
-                                    {selectedFamily.parentName || selectedFamily.parent} & {selectedFamily.childName || selectedFamily.child}
-                                </h2>
-                                <p className="text-[10px] text-[#1A6CC8] font-bold uppercase tracking-[2px] mt-1">
-                                    {selectedFamily.level || "Niveau non défini"}{selectedFamily.subject ? ` · ${selectedFamily.subject}` : ""}
-                                </p>
-                                {prospect && (
-                                    <div className="mt-3 px-3 py-1.5 bg-amber-100 rounded-lg border border-amber-200 inline-flex items-center gap-1.5">
-                                        <AlertTriangle className="w-3 h-3 text-amber-600" />
-                                        <span className="text-[10px] font-black text-amber-700">Prospect — pas encore de compte élève</span>
+                            <div className="p-5 border-b border-gray-50 flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className={cn(
+                                        "w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0",
+                                        prospect ? "bg-[#F5A623]" : "bg-[#0D2D5A]"
+                                    )}>
+                                        {(selectedFamily.parentName || selectedFamily.parent || "?").charAt(0)}
                                     </div>
-                                )}
+                                    <div className="min-w-0">
+                                        <h2 className="text-sm font-bold text-[#0D2D5A] uppercase truncate">
+                                            {selectedFamily.parentName || selectedFamily.parent} & {selectedFamily.childName || selectedFamily.child}
+                                        </h2>
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            {selectedFamily.level || "Niveau non défini"}{selectedFamily.subject ? ` · ${selectedFamily.subject}` : ""}
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className={cn(
+                                    "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide",
+                                    prospect ? "bg-amber-100 text-amber-700" : "bg-[#0F9B8E]/10 text-[#0F9B8E]"
+                                )}>
+                                    {prospect && <AlertTriangle className="w-3 h-3" />}
+                                    {prospect ? "Prospect" : "Parent"}
+                                    <ChevronDown className="w-3 h-3" />
+                                </span>
+                            </div>
+
+                            {/* Infos rapides : élève / tuteur / date */}
+                            <div className="grid grid-cols-3 divide-x divide-gray-50 border-b border-gray-50">
+                                <div className="p-3 text-center">
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Élève · {selectedFamily.level ? selectedFamily.level.match(/\d/) ? "" : "" : ""}</p>
+                                    <p className="text-xs font-bold text-[#0D2D5A] mt-0.5 truncate">{selectedFamily.childName || selectedFamily.child || "—"}</p>
+                                </div>
+                                <div className="p-3 text-center">
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Tuteur assigné</p>
+                                    <p className="text-xs font-bold text-[#0D2D5A] mt-0.5 truncate">{prospect ? "—" : (selectedFamily.teacherName || selectedFamily.teacher || "—")}</p>
+                                </div>
+                                <div className="p-3 text-center">
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Date de la demande</p>
+                                    <p className="text-xs font-bold text-[#0D2D5A] mt-0.5 truncate">{selectedFamily.requestDate || "—"}</p>
+                                </div>
+                            </div>
+
+                            {/* Stepper de progression */}
+                            <div className="px-5 pt-5">
+                                <div className="flex items-center">
+                                    {STEPS.map((s, i) => (
+                                        <div key={s.key} className="flex-1 flex items-center last:flex-none">
+                                            <div className="flex flex-col items-center gap-1.5">
+                                                <div className={cn(
+                                                    "w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
+                                                    stepDone[i] ? "bg-[#0F9B8E] text-white" :
+                                                    i === activeStepIdx ? "bg-[#0D2D5A] text-white" :
+                                                    "bg-gray-100 text-gray-400"
+                                                )}>
+                                                    {stepDone[i] ? <Check className="w-3.5 h-3.5" /> : i + 1}
+                                                </div>
+                                                <span className="text-[9px] font-bold text-gray-400 text-center leading-tight max-w-[56px]">{s.label}</span>
+                                            </div>
+                                            {i < STEPS.length - 1 && (
+                                                <div className={cn("flex-1 h-0.5 mx-1 mb-4", stepDone[i] ? "bg-[#0F9B8E]" : "bg-gray-100")} />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
                             <div className="p-4 md:p-5 space-y-4">
-
-                                {/* Tuteur actuel / badge matching */}
-                                {!prospect && (
-                                    <div className="space-y-2">
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Tuteur Actuel</p>
-                                        <div className="flex items-center gap-3 p-3 bg-[#0D2D5A]/5 rounded-xl border border-[#0D2D5A]/10">
-                                            <div className="w-10 h-10 rounded-lg bg-white border border-gray-100 flex items-center justify-center text-[#1A6CC8]">
-                                                <UserCircle2 className="w-5 h-5" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-bold text-[#0D2D5A]">{selectedFamily.teacherName || selectedFamily.teacher || "En attente d'affectation"}</p>
-                                                <p className="text-[9px] text-gray-400 italic">Matière : {selectedFamily.subject || "Multi-disciplines"}</p>
-                                            </div>
+                                {/* Alerte étape courante */}
+                                {activeStepIdx < STEPS.length && !stepDone[activeStepIdx] && (
+                                    <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-100 flex gap-2.5">
+                                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs font-black text-amber-700">Étape {activeStepIdx + 1} · {STEPS[activeStepIdx].label}</p>
+                                            <p className="text-[11px] text-amber-600 leading-relaxed mt-0.5">
+                                                {activeStepIdx === 0 && "Créez les comptes parent & élève pour débloquer toutes les fonctionnalités."}
+                                                {activeStepIdx === 1 && "Planifiez un premier rendez-vous avec la famille."}
+                                                {activeStepIdx === 2 && "Évaluez le niveau de l'élève dans chaque matière pour personnaliser son parcours de formation et préparer le plan d'accompagnement."}
+                                                {activeStepIdx === 3 && "Construisez le plan pédagogique personnalisé de l'élève."}
+                                                {activeStepIdx === 4 && "Confirmez l'affectation d'un enseignant adapté au profil de l'élève."}
+                                            </p>
                                         </div>
                                     </div>
                                 )}
 
                                 {/* CTA : Créer le compte élève (prospect uniquement) */}
                                 {prospect && (
-                                    <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 space-y-2">
-                                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Étape 1 · Créer les comptes</p>
-                                        <p className="text-[10px] text-amber-600 leading-relaxed">
-                                            Créez les comptes parent & élève pour débloquer toutes les fonctionnalités (suivi de séances, messagerie, dossier académique).
-                                        </p>
-                                        <Button
-                                            disabled={convertMutation.isPending}
-                                            onClick={() => convertMutation.mutate()}
-                                            className="w-full h-9 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg gap-2"
-                                        >
-                                            {convertMutation.isPending ? (
-                                                <><Loader2 className="w-3 h-3 animate-spin" /> Création...</>
-                                            ) : (
-                                                <><UserPlus className="w-3 h-3" /> Créer le compte élève</>
-                                            )}
-                                        </Button>
-                                    </div>
+                                    <Button
+                                        disabled={convertMutation.isPending}
+                                        onClick={() => convertMutation.mutate()}
+                                        className="w-full h-10 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-widest rounded-xl gap-2"
+                                    >
+                                        {convertMutation.isPending ? (
+                                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Création...</>
+                                        ) : (
+                                            <><UserPlus className="w-3.5 h-3.5" /> Créer le compte élève</>
+                                        )}
+                                    </Button>
                                 )}
 
                                 {/* Bouton Planifier RDV */}
@@ -486,7 +638,7 @@ export default function AdvisorFamilies() {
                                             type: prospect ? "Bilan pédagogique initial" : "Suivi régulier",
                                         }
                                     })}
-                                    className="w-full text-xs font-bold text-[#1A6CC8] border-[#1A6CC8]/30 hover:bg-[#1A6CC8]/5 gap-2 h-9 rounded-xl"
+                                    className="w-full text-xs font-bold text-[#0F9B8E] border-[#0F9B8E]/30 hover:bg-[#0F9B8E]/5 gap-2 h-10 rounded-xl"
                                 >
                                     <CalendarDays className="w-3.5 h-3.5" /> Planifier un rendez-vous
                                 </Button>
@@ -531,7 +683,7 @@ export default function AdvisorFamilies() {
                                                     </p>
                                                     <button
                                                         onClick={() => setShowNoteForm(!showNoteForm)}
-                                                        className="text-[9px] font-black text-[#1A6CC8] uppercase tracking-widest flex items-center gap-1"
+                                                        className="text-[9px] font-black text-[#0F9B8E] uppercase tracking-widest flex items-center gap-1"
                                                     >
                                                         <PlusCircle className="w-3 h-3" /> Ajouter
                                                     </button>
@@ -556,7 +708,7 @@ export default function AdvisorFamilies() {
                                                             onChange={e => setNoteContent(e.target.value)}
                                                             rows={3}
                                                             placeholder="Votre observation..."
-                                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[11px] outline-none focus:border-[#1A6CC8] resize-none"
+                                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[11px] outline-none focus:border-[#0F9B8E] resize-none"
                                                         />
                                                         <button
                                                             disabled={!noteContent.trim() || addNoteMutation.isPending}
@@ -612,11 +764,12 @@ export default function AdvisorFamilies() {
                                                         Diagnostic enregistré · {new Date((diagnostic as any).created_at).toLocaleDateString("fr-FR")}
                                                     </p>
                                                 </div>
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pt-1">Niveau des matières</p>
                                                 {Object.entries((diagnostic as any).scores || {}).map(([subj, score]: any) => (
                                                     <div key={subj}>
                                                         <div className="flex justify-between mb-0.5">
-                                                            <span className="text-[10px] font-bold text-[#0D2D5A]">{subj}</span>
-                                                            <span className="text-[10px] font-black text-[#1A6CC8]">{score}/10</span>
+                                                            <span className="text-[11px] font-bold text-[#0D2D5A]">{subj}</span>
+                                                            <span className="text-[11px] font-black text-[#0F9B8E]">{score}/10</span>
                                                         </div>
                                                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                                             <div
@@ -655,46 +808,59 @@ export default function AdvisorFamilies() {
                                                 </button>
                                                 <button
                                                     onClick={() => qc.setQueryData(diagQueryKey, null)}
-                                                    className="text-[9px] font-black text-[#1A6CC8] uppercase tracking-widest"
+                                                    className="text-[9px] font-black text-[#0F9B8E] uppercase tracking-widest"
                                                 >
                                                     + Nouveau diagnostic
                                                 </button>
                                             </div>
                                         ) : (
-                                            <div className="space-y-2">
-                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Notes par matière (0–10)</p>
+                                            <div className="space-y-3">
+                                                <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Niveau des matières</p>
                                                 {SUBJECTS_DIAG.map(subj => (
-                                                    <div key={subj} className="flex items-center gap-2">
-                                                        <span className="text-[10px] font-bold text-[#0D2D5A] w-24 flex-shrink-0">{subj}</span>
+                                                    <div key={subj}>
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-xs font-bold text-[#0D2D5A]">{subj}</span>
+                                                            <span className="text-xs font-black text-[#0F9B8E]">{diagScores[subj] ?? 5}/10</span>
+                                                        </div>
                                                         <input
                                                             type="range"
                                                             min={0}
                                                             max={10}
                                                             value={diagScores[subj] ?? 5}
                                                             onChange={e => setDiagScores(prev => ({ ...prev, [subj]: +e.target.value }))}
-                                                            className="flex-1 accent-[#1A6CC8]"
+                                                            className="w-full accent-[#0F9B8E]"
                                                         />
-                                                        <span className="text-[10px] font-black text-[#1A6CC8] w-5 text-right">{diagScores[subj] ?? 5}</span>
                                                     </div>
                                                 ))}
-                                                <textarea
-                                                    value={diagStrengths}
-                                                    onChange={e => setDiagStrengths(e.target.value)}
-                                                    rows={2}
-                                                    placeholder="Points forts..."
-                                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-[10px] outline-none focus:border-emerald-400 resize-none"
-                                                />
-                                                <textarea
-                                                    value={diagWeaknesses}
-                                                    onChange={e => setDiagWeaknesses(e.target.value)}
-                                                    rows={2}
-                                                    placeholder="Points à renforcer..."
-                                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-[10px] outline-none focus:border-red-400 resize-none"
-                                                />
+                                                <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest pt-1">Points forts et à renforcer</p>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="relative">
+                                                        <textarea
+                                                            value={diagStrengths}
+                                                            onChange={e => setDiagStrengths(e.target.value.slice(0, 200))}
+                                                            rows={3}
+                                                            maxLength={200}
+                                                            placeholder="Ex : bonne compréhension, rigueur..."
+                                                            className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-[10px] outline-none focus:border-emerald-400 resize-none"
+                                                        />
+                                                        <span className="absolute bottom-1.5 right-2 text-[8px] text-gray-300">{diagStrengths.length}/200</span>
+                                                    </div>
+                                                    <div className="relative">
+                                                        <textarea
+                                                            value={diagWeaknesses}
+                                                            onChange={e => setDiagWeaknesses(e.target.value.slice(0, 200))}
+                                                            rows={3}
+                                                            maxLength={200}
+                                                            placeholder="Ex : exercices, expression écrite..."
+                                                            className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-[10px] outline-none focus:border-red-400 resize-none"
+                                                        />
+                                                        <span className="absolute bottom-1.5 right-2 text-[8px] text-gray-300">{diagWeaknesses.length}/200</span>
+                                                    </div>
+                                                </div>
                                                 <button
                                                     disabled={diagMutation.isPending}
                                                     onClick={() => diagMutation.mutate()}
-                                                    className="w-full h-8 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
+                                                    className="w-full h-10 bg-[#0D2D5A] text-white text-xs font-black uppercase tracking-widest rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
                                                 >
                                                     {diagMutation.isPending ? "..." : "Enregistrer le diagnostic"}
                                                 </button>
@@ -716,7 +882,7 @@ export default function AdvisorFamilies() {
                                             <div className="space-y-2">
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-[11px] font-black text-[#0D2D5A]">{(activePlan as any).title}</p>
-                                                    <span className="text-[8px] font-bold text-[#1A6CC8] bg-blue-50 px-1.5 py-0.5 rounded">Actif</span>
+                                                    <span className="text-[8px] font-bold text-[#0F9B8E] bg-[#0F9B8E]/10 px-1.5 py-0.5 rounded">Actif</span>
                                                 </div>
                                                 <p className="text-[9px] text-gray-400">Début : {new Date((activePlan as any).start_date).toLocaleDateString("fr-FR")}</p>
                                                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
@@ -729,7 +895,7 @@ export default function AdvisorFamilies() {
                                                                 {w.subjects?.length > 0 && (
                                                                     <div className="flex gap-1 mt-0.5 flex-wrap">
                                                                         {w.subjects.map((s: string) => (
-                                                                            <span key={s} className="text-[8px] bg-[#1A6CC8]/10 text-[#1A6CC8] px-1 rounded font-bold">{s}</span>
+                                                                            <span key={s} className="text-[8px] bg-[#0F9B8E]/10 text-[#0F9B8E] px-1 rounded font-bold">{s}</span>
                                                                         ))}
                                                                     </div>
                                                                 )}
@@ -739,7 +905,7 @@ export default function AdvisorFamilies() {
                                                 </div>
                                                 <button
                                                     onClick={() => qc.setQueryData(planQueryKey, null)}
-                                                    className="text-[9px] font-black text-[#1A6CC8] uppercase tracking-widest"
+                                                    className="text-[9px] font-black text-[#0F9B8E] uppercase tracking-widest"
                                                 >
                                                     + Nouveau plan
                                                 </button>
@@ -751,13 +917,13 @@ export default function AdvisorFamilies() {
                                                     value={planTitle}
                                                     onChange={e => setPlanTitle(e.target.value)}
                                                     placeholder="Titre du plan..."
-                                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-[11px] outline-none focus:border-[#1A6CC8]"
+                                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-[11px] outline-none focus:border-[#0F9B8E]"
                                                 />
                                                 <input
                                                     type="date"
                                                     value={planStart}
                                                     onChange={e => setPlanStart(e.target.value)}
-                                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-[11px] outline-none focus:border-[#1A6CC8]"
+                                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-[11px] outline-none focus:border-[#0F9B8E]"
                                                 />
                                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Semaines</p>
                                                 <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -779,7 +945,7 @@ export default function AdvisorFamilies() {
                                                                 value={week.objective}
                                                                 onChange={e => setPlanWeeks(prev => prev.map((w, j) => j === i ? { ...w, objective: e.target.value } : w))}
                                                                 placeholder="Objectif de la semaine..."
-                                                                className="w-full border border-gray-200 rounded px-2 py-1 text-[10px] outline-none focus:border-[#1A6CC8]"
+                                                                className="w-full border border-gray-200 rounded px-2 py-1 text-[10px] outline-none focus:border-[#0F9B8E]"
                                                             />
                                                             <div className="flex gap-1 flex-wrap">
                                                                 {SUBJECTS_DIAG.map(s => (
@@ -802,7 +968,7 @@ export default function AdvisorFamilies() {
                                                 </div>
                                                 <button
                                                     onClick={() => setPlanWeeks(prev => [...prev, { objective: "", subjects: [], done: false }])}
-                                                    className="w-full h-7 border border-dashed border-[#1A6CC8]/40 text-[#1A6CC8] text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-[#1A6CC8]/5 transition-colors flex items-center justify-center gap-1"
+                                                    className="w-full h-7 border border-dashed border-[#0F9B8E]/40 text-[#0F9B8E] text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-[#0F9B8E]/5 transition-colors flex items-center justify-center gap-1"
                                                 >
                                                     <PlusCircle className="w-3 h-3" /> Ajouter une semaine
                                                 </button>
@@ -823,7 +989,7 @@ export default function AdvisorFamilies() {
                                     <div className="space-y-2">
                                         {matchFetching ? (
                                             <div className="flex items-center justify-center py-8">
-                                                <Loader2 className="w-5 h-5 animate-spin text-[#1A6CC8]/40" />
+                                                <Loader2 className="w-5 h-5 animate-spin text-[#0F9B8E]/40" />
                                             </div>
                                         ) : matching?.matches?.length > 0 ? (
                                             <>
@@ -840,7 +1006,7 @@ export default function AdvisorFamilies() {
                                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tuteurs recommandés</p>
                                                 {matching.matches.map((t: any, i: number) => (
                                                     <div key={t.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
-                                                        <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] font-black text-white ${i === 0 ? "bg-[#F5A623]" : "bg-[#1A6CC8]/30 text-[#1A6CC8]"}`}>{i + 1}</div>
+                                                        <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] font-black text-white ${i === 0 ? "bg-[#F5A623]" : "bg-[#0F9B8E]/30 text-[#0F9B8E]"}`}>{i + 1}</div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center justify-between">
                                                                 <p className="text-[11px] font-black text-[#0D2D5A]">{t.name}</p>
@@ -881,7 +1047,7 @@ export default function AdvisorFamilies() {
                                     {selectedFamily?.phone && (
                                         <a
                                             href={`tel:${selectedFamily.phone}`}
-                                            className="w-full flex items-center justify-center gap-2 bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-11 rounded-xl shadow-sm transition-colors text-sm"
+                                            className="w-full flex items-center justify-center gap-2 bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white font-bold h-11 rounded-xl shadow-sm transition-colors text-sm"
                                         >
                                             <Phone className="w-4 h-4" /> Appeler la famille
                                         </a>
@@ -889,7 +1055,7 @@ export default function AdvisorFamilies() {
                                     {!prospect && (
                                         <Button
                                             onClick={() => navigate("/advisor/messages")}
-                                            className="w-full bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-11 rounded-xl shadow-sm gap-2"
+                                            className="w-full bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white font-bold h-11 rounded-xl shadow-sm gap-2"
                                         >
                                             <MessageCircle className="w-4 h-4" /> Contacter la famille
                                         </Button>

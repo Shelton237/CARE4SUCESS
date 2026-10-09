@@ -2,7 +2,6 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { LucideIcon, LogOut, UserCircle2, Menu } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationCenter } from "./NotificationCenter";
-import { GlobalSearch } from "./GlobalSearch";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 
@@ -40,25 +39,9 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
 
     const SidebarContent = () => (
         <div className="flex flex-col h-full overflow-hidden" style={{ background: "#0D2D5A" }}>
-            {/* Logo & Notifications */}
-            <div className="px-5 py-6 flex items-center justify-between border-b border-white/5">
-                <div className="flex flex-col gap-1.5">
-                    <img src="/logo/Care 4 Success-logo-Ok_compact.png" alt="Care 4 Success" className="h-8 w-auto object-contain brightness-0 invert" />
-                    <div
-                        className="text-[9px] font-bold px-3 py-0.5 rounded-full inline-block uppercase tracking-[2px] text-center"
-                        style={{ background: roleColor + "15", color: roleColor, border: `1px solid ${roleColor}30` }}
-                    >
-                        {roleLabel}
-                    </div>
-                </div>
-                <div className="bg-white/5 rounded-full p-1 border border-white/5 hover:bg-white/10 transition-colors md:block hidden">
-                    <NotificationCenter />
-                </div>
-            </div>
-
-            {/* Global Search */}
-            <div className="px-4 py-4 border-b border-white/10">
-                <GlobalSearch />
+            {/* Logo */}
+            <div className="px-5 py-6 border-b border-white/5">
+                <img src="/logo/care4success-long-white.png" alt="Care 4 Success" className="h-9 w-auto object-contain" />
             </div>
 
             {/* Nav */}
@@ -105,30 +88,30 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
             </nav>
 
             {/* User footer */}
-            <div className="px-3 py-5 border-t border-white/10 bg-black/10">
-                <div className="flex items-center gap-3 px-3 py-3 mb-3 bg-white/5 rounded-2xl border border-white/5">
+            <div className="px-3 py-5 border-t border-white/10">
+                <div className="flex items-center gap-3 px-2 mb-3">
                     <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-lg shadow-black/20"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
                         style={{ background: roleColor, color: "#fff" }}
                     >
                         {user?.avatar || user?.name?.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="text-sm font-bold text-white truncate tracking-tight">{user?.name}</div>
-                        <div className="text-[10px] font-bold text-blue-300/50 truncate uppercase tracking-widest">{user?.email}</div>
+                        <div className="text-[11px] text-blue-200/60 truncate">{roleLabel}</div>
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-0.5">
                     <button
                         onClick={handleProfile}
-                        className="flex items-center justify-center gap-2 px-2 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest text-blue-100/90 bg-white/5 hover:bg-white/10 transition-colors"
+                        className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-semibold text-blue-100/70 hover:text-white hover:bg-white/5 transition-colors"
                     >
                         <UserCircle2 className="w-3.5 h-3.5" />
                         Profil
                     </button>
                     <button
                         onClick={handleLogout}
-                        className="group flex items-center justify-center gap-2 px-2 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest text-red-400 bg-red-500/5 hover:bg-red-500/10 transition-all duration-300"
+                        className="group flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-semibold text-red-300/80 hover:text-red-300 hover:bg-red-500/5 transition-colors"
                     >
                         <LogOut className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                         Quitter
