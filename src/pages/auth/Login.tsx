@@ -137,8 +137,6 @@ export default function Login() {
                         ))}
                     </div>
                 </div>
-
-                <p className="relative z-10 text-xs text-blue-200/70">© 2026 Care4Success • Douala, Cameroun</p>
             </div>
 
             {/* ══════════ Right — Form ══════════ */}
