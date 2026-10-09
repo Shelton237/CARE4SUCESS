@@ -2,10 +2,21 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth, ROLE_REDIRECTS } from "@/contexts/AuthContext";
-import { GraduationCap, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { GraduationCap, Mail, Lock, Eye, EyeOff, AlertCircle, Users, TrendingUp, Briefcase } from "lucide-react";
 import { forgotPassword } from "@/api/backoffice";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { toast } from "sonner";
+import { HandUnderline } from "@/components/decor";
+
+const SERIF = { fontFamily: "'Playfair Display', serif" };
+const HANDWRITING = { fontFamily: "Caveat, cursive" };
+
+const STATS = [
+    { v: "500+", l: "Enseignants actifs", icon: Users },
+    { v: "312", l: "Élèves suivis", icon: GraduationCap },
+    { v: "4.4/5", l: "Satisfaction", icon: TrendingUp },
+    { v: "15", l: "Centres Cameroun", icon: Briefcase },
+];
 
 export default function Login() {
     const { login, loginWithGoogle } = useAuth();
@@ -57,7 +68,7 @@ export default function Login() {
             setError("Saisissez votre adresse email ci-dessus, puis cliquez de nouveau sur « Mot de passe oublié ? » pour recevoir un lien de réinitialisation.");
             return;
         }
-        
+
         setLoading(true);
         try {
             const res = await forgotPassword(email);
@@ -71,51 +82,81 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen flex" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
-            {/* Left — Branding */}
-            <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-[#0D2D5A] relative overflow-hidden">
-                {/* Blobs décoratifs */}
-                <div className="absolute top-0 right-0 w-80 h-80 bg-[#F5A623]/10 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#1A6CC8]/20 rounded-full blur-2xl" />
-
-                <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-2">
-                        <img src="/logo/Care 4 Success-logo-Ok_compact.png" alt="Care 4 Success" className="h-14 w-auto object-contain brightness-0 invert" />
-                    </div>
+        <div className="min-h-screen flex" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
+            {/* ══════════ Left — Branding (reprend le motif hero du site) ══════════ */}
+            <div className="hidden lg:flex lg:w-[56%] flex-col justify-between p-10 xl:p-12 bg-[#07284B] relative overflow-hidden">
+                {/* Photo en fond, à droite, avec dégradé navy pour la lisibilité du texte */}
+                <div className="absolute inset-y-0 end-0 w-[72%]">
+                    <img
+                        src="/images/soutien/hero-soutien.jpg"
+                        alt=""
+                        className="w-full h-full object-cover object-[65%_30%]"
+                    />
+                    <div
+                        className="absolute inset-0"
+                        style={{ background: "linear-gradient(to right, #07284B 0%, rgba(7,40,75,0.75) 30%, rgba(7,40,75,0.25) 60%, transparent 100%)" }}
+                        aria-hidden
+                    />
                 </div>
 
-                <div className="relative z-10 space-y-6">
-                    <h1 className="text-4xl font-bold text-white leading-tight">
-                        Bienvenue sur votre <span className="text-[#F5A623]">espace professionnel</span>
+                {/* Décor : cercle teal en bas à droite */}
+                <div className="absolute -bottom-10 end-10 w-40 h-40 rounded-full bg-[#0F9B8E]/25 blur-[2px]" aria-hidden />
+                {/* Décor : courbe or en bas */}
+                <svg className="absolute bottom-0 inset-x-0 w-full h-16 text-[#F5A623]/80" viewBox="0 0 800 60" preserveAspectRatio="none" aria-hidden>
+                    <path d="M0 45 C 150 10, 350 55, 550 30 C 650 18, 730 28, 800 12" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" />
+                </svg>
+
+                {/* Logo + texte manuscrit */}
+                <div className="relative z-10 flex items-start justify-between">
+                    <img src="/logo/care4success-long-white.png" alt="Care 4 Success" className="h-12 xl:h-14 w-auto object-contain" />
+                    <p className="hidden xl:block text-white text-[20px] leading-[1.15] text-end -rotate-2" style={HANDWRITING}>
+                        Chaque potentiel<br />mérite d'être accompagné
+                        <HandUnderline className="w-[90px] h-2.5 mt-0.5 ms-auto" />
+                    </p>
+                </div>
+
+                {/* Titre + stats */}
+                <div className="relative z-10 space-y-6 max-w-[480px]">
+                    <h1 className="text-[2.3rem] xl:text-[2.65rem] font-bold text-white leading-[1.12]" style={SERIF}>
+                        Bienvenue sur votre <span className="italic text-gold-shimmer">espace professionnel</span>
                     </h1>
-                    <p className="text-blue-200 text-lg leading-relaxed">
+                    <p className="text-blue-100/90 text-base xl:text-lg leading-relaxed">
                         Gérez vos activités, suivez les progressions et collaborez avec toute l'équipe Care4Success en un seul endroit.
                     </p>
-                    <div className="grid grid-cols-2 gap-4 pt-4">
-                        {[
-                            { v: "500+", l: "Enseignants actifs" },
-                            { v: "312", l: "Élèves suivis" },
-                            { v: "4.4/5", l: "Satisfaction" },
-                            { v: "15", l: "Centres Cameroun" },
-                        ].map(({ v, l }) => (
-                            <div key={l} className="bg-white/10 rounded-xl p-4 text-center">
-                                <div className="text-2xl font-bold text-[#F5A623]">{v}</div>
-                                <div className="text-xs text-blue-200 mt-1">{l}</div>
+                    <div className="grid grid-cols-2 gap-3 xl:gap-4 pt-2">
+                        {STATS.map(({ v, l, icon: Icon }) => (
+                            <div key={l} className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3.5 xl:p-4">
+                                <div className="w-9 h-9 xl:w-10 xl:h-10 rounded-full bg-[#0F9B8E] flex items-center justify-center shrink-0">
+                                    <Icon className="w-4.5 h-4.5 xl:w-5 xl:h-5 text-white" strokeWidth={2} />
+                                </div>
+                                <div>
+                                    <div className="text-lg xl:text-xl font-bold text-[#F5A623] leading-tight">{v}</div>
+                                    <div className="text-[11px] xl:text-xs text-blue-100/80">{l}</div>
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <p className="relative z-10 text-xs text-blue-300">© 2026 Care4Success • Douala, Cameroun</p>
+                <p className="relative z-10 text-xs text-blue-200/70">© 2026 Care4Success • Douala, Cameroun</p>
             </div>
 
-            {/* Right — Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
+            {/* ══════════ Right — Form ══════════ */}
+            <div className="w-full lg:w-[44%] flex items-center justify-center p-8 relative overflow-hidden bg-gradient-to-br from-[#EEF5FB] to-[#F8FBFE]">
+                {/* Décor : formes en fond */}
+                <div className="absolute -top-8 end-10 w-28 h-28 rounded-full bg-[#0F9B8E]/15" aria-hidden />
+                <svg className="absolute bottom-0 end-0 w-56 h-40 text-[#F5A623]/25" viewBox="0 0 200 140" aria-hidden>
+                    <path d="M200 140 C 140 140, 90 100, 110 60 C 125 30, 170 20, 200 40 Z" fill="currentColor" />
+                </svg>
+                <BookOutline className="hidden md:block absolute top-16 start-10 w-10 h-10 text-[#1A6CC8]/20 -rotate-12" />
+                <CapOutline className="hidden md:block absolute top-10 end-16 w-10 h-10 text-[#1A6CC8]/20 rotate-6" />
+                <DotGrid className="hidden md:block absolute bottom-24 start-8 w-20 h-20 text-[#1A6CC8]/15" />
+
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="w-full max-w-md"
+                    className="w-full max-w-md relative z-10"
                 >
                     {/* Mobile logo */}
                     <div className="lg:hidden flex justify-center mb-8">
@@ -124,8 +165,8 @@ export default function Login() {
 
                     <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
                         <div className="mb-8">
-                            <div className="w-12 h-12 bg-[#1A6CC8]/10 rounded-2xl flex items-center justify-center mb-4">
-                                <GraduationCap className="w-6 h-6 text-[#1A6CC8]" />
+                            <div className="w-12 h-12 bg-[#0F9B8E]/10 rounded-2xl flex items-center justify-center mb-4">
+                                <GraduationCap className="w-6 h-6 text-[#0F9B8E]" />
                             </div>
                             <h2 className="text-2xl font-bold text-[#0D2D5A]">Connexion</h2>
                             <p className="text-gray-500 text-sm mt-1">Accédez à votre espace personnel</p>
@@ -158,7 +199,7 @@ export default function Login() {
                                         type={showPwd ? "text" : "password"}
                                         value={password}
                                         onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                                        placeholder="••••••••"
+                                        placeholder="Votre mot de passe"
                                         required
                                         autoComplete="current-password"
                                         className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 focus:border-[#1A6CC8] focus:ring-2 focus:ring-[#1A6CC8]/20 outline-none transition-all text-sm"
@@ -173,7 +214,7 @@ export default function Login() {
                                     </button>
                                 </div>
                                 <div className="flex justify-end mt-1.5">
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={handleForgotPassword}
                                         className="text-xs font-medium text-[#1A6CC8] hover:underline"
@@ -227,5 +268,36 @@ export default function Login() {
                 </motion.div>
             </div>
         </div>
+    );
+}
+
+/* ─── Décor léger du panneau de droite ───────────────────────────────── */
+function BookOutline({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M16 7c-3-2-7-2-13-1v19c6-1 10-1 13 1 3-2 7-2 13-1V6c-6-1-10-1-13 1z" />
+            <path d="M16 7v19" />
+        </svg>
+    );
+}
+function CapOutline({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 32 32" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
+            <path d="M16 6 2 13l14 7 14-7-14-7z" />
+            <path d="M8 16.5V24c0 1.7 3.6 3 8 3s8-1.3 8-3v-7.5" />
+        </svg>
+    );
+}
+function DotGrid({ className }: { className?: string }) {
+    const dots = [];
+    for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+            dots.push(<circle key={`${row}-${col}`} cx={6 + col * 8} cy={6 + row * 8} r="2" fill="currentColor" />);
+        }
+    }
+    return (
+        <svg viewBox="0 0 32 32" className={className} aria-hidden>
+            {dots}
+        </svg>
     );
 }
