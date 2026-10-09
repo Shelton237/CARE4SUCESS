@@ -81,9 +81,13 @@ interface AcademicFileProps {
     parentId?: string; // Si fourni, on utilise la vue parent; sinon admin
     // Masque Diagnostic / Plan quand l'écran hôte les affiche déjà (fiche conseiller).
     hidePedagogyTabs?: boolean;
+    // Intégré dans une fiche qui affiche déjà l'identité de l'élève : pas de bandeau, style allégé.
+    embedded?: boolean;
 }
 
-export default function AcademicFile({ studentId: propStudentId, parentId, hidePedagogyTabs = false }: AcademicFileProps) {
+export default function AcademicFile({ studentId: propStudentId, parentId, hidePedagogyTabs = false, embedded = false }: AcademicFileProps) {
+    const hideTabs = hidePedagogyTabs || embedded;
+    const card = embedded ? " rounded-xl" : "";
     const { token, user } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<"overview" | "diagnostic" | "plan" | "history">("overview");
@@ -199,58 +203,76 @@ export default function AcademicFile({ studentId: propStudentId, parentId, hideP
     const isLoading = overviewQuery.isLoading;
 
     return (
-        <div className="bg-white border border-slate-100 rounded-none w-full animate-in fade-in duration-500">
+        <div className={embedded ? "w-full animate-in fade-in duration-500" : "bg-white border border-slate-100 rounded-none w-full animate-in fade-in duration-500"}>
             {/* Header always visible to allow selection */}
-            <div className="p-4 md:p-6 border-b border-slate-100 bg-[#0D2D5A] text-white">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            {user?.role === "parent" && children.length > 0 ? (
-                                <select 
-                                    value={studentId || ""}
-                                    onChange={(e) => setSearchParams({ studentId: e.target.value })}
-                                    className="bg-transparent text-xl font-black uppercase tracking-tight border-none focus:ring-0 p-0 cursor-pointer hover:text-blue-200 transition-colors"
-                                >
-                                    <option value="" disabled className="bg-[#0D2D5A] text-white">Sélectionner un enfant...</option>
-                                    {children.map((c: any) => (
-                                        <option key={c.id} value={c.id} className="bg-[#0D2D5A] text-white">{c.name}</option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <h2 className="text-xl font-black uppercase tracking-tight">
-                                    {overview?.childName || "Dossier Académique"}
-                                </h2>
+            {embedded ? (
+                <div className="flex gap-1.5" role="tablist" aria-label="Dossier académique">
+                    {(["overview", "history"] as const).map((tab) => (
+                        <button
+                            key={tab}
+                            role="tab"
+                            aria-selected={activeTab === tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-colors ${
+                                activeTab === tab ? "bg-[#0F9B8E]/10 text-[#0F9B8E]" : "text-gray-400 hover:bg-gray-50"
+                            }`}
+                        >
+                            {tab === "overview" ? "Aperçu" : `Historique des cours (${completedSessions.length})`}
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <div className="p-4 md:p-6 border-b border-slate-100 bg-[#0D2D5A] text-white">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                {user?.role === "parent" && children.length > 0 ? (
+                                    <select 
+                                        value={studentId || ""}
+                                        onChange={(e) => setSearchParams({ studentId: e.target.value })}
+                                        className="bg-transparent text-xl font-black uppercase tracking-tight border-none focus:ring-0 p-0 cursor-pointer hover:text-blue-200 transition-colors"
+                                    >
+                                        <option value="" disabled className="bg-[#0D2D5A] text-white">Sélectionner un enfant...</option>
+                                        {children.map((c: any) => (
+                                            <option key={c.id} value={c.id} className="bg-[#0D2D5A] text-white">{c.name}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <h2 className="text-xl font-black uppercase tracking-tight">
+                                        {overview?.childName || "Dossier Académique"}
+                                    </h2>
+                                )}
+                                <Badge className="bg-[#1A6CC8] text-white border-none text-[10px] font-black uppercase rounded-sm">Premium</Badge>
+                            </div>
+                            {studentId && (
+                                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">
+                                    Niveau: {overview?.childLevel || "Non défini"} · Matière : {overview?.focusSubject || "-"}
+                                </p>
                             )}
-                            <Badge className="bg-[#1A6CC8] text-white border-none text-[10px] font-black uppercase rounded-sm">Premium</Badge>
                         </div>
                         {studentId && (
-                            <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">
-                                Niveau: {overview?.childLevel || "Non défini"} · Matière : {overview?.focusSubject || "-"}
-                            </p>
+                            <div className="flex gap-2 flex-wrap">
+                                {(hideTabs ? (["overview", "history"] as const) : (["overview", "diagnostic", "plan", "history"] as const)).map((tab) => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-colors ${
+                                            activeTab === tab ? "border-white text-white" : "border-transparent text-white/50 hover:text-white/80"
+                                        }`}
+                                    >
+                                        {tab === "overview" && "Aperçu"}
+                                        {tab === "diagnostic" && "Diagnostic"}
+                                        {tab === "plan" && "Plan"}
+                                        {tab === "history" && `Historique (${completedSessions.length})`}
+                                    </button>
+                                ))}
+                            </div>
                         )}
                     </div>
-                    {studentId && (
-                        <div className="flex gap-2 flex-wrap">
-                            {(hidePedagogyTabs ? (["overview", "history"] as const) : (["overview", "diagnostic", "plan", "history"] as const)).map((tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-colors ${
-                                        activeTab === tab ? "border-white text-white" : "border-transparent text-white/50 hover:text-white/80"
-                                    }`}
-                                >
-                                    {tab === "overview" && "Aperçu"}
-                                    {tab === "diagnostic" && "Diagnostic"}
-                                    {tab === "plan" && "Plan"}
-                                    {tab === "history" && `Historique (${completedSessions.length})`}
-                                </button>
-                            ))}
-                        </div>
-                    )}
                 </div>
-            </div>
+            )}
 
-            <div className="p-4 md:p-6 bg-slate-50/50 min-h-[400px]">
+            <div className={embedded ? "pt-3" : "p-4 md:p-6 bg-slate-50/50 min-h-[400px]"}>
                 {!studentId ? (
                     <div className="flex flex-col items-center justify-center h-48 text-center bg-white border border-slate-100">
                         <BookOpen className="w-8 h-8 text-slate-200 mb-3" />
@@ -263,7 +285,7 @@ export default function AcademicFile({ studentId: propStudentId, parentId, hideP
                         <Loader2 className="w-6 h-6 animate-spin text-[#1A6CC8]/30" />
                     </div>
                 ) : activeTab === "overview" && (
-                    <div className="space-y-6">
+                    <div className={embedded ? "space-y-4" : "space-y-6"}>
                         {overviewQuery.isError && (
                             <div className="p-4 bg-amber-50 border border-amber-100 text-[11px] text-amber-700 font-bold">
                                 Données de la BDN non disponibles pour cet élève. Vérifiez que la table parent_overviews est alimentée.
@@ -308,7 +330,7 @@ export default function AcademicFile({ studentId: propStudentId, parentId, hideP
                                     sub: null,
                                 },
                             ].map((stat, i) => (
-                                <div key={i} className="bg-white p-4 border border-slate-100 flex flex-col gap-1">
+                                <div key={i} className={`bg-white p-4 border border-slate-100 flex flex-col gap-1${card}`}>
                                     <div className="flex items-center gap-2 mb-1">
                                         <stat.icon className={`w-4 h-4 ${stat.color}`} />
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</h4>
@@ -320,8 +342,8 @@ export default function AcademicFile({ studentId: propStudentId, parentId, hideP
                         </div>
 
                         {/* Chart & Evaluations */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="lg:col-span-2 bg-white border border-slate-100 p-4">
+                        <div className={`grid grid-cols-1 lg:grid-cols-3 ${embedded ? "gap-4" : "gap-6"}`}>
+                            <div className={`lg:col-span-2 bg-white border border-slate-100 p-4${card}`}>
                                 <h3 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest mb-4">
                                     Courbe de progression (BDN)
                                 </h3>
@@ -341,7 +363,7 @@ export default function AcademicFile({ studentId: propStudentId, parentId, hideP
                                         </ResponsiveContainer>
                                     </div>
                                 ) : (
-                                    <div className="h-[220px] flex items-center justify-center text-slate-300">
+                                    <div className={`${embedded ? "h-16" : "h-[220px]"} flex items-center justify-center text-slate-300`}>
                                         <div className="text-center">
                                             <Activity className="w-8 h-8 mx-auto mb-2 opacity-30" />
                                             <p className="text-[10px] font-black uppercase tracking-widest">Aucune donnée de progression</p>
@@ -351,7 +373,7 @@ export default function AcademicFile({ studentId: propStudentId, parentId, hideP
                             </div>
 
                             {/* Dernières évaluations réelles */}
-                            <div className="bg-[#0D2D5A] border border-slate-100 p-4 text-white flex flex-col">
+                            <div className={`bg-[#0D2D5A] border border-slate-100 p-4 text-white flex flex-col${card}`}>
                                 <h3 className="text-[10px] font-black text-[#F5A623] uppercase tracking-widest mb-4 flex items-center gap-2">
                                     <Star className="w-4 h-4" /> Dernières évaluations
                                 </h3>
@@ -492,7 +514,7 @@ export default function AcademicFile({ studentId: propStudentId, parentId, hideP
 
                 {/* ─── TAB: HISTORY (données réelles BDN) ─── */}
                 {activeTab === "history" && (
-                    <div className="bg-white border border-slate-100 overflow-hidden">
+                    <div className={`bg-white border border-slate-100 overflow-hidden${card}`}>
                         <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
                             <h3 className="text-[10px] font-black text-[#0D2D5A] uppercase tracking-widest flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-[#1A6CC8]" />

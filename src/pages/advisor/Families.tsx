@@ -1507,7 +1507,7 @@ export default function AdvisorFamilies() {
 
                                 {/* ── Panel Dossier académique (élèves avec compte uniquement) ── */}
                                 {activePanel === "dossier" && !prospect && (
-                                    <AcademicFile studentId={studentId} hidePedagogyTabs />
+                                    <AcademicFile studentId={studentId} embedded />
                                 )}
 
                                 {/* CTA bas de fiche */}
