@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2, CheckCircle2, Globe, Users as UsersIcon, ShieldCheck } from "lucide-react";
 import { GeoSelector } from "@/components/GeoSelector";
 import { PhoneCountryInput } from "@/components/common/PhoneCountryInput";
 import { LevelSelect } from "@/components/common/LevelSelect";
@@ -12,6 +12,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { ROUTE_PATHS } from "@/lib";
+import { HandUnderline } from "@/components/decor";
+import { useT, tt, rich, lines } from "@/i18n";
+
+const SERIF = { fontFamily: "'Playfair Display', serif" };
+const HANDWRITING = { fontFamily: "Caveat, cursive" };
+
+const HERO_IMG = {
+  hero: "/images/home/hero-coach.webp",
+  heroFallback: "/images/home/hero-coach.jpg",
+};
+
+const TRUST = [
+  { icon: Globe, label: tt("Inscription gratuite") },
+  { icon: UsersIcon, label: tt("Sans engagement") },
+  { icon: ShieldCheck, label: tt("Données sécurisées") },
+];
 
 // Décodage local du payload d'un ID token Google, uniquement pour pré-remplir
 // l'affichage — la vérification cryptographique se fait exclusivement côté
@@ -26,6 +42,7 @@ function decodeGoogleIdTokenPayload(idToken: string): { email?: string; name?: s
 }
 
 export default function Inscription() {
+    const { t } = useT();
     const navigate = useNavigate();
     const [step, setStep] = useState(0); // Step 0 for role selection
     const [userType, setUserType] = useState<"parent" | "student">("parent");
@@ -144,12 +161,63 @@ export default function Inscription() {
     };
 
     return (
-        <div className="min-h-screen pt-24 pb-12 bg-slate-50">
-            <div className="container mx-auto px-4 max-w-2xl">
+        <div className="min-h-screen bg-slate-50" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
+
+            {/* ══════════ HERO ══════════ */}
+            <section className="relative overflow-hidden bg-[#07284B] xl:h-[360px]">
+                <div className="hidden md:block absolute inset-y-0 start-[30%] w-[70%]">
+                    <picture>
+                        <source srcSet={HERO_IMG.hero} type="image/webp" />
+                        <img
+                            src={HERO_IMG.heroFallback}
+                            alt=""
+                            className="w-full h-full object-cover object-[58%_12%]"
+                        />
+                    </picture>
+                    <span className="hero-sheen" aria-hidden />
+                    <div className="absolute inset-0 bg-gradient-to-r rtl:bg-gradient-to-l from-[#07284B] via-[#07284B]/10 to-transparent" />
+                    <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#07284B] via-[#07284B]/80 to-transparent" />
+                </div>
+
+                <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.5%] relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[52px] xl:pb-0">
+                    <div className="max-w-xl xl:max-w-none">
+                        <h1
+                            className="font-bold text-white leading-[1.05] text-[clamp(2rem,4vw,2.9rem)] xl:text-[49px] xl:leading-[52px]"
+                            style={SERIF}
+                        >{rich(t("Bienvenue sur\n<gold>Care4Success</gold>"), { gold: c => <span className="italic text-gold-shimmer">{c}</span> })}</h1>
+                        <p className="mt-4 xl:mt-[20px] text-white/90 text-base xl:text-[19px] leading-snug max-w-[480px]">{t("Créez votre compte en quelques minutes et rejoignez une communauté dédiée à la réussite scolaire.")}</p>
+
+                        <ul className="flex flex-wrap gap-x-8 xl:gap-x-[30px] gap-y-3 mt-7 xl:mt-[32px]">
+                            {TRUST.map(({ icon: Icon, label }) => (
+                                <li key={label} className="flex items-center gap-2.5 text-sm xl:text-[14px] text-white/90">
+                                    <Icon className="w-6 h-6 xl:w-[27px] xl:h-[27px] text-[#2BB3A3]" strokeWidth={1.8} />
+                                    {t(label)}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                {/* Texte manuscrit + carte, posés sur la photo (même motif que les autres heros) */}
+                <div className="hidden lg:block absolute end-[5.4%] top-[33px] xl:top-[36px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
+                    <p className="text-[24px] xl:text-[27px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
+                        {lines(t("Commencez\nvotre\nparcours"))}
+                    </p>
+                    <HandUnderline className="w-[70px] h-3 mt-1 -ms-1" />
+                </div>
+                <div className="hidden lg:flex items-center gap-3 xl:gap-[12px] absolute end-[2.6%] xl:end-[2.34%] top-[204px] xl:top-[221px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
+                    <UserPlus className="w-6 h-6 xl:w-[28px] xl:h-[28px] text-[#0F9B8E] shrink-0" strokeWidth={1.6} />
+                    <p className="text-[#0D2D5A] font-bold text-[12px] xl:text-[12.6px] leading-[1.25]">
+                        {lines(t("Votre coach\nvous attend"))}
+                    </p>
+                </div>
+            </section>
+
+            <div className="container mx-auto px-4 max-w-2xl pt-10 pb-12">
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-[#0D2D5A] mb-2">
-                        {step === 0 ? "Bienvenue sur Care4Success" : userType === "parent" ? "Inscription Parent" : "Inscription Élève"}
-                    </h1>
+                    <h2 className="text-2xl font-bold text-[#0D2D5A] mb-2">
+                        {step === 0 ? "Choisissez votre profil" : userType === "parent" ? "Inscription Parent" : "Inscription Élève"}
+                    </h2>
                     <p className="text-slate-600">
                         {step === 0 ? "Choisissez votre profil pour continuer" : "Rejoignez notre communauté éducative."}
                     </p>
