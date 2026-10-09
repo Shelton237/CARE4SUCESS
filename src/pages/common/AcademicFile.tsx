@@ -55,6 +55,27 @@ function formatRobustDate(dateStr: any, options?: Intl.DateTimeFormatOptions): s
     return d.toLocaleDateString("fr-FR", options || { day: "2-digit", month: "short", year: "numeric" });
 }
 
+// Échelle des scores de DIAGNOSTIC : 0 à 5 (distincte des notes scolaires, sur /20).
+export const DIAGNOSTIC_MAX_SCORE = 5;
+// Seuils de couleur : <= 2 alerte, 3 moyen, >= 4 bon.
+export const DIAGNOSTIC_ALERT_MAX = 2;
+export const DIAGNOSTIC_GOOD_MIN = 4;
+
+/** Vue d'un score de diagnostic (0-5). Les valeurs hors plage (ex. anciennes saisies /10) sont bornées. */
+export function getDiagnosticScoreView(raw: unknown) {
+    const n = Number(raw);
+    const score = Number.isFinite(n) ? Math.min(DIAGNOSTIC_MAX_SCORE, Math.max(0, n)) : 0;
+    const level = score >= DIAGNOSTIC_GOOD_MIN ? "good" : score <= DIAGNOSTIC_ALERT_MAX ? "alert" : "medium";
+    return {
+        score,
+        label: `${score}/${DIAGNOSTIC_MAX_SCORE}`,
+        percent: (score / DIAGNOSTIC_MAX_SCORE) * 100,
+        level,
+        textClass: level === "good" ? "text-emerald-600" : level === "medium" ? "text-[#F5A623]" : "text-red-500",
+        barClass: level === "good" ? "bg-emerald-500" : level === "medium" ? "bg-[#F5A623]" : "bg-red-400",
+    };
+}
+
 interface AcademicFileProps {
     studentId: string;
     parentId?: string; // Si fourni, on utilise la vue parent; sinon admin
@@ -377,14 +398,14 @@ export default function AcademicFile({ studentId: propStudentId, parentId }: Aca
                                             <div key={subject} className="space-y-1.5">
                                                 <div className="flex justify-between text-[11px] font-bold text-[#0D2D5A] uppercase">
                                                     <span>{subject}</span>
-                                                    <span className={score >= 7 ? "text-emerald-600" : score >= 5 ? "text-[#F5A623]" : "text-red-500"}>
-                                                        {score}/10
+                                                    <span className={getDiagnosticScoreView(score).textClass}>
+                                                        {getDiagnosticScoreView(score).label}
                                                     </span>
                                                 </div>
                                                 <div className="w-full h-1.5 bg-slate-100 rounded-none overflow-hidden">
                                                     <div
-                                                        className={`h-full transition-all ${score >= 7 ? "bg-emerald-500" : score >= 5 ? "bg-[#F5A623]" : "bg-red-400"}`}
-                                                        style={{ width: `${score * 10}%` }}
+                                                        className={`h-full transition-all ${getDiagnosticScoreView(score).barClass}`}
+                                                        style={{ width: `${getDiagnosticScoreView(score).percent}%` }}
                                                     />
                                                 </div>
                                             </div>

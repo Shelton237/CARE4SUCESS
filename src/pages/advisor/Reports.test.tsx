@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdvisorReports from "@/pages/advisor/Reports";
 import { fetchAdvisorFamilies, fetchRequests } from "@/api/backoffice";
@@ -8,6 +8,13 @@ import { fetchAdvisorFamilies, fetchRequests } from "@/api/backoffice";
 vi.mock("@/api/backoffice", () => ({
   fetchAdvisorFamilies: vi.fn(),
   fetchRequests: vi.fn(),
+}));
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: { id: "advisor-1", name: "Aline Conseillère", role: "advisor" },
+    token: "fake-token",
+  }),
 }));
 
 const FAMILY = {
@@ -86,19 +93,71 @@ describe("AdvisorReports — Bilans pédagogiques", () => {
     expect(screen.getByText("Toutes les demandes ont été traitées.")).toBeInTheDocument();
   });
 
-  describe("Boutons non câblés (documentés par la cartographie — hors périmètre)", () => {
-    it("« Nouveau bilan » n'a pas de handler câblé : le clic ne déclenche aucun appel réseau supplémentaire", async () => {
-      const user = userEvent.setup();
-      renderReports();
-      await screen.findByText("Idris");
+  describe("FAM-09 : Bilan Conseil", () => {
+    const FAMILIES = [
+      { id: "fam-1", parentName: "Mme Ba", parent: "Mme Ba", childName: "Idris Ba", child: "Idris Ba", studentId: "student-1", level: "CM2", status: "suivi actif", teacher: "M. Diop" },
+      { id: "req-2", parentName: "M. Kane", parent: "M. Kane", childName: "Omar Kane", child: "Omar Kane", level: "6e", status: "nouveau" },
+    ];
+    const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+    const fetchedUrls = () => (fetch as any).mock.calls.map(([u]: any) => String(u));
 
-      const callsBefore = (fetchAdvisorFamilies as any).mock.calls.length + (fetchRequests as any).mock.calls.length;
-      await user.click(screen.getByText("Nouveau bilan"));
-
-      const callsAfter = (fetchAdvisorFamilies as any).mock.calls.length + (fetchRequests as any).mock.calls.length;
-      expect(callsAfter).toBe(callsBefore);
+    beforeEach(() => {
+      (fetchAdvisorFamilies as any).mockResolvedValue(FAMILIES);
+      vi.stubGlobal("fetch", vi.fn((url: string) => {
+        if (String(url).includes("/diagnostic")) {
+          return Promise.resolve(json({ id: "d1", created_at: "2026-06-01", scores: { Mathématiques: 3 }, strengths: "Rigueur", weaknesses: "Lecture" }));
+        }
+        if (String(url).includes("/advisor-notes/")) return Promise.resolve(json([]));
+        return Promise.resolve(json(null));
+      }));
     });
 
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("« Nouveau bilan » ouvre un sélecteur de famille avec recherche, puis la vue de synthèse (prospect)", async () => {
+      const user = userEvent.setup();
+      renderReports();
+
+      await user.click(await screen.findByRole("button", { name: /Nouveau bilan/ }));
+      const picker = within(await screen.findByRole("dialog"));
+      expect(picker.getByText("Idris Ba")).toBeInTheDocument();
+      expect(picker.getByText("Omar Kane")).toBeInTheDocument();
+
+      await user.type(picker.getByPlaceholderText(/Rechercher un parent ou un élève/), "kane");
+      expect(picker.queryByText("Idris Ba")).not.toBeInTheDocument();
+
+      await user.click(picker.getByText("Omar Kane"));
+      const bilan = within(await screen.findByRole("dialog"));
+      expect(bilan.getByRole("button", { name: /Imprimer \/ Exporter en PDF/ })).toBeInTheDocument();
+      expect(await bilan.findByText("Notes disponibles après création du compte élève")).toBeInTheDocument();
+      expect(fetchedUrls().some((u: string) => u.endsWith("/requests/req-2/diagnostic"))).toBe(true);
+    });
+
+    it("recherche sans résultat dans le sélecteur : message vide", async () => {
+      const user = userEvent.setup();
+      renderReports();
+
+      await user.click(await screen.findByRole("button", { name: /Nouveau bilan/ }));
+      const picker = within(await screen.findByRole("dialog"));
+      await user.type(picker.getByPlaceholderText(/Rechercher un parent ou un élève/), "zzz");
+      expect(picker.getByText("Aucune famille ne correspond à votre recherche.")).toBeInTheDocument();
+    });
+
+    it("« Voir le bilan » ouvre le bilan de la famille identifiée par son id", async () => {
+      const user = userEvent.setup();
+      renderReports();
+
+      await user.click(await screen.findByText("Idris Ba"));
+      await user.click(screen.getByRole("button", { name: /Voir le bilan/ }));
+
+      const bilan = within(await screen.findByRole("dialog"));
+      expect(bilan.getByRole("heading", { name: "Bilan Conseil" })).toBeInTheDocument();
+      expect(await bilan.findByText("Rigueur")).toBeInTheDocument();
+      expect(fetchedUrls().some((u: string) => u.endsWith("/students/student-1/diagnostic"))).toBe(true);
+    });
+  });
+
+  describe("Boutons non câblés (documentés par la cartographie — hors périmètre)", () => {
     it("« Continuer la rédaction » (bilan à rédiger) n'a pas de handler câblé", async () => {
       // mapFamilyStatusToReport("nouveau") => "à rédiger" (statut par défaut, ni "suivi actif" ni "matching")
       const A_REDIGER_FAMILY = { ...FAMILY, status: "nouveau" };

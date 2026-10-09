@@ -12,6 +12,20 @@ vi.mock("../common/AcademicFile", () => ({
   default: () => <div data-testid="academic-file-stub" />,
 }));
 
+const { navigateMock, toastSuccessMock } = vi.hoisted(() => ({
+  navigateMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+}));
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
+vi.mock("sonner", () => ({
+  toast: { success: toastSuccessMock, error: vi.fn() },
+}));
+
 vi.mock("@/api/backoffice", () => ({
   fetchAdvisorFamilies: vi.fn(),
 }));
@@ -520,24 +534,312 @@ describe("AdvisorFamilies — Mes familles", () => {
     });
   });
 
-  describe("Boutons non câblés (hors périmètre — signalés par la cartographie)", () => {
-    it("« Contacter la famille » et « Bilan Conseil » sont affichés mais sans effet observable au clic", async () => {
-      const fetchMock = mockFetchByUrl({ "/advisor-notes/": () => jsonResponse([]) });
-      vi.stubGlobal("fetch", fetchMock);
+  describe("FAM-08 : Contacter la famille", () => {
+    it("parentId présent : navigue vers la messagerie en présélectionnant le contact (state.contactId)", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([{ ...FAMILY, parentId: "parent-42" }]);
+      vi.stubGlobal("fetch", mockFetchByUrl({ "/advisor-notes/": () => jsonResponse([]) }));
 
       const user = userEvent.setup();
       renderFamilies();
       await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Contacter la famille"));
 
-      const contactBtn = screen.getByText("Contacter la famille");
-      const bilanBtn = screen.getByText("Bilan Conseil");
-      const callsBefore = fetchMock.mock.calls.length;
+      expect(navigateMock).toHaveBeenCalledWith("/advisor/messages", {
+        state: { contactId: "parent-42", contactName: "Mme Ba" },
+      });
+    });
 
-      await user.click(contactBtn);
-      await user.click(bilanBtn);
+    it("parentId absent ou null : navigation inchangée, sans présélection", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([{ ...FAMILY, parentId: null }]);
+      vi.stubGlobal("fetch", mockFetchByUrl({ "/advisor-notes/": () => jsonResponse([]) }));
 
-      // Aucun appel réseau supplémentaire déclenché : ces boutons n'ont pas de handler câblé.
-      expect(fetchMock.mock.calls.length).toBe(callsBefore);
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Contacter la famille"));
+
+      expect(navigateMock).toHaveBeenCalledWith("/advisor/messages");
+    });
+  });
+
+  describe("FAM-09 : Bilan Conseil", () => {
+    const DIAG = { id: "diag-1", created_at: "2026-06-01", scores: { Mathématiques: 4, Français: 2 }, strengths: "Rigueur", weaknesses: "Lecture" };
+    const PLAN = { id: "plan-1", title: "Plan de rattrapage", start_date: "2026-07-01", weeks: [
+      { objective: "Revoir les fractions", subjects: ["Mathématiques"], done: true },
+      { objective: "Dictées quotidiennes", subjects: ["Français"], done: false },
+    ] };
+
+    async function openBilan() {
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByRole("button", { name: /Bilan Conseil/ }));
+      return { user, dialog: await screen.findByRole("dialog") };
+    }
+
+    it("ouvre la vue depuis la fiche et affiche en-tête, diagnostic, plan, notes et signature", async () => {
+      vi.stubGlobal("fetch", mockFetchByUrl({
+        "/diagnostic": () => jsonResponse(DIAG),
+        "/academic-plan": () => jsonResponse(PLAN),
+        "/advisor-notes/": () => jsonResponse([
+          { id: "n1", note_type: "alerte", content: "Retards fréquents", created_at: "2026-07-02" },
+        ]),
+      }));
+
+      const { dialog } = await openBilan();
+      const view = within(dialog);
+
+      expect(view.getByText("Idris Ba")).toBeInTheDocument();
+      expect(view.getByText("M. Diop")).toBeInTheDocument();
+      expect(await view.findByText("4/5")).toBeInTheDocument();
+      expect(view.getByText("2/5")).toBeInTheDocument();
+      expect(view.getByText("Rigueur")).toBeInTheDocument();
+      expect(view.getByText("Lecture")).toBeInTheDocument();
+      expect(await view.findByText("Plan de rattrapage")).toBeInTheDocument();
+      expect(view.getByText("Revoir les fractions")).toBeInTheDocument();
+      expect(view.getByText("Fait")).toBeInTheDocument();
+      expect(view.getByText("À faire")).toBeInTheDocument();
+      expect(await view.findByText("Retards fréquents")).toBeInTheDocument();
+      expect(view.getByText(/Alerte/)).toBeInTheDocument();
+      expect(view.getByText(/Bilan généré le .* par Aline Conseillère/)).toBeInTheDocument();
+      expect(dialog.textContent).not.toContain("—");
+    });
+
+    it("limite les notes aux 5 plus récentes", async () => {
+      const notes = Array.from({ length: 7 }, (_, i) => ({
+        id: `n${i}`, note_type: "observation", content: `Note numero ${i}`, created_at: `2026-07-0${i + 1}`,
+      }));
+      vi.stubGlobal("fetch", mockFetchByUrl({ "/advisor-notes/": () => jsonResponse(notes) }));
+
+      const { dialog } = await openBilan();
+      const view = within(dialog);
+
+      expect(await view.findByText("Note numero 6")).toBeInTheDocument();
+      expect(view.getByText("Note numero 2")).toBeInTheDocument();
+      expect(view.queryByText("Note numero 1")).not.toBeInTheDocument();
+      expect(view.queryByText("Note numero 0")).not.toBeInTheDocument();
+    });
+
+    it("sections vides : messages explicites", async () => {
+      vi.stubGlobal("fetch", mockFetchByUrl({
+        "/diagnostic": () => jsonResponse(null),
+        "/academic-plan": () => jsonResponse({ message: "none" }, 404),
+        "/advisor-notes/": () => jsonResponse([]),
+      }));
+
+      const { dialog } = await openBilan();
+      const view = within(dialog);
+
+      expect(await view.findByText("Aucun diagnostic enregistré")).toBeInTheDocument();
+      expect(await view.findByText("Aucun plan pédagogique actif")).toBeInTheDocument();
+      expect(await view.findByText("Aucune note enregistrée")).toBeInTheDocument();
+    });
+
+    it("prospect : lit les endpoints /requests/:id/*, pas de notes ni d'appel advisor-notes", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([
+        { id: "req-9", parentName: "M. Kane", childName: "Omar Kane", level: "6e", status: "nouveau" },
+      ]);
+      const fetchMock = mockFetchByUrl({
+        "/requests/req-9/diagnostic": () => jsonResponse(DIAG),
+        "/requests/req-9/plan": () => jsonResponse(PLAN),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("M. Kane"));
+      await user.click(screen.getByRole("button", { name: /Bilan Conseil/ }));
+      const view = within(await screen.findByRole("dialog"));
+
+      expect(await view.findByText("Notes disponibles après création du compte élève")).toBeInTheDocument();
+      expect(await view.findByText("Rigueur")).toBeInTheDocument();
+      expect(await view.findByText("Plan de rattrapage")).toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([url]: any) => String(url).includes("/advisor-notes/"))).toBe(false);
+    });
+
+    it("erreur serveur : message d'erreur par section avec Réessayer, sans afficher « Aucun diagnostic »", async () => {
+      vi.stubGlobal("fetch", mockFetchByUrl({
+        "/diagnostic": () => jsonResponse({ message: "boom" }, 500),
+        "/academic-plan": () => jsonResponse(PLAN),
+        "/advisor-notes/": () => jsonResponse([]),
+      }));
+
+      const { dialog } = await openBilan();
+      const view = within(dialog);
+
+      expect(await view.findByText("Impossible de charger le diagnostic.")).toBeInTheDocument();
+      expect(view.getByRole("button", { name: /Réessayer/ })).toBeInTheDocument();
+      expect(view.queryByText("Aucun diagnostic enregistré")).not.toBeInTheDocument();
+    });
+
+    it("« Imprimer / Exporter en PDF » appelle window.print", async () => {
+      const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
+      vi.stubGlobal("fetch", mockFetchByUrl({ "/advisor-notes/": () => jsonResponse([]) }));
+
+      const { user, dialog } = await openBilan();
+      await user.click(within(dialog).getByRole("button", { name: /Imprimer \/ Exporter en PDF/ }));
+
+      expect(printSpy).toHaveBeenCalledTimes(1);
+      printSpy.mockRestore();
+    });
+
+    it("« Fermer » referme la vue", async () => {
+      vi.stubGlobal("fetch", mockFetchByUrl({ "/advisor-notes/": () => jsonResponse([]) }));
+
+      const { user, dialog } = await openBilan();
+      await user.click(within(dialog).getByRole("button", { name: "Fermer" }));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    });
+  });
+
+  describe("FAM-15 : tri, onglets, badges", () => {
+    const rowsText = () =>
+      within(screen.getByRole("table")).getAllByRole("row").slice(1).map(r => r.textContent || "");
+
+    const PEOPLE = [
+      { id: "a", parentName: "Zoe Martin", childName: "Léo", studentId: "s-a", status: "suivi actif" },
+      { id: "b", parentName: "Alice Durand", childName: "Hugo", studentId: "s-b", status: "nouveau" },
+      { id: "c", parentName: "Marc Petit", childName: "Anna", studentId: "s-c", status: "matching" },
+    ];
+
+    it("tri par « Famille / Contact » : asc puis desc, indicateur aria-sort", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue(PEOPLE);
+      vi.stubGlobal("fetch", mockFetchByUrl({}));
+      const user = userEvent.setup();
+      renderFamilies();
+      await screen.findByText("Zoe Martin");
+
+      const header = screen.getByRole("button", { name: /Famille \/ Contact/ });
+      await user.click(header);
+      let rows = rowsText();
+      expect(rows[0]).toContain("Alice Durand");
+      expect(rows[2]).toContain("Zoe Martin");
+      expect(header.closest("th")).toHaveAttribute("aria-sort", "ascending");
+
+      await user.click(header);
+      rows = rowsText();
+      expect(rows[0]).toContain("Zoe Martin");
+      expect(rows[2]).toContain("Alice Durand");
+      expect(header.closest("th")).toHaveAttribute("aria-sort", "descending");
+    });
+
+    it("tri par « Lien avec l'élève » et par « Statut »", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue(PEOPLE);
+      vi.stubGlobal("fetch", mockFetchByUrl({}));
+      const user = userEvent.setup();
+      renderFamilies();
+      await screen.findByText("Zoe Martin");
+
+      await user.click(screen.getByRole("button", { name: /Lien avec l'élève/ }));
+      expect(rowsText()[0]).toContain("Anna");
+
+      await user.click(screen.getByRole("button", { name: /^Statut/ }));
+      // Libellés : Matching, Nouveau, Suivi actif
+      const rows = rowsText();
+      expect(rows[0]).toContain("Marc Petit");
+      expect(rows[2]).toContain("Zoe Martin");
+    });
+
+    it("tri stable : à valeur égale l'ordre d'origine est conservé, aussi en desc", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([
+        { id: "1", parentName: "Famille Sy", childName: "Premier", studentId: "s1" },
+        { id: "2", parentName: "Famille Sy", childName: "Deuxieme", studentId: "s2" },
+        { id: "3", parentName: "Autre", childName: "Troisieme", studentId: "s3" },
+      ]);
+      vi.stubGlobal("fetch", mockFetchByUrl({}));
+      const user = userEvent.setup();
+      renderFamilies();
+      await screen.findByText("Autre");
+
+      const header = screen.getByRole("button", { name: /Famille \/ Contact/ });
+      await user.click(header);
+      await user.click(header);
+      const rows = rowsText();
+      expect(rows[0]).toContain("Premier");
+      expect(rows[1]).toContain("Deuxieme");
+      expect(rows[2]).toContain("Troisieme");
+    });
+
+    it("le tri s'applique à la liste filtrée", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue(PEOPLE);
+      vi.stubGlobal("fetch", mockFetchByUrl({}));
+      const user = userEvent.setup();
+      renderFamilies();
+      await screen.findByText("Zoe Martin");
+
+      await user.type(screen.getByPlaceholderText(/Rechercher un parent, un élève/i), "a");
+      await user.click(screen.getByRole("button", { name: /Famille \/ Contact/ }));
+      const rows = rowsText();
+      expect(rows).toHaveLength(3 - rows.filter(r => !/a/i.test(r)).length);
+      expect(rows[0]).toContain("Alice Durand");
+    });
+
+    const MIXED = [
+      { id: "p1", parentName: "Prospect Nouveau", childName: "Kim", status: "nouveau" },
+      { id: "p2", parentName: "Prospect Matching", childName: "Lou", status: "matching" },
+      { id: "p3", parentName: "Prospect Inconnu", childName: "Mia", status: undefined },
+      { id: "s1", parentName: "Parent Compte", childName: "Noa", studentId: "s-1", status: "nouveau" },
+    ];
+
+    it("onglet Prospects : toutes les familles sans compte, quel que soit le statut", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue(MIXED);
+      vi.stubGlobal("fetch", mockFetchByUrl({}));
+      const user = userEvent.setup();
+      renderFamilies();
+      await screen.findByText("Prospect Nouveau");
+
+      await user.click(screen.getByRole("button", { name: "Prospects" }));
+      const rows = rowsText();
+      expect(rows).toHaveLength(3);
+      expect(rows.join("|")).not.toContain("Parent Compte");
+    });
+
+    it("onglet À qualifier : seulement les prospects au statut initial, cohérent avec la carte de stat", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue(MIXED);
+      vi.stubGlobal("fetch", mockFetchByUrl({}));
+      const user = userEvent.setup();
+      renderFamilies();
+      await screen.findByText("Prospect Nouveau");
+
+      await user.click(screen.getByRole("button", { name: "À qualifier" }));
+      const rows = rowsText();
+      expect(rows).toHaveLength(2);
+      expect(rows.join("|")).toContain("Prospect Nouveau");
+      expect(rows.join("|")).toContain("Prospect Inconnu");
+      expect(rows.join("|")).not.toContain("Prospect Matching");
+
+      const card = screen.getByText("Nécessitent un suivi rapproché").parentElement as HTMLElement;
+      expect(within(card).getByText("2")).toBeInTheDocument();
+    });
+
+    it("badge d'un prospect : vrai statut serveur (Matching) ou À qualifier si initial", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue(MIXED);
+      vi.stubGlobal("fetch", mockFetchByUrl({}));
+      renderFamilies();
+      await screen.findByText("Prospect Nouveau");
+
+      const rows = rowsText();
+      expect(rows.find(r => r.includes("Prospect Matching"))).toContain("Matching");
+      expect(rows.find(r => r.includes("Prospect Matching"))).not.toContain("À qualifier");
+      expect(rows.find(r => r.includes("Prospect Nouveau"))).toContain("À qualifier");
+      expect(rows.find(r => r.includes("Prospect Inconnu"))).toContain("À qualifier");
+    });
+
+    it("conversion : le toast de succès est professionnel, sans emoji", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([MIXED[0]]);
+      vi.stubGlobal("fetch", mockFetchByUrl({
+        "/convert": () => jsonResponse({ studentEmail: "kim@exemple.test" }),
+      }));
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Prospect Nouveau"));
+      await user.click(screen.getByRole("button", { name: /Créer le compte élève/ }));
+
+      await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled());
+      const message = String(toastSuccessMock.mock.calls[0][0]);
+      expect(message).toContain("kim@exemple.test");
+      expect(message).not.toMatch(/\p{Extended_Pictographic}/u);
     });
   });
 });

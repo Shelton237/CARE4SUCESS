@@ -1,7 +1,15 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAdvisorFamilies, fetchRequests } from "@/api/backoffice";
-import { ClipboardList, FileText, CheckCircle, Clock, ChevronDown, Loader2, RefreshCw } from "lucide-react";
+import { ClipboardList, FileText, CheckCircle, Clock, ChevronDown, Loader2, RefreshCw, Eye, Search } from "lucide-react";
+import AdvisorBilanView from "@/components/advisor/AdvisorBilanView";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const STATUS_COLORS: Record<string, string> = {
   "rédigé": "bg-green-50 text-green-600",
@@ -24,6 +32,9 @@ const mapFamilyStatusToReport = (status: string) => {
 
 export default function AdvisorReports() {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [bilanFamily, setBilanFamily] = useState<any>(null);
 
   const familiesQuery = useQuery({
     queryKey: ["advisorFamilies"],
@@ -47,6 +58,7 @@ export default function AdvisorReports() {
       const summary = `${family.child} progresse sur ${subject}. La famille ${family.parent} dispose d'un suivi ${family.status}.`;
       return {
         id: `report-${family.id}`,
+        family,
         child: family.child,
         parent: family.parent,
         level: family.level,
@@ -60,6 +72,14 @@ export default function AdvisorReports() {
   }, [familiesQuery.data]);
 
   const advisorRequests = useMemo(() => requestsQuery.data ?? [], [requestsQuery.data]);
+
+  const pickerFamilies = useMemo(() => {
+    const term = pickerSearch.trim().toLowerCase();
+    return (familiesQuery.data ?? []).filter((f: any) => {
+      if (!term) return true;
+      return `${f.parentName || f.parent || ""} ${f.childName || f.child || ""}`.toLowerCase().includes(term);
+    });
+  }, [familiesQuery.data, pickerSearch]);
 
   const treatedReports = reports.filter((r) => r.status === "rédigé").length;
   const ongoingReports = reports.filter((r) => r.status === "en cours").length;
@@ -106,7 +126,10 @@ export default function AdvisorReports() {
             {reports.length} bilans créés · {awaitingIntake} demandes à qualifier
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-[#a855f7] hover:bg-[#9333ea] transition-colors shadow-md">
+        <button
+          onClick={() => { setPickerSearch(""); setPickerOpen(true); }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-[#a855f7] hover:bg-[#9333ea] transition-colors shadow-md"
+        >
           <FileText className="w-4 h-4" />
           Nouveau bilan
         </button>
@@ -173,6 +196,14 @@ export default function AdvisorReports() {
                   <p className="text-sm text-gray-700 leading-relaxed">{report.summary}</p>
                 </div>
                 <div className="flex items-center gap-3 mt-4">
+                  {/* Identification de la famille par son id (report.family), jamais par son nom */}
+                  <button
+                    onClick={() => setBilanFamily(report.family)}
+                    className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg border border-[#a855f7]/40 text-[#a855f7] hover:bg-[#a855f7]/5 transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    Voir le bilan
+                  </button>
                   <button className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg bg-[#a855f7] text-white hover:bg-[#9333ea] transition-colors">
                     <FileText className="w-3.5 h-3.5" />
                     {report.status === "rédigé" ? "Modifier le bilan" : "Continuer la rédaction"}
@@ -236,6 +267,43 @@ export default function AdvisorReports() {
           )}
         </div>
       </div>
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nouveau bilan</DialogTitle>
+            <DialogDescription>Choisissez la famille pour laquelle générer le bilan.</DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
+            <input
+              type="text"
+              value={pickerSearch}
+              onChange={(e) => setPickerSearch(e.target.value)}
+              placeholder="Rechercher un parent ou un élève..."
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:border-[#a855f7]"
+            />
+          </div>
+          <ul className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+            {pickerFamilies.map((f: any) => (
+              <li key={f.id}>
+                <button
+                  onClick={() => { setPickerOpen(false); setBilanFamily(f); }}
+                  className="w-full text-left px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="text-sm font-semibold text-[#0D2D5A]">{f.childName || f.child || "Élève non renseigné"}</div>
+                  <div className="text-xs text-gray-400">{f.parentName || f.parent || "Parent non renseigné"} · {f.level || "Niveau non défini"}</div>
+                </button>
+              </li>
+            ))}
+            {pickerFamilies.length === 0 && (
+              <li className="px-3 py-6 text-center text-sm text-gray-400">Aucune famille ne correspond à votre recherche.</li>
+            )}
+          </ul>
+        </DialogContent>
+      </Dialog>
+
+      {bilanFamily && <AdvisorBilanView family={bilanFamily} onClose={() => setBilanFamily(null)} />}
     </div>
   );
 }

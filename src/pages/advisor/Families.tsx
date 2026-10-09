@@ -7,7 +7,7 @@ import {
     ThumbsUp, Lightbulb, Eye, UserCircle2,
     ClipboardCheck, CalendarRange, Trash2,
     Zap, Star, RefreshCw, UserPlus, GitMerge, CheckCircle2,
-    CalendarDays, TrendingUp, ArrowUpDown, Check, ChevronDown,
+    CalendarDays, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Check,
     Calculator, BookOpen, Globe2, FlaskConical, Leaf, Landmark, Save,
     Clock, Mail,
 } from "lucide-react";
@@ -19,8 +19,14 @@ import { cn } from "@/lib/utils";
 import AcademicFile from "../common/AcademicFile";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import AdvisorBilanView from "@/components/advisor/AdvisorBilanView";
+import {
+    API, readJsonSafe, isProspectFamily, getRequestId, getStudentId,
+    diagnosticQueryKey, planQueryKey as buildPlanQueryKey, notesQueryKey,
+    diagnosticUrl, planUrl as buildPlanUrl,
+    fetchNotes, fetchDiagnostic, fetchPlan,
+} from "@/components/advisor/familyQueries";
 
-const API = import.meta.env.VITE_API_URL || "/api";
 const SUBJECTS_DIAG = ["Mathématiques", "Français", "Anglais", "Physique", "SVT", "Histoire-Géo"];
 // Valeur par défaut des curseurs du diagnostic : partagée entre l'affichage et le payload envoyé
 const DEFAULT_DIAG_SCORE = 3;
@@ -32,15 +38,6 @@ const displayOr = (value: unknown, fallback: string = NOT_PROVIDED): string => {
     const v = value.trim();
     return v === "" || v === String.fromCharCode(0x2014) ? fallback : v;
 };
-
-// Lecture JSON protégée (corps vide ou non JSON, ex. page HTML d'un proxy en 502)
-async function readJsonSafe(res: Response): Promise<any> {
-    try {
-        return await res.json();
-    } catch {
-        return null;
-    }
-}
 
 function PanelError({ message, onRetry }: { message: string; onRetry: () => void }) {
     return (
@@ -116,6 +113,42 @@ const FILTER_TABS = [
     { key: "a-qualifier", label: "À qualifier" },
 ] as const;
 
+const STATUS_BADGE: Record<string, { label: string; bg: string; text: string; icon: any }> = {
+    "nouveau":          { label: "Nouveau",        bg: "#EAF1FE", text: "#3B82F6", icon: Mail },
+    "matching":         { label: "Matching",        bg: "#F3EEFE", text: "#8B5CF6", icon: GitMerge },
+    "bilan planifié":   { label: "Bilan planifié",  bg: "#EAF1FE", text: "#3B82F6", icon: CalendarDays },
+    "suivi actif":      { label: "Suivi actif",     bg: "#E6F7F4", text: "#0F9B8E", icon: CheckCircle2 },
+    "à qualifier":      { label: "À qualifier",     bg: "#E6F7F4", text: "#0F9B8E", icon: Clock },
+    "prospect":         { label: "Prospect",        bg: "#FEF3E2", text: "#F5A623", icon: AlertTriangle },
+};
+
+// FAM-15 : règle des onglets « Prospects » / « À qualifier ».
+// Le serveur (/api/advisor/families) calcule `status` : "nouveau" (demande reçue, rien
+// d'engagé), "matching" (assignation en attente ou demande en traitement),
+// "bilan planifié" (demande assignée), "suivi actif" (assignation confirmée).
+// - « Prospects » = toutes les familles sans compte élève, quel que soit leur statut.
+// - « À qualifier » = prospects dont le statut est encore initial ("nouveau", vide ou
+//   inconnu), donc pas encore en matching, assignés ou avec bilan planifié.
+// La carte de stat « À qualifier » et le badge de ligne utilisent la même règle.
+const isProspect = isProspectFamily;
+const ADVANCED_STATUSES = ["matching", "bilan planifié", "suivi actif"];
+const isInitialStatus = (status: unknown) => !ADVANCED_STATUSES.includes(String(status ?? ""));
+const isToQualifyFamily = (f: any) => isProspectFamily(f) && isInitialStatus(f?.status);
+
+// Badge de statut d'une ligne : un prospect affiche son vrai statut serveur s'il est
+// avancé, sinon « À qualifier » ; un élève avec compte retombe sur « Nouveau ».
+const getStatusBadge = (f: any) =>
+    isProspectFamily(f)
+        ? (isInitialStatus(f?.status) ? STATUS_BADGE["à qualifier"] : STATUS_BADGE[f.status])
+        : (STATUS_BADGE[f?.status] || STATUS_BADGE["nouveau"]);
+
+type SortKey = "family" | "child" | "status";
+const SORT_VALUE: Record<SortKey, (f: any) => string> = {
+    family: (f) => displayOr(f.parentName || f.parent, ""),
+    child:  (f) => displayOr(f.childName || f.child, ""),
+    status: (f) => getStatusBadge(f).label,
+};
+
 function StatCard({ icon: Icon, value, label, desc, bg }: { icon: any; value: string | number; label: string; desc: string; bg: string }) {
     return (
         <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4">
@@ -164,15 +197,12 @@ export default function AdvisorFamilies() {
     // ──────────────────────────────────────────────────────────────────────
     // Helper : est-ce un prospect (pas encore de compte élève) ?
     // ──────────────────────────────────────────────────────────────────────
-    const isProspect = (f: any) => !f?.studentId && !f?.childId;
-    const requestId  = selectedFamily?.id && !selectedFamily.id.startsWith("no-request-")
-        ? selectedFamily.id
-        : null;
-    const studentId  = selectedFamily?.studentId || selectedFamily?.childId || null;
+    const requestId  = getRequestId(selectedFamily);
+    const studentId  = getStudentId(selectedFamily);
 
-    // Clé unifiée pour les queries (request ou student)
-    const diagQueryKey  = isProspect(selectedFamily) ? ["reqDiagnostic",  requestId]  : ["diagnostic",   studentId];
-    const planQueryKey  = isProspect(selectedFamily) ? ["reqPlan",         requestId]  : ["academicPlan", studentId];
+    // Clé unifiée pour les queries (request ou student), partagée avec AdvisorBilanView
+    const diagQueryKey  = diagnosticQueryKey(selectedFamily);
+    const planQueryKey  = buildPlanQueryKey(selectedFamily);
 
     // ──────────────────────────────────────────────────────────────────────
     // Families list
@@ -216,16 +246,8 @@ export default function AdvisorFamilies() {
     // Notes (uniquement pour les élèves avec compte)
     // ──────────────────────────────────────────────────────────────────────
     const { data: advisorNotes = [], isError: notesError, refetch: refetchNotes } = useQuery<any[]>({
-        queryKey: ["advisorNotes", studentId],
-        queryFn: async () => {
-            if (!studentId) return [];
-            const res = await fetch(`${API}/advisor-notes/${studentId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error("Impossible de charger les notes");
-            const data = await readJsonSafe(res);
-            return Array.isArray(data) ? data : [];
-        },
+        queryKey: notesQueryKey(studentId),
+        queryFn: () => fetchNotes(studentId, token),
         enabled: !!studentId && !!token,
     });
 
@@ -272,21 +294,11 @@ export default function AdvisorFamilies() {
     // ──────────────────────────────────────────────────────────────────────
     // Diagnostic — adapte l'endpoint selon prospect ou élève
     // ──────────────────────────────────────────────────────────────────────
-    const diagUrl = isProspect(selectedFamily)
-        ? `${API}/requests/${requestId}/diagnostic`
-        : `${API}/students/${studentId}/diagnostic`;
+    const diagUrl = diagnosticUrl(selectedFamily);
 
     const { data: diagnostic, isError: diagError, refetch: refetchDiag } = useQuery({
         queryKey: diagQueryKey,
-        queryFn: async () => {
-            const url = isProspect(selectedFamily)
-                ? `${API}/requests/${requestId}/diagnostic`
-                : `${API}/students/${studentId}/diagnostic`;
-            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-            if (res.status === 404) return null;
-            if (!res.ok) throw new Error("Impossible de charger le diagnostic");
-            return res.json();
-        },
+        queryFn: () => fetchDiagnostic(selectedFamily, token),
         enabled: !!(isProspect(selectedFamily) ? requestId : studentId) && !!token,
     });
 
@@ -327,21 +339,11 @@ export default function AdvisorFamilies() {
     // ──────────────────────────────────────────────────────────────────────
     // Plan pédagogique — adapte l'endpoint selon prospect ou élève
     // ──────────────────────────────────────────────────────────────────────
-    const planUrl = isProspect(selectedFamily)
-        ? `${API}/requests/${requestId}/plan`
-        : `${API}/students/${studentId}/academic-plan`;
+    const planUrl = buildPlanUrl(selectedFamily);
 
     const { data: activePlan, isError: planError, refetch: refetchPlan } = useQuery({
         queryKey: planQueryKey,
-        queryFn: async () => {
-            const url = isProspect(selectedFamily)
-                ? `${API}/requests/${requestId}/plan`
-                : `${API}/students/${studentId}/academic-plan`;
-            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-            if (res.status === 404) return null;
-            if (!res.ok) throw new Error("Impossible de charger le plan");
-            return res.json();
-        },
+        queryFn: () => fetchPlan(selectedFamily, token),
         enabled: !!(isProspect(selectedFamily) ? requestId : studentId) && !!token,
     });
 
@@ -402,7 +404,7 @@ export default function AdvisorFamilies() {
             return data ?? {};
         },
         onSuccess: (data) => {
-            toast.success(`✅ Compte élève créé ! Email temporaire : ${data.studentEmail}`);
+            toast.success(`Compte élève créé. Email temporaire : ${data.studentEmail}`);
             qc.invalidateQueries({ queryKey: ["advisorFamilies"] });
             // Compteurs du tableau de bord conseiller et liste des demandes
             qc.invalidateQueries({ queryKey: ["advisorDashboard"] });
@@ -415,6 +417,12 @@ export default function AdvisorFamilies() {
     // ──────────────────────────────────────────────────────────────────────
     // Filtre (recherche + onglets)
     // ──────────────────────────────────────────────────────────────────────
+    const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+    const [bilanFamily, setBilanFamily] = useState<any>(null);
+
+    const toggleSort = (key: SortKey) =>
+        setSort(prev => (prev?.key === key && prev.dir === "asc" ? { key, dir: "desc" } : { key, dir: "asc" }));
+
     const filteredFamilies = (Array.isArray(families) ? families : []).filter((f: any) => {
         const pName = (f.parentName || f.parent || "").toLowerCase();
         const cName = (f.childName || f.child || "").toLowerCase();
@@ -424,15 +432,39 @@ export default function AdvisorFamilies() {
         const fp = isProspect(f);
         if (filterTab === "prospects" && !fp) return false;
         if (filterTab === "parents" && fp) return false;
-        if (filterTab === "a-qualifier" && !fp) return false;
+        if (filterTab === "a-qualifier" && !isToQualifyFamily(f)) return false;
         return true;
     });
+
+    const ariaSort = (key: SortKey): "ascending" | "descending" | "none" =>
+        sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none";
+    const sortButton = (key: SortKey, label: string) => {
+        const Icon = sort?.key === key ? (sort.dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+        return (
+            <button
+                type="button"
+                onClick={() => toggleSort(key)}
+                className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-[#0D2D5A] transition-colors"
+            >
+                {label} <Icon className={cn("w-3 h-3", sort?.key === key && "text-[#0D2D5A]")} />
+            </button>
+        );
+    };
+
+    // Tri sur la liste filtrée. Array.prototype.sort est stable : à valeur égale,
+    // l'ordre d'origine est conservé (le sens desc inverse le comparateur, pas le tableau).
+    const sortedFamilies = sort
+        ? [...filteredFamilies].sort((a: any, b: any) => {
+            const cmp = SORT_VALUE[sort.key](a).localeCompare(SORT_VALUE[sort.key](b), "fr", { sensitivity: "base" });
+            return sort.dir === "asc" ? cmp : -cmp;
+        })
+        : filteredFamilies;
 
     const stats = useMemo(() => {
         const list = Array.isArray(families) ? families : [];
         return {
             total: list.length,
-            toQualify: list.filter((f: any) => isProspect(f)).length,
+            toQualify: list.filter((f: any) => isToQualifyFamily(f)).length,
             activeFollowups: list.filter((f: any) => !isProspect(f) && f.status === "suivi actif").length,
         };
     }, [families]);
@@ -475,15 +507,6 @@ export default function AdvisorFamilies() {
     const currentStepIdx = stepDone.findIndex(d => !d);
     const activeStepIdx = currentStepIdx === -1 ? STEPS.length - 1 : currentStepIdx;
 
-    const STATUS_BADGE: Record<string, { label: string; bg: string; text: string; icon: any }> = {
-        "nouveau":          { label: "Nouveau",        bg: "#EAF1FE", text: "#3B82F6", icon: Mail },
-        "matching":         { label: "Matching",        bg: "#F3EEFE", text: "#8B5CF6", icon: GitMerge },
-        "bilan planifié":   { label: "Bilan planifié",  bg: "#EAF1FE", text: "#3B82F6", icon: CalendarDays },
-        "suivi actif":      { label: "Suivi actif",     bg: "#E6F7F4", text: "#0F9B8E", icon: CheckCircle2 },
-        "à qualifier":      { label: "À qualifier",     bg: "#E6F7F4", text: "#0F9B8E", icon: Clock },
-        "prospect":         { label: "Prospect",        bg: "#FEF3E2", text: "#F5A623", icon: AlertTriangle },
-    };
-
     return (
         <div className="p-4 md:px-8 md:pb-8 md:pt-0 space-y-5 animate-in fade-in duration-500">
             {/* Header */}
@@ -494,7 +517,7 @@ export default function AdvisorFamilies() {
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                 {/* Colonne gauche : stats + liste */}
-                <div className="xl:col-span-8 flex flex-col gap-5">
+                <div className="xl:col-span-6 flex flex-col gap-5">
                     {/* Cartes statistiques */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <StatCard icon={Users} value={stats.total} label="Familles" desc="Total des familles enregistrées" bg="#0D2D5A" />
@@ -538,21 +561,21 @@ export default function AdvisorFamilies() {
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
-                                        <th className="px-6 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
-                                            <span className="inline-flex items-center gap-1">Famille / Contact <ArrowUpDown className="w-3 h-3" /></span>
+                                        <th aria-sort={ariaSort("family")} className="px-6 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
+                                            {sortButton("family", "Famille / Contact")}
                                         </th>
-                                        <th className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
-                                            <span className="inline-flex items-center gap-1">Lien avec l'élève <ArrowUpDown className="w-3 h-3" /></span>
+                                        <th aria-sort={ariaSort("child")} className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
+                                            {sortButton("child", "Lien avec l'élève")}
                                         </th>
                                         <th className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">Tuteur assigné</th>
-                                        <th className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
-                                            <span className="inline-flex items-center gap-1">Statut <ArrowUpDown className="w-3 h-3" /></span>
+                                        <th aria-sort={ariaSort("status")} className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide">
+                                            {sortButton("status", "Statut")}
                                         </th>
                                         <th className="px-4 py-3 font-bold text-gray-400 text-[11px] uppercase tracking-wide text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {filteredFamilies.map((f: any) => {
+                                    {sortedFamilies.map((f: any) => {
                                         const fp = isProspect(f);
                                         const isSelected = selectedFamily?.id === f.id;
                                         return (
@@ -605,7 +628,7 @@ export default function AdvisorFamilies() {
                                                 </td>
                                                 <td className="px-4 py-3.5">
                                                     {(() => {
-                                                        const badge = fp ? STATUS_BADGE["à qualifier"] : (STATUS_BADGE[f.status] || STATUS_BADGE["nouveau"]);
+                                                        const badge = getStatusBadge(f);
                                                         const BadgeIcon = badge.icon;
                                                         return (
                                                             <span
@@ -638,7 +661,7 @@ export default function AdvisorFamilies() {
                 </div>
 
                 {/* Colonne droite : fiche détaillée */}
-                <div className="xl:col-span-4">
+                <div className="xl:col-span-6">
                     {selectedFamily ? (
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8 animate-in slide-in-from-right-4 duration-300">
                             {/* Header fiche */}
@@ -665,7 +688,6 @@ export default function AdvisorFamilies() {
                                 )}>
                                     {prospect && <AlertTriangle className="w-3.5 h-3.5" />}
                                     {prospect ? "Prospect" : "Parent"}
-                                    <ChevronDown className="w-3.5 h-3.5" />
                                 </span>
                             </div>
 
@@ -1185,13 +1207,25 @@ export default function AdvisorFamilies() {
                                     )}
                                     {!prospect && (
                                         <Button
-                                            onClick={() => navigate("/advisor/messages")}
+                                            onClick={() => selectedFamily.parentId
+                                                // FAM-08 : Messages.tsx présélectionne le contact via location.state.contactId
+                                                ? navigate("/advisor/messages", {
+                                                    state: {
+                                                        contactId: selectedFamily.parentId,
+                                                        contactName: displayOr(selectedFamily.parentName || selectedFamily.parent, ""),
+                                                    },
+                                                })
+                                                : navigate("/advisor/messages")}
                                             className="w-full bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white font-bold h-11 rounded-xl shadow-sm gap-2"
                                         >
                                             <MessageCircle className="w-4 h-4" /> Contacter la famille
                                         </Button>
                                     )}
-                                    <Button variant="outline" className="w-full border-gray-200 text-gray-500 font-bold h-11 rounded-xl hover:bg-gray-50 gap-2">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setBilanFamily(selectedFamily)}
+                                        className="w-full border-gray-200 text-gray-500 font-bold h-11 rounded-xl hover:bg-gray-50 gap-2"
+                                    >
                                         <FileText className="w-4 h-4" /> Bilan Conseil
                                     </Button>
                                 </div>
@@ -1210,6 +1244,10 @@ export default function AdvisorFamilies() {
                     )}
                 </div>
             </div>
+
+            {bilanFamily && (
+                <AdvisorBilanView family={bilanFamily} onClose={() => setBilanFamily(null)} />
+            )}
         </div>
     );
 }
