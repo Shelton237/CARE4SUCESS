@@ -51,6 +51,12 @@ describe("matchScoring", () => {
     expect(none.reasons.find((r) => r.key === "reviews").label).toBe("Pas encore d'avis");
   });
 
+  it("scoreTutor : un tuteur « Tous niveaux » couvre le niveau de l'élève", () => {
+    const res = scoreTutor({ level: "10ème (CE1)", subject: "", city: "", geoId: null }, { priority: [], consolidate: [] }, teacher({ levels: ["Tous niveaux"] }));
+    expect(res.reasons.find((r) => r.key === "level").ok).toBe(true);
+    expect(res.score).toBe(15);
+  });
+
   it("scoreTutor : tarif nul ou à 1 FCFA signalé", () => {
     const s = { level: "", subject: "", city: "", geoId: null };
     expect(scoreTutor(s, { priority: [], consolidate: [] }, teacher({ rate: 1 })).rateToCheck).toBe(true);

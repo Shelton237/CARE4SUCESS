@@ -97,7 +97,11 @@ export const scoreTutor = (student, reinforce, teacher) => {
 
   // Niveau (15 pts)
   if (student.level) {
-    const ok = teacher.levels.some((l) => norm(l) && (norm(l).includes(norm(student.level)) || norm(student.level).includes(norm(l))));
+    const ok = teacher.levels.some((l) => {
+      const n = norm(l);
+      // "Tous niveaux" couvre n'importe quel niveau
+      return n && (n.startsWith("tous") || n.includes(norm(student.level)) || norm(student.level).includes(n));
+    });
     if (ok) score += 15;
     reasons.push({ key: "level", ok, label: ok ? `Niveau ${student.level}` : `Niveau ${student.level} non déclaré` });
   }
