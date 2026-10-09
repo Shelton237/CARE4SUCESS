@@ -28,6 +28,15 @@ import {
 } from "@/components/advisor/familyQueries";
 
 const SUBJECTS_DIAG = ["Mathématiques", "Français", "Anglais", "Physique", "SVT", "Histoire-Géo"];
+
+// Matières choisies à l'inscription (stockées "Maths, Anglais" ou en tableau) ; liste complète si rien n'est renseigné.
+const getFamilySubjects = (family: any): string[] => {
+    const raw = family?.subject ?? family?.subjects;
+    const list = (Array.isArray(raw) ? raw : String(raw ?? "").split(","))
+        .map((s: unknown) => String(s).trim())
+        .filter((s: string) => s && s !== String.fromCharCode(0x2014));
+    return list.length ? [...new Set(list)] : SUBJECTS_DIAG;
+};
 // Valeur par défaut des curseurs du diagnostic : partagée entre l'affichage et le payload envoyé
 const DEFAULT_DIAG_SCORE = 3;
 const NOT_PROVIDED = "Non renseigné";
@@ -199,6 +208,7 @@ export default function AdvisorFamilies() {
     // ──────────────────────────────────────────────────────────────────────
     const requestId  = getRequestId(selectedFamily);
     const studentId  = getStudentId(selectedFamily);
+    const familySubjects = getFamilySubjects(selectedFamily);
 
     // Clé unifiée pour les queries (request ou student), partagée avec AdvisorBilanView
     const diagQueryKey  = diagnosticQueryKey(selectedFamily);
@@ -313,7 +323,7 @@ export default function AdvisorFamilies() {
                     evaluatorName: user?.name,
                     // Même valeur par défaut que l'affichage des curseurs (DEFAULT_DIAG_SCORE)
                     scores: Object.fromEntries(
-                        SUBJECTS_DIAG.map(subj => [subj, diagScores[subj] ?? DEFAULT_DIAG_SCORE])
+                        familySubjects.map(subj => [subj, diagScores[subj] ?? DEFAULT_DIAG_SCORE])
                     ),
                     strengths: diagStrengths || null,
                     weaknesses: diagWeaknesses || null,
@@ -965,7 +975,7 @@ export default function AdvisorFamilies() {
                                             <div className="space-y-3">
                                                 <p className="text-sm font-bold text-[#0D2D5A]">Niveau des matières</p>
                                                 <div className="space-y-3">
-                                                    {SUBJECTS_DIAG.map(subj => (
+                                                    {familySubjects.map(subj => (
                                                         <SubjectBar
                                                             key={subj}
                                                             subject={subj}
@@ -1099,7 +1109,7 @@ export default function AdvisorFamilies() {
                                                                 className="w-full border border-gray-200 rounded px-2 py-1 text-[10px] outline-none focus:border-[#0F9B8E]"
                                                             />
                                                             <div className="flex gap-1 flex-wrap">
-                                                                {SUBJECTS_DIAG.map(s => (
+                                                                {familySubjects.map(s => (
                                                                     <button
                                                                         key={s}
                                                                         onClick={() => setPlanWeeks(prev => prev.map((w, j) => j === i ? {

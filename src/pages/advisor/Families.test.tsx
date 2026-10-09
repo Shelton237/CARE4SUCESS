@@ -483,10 +483,45 @@ describe("AdvisorFamilies — Mes familles", () => {
         const postCall = fetchMock.mock.calls.find(([url, init]: any) => init?.method === "POST" && url.includes("/diagnostic"));
         expect(postCall).toBeTruthy();
         const body = JSON.parse((postCall as any)[1].body);
-        expect(body.scores).toEqual({
-          "Mathématiques": 3, "Français": 3, "Anglais": 3, "Physique": 3, "SVT": 3, "Histoire-Géo": 3,
-        });
+        expect(body.scores).toEqual({ "Mathématiques": 3 });
       });
+    });
+
+    it("matières dynamiques : seules les matières choisies à l'inscription sont évaluées", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([{ ...FAMILY, subject: "Anglais, Mathématiques" }]);
+      const fetchMock = mockFetchByUrl({
+        "/diagnostic": () => jsonResponse(null),
+        "/advisor-notes/": () => jsonResponse([]),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Diag."));
+
+      expect(await screen.findAllByRole("slider")).toHaveLength(2);
+      await user.click(screen.getByText("Enregistrer le diagnostic"));
+
+      await waitFor(() => {
+        const postCall = fetchMock.mock.calls.find(([url, init]: any) => init?.method === "POST" && url.includes("/diagnostic"));
+        expect(JSON.parse((postCall as any)[1].body).scores).toEqual({ "Anglais": 3, "Mathématiques": 3 });
+      });
+    });
+
+    it("matières dynamiques : sans matière renseignée, la liste complète est proposée", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([{ ...FAMILY, subject: "" }]);
+      vi.stubGlobal("fetch", mockFetchByUrl({
+        "/diagnostic": () => jsonResponse(null),
+        "/advisor-notes/": () => jsonResponse([]),
+      }));
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Diag."));
+
+      expect(await screen.findAllByRole("slider")).toHaveLength(6);
     });
 
     it("FAM-04 : une 500 sur le diagnostic affiche une erreur avec Réessayer et non le formulaire vide", async () => {

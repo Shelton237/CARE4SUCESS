@@ -3062,9 +3062,9 @@ app.post("/api/parents/enroll", async (req, res) => {
       await ensureRequestsTable();
       const requestId = crypto.randomUUID();
       await connection.query(
-        `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, location, geo_location_id, status, request_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
-        [requestId, parentName, child.name, child.level || "", child.subject || "", parentPhone || "", parentLocation || null, parentGeoLocationId ? Number(parentGeoLocationId) : null]
+        `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, email, location, geo_location_id, status, request_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
+        [requestId, parentName, child.name, child.level || "", child.subject || "", parentPhone || "", parentEmail, parentLocation || null, parentGeoLocationId ? Number(parentGeoLocationId) : null]
       );
 
       results.students.push({ id: studentId, name: child.name, email: finalStudentEmail });
