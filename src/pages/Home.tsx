@@ -238,7 +238,7 @@ export default function Home() {
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#07284B] xl:h-[448px]">
         {/* Photo à droite (positions de la maquette, en % de la largeur) */}
-        <div className="hidden md:block absolute inset-y-0 start-[42.97%] w-[57.03%]">
+        <div className="hidden md:block absolute inset-y-0 start-[30%] w-[70%]">
           <picture>
             <source srcSet={HOME_IMAGES.hero} type="image/webp" />
             <img
@@ -248,7 +248,7 @@ export default function Home() {
               height={448}
               fetchPriority="high"
               decoding="async"
-              className="w-full h-full object-cover object-[58%_22%]"
+              className="w-full h-full object-cover object-[58%_12%]"
             />
           </picture>
           <span className="hero-sheen" aria-hidden />
@@ -256,7 +256,7 @@ export default function Home() {
           <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#07284B] via-[#07284B]/80 to-transparent" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[18.5%] xl:pe-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[48px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.5%] xl:pe-0 relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[48px] xl:pb-0">
           <div className="max-w-xl xl:max-w-none">
             <h1
               className="font-bold text-white leading-[1.02] text-[clamp(2.6rem,4.4vw,3.95rem)] xl:text-[69.5px] xl:leading-[60px]"
@@ -295,7 +295,7 @@ export default function Home() {
                   height={224}
                   fetchPriority="high"
                   decoding="async"
-                  className="w-full h-full object-cover object-[58%_22%]"
+                  className="w-full h-full object-cover object-[58%_12%]"
                 />
               </picture>
               <span className="hero-sheen" aria-hidden />
