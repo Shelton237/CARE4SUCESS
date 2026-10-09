@@ -46,6 +46,12 @@ const getFamilySubjects = (family: any): string[] => {
 // 0 = « Non évalué » : chaque matière doit être notée explicitement avant enregistrement.
 const DEFAULT_DIAG_SCORE = 0;
 const PAGE_SIZE = 8;
+
+// Boutons et champs de la fiche : une seule taille, boutons à la largeur de leur contenu.
+const BTN = "inline-flex items-center justify-center gap-2 h-9 px-4 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+const BTN_PRIMARY = `${BTN} bg-[#0D2D5A] text-white hover:bg-[#0D2D5A]/90`;
+const BTN_OUTLINE = `${BTN} border border-gray-200 bg-white text-[#0D2D5A] hover:bg-gray-50`;
+const INPUT = "w-full h-10 border border-gray-200 rounded-lg px-3 text-sm text-[#0D2D5A] placeholder:text-gray-400 outline-none focus:border-[#0F9B8E] focus:ring-2 focus:ring-[#0F9B8E]/15";
 const NOT_PROVIDED = "Non renseigné";
 
 // Normalise une valeur d'affichage : vide ou tiret (valeurs de repli du serveur) => libellé neutre
@@ -129,14 +135,14 @@ function EvidenceInputs({ subject, value, onChange }: { subject: string; value: 
                 aria-label={`Source de la note en ${subject}`}
                 onChange={e => onChange({ ...value, source: e.target.value || undefined })}
                 className={cn(
-                    "border rounded-md px-2 py-1 text-[10px] outline-none focus:border-[#1A6CC8] bg-white",
-                    value.source ? "border-gray-200 text-[#0D2D5A]" : "border-amber-200 text-gray-400"
+                    "h-9 border rounded-lg px-2.5 text-sm outline-none focus:border-[#0F9B8E] focus:ring-2 focus:ring-[#0F9B8E]/15 bg-white",
+                    value.source ? "border-gray-200 text-[#0D2D5A]" : "border-amber-300 text-gray-400"
                 )}
             >
                 <option value="">Source de la note…</option>
                 {EVIDENCE_SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
-            <label className="flex items-center gap-1 text-[10px] text-gray-400">
+            <label className="flex items-center gap-1.5 text-xs text-gray-500">
                 Note scolaire
                 <input
                     type="number"
@@ -147,7 +153,7 @@ function EvidenceInputs({ subject, value, onChange }: { subject: string; value: 
                     value={value.grade ?? ""}
                     aria-label={`Dernière note scolaire en ${subject} sur 20`}
                     onChange={e => onChange({ ...value, grade: e.target.value })}
-                    className="w-14 border border-gray-200 rounded-md px-1.5 py-1 text-[10px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8]"
+                    className="w-20 h-9 border border-gray-200 rounded-lg px-2.5 text-sm text-[#0D2D5A] outline-none focus:border-[#0F9B8E] focus:ring-2 focus:ring-[#0F9B8E]/15"
                 />
                 /20 <span className="text-gray-300">(facultatif)</span>
             </label>
@@ -206,7 +212,7 @@ function CriteriaPicker({ label, options, selected, onToggle, comment, onComment
                         aria-pressed={selected.includes(c)}
                         onClick={() => onToggle(c)}
                         className={cn(
-                            "text-[10px] font-semibold px-2 py-1 rounded-full border transition-colors",
+                            "text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors",
                             selected.includes(c) ? on : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
                         )}
                     >
@@ -220,7 +226,7 @@ function CriteriaPicker({ label, options, selected, onToggle, comment, onComment
                 maxLength={200}
                 onChange={e => onComment(e.target.value)}
                 placeholder="Précision (facultatif)..."
-                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[11px] outline-none focus:border-[#1A6CC8]"
+                className={INPUT}
             />
         </fieldset>
     );
@@ -246,7 +252,7 @@ function Checklist({ items }: { items: { label: string; done: boolean }[] }) {
     return (
         <ul className="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5 space-y-1" aria-label="Conditions avant enregistrement">
             {items.map(i => (
-                <li key={i.label} className={cn("flex items-center gap-1.5 text-[11px]", i.done ? "text-emerald-700" : "text-gray-400")}>
+                <li key={i.label} className={cn("flex items-center gap-1.5 text-xs", i.done ? "text-emerald-700" : "text-gray-400")}>
                     {i.done ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 shrink-0" />}
                     {i.label}
                 </li>
@@ -1044,36 +1050,34 @@ export default function AdvisorFamilies() {
                                     </div>
                                 )}
 
-                                {/* CTA : Créer le compte élève (prospect uniquement) */}
-                                {prospect && (
-                                    <Button
-                                        disabled={convertMutation.isPending}
-                                        onClick={() => convertMutation.mutate()}
-                                        className="w-full h-10 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-widest rounded-xl gap-2"
+                                {/* Actions de l'étape en cours */}
+                                <div className="flex flex-wrap gap-2">
+                                    {prospect && (
+                                        <button
+                                            disabled={convertMutation.isPending}
+                                            onClick={() => convertMutation.mutate()}
+                                            className={`${BTN} bg-amber-500 hover:bg-amber-600 text-white`}
+                                        >
+                                            {convertMutation.isPending ? (
+                                                <><Loader2 className="w-4 h-4 animate-spin" /> Création...</>
+                                            ) : (
+                                                <><UserPlus className="w-4 h-4" /> Créer le compte élève</>
+                                            )}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => navigate("/advisor/schedule", {
+                                            state: {
+                                                familyName: selectedFamily.parentName || selectedFamily.parent,
+                                                childName: selectedFamily.childName || selectedFamily.child,
+                                                type: prospect ? "Bilan pédagogique initial" : "Suivi régulier",
+                                            }
+                                        })}
+                                        className={`${BTN} border border-[#0F9B8E]/30 bg-white text-[#0F9B8E] hover:bg-[#0F9B8E]/5`}
                                     >
-                                        {convertMutation.isPending ? (
-                                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Création...</>
-                                        ) : (
-                                            <><UserPlus className="w-3.5 h-3.5" /> Créer le compte élève</>
-                                        )}
-                                    </Button>
-                                )}
-
-                                {/* Bouton Planifier RDV */}
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => navigate("/advisor/schedule", {
-                                        state: {
-                                            familyName: selectedFamily.parentName || selectedFamily.parent,
-                                            childName: selectedFamily.childName || selectedFamily.child,
-                                            type: prospect ? "Bilan pédagogique initial" : "Suivi régulier",
-                                        }
-                                    })}
-                                    className="w-full text-xs font-bold text-[#0F9B8E] border-[#0F9B8E]/30 hover:bg-[#0F9B8E]/5 gap-2 h-10 rounded-xl"
-                                >
-                                    <CalendarDays className="w-3.5 h-3.5" /> Planifier un rendez-vous
-                                </Button>
+                                        <CalendarDays className="w-4 h-4" /> Planifier un rendez-vous
+                                    </button>
+                                </div>
 
                                 {/* Tabs navigation */}
                                 <div className="flex border border-gray-100 rounded-xl overflow-hidden">
@@ -1093,12 +1097,12 @@ export default function AdvisorFamilies() {
                                             disabled={locked}
                                             title={locked ? "Disponible après la création du compte élève" : undefined}
                                             className={cn(
-                                                "flex-1 flex items-center justify-center gap-1 py-2 text-[9px] font-black uppercase tracking-widest transition-colors",
+                                                "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-bold uppercase tracking-wide transition-colors",
                                                 activePanel === key ? "bg-[#0D2D5A] text-white" : "text-gray-400 hover:bg-gray-50",
                                                 locked ? "opacity-30 cursor-not-allowed" : ""
                                             )}
                                         >
-                                            <Icon className="w-3 h-3" /> {label}
+                                            <Icon className="w-3.5 h-3.5" /> {label}
                                         </button>
                                         );
                                     })}
@@ -1146,15 +1150,17 @@ export default function AdvisorFamilies() {
                                                             onChange={e => setNoteContent(e.target.value)}
                                                             rows={3}
                                                             placeholder="Votre observation..."
-                                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[11px] outline-none focus:border-[#0F9B8E] resize-none"
+                                                            className={`${INPUT} h-auto py-2 resize-none`}
                                                         />
-                                                        <button
-                                                            disabled={!noteContent.trim() || addNoteMutation.isPending}
-                                                            onClick={() => addNoteMutation.mutate()}
-                                                            className="w-full h-8 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
-                                                        >
-                                                            {addNoteMutation.isPending ? "..." : "Enregistrer"}
-                                                        </button>
+                                                        <div className="flex justify-end">
+                                                            <button
+                                                                disabled={!noteContent.trim() || addNoteMutation.isPending}
+                                                                onClick={() => addNoteMutation.mutate()}
+                                                                className={BTN_PRIMARY}
+                                                            >
+                                                                {addNoteMutation.isPending ? "..." : "Enregistrer"}
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 )}
                                                 {notesError && (
@@ -1239,7 +1245,7 @@ export default function AdvisorFamilies() {
                                                             setActivePanel("matching");
                                                         }
                                                     }}
-                                                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-violet-50 text-violet-600 border border-violet-100 rounded-lg text-[10px] font-black hover:bg-violet-100 transition-colors mt-1"
+                                                    className={`${BTN} mt-1 bg-violet-50 text-violet-700 border border-violet-100 hover:bg-violet-100`}
                                                 >
                                                     <GitMerge className="w-3 h-3" /> Lancer le matching
                                                 </button>
@@ -1297,7 +1303,7 @@ export default function AdvisorFamilies() {
                                                 <button
                                                     disabled={!diagReady || diagMutation.isPending}
                                                     onClick={() => diagMutation.mutate()}
-                                                    className="w-full h-12 bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white text-sm font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                                    className={BTN_PRIMARY}
                                                 >
                                                     {diagMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                                     {diagMutation.isPending ? "Enregistrement..." : "Enregistrer le diagnostic"}
@@ -1385,13 +1391,13 @@ export default function AdvisorFamilies() {
                                                     value={planTitle}
                                                     onChange={e => setPlanTitle(e.target.value)}
                                                     placeholder="Titre du plan..."
-                                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-[11px] outline-none focus:border-[#0F9B8E]"
+                                                    className={INPUT}
                                                 />
                                                 <input
                                                     type="date"
                                                     value={planStart}
                                                     onChange={e => setPlanStart(e.target.value)}
-                                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-[11px] outline-none focus:border-[#0F9B8E]"
+                                                    className={INPUT}
                                                 />
                                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Semaines</p>
                                                 <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -1413,7 +1419,7 @@ export default function AdvisorFamilies() {
                                                                 value={week.objective}
                                                                 onChange={e => setPlanWeeks(prev => prev.map((w, j) => j === i ? { ...w, objective: e.target.value } : w))}
                                                                 placeholder="Objectif de la semaine..."
-                                                                className="w-full border border-gray-200 rounded px-2 py-1 text-[10px] outline-none focus:border-[#0F9B8E]"
+                                                                className={`${INPUT} h-9 bg-white`}
                                                             />
                                                             <div className="flex gap-1 flex-wrap">
                                                                 {familySubjects.map(s => (
@@ -1423,7 +1429,7 @@ export default function AdvisorFamilies() {
                                                                             ...w,
                                                                             subjects: w.subjects.includes(s) ? w.subjects.filter(x => x !== s) : [...w.subjects, s]
                                                                         } : w))}
-                                                                        className={`text-[8px] font-black px-1.5 py-0.5 rounded border transition-colors ${
+                                                                        className={`text-xs font-semibold px-2 py-1 rounded-md border transition-colors ${
                                                                             week.subjects.includes(s) ? "bg-[#0D2D5A] text-white border-[#0D2D5A]" : "bg-white text-gray-400 border-gray-200"
                                                                         }`}
                                                                     >
@@ -1436,7 +1442,7 @@ export default function AdvisorFamilies() {
                                                 </div>
                                                 <button
                                                     onClick={() => setPlanWeeks(prev => [...prev, { objective: "", subjects: [], done: false }])}
-                                                    className="w-full h-7 border border-dashed border-[#0F9B8E]/40 text-[#0F9B8E] text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-[#0F9B8E]/5 transition-colors flex items-center justify-center gap-1"
+                                                    className={`${BTN} border border-dashed border-[#0F9B8E]/40 text-[#0F9B8E] hover:bg-[#0F9B8E]/5`}
                                                 >
                                                     <PlusCircle className="w-3 h-3" /> Ajouter une semaine
                                                 </button>
@@ -1444,7 +1450,7 @@ export default function AdvisorFamilies() {
                                                 <button
                                                     disabled={!planReady || planMutation.isPending}
                                                     onClick={() => planMutation.mutate()}
-                                                    className="w-full h-8 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
+                                                    className={BTN_PRIMARY}
                                                 >
                                                     {planMutation.isPending ? "..." : "Enregistrer le plan"}
                                                 </button>
@@ -1494,7 +1500,7 @@ export default function AdvisorFamilies() {
                                                     onClick={() => navigate("/advisor/matching", {
                                                         state: { childName: selectedFamily.childName || selectedFamily.child, level: selectedFamily.level, subject: selectedFamily.subject }
                                                     })}
-                                                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-violet-50 text-violet-600 border border-violet-100 rounded-lg text-[10px] font-black hover:bg-violet-100 transition-colors mt-1"
+                                                    className={`${BTN} mt-1 bg-violet-50 text-violet-700 border border-violet-100 hover:bg-violet-100`}
                                                 >
                                                     <GitMerge className="w-3 h-3" /> Confirmer l'assignation
                                                 </button>
@@ -1511,11 +1517,11 @@ export default function AdvisorFamilies() {
                                 )}
 
                                 {/* CTA bas de fiche */}
-                                <div className="pt-2 space-y-2 mt-4">
+                                <div className="pt-4 mt-4 border-t border-gray-100 flex flex-wrap gap-2">
                                     {selectedFamily?.phone && (
                                         <a
                                             href={`tel:${selectedFamily.phone}`}
-                                            className="w-full flex items-center justify-center gap-2 bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white font-bold h-11 rounded-xl shadow-sm transition-colors text-sm"
+                                            className={BTN_PRIMARY}
                                         >
                                             <Phone className="w-4 h-4" /> Appeler la famille
                                         </a>
@@ -1531,18 +1537,17 @@ export default function AdvisorFamilies() {
                                                     },
                                                 })
                                                 : navigate("/advisor/messages")}
-                                            className="w-full bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white font-bold h-11 rounded-xl shadow-sm gap-2"
+                                            className={BTN_PRIMARY}
                                         >
                                             <MessageCircle className="w-4 h-4" /> Contacter la famille
                                         </Button>
                                     )}
-                                    <Button
-                                        variant="outline"
+                                    <button
                                         onClick={() => setBilanFamily(selectedFamily)}
-                                        className="w-full border-gray-200 text-gray-500 font-bold h-11 rounded-xl hover:bg-gray-50 gap-2"
+                                        className={BTN_OUTLINE}
                                     >
                                         <FileText className="w-4 h-4" /> Bilan Conseil
-                                    </Button>
+                                    </button>
                                 </div>
                             </div>
                         </div>
