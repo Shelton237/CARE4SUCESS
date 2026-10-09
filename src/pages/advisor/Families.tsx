@@ -364,7 +364,7 @@ export default function AdvisorFamilies() {
     const [showNoteForm, setShowNoteForm] = useState(false);
 
     // Active panel
-    const [activePanel, setActivePanel] = useState<"notes" | "diagnostic" | "plan" | "matching">("notes");
+    const [activePanel, setActivePanel] = useState<"notes" | "diagnostic" | "plan" | "matching" | "dossier">("notes");
 
     // Diagnostic form
     const [diagScores, setDiagScores] = useState<Record<string, number>>({});
@@ -424,7 +424,7 @@ export default function AdvisorFamilies() {
 
         if (found) {
             setSelectedFamily(found);
-            if (targetPanel && ["notes", "diagnostic", "plan", "matching"].includes(targetPanel)) {
+            if (targetPanel && ["notes", "diagnostic", "plan", "matching", "dossier"].includes(targetPanel)) {
                 setActivePanel(targetPanel as any);
             }
         } else {
@@ -1082,20 +1082,26 @@ export default function AdvisorFamilies() {
                                         { key: "diagnostic", label: "Diag.", icon: ClipboardCheck },
                                         { key: "plan",       label: "Plan",  icon: CalendarRange },
                                         { key: "matching",   label: "Match", icon: Zap },
-                                    ] as const).map(({ key, label, icon: Icon }) => (
+                                        { key: "dossier",    label: "Dossier", icon: BookOpen },
+                                    ] as const).map(({ key, label, icon: Icon }) => {
+                                        // Matching et dossier académique n'existent qu'avec un compte élève
+                                        const locked = (key === "matching" || key === "dossier") && prospect;
+                                        return (
                                         <button
                                             key={key}
                                             onClick={() => setActivePanel(key)}
-                                            disabled={key === "matching" && prospect}
+                                            disabled={locked}
+                                            title={locked ? "Disponible après la création du compte élève" : undefined}
                                             className={cn(
                                                 "flex-1 flex items-center justify-center gap-1 py-2 text-[9px] font-black uppercase tracking-widest transition-colors",
                                                 activePanel === key ? "bg-[#0D2D5A] text-white" : "text-gray-400 hover:bg-gray-50",
-                                                key === "matching" && prospect ? "opacity-30 cursor-not-allowed" : ""
+                                                locked ? "opacity-30 cursor-not-allowed" : ""
                                             )}
                                         >
                                             <Icon className="w-3 h-3" /> {label}
                                         </button>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
 
                                 {/* ── Panel Notes ── */}
@@ -1499,12 +1505,9 @@ export default function AdvisorFamilies() {
                                     </div>
                                 )}
 
-                                {/* ── Dossier Académique (élèves avec compte uniquement) ── */}
-                                {!prospect && (
-                                    <div className="mt-4 pt-4 border-t border-gray-100">
-                                        <h3 className="text-[12px] font-black text-[#0D2D5A] uppercase tracking-widest mb-4">Dossier Académique</h3>
-                                        <AcademicFile studentId={studentId} hidePedagogyTabs />
-                                    </div>
+                                {/* ── Panel Dossier académique (élèves avec compte uniquement) ── */}
+                                {activePanel === "dossier" && !prospect && (
+                                    <AcademicFile studentId={studentId} hidePedagogyTabs />
                                 )}
 
                                 {/* CTA bas de fiche */}

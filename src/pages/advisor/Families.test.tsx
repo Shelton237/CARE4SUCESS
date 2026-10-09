@@ -109,6 +109,26 @@ describe("AdvisorFamilies — Mes familles", () => {
       expect(fetchAdvisorFamilies).toHaveBeenCalledTimes(1);
     });
 
+    it("le dossier académique est un onglet de la fiche, désactivé pour un prospect", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([
+        FAMILY,
+        { id: "req-9", parentName: "Prospect Sans Compte", childName: "Kim", status: "nouveau" },
+      ]);
+      vi.stubGlobal("fetch", mockFetchByUrl({ "/advisor-notes/": () => jsonResponse([]) }));
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      expect(screen.queryByTestId("academic-file-stub")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /^Dossier$/ }));
+      expect(screen.getByTestId("academic-file-stub")).toBeInTheDocument();
+
+      await user.click(screen.getByText("Prospect Sans Compte"));
+      expect(screen.getByRole("button", { name: /^Dossier$/ })).toBeDisabled();
+      expect(screen.queryByTestId("academic-file-stub")).not.toBeInTheDocument();
+    });
+
     it("par défaut, le premier élève du tableau est sélectionné", async () => {
       (fetchAdvisorFamilies as any).mockResolvedValue([
         { ...FAMILY, id: "f1", childName: "Premier Élève" },
