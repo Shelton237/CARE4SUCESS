@@ -13,6 +13,7 @@ import cron from "node-cron";
 import { OAuth2Client } from "google-auth-library";
 import { resolveJwtSecret } from "./jwtSecret.js";
 import { parseJson, parseJsonObject } from "./parseJson.js";
+import { sanitizeEvidence } from "./diagnosticEvidence.js";
 
 const rootDir = process.cwd();
 const envFiles = [".env.local", ".env"];
@@ -1042,12 +1043,22 @@ const ensureAcademicDiagnosticsTable = async () => {
       strengths TEXT NULL,
       weaknesses TEXT NULL,
       recommended_subjects JSON NULL,
+      evidence JSON NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
       KEY idx_diag_student (student_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  // Source de chaque note (test, bulletin, entretien, déclaration) + note scolaire /20, par matière.
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM academic_diagnostics LIKE 'evidence'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE academic_diagnostics ADD COLUMN evidence JSON NULL AFTER recommended_subjects");
+      console.log("Migration: Added evidence to academic_diagnostics ✅");
+    }
+  } catch (e) { console.warn("Migration academic_diagnostics.evidence:", e.message); }
 };
+
 
 const ensureAcademicPlansTable = async () => {
   await pool.query(
@@ -3505,7 +3516,7 @@ app.get("/api/requests/:id/diagnostic", authenticateRequest, requireRole("admin"
 // POST sauvegarder le diagnostic d'une demande
 app.post("/api/requests/:id/diagnostic", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
   const { id } = req.params;
-  const { scores, strengths, weaknesses } = req.body ?? {};
+  const { scores, strengths, weaknesses, evidence } = req.body ?? {};
   if (!scores) return res.status(400).json({ message: "Les scores sont obligatoires." });
   try {
     // Identité de l'évaluateur issue du jeton, jamais du body.
@@ -3518,6 +3529,7 @@ app.post("/api/requests/:id/diagnostic", authenticateRequest, requireRole("admin
       scores,
       strengths: strengths || null,
       weaknesses: weaknesses || null,
+      evidence: sanitizeEvidence(evidence),
       evaluatorId: evaluatorId || null,
       evaluatorName: evaluatorName || null,
       created_at: new Date().toISOString(),
@@ -3624,8 +3636,8 @@ app.post("/api/requests/:id/convert", authenticateRequest, requireRole("admin", 
       await ensureAcademicDiagnosticsTable();
       const diag = parseJsonObject(r.diagnostic);
       await pool.query(
-        `INSERT INTO academic_diagnostics (student_id, student_name, evaluator_id, evaluator_name, scores, strengths, weaknesses) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [studentId, r.child_name, diag.evaluatorId || req.user.sub, diag.evaluatorName || "Conseillère", JSON.stringify(diag.scores ?? {}), diag.strengths || null, diag.weaknesses || null]
+        `INSERT INTO academic_diagnostics (student_id, student_name, evaluator_id, evaluator_name, scores, strengths, weaknesses, evidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [studentId, r.child_name, diag.evaluatorId || req.user.sub, diag.evaluatorName || "Conseillère", JSON.stringify(diag.scores ?? {}), diag.strengths || null, diag.weaknesses || null, diag.evidence ? JSON.stringify(sanitizeEvidence(diag.evidence)) : null]
       );
     }
 
@@ -10399,21 +10411,24 @@ app.delete("/api/advisor-notes/:noteId", authenticateRequest, requireRole("admin
 // ─────────────────────────────────────────────
 app.post("/api/students/:studentId/diagnostic", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
   // evaluatorId / evaluatorName éventuellement envoyés par le front sont ignorés.
-  const { studentName, scores, strengths, weaknesses, recommendedSubjects } = req.body;
+  const { studentName, scores, strengths, weaknesses, recommendedSubjects, evidence } = req.body;
   if (!scores) {
     return res.status(400).json({ message: "scores est requis." });
   }
   try {
     const evaluatorId = req.user.sub;
     const evaluatorName = await getActorName(evaluatorId);
+    await ensureAcademicDiagnosticsTable();
+    const cleanEvidence = sanitizeEvidence(evidence);
     await pool.query(
       `INSERT INTO academic_diagnostics
-         (student_id, student_name, evaluator_id, evaluator_name, scores, strengths, weaknesses, recommended_subjects)
-       VALUES (?,?,?,?,?,?,?,?)`,
+         (student_id, student_name, evaluator_id, evaluator_name, scores, strengths, weaknesses, recommended_subjects, evidence)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
       [
         req.params.studentId, studentName || "", evaluatorId, evaluatorName || "",
         JSON.stringify(scores), strengths || null, weaknesses || null,
-        recommendedSubjects ? JSON.stringify(recommendedSubjects) : null
+        recommendedSubjects ? JSON.stringify(recommendedSubjects) : null,
+        cleanEvidence ? JSON.stringify(cleanEvidence) : null
       ]
     );
     res.status(201).json({ message: "Diagnostic enregistré." });
@@ -10434,9 +10449,31 @@ app.get("/api/students/:studentId/diagnostic", authenticateRequest, requireStude
     res.json({
       ...d,
       scores: parseJsonObject(d.scores),
+      evidence: parseJsonObject(d.evidence),
       recommendedSubjects: parseJson(d.recommended_subjects, [])
     });
   } catch (error) {
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// Historique complet (du plus ancien au plus récent) pour mesurer la progression depuis le diagnostic initial.
+app.get("/api/students/:studentId/diagnostics", authenticateRequest, requireStudentAccess("studentId"), async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, scores, evidence, evaluator_name, created_at
+       FROM academic_diagnostics WHERE student_id = ? ORDER BY created_at ASC`,
+      [req.params.studentId]
+    );
+    res.json(rows.map((d) => ({
+      id: d.id,
+      evaluatorName: d.evaluator_name,
+      created_at: d.created_at,
+      scores: parseJsonObject(d.scores),
+      evidence: parseJsonObject(d.evidence),
+    })));
+  } catch (error) {
+    console.error("Diagnostic history error", error);
     res.status(500).json({ message: "Erreur serveur." });
   }
 });

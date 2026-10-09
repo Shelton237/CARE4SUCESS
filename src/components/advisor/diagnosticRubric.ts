@@ -52,6 +52,23 @@ export const WEAKNESS_CRITERIA = [
     "Confiance en soi",
 ];
 
+// Sur quoi s'appuie la note : à renseigner pour chaque matière.
+export const EVIDENCE_SOURCES = [
+    { value: "test",        label: "Test réalisé" },
+    { value: "bulletin",    label: "Bulletin scolaire" },
+    { value: "entretien",   label: "Entretien" },
+    { value: "declaration", label: "Déclaration du parent" },
+] as const;
+
+export type SubjectEvidence = { source?: string; grade?: number | string };
+
+export const evidenceLabel = (e: SubjectEvidence | undefined): string => {
+    if (!e) return "";
+    const source = EVIDENCE_SOURCES.find(s => s.value === e.source)?.label;
+    const grade = e.grade !== undefined && e.grade !== "" && e.grade !== null ? `note scolaire ${e.grade}/20` : "";
+    return [source, grade].filter(Boolean).join(" · ");
+};
+
 const SEP = " · ";
 
 // Stockage dans les colonnes texte existantes (strengths / weaknesses) :

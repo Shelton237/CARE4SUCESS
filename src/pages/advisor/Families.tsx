@@ -28,7 +28,8 @@ import {
 } from "@/components/advisor/familyQueries";
 import {
     DIAG_MAX, getDiagLevel, parseCriteria, serializeCriteria, summarizeScores,
-    STRENGTH_CRITERIA, WEAKNESS_CRITERIA,
+    STRENGTH_CRITERIA, WEAKNESS_CRITERIA, EVIDENCE_SOURCES, evidenceLabel,
+    type SubjectEvidence,
 } from "@/components/advisor/diagnosticRubric";
 
 const SUBJECTS_DIAG = ["Mathématiques", "Français", "Anglais", "Physique", "SVT", "Histoire-Géo"];
@@ -79,7 +80,7 @@ const SUBJECT_ICON: Record<string, any> = {
     "Histoire-Géo": Landmark,
 };
 
-function SubjectBar({ subject, score, max = DIAG_MAX, editable = false, onChange }: { subject: string; score: number; max?: number; editable?: boolean; onChange?: (v: number) => void }) {
+function SubjectBar({ subject, score, max = DIAG_MAX, editable = false, onChange, evidence }: { subject: string; score: number; max?: number; editable?: boolean; onChange?: (v: number) => void; evidence?: SubjectEvidence }) {
     const Icon = SUBJECT_ICON[subject] || BookOpen;
     const level = getDiagLevel(score);
     const pct = (level.value / max) * 100;
@@ -115,6 +116,76 @@ function SubjectBar({ subject, score, max = DIAG_MAX, editable = false, onChange
                 </span>
             </div>
             {editable && level.value > 0 && <p className="text-[10px] text-gray-400 mt-1 pl-10">{level.hint}</p>}
+            {!editable && evidenceLabel(evidence) && <p className="text-[10px] text-gray-400 mt-1 pl-10">Source : {evidenceLabel(evidence)}</p>}
+        </div>
+    );
+}
+
+function EvidenceInputs({ subject, value, onChange }: { subject: string; value: SubjectEvidence; onChange: (v: SubjectEvidence) => void }) {
+    return (
+        <div className="flex items-center gap-2 pl-10 mt-1.5">
+            <select
+                value={value.source ?? ""}
+                aria-label={`Source de la note en ${subject}`}
+                onChange={e => onChange({ ...value, source: e.target.value || undefined })}
+                className={cn(
+                    "border rounded-md px-2 py-1 text-[10px] outline-none focus:border-[#1A6CC8] bg-white",
+                    value.source ? "border-gray-200 text-[#0D2D5A]" : "border-amber-200 text-gray-400"
+                )}
+            >
+                <option value="">Source de la note…</option>
+                {EVIDENCE_SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+            <label className="flex items-center gap-1 text-[10px] text-gray-400">
+                Note scolaire
+                <input
+                    type="number"
+                    min={0}
+                    max={20}
+                    step={0.5}
+                    inputMode="decimal"
+                    value={value.grade ?? ""}
+                    aria-label={`Dernière note scolaire en ${subject} sur 20`}
+                    onChange={e => onChange({ ...value, grade: e.target.value })}
+                    className="w-14 border border-gray-200 rounded-md px-1.5 py-1 text-[10px] text-[#0D2D5A] outline-none focus:border-[#1A6CC8]"
+                />
+                /20 <span className="text-gray-300">(facultatif)</span>
+            </label>
+        </div>
+    );
+}
+
+function ProgressionBlock({ history }: { history: any[] }) {
+    if (!Array.isArray(history) || history.length < 2) return null;
+    const first = history[0];
+    const last = history[history.length - 1];
+    const subjects = Object.keys(last.scores || {});
+    return (
+        <div className="rounded-lg border border-gray-100 p-2.5">
+            <p className="text-xs font-bold text-[#0D2D5A]">
+                Progression depuis le diagnostic initial
+                <span className="font-normal text-gray-400"> du {new Date(first.created_at).toLocaleDateString("fr-FR")} ({history.length} évaluations)</span>
+            </p>
+            <ul className="mt-1.5 space-y-1">
+                {subjects.map(subj => {
+                    const before = first.scores?.[subj];
+                    const now = getDiagLevel(last.scores[subj]).value;
+                    if (before === undefined) {
+                        return <li key={subj} className="text-[11px] text-gray-500"><span className="font-semibold text-[#0D2D5A]">{subj}</span> : {now}/{DIAG_MAX} (nouvelle matière)</li>;
+                    }
+                    const was = getDiagLevel(before).value;
+                    const delta = now - was;
+                    return (
+                        <li key={subj} className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                            <span className="font-semibold text-[#0D2D5A] w-28 truncate">{subj}</span>
+                            <span>{was}/{DIAG_MAX} → {now}/{DIAG_MAX}</span>
+                            <span className={cn("font-bold", delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-600" : "text-gray-400")}>
+                                {delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : "stable"}
+                            </span>
+                        </li>
+                    );
+                })}
+            </ul>
         </div>
     );
 }
@@ -300,6 +371,7 @@ export default function AdvisorFamilies() {
     const [diagStrengths, setDiagStrengths] = useState("");
     const [diagWeaknesses, setDiagWeaknesses] = useState("");
     const [diagStrengthCriteria, setDiagStrengthCriteria] = useState<string[]>([]);
+    const [diagEvidence, setDiagEvidence] = useState<Record<string, SubjectEvidence>>({});
     const [diagWeaknessCriteria, setDiagWeaknessCriteria] = useState<string[]>([]);
     const toggleIn = (setter: (fn: (prev: string[]) => string[]) => void) => (c: string) =>
         setter(prev => (prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]));
@@ -434,6 +506,7 @@ export default function AdvisorFamilies() {
                     scores: Object.fromEntries(
                         familySubjects.map(subj => [subj, diagScores[subj] ?? DEFAULT_DIAG_SCORE])
                     ),
+                    evidence: Object.fromEntries(familySubjects.filter(sj => diagEvidence[sj]).map(sj => [sj, diagEvidence[sj]])),
                     strengths: serializeCriteria(diagStrengthCriteria, diagStrengths),
                     weaknesses: serializeCriteria(diagWeaknessCriteria, diagWeaknesses),
                 })
@@ -452,9 +525,23 @@ export default function AdvisorFamilies() {
             setDiagWeaknesses("");
             setDiagStrengthCriteria([]);
             setDiagWeaknessCriteria([]);
+            setDiagEvidence({});
+            if (studentId) qc.invalidateQueries({ queryKey: ["diagnosticHistory", studentId] });
             toast.success("Diagnostic enregistré !");
         },
         onError: () => toast.error("Erreur lors de la sauvegarde du diagnostic"),
+    });
+
+    // Historique des diagnostics (élèves inscrits) pour mesurer la progression
+    const { data: diagHistory = [] } = useQuery<any[]>({
+        queryKey: ["diagnosticHistory", studentId],
+        queryFn: async () => {
+            const res = await fetch(`${API}/students/${studentId}/diagnostics`, { headers: { Authorization: `Bearer ${token}` } });
+            if (!res.ok) return [];
+            const data = await readJsonSafe(res);
+            return Array.isArray(data) ? data : [];
+        },
+        enabled: !!studentId && !isProspect(selectedFamily) && !!token && activePanel === "diagnostic",
     });
 
     // ──────────────────────────────────────────────────────────────────────
@@ -494,6 +581,7 @@ export default function AdvisorFamilies() {
 
     const diagChecklist = [
         { label: `Toutes les matières notées (${familySubjects.filter(sj => (diagScores[sj] ?? DEFAULT_DIAG_SCORE) >= 1).length}/${familySubjects.length})`, done: familySubjects.every(sj => (diagScores[sj] ?? DEFAULT_DIAG_SCORE) >= 1) },
+        { label: `Source indiquée pour chaque matière (${familySubjects.filter(sj => diagEvidence[sj]?.source).length}/${familySubjects.length})`, done: familySubjects.every(sj => !!diagEvidence[sj]?.source) },
         { label: "Au moins un point fort", done: diagStrengthCriteria.length > 0 || diagStrengths.trim() !== "" },
         { label: "Au moins un point à renforcer", done: diagWeaknessCriteria.length > 0 || diagWeaknesses.trim() !== "" },
     ];
@@ -1120,9 +1208,10 @@ export default function AdvisorFamilies() {
                                                 <p className="text-sm font-bold text-[#0D2D5A] pt-1">Niveau des matières</p>
                                                 <div className="space-y-3">
                                                     {Object.entries((diagnostic as any).scores || {}).map(([subj, score]: any) => (
-                                                        <SubjectBar key={subj} subject={subj} score={Number(score)} />
+                                                        <SubjectBar key={subj} subject={subj} score={Number(score)} evidence={(diagnostic as any).evidence?.[subj]} />
                                                     ))}
                                                 </div>
+                                                <ProgressionBlock history={diagHistory} />
                                                 <div className="grid grid-cols-2 gap-3 pt-1">
                                                     <div>
                                                         <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points forts</p>
@@ -1163,13 +1252,19 @@ export default function AdvisorFamilies() {
                                                 </div>
                                                 <div className="space-y-3">
                                                     {familySubjects.map(subj => (
-                                                        <SubjectBar
-                                                            key={subj}
-                                                            subject={subj}
-                                                            score={diagScores[subj] ?? DEFAULT_DIAG_SCORE}
-                                                            editable
-                                                            onChange={v => setDiagScores(prev => ({ ...prev, [subj]: v }))}
-                                                        />
+                                                        <div key={subj}>
+                                                            <SubjectBar
+                                                                subject={subj}
+                                                                score={diagScores[subj] ?? DEFAULT_DIAG_SCORE}
+                                                                editable
+                                                                onChange={v => setDiagScores(prev => ({ ...prev, [subj]: v }))}
+                                                            />
+                                                            <EvidenceInputs
+                                                                subject={subj}
+                                                                value={diagEvidence[subj] ?? {}}
+                                                                onChange={v => setDiagEvidence(prev => ({ ...prev, [subj]: v }))}
+                                                            />
+                                                        </div>
                                                     ))}
                                                 </div>
                                                 <div className="space-y-3 pt-1">

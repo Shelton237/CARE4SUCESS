@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { DIAG_MAX, getDiagLevel, parseCriteria, STRENGTH_CRITERIA, WEAKNESS_CRITERIA } from "./diagnosticRubric";
+import { DIAG_MAX, getDiagLevel, parseCriteria, evidenceLabel, STRENGTH_CRITERIA, WEAKNESS_CRITERIA } from "./diagnosticRubric";
 import { Printer, RefreshCw, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -193,13 +193,17 @@ export default function AdvisorBilanView({ family, onClose }: AdvisorBilanViewPr
                                 {Object.entries(diagnostic.scores || {}).map(([subject, score]) => {
                                     const level = getDiagLevel(score);
                                     const pct = (level.value / DIAG_MAX) * 100;
+                                    const source = evidenceLabel(diagnostic.evidence?.[subject]);
                                     return (
-                                        <div key={subject} className="flex items-center gap-3">
-                                            <span className="text-sm font-semibold text-[#0D2D5A] w-32 shrink-0">{subject}</span>
-                                            <div className="flex-1 h-2 rounded-full bg-gray-100">
-                                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: level.color }} />
+                                        <div key={subject}>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-sm font-semibold text-[#0D2D5A] w-32 shrink-0">{subject}</span>
+                                                <div className="flex-1 h-2 rounded-full bg-gray-100">
+                                                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: level.color }} />
+                                                </div>
+                                                <span className="text-xs font-bold w-44 text-right" style={{ color: level.color }}>{level.value}/{DIAG_MAX} · {level.label}</span>
                                             </div>
-                                            <span className="text-xs font-bold w-44 text-right" style={{ color: level.color }}>{level.value}/{DIAG_MAX} · {level.label}</span>
+                                            {source && <p className="text-[11px] text-gray-400 mt-0.5 pl-[8.75rem]">Source : {source}</p>}
                                         </div>
                                     );
                                 })}

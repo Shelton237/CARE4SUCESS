@@ -54,6 +54,9 @@ const FAMILY = {
 async function fillDiagnostic(user: ReturnType<typeof userEvent.setup>, value = "4") {
   const sliders = await screen.findAllByRole("slider");
   sliders.forEach((s) => fireEvent.change(s, { target: { value } }));
+  for (const select of screen.getAllByRole("combobox", { name: /Source de la note/ })) {
+    await user.selectOptions(select, "test");
+  }
   await user.click(within(screen.getByRole("group", { name: "Points forts" })).getByRole("button", { name: "Méthodologie" }));
   await user.click(within(screen.getByRole("group", { name: "Points à renforcer" })).getByRole("button", { name: "Concentration" }));
 }
@@ -271,6 +274,7 @@ describe("AdvisorFamilies — Mes familles", () => {
         expect(postCall).toBeTruthy();
         const body = JSON.parse((postCall as any)[1].body);
         expect(body.scores).toEqual({ "Mathématiques": 4 });
+        expect(body.evidence).toEqual({ "Mathématiques": { source: "test" } });
         expect(body.strengths).toBe("Méthodologie");
         expect(body.weaknesses).toBe("Concentration");
       });
@@ -524,7 +528,56 @@ describe("AdvisorFamilies — Mes familles", () => {
 
       await user.click(within(screen.getByRole("group", { name: "Points forts" })).getByRole("button", { name: "Autonomie" }));
       await user.click(within(screen.getByRole("group", { name: "Points à renforcer" })).getByRole("button", { name: "Gestion du temps" }));
+      expect(screen.getByText("Enregistrer le diagnostic").closest("button")).toBeDisabled();
+      expect(screen.getByText(/Source indiquée pour chaque matière \(0\/1\)/)).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByRole("combobox", { name: /Source de la note/ }), "bulletin");
       expect(screen.getByText("Enregistrer le diagnostic").closest("button")).toBeEnabled();
+    });
+
+    it("phase 2 : la note scolaire /20 est envoyée avec la source", async () => {
+      const fetchMock = mockFetchByUrl({
+        "/diagnostic": () => jsonResponse(null),
+        "/advisor-notes/": () => jsonResponse([]),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Diag."));
+      await fillDiagnostic(user);
+      await user.type(screen.getByRole("spinbutton", { name: /note scolaire en Mathématiques/i }), "11");
+      await user.click(screen.getByText("Enregistrer le diagnostic"));
+
+      await waitFor(() => {
+        const postCall = fetchMock.mock.calls.find(([url, init]: any) => init?.method === "POST" && url.includes("/diagnostic"));
+        expect(JSON.parse((postCall as any)[1].body).evidence).toEqual({ "Mathématiques": { source: "test", grade: "11" } });
+      });
+    });
+
+    it("phase 2 : affiche la source et la progression depuis le diagnostic initial", async () => {
+      vi.stubGlobal("fetch", mockFetchByUrl({
+        "/diagnostics": () => jsonResponse([
+          { id: "d0", created_at: "2026-03-01", scores: { "Mathématiques": 2 } },
+          { id: "d1", created_at: "2026-06-01", scores: { "Mathématiques": 4 } },
+        ]),
+        "/diagnostic": () => jsonResponse({
+          id: "d1", created_at: "2026-06-01", scores: { "Mathématiques": 4 },
+          evidence: { "Mathématiques": { source: "bulletin", grade: 13 } },
+        }),
+        "/advisor-notes/": () => jsonResponse([]),
+      }));
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Diag."));
+
+      expect(await screen.findByText("Source : Bulletin scolaire · note scolaire 13/20")).toBeInTheDocument();
+      expect(await screen.findByText(/Progression depuis le diagnostic initial/)).toBeInTheDocument();
+      expect(screen.getByText("2/5 → 4/5")).toBeInTheDocument();
+      expect(screen.getByText("+2")).toBeInTheDocument();
     });
 
     it("matières dynamiques : seules les matières choisies à l'inscription sont évaluées", async () => {
