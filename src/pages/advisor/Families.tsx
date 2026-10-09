@@ -8,6 +8,7 @@ import {
     ClipboardCheck, CalendarRange, Trash2,
     Zap, Star, RefreshCw, UserPlus, GitMerge, CheckCircle2,
     CalendarDays, TrendingUp, ArrowUpDown, Check, ChevronDown,
+    Calculator, BookOpen, Globe2, FlaskConical, Leaf, Landmark, Save,
 } from "lucide-react";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +21,44 @@ import { toast } from "sonner";
 
 const API = import.meta.env.VITE_API_URL || "/api";
 const SUBJECTS_DIAG = ["Mathématiques", "Français", "Anglais", "Physique", "SVT", "Histoire-Géo"];
+const SUBJECT_ICON: Record<string, any> = {
+    "Mathématiques": Calculator,
+    "Français": BookOpen,
+    "Anglais": Globe2,
+    "Physique": FlaskConical,
+    "SVT": Leaf,
+    "Histoire-Géo": Landmark,
+};
+
+function SubjectBar({ subject, score, max = 5, editable = false, onChange }: { subject: string; score: number; max?: number; editable?: boolean; onChange?: (v: number) => void }) {
+    const Icon = SUBJECT_ICON[subject] || BookOpen;
+    const pct = Math.max(0, Math.min(100, (score / max) * 100));
+    return (
+        <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-full border border-[#0D2D5A]/15 flex items-center justify-center shrink-0 text-[#0D2D5A]">
+                <Icon className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-sm font-semibold text-[#0D2D5A] w-24 shrink-0 truncate">{subject}</span>
+            {editable ? (
+                <input
+                    type="range"
+                    min={0}
+                    max={max}
+                    value={score}
+                    onChange={e => onChange?.(+e.target.value)}
+                    className="flex-1 h-2 rounded-full appearance-none cursor-pointer accent-[#1A6CC8] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#1A6CC8] [&::-webkit-slider-thumb]:shadow [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
+                    style={{ background: `linear-gradient(to right, #1A6CC8 ${pct}%, #E5EAF1 ${pct}%)` }}
+                />
+            ) : (
+                <div className="flex-1 h-2 rounded-full bg-gray-100 relative">
+                    <div className="h-full rounded-full bg-[#1A6CC8]" style={{ width: `${pct}%` }} />
+                    <div className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-[#1A6CC8] border-2 border-white shadow" style={{ left: `calc(${pct}% - 7px)` }} />
+                </div>
+            )}
+            <span className="text-xs font-bold text-[#0D2D5A] w-9 text-right shrink-0">{score}/{max}</span>
+        </div>
+    );
+}
 const NOTE_TYPES = [
     { value: "observation",    label: "Observation",    icon: Eye,          color: "text-slate-500" },
     { value: "recommandation", label: "Recommandation", icon: Lightbulb,    color: "text-[#1A6CC8]" },
@@ -527,46 +566,57 @@ export default function AdvisorFamilies() {
                     {selectedFamily ? (
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8 animate-in slide-in-from-right-4 duration-300">
                             {/* Header fiche */}
-                            <div className="p-5 border-b border-gray-50 flex items-start justify-between gap-3">
-                                <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-5 flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3.5 min-w-0">
                                     <div className={cn(
-                                        "w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0",
+                                        "w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white shrink-0",
                                         prospect ? "bg-[#F5A623]" : "bg-[#0D2D5A]"
                                     )}>
                                         {(selectedFamily.parentName || selectedFamily.parent || "?").charAt(0)}
                                     </div>
                                     <div className="min-w-0">
-                                        <h2 className="text-sm font-bold text-[#0D2D5A] uppercase truncate">
+                                        <h2 className="text-base font-bold text-[#0D2D5A] uppercase truncate">
                                             {selectedFamily.parentName || selectedFamily.parent} & {selectedFamily.childName || selectedFamily.child}
                                         </h2>
-                                        <p className="text-xs text-gray-400 mt-0.5">
+                                        <p className="text-sm text-gray-400 mt-0.5">
                                             {selectedFamily.level || "Niveau non défini"}{selectedFamily.subject ? ` · ${selectedFamily.subject}` : ""}
                                         </p>
                                     </div>
                                 </div>
                                 <span className={cn(
-                                    "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide",
-                                    prospect ? "bg-amber-100 text-amber-700" : "bg-[#0F9B8E]/10 text-[#0F9B8E]"
+                                    "shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold text-white",
+                                    prospect ? "bg-[#F5A623]" : "bg-[#0F9B8E]"
                                 )}>
-                                    {prospect && <AlertTriangle className="w-3 h-3" />}
+                                    {prospect && <AlertTriangle className="w-3.5 h-3.5" />}
                                     {prospect ? "Prospect" : "Parent"}
-                                    <ChevronDown className="w-3 h-3" />
+                                    <ChevronDown className="w-3.5 h-3.5" />
                                 </span>
                             </div>
 
                             {/* Infos rapides : élève / tuteur / date */}
-                            <div className="grid grid-cols-3 divide-x divide-gray-50 border-b border-gray-50">
-                                <div className="p-3 text-center">
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Élève · {selectedFamily.level ? selectedFamily.level.match(/\d/) ? "" : "" : ""}</p>
-                                    <p className="text-xs font-bold text-[#0D2D5A] mt-0.5 truncate">{selectedFamily.childName || selectedFamily.child || "—"}</p>
+                            <div className="flex items-center flex-wrap gap-x-5 gap-y-3 px-5 pb-5 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                    <UserCircle2 className="w-4 h-4 text-gray-300 shrink-0" />
+                                    <div>
+                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{selectedFamily.childName || selectedFamily.child || "—"}</p>
+                                        <p className="text-[10px] text-gray-400 leading-tight">Élève · {selectedFamily.level || "—"}</p>
+                                    </div>
                                 </div>
-                                <div className="p-3 text-center">
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Tuteur assigné</p>
-                                    <p className="text-xs font-bold text-[#0D2D5A] mt-0.5 truncate">{prospect ? "—" : (selectedFamily.teacherName || selectedFamily.teacher || "—")}</p>
+                                <div className="w-px h-8 bg-gray-100" />
+                                <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-gray-300 shrink-0" />
+                                    <div>
+                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{prospect ? "—" : (selectedFamily.teacherName || selectedFamily.teacher || "—")}</p>
+                                        <p className="text-[10px] text-gray-400 leading-tight">Tuteur assigné</p>
+                                    </div>
                                 </div>
-                                <div className="p-3 text-center">
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Date de la demande</p>
-                                    <p className="text-xs font-bold text-[#0D2D5A] mt-0.5 truncate">{selectedFamily.requestDate || "—"}</p>
+                                <div className="w-px h-8 bg-gray-100" />
+                                <div className="flex items-center gap-2">
+                                    <CalendarDays className="w-4 h-4 text-gray-300 shrink-0" />
+                                    <div>
+                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{selectedFamily.requestDate || "—"}</p>
+                                        <p className="text-[10px] text-gray-400 leading-tight">Date de la demande</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -577,14 +627,14 @@ export default function AdvisorFamilies() {
                                         <div key={s.key} className="flex-1 flex items-center last:flex-none">
                                             <div className="flex flex-col items-center gap-1.5">
                                                 <div className={cn(
-                                                    "w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
+                                                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                                                     stepDone[i] ? "bg-[#0F9B8E] text-white" :
-                                                    i === activeStepIdx ? "bg-[#0D2D5A] text-white" :
+                                                    i === activeStepIdx ? "bg-[#0F9B8E] text-white" :
                                                     "bg-gray-100 text-gray-400"
                                                 )}>
-                                                    {stepDone[i] ? <Check className="w-3.5 h-3.5" /> : i + 1}
+                                                    {stepDone[i] ? <Check className="w-4 h-4" /> : i + 1}
                                                 </div>
-                                                <span className="text-[9px] font-bold text-gray-400 text-center leading-tight max-w-[56px]">{s.label}</span>
+                                                <span className="text-[10px] font-bold text-gray-500 text-center leading-tight max-w-[60px]">{s.label}</span>
                                             </div>
                                             {i < STEPS.length - 1 && (
                                                 <div className={cn("flex-1 h-0.5 mx-1 mb-4", stepDone[i] ? "bg-[#0F9B8E]" : "bg-gray-100")} />
@@ -597,11 +647,13 @@ export default function AdvisorFamilies() {
                             <div className="p-4 md:p-5 space-y-4">
                                 {/* Alerte étape courante */}
                                 {activeStepIdx < STEPS.length && !stepDone[activeStepIdx] && (
-                                    <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-100 flex gap-2.5">
-                                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                    <div className="p-4 bg-[#FEF3E2] rounded-xl border border-[#FBE0B8] flex gap-3">
+                                        <div className="w-7 h-7 rounded-full bg-[#F5A623] flex items-center justify-center shrink-0">
+                                            <AlertTriangle className="w-4 h-4 text-white" />
+                                        </div>
                                         <div>
-                                            <p className="text-xs font-black text-amber-700">Étape {activeStepIdx + 1} · {STEPS[activeStepIdx].label}</p>
-                                            <p className="text-[11px] text-amber-600 leading-relaxed mt-0.5">
+                                            <p className="text-sm font-bold text-[#B5650A]">Étape {activeStepIdx + 1} : {STEPS[activeStepIdx].label}</p>
+                                            <p className="text-xs text-[#B5650A]/80 leading-relaxed mt-1">
                                                 {activeStepIdx === 0 && "Créez les comptes parent & élève pour débloquer toutes les fonctionnalités."}
                                                 {activeStepIdx === 1 && "Planifiez un premier rendez-vous avec la famille."}
                                                 {activeStepIdx === 2 && "Évaluez le niveau de l'élève dans chaque matière pour personnaliser son parcours de formation et préparer le plan d'accompagnement."}
@@ -764,31 +816,22 @@ export default function AdvisorFamilies() {
                                                         Diagnostic enregistré · {new Date((diagnostic as any).created_at).toLocaleDateString("fr-FR")}
                                                     </p>
                                                 </div>
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pt-1">Niveau des matières</p>
-                                                {Object.entries((diagnostic as any).scores || {}).map(([subj, score]: any) => (
-                                                    <div key={subj}>
-                                                        <div className="flex justify-between mb-0.5">
-                                                            <span className="text-[11px] font-bold text-[#0D2D5A]">{subj}</span>
-                                                            <span className="text-[11px] font-black text-[#0F9B8E]">{score}/10</span>
+                                                <p className="text-sm font-bold text-[#0D2D5A] pt-1">Niveau des matières</p>
+                                                <div className="space-y-3">
+                                                    {Object.entries((diagnostic as any).scores || {}).map(([subj, score]: any) => (
+                                                        <SubjectBar key={subj} subject={subj} score={Number(score)} />
+                                                    ))}
+                                                </div>
+                                                {((diagnostic as any).strengths || (diagnostic as any).weaknesses) && (
+                                                    <div className="grid grid-cols-2 gap-3 pt-1">
+                                                        <div>
+                                                            <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points forts</p>
+                                                            <p className="text-[11px] text-gray-500 leading-relaxed">{(diagnostic as any).strengths || "—"}</p>
                                                         </div>
-                                                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full ${score >= 7 ? "bg-emerald-500" : score >= 4 ? "bg-[#F5A623]" : "bg-red-400"}`}
-                                                                style={{ width: `${score * 10}%` }}
-                                                            />
+                                                        <div>
+                                                            <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points à renforcer</p>
+                                                            <p className="text-[11px] text-gray-500 leading-relaxed">{(diagnostic as any).weaknesses || "—"}</p>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                                {(diagnostic as any).strengths && (
-                                                    <div className="mt-2 p-2 bg-emerald-50 rounded-lg border border-emerald-100">
-                                                        <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Points forts</p>
-                                                        <p className="text-[10px] text-emerald-800">{(diagnostic as any).strengths}</p>
-                                                    </div>
-                                                )}
-                                                {(diagnostic as any).weaknesses && (
-                                                    <div className="p-2 bg-red-50 rounded-lg border border-red-100">
-                                                        <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mb-0.5">Points à renforcer</p>
-                                                        <p className="text-[10px] text-red-800">{(diagnostic as any).weaknesses}</p>
                                                     </div>
                                                 )}
                                                 {/* Après le diagnostic : CTA Matching ou Lancer matching */}
@@ -815,54 +858,55 @@ export default function AdvisorFamilies() {
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
-                                                <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Niveau des matières</p>
-                                                {SUBJECTS_DIAG.map(subj => (
-                                                    <div key={subj}>
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <span className="text-xs font-bold text-[#0D2D5A]">{subj}</span>
-                                                            <span className="text-xs font-black text-[#0F9B8E]">{diagScores[subj] ?? 5}/10</span>
+                                                <p className="text-sm font-bold text-[#0D2D5A]">Niveau des matières</p>
+                                                <div className="space-y-3">
+                                                    {SUBJECTS_DIAG.map(subj => (
+                                                        <SubjectBar
+                                                            key={subj}
+                                                            subject={subj}
+                                                            score={diagScores[subj] ?? 3}
+                                                            editable
+                                                            onChange={v => setDiagScores(prev => ({ ...prev, [subj]: v }))}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-[#0D2D5A] mb-1.5">Points forts</p>
+                                                        <div className="relative">
+                                                            <textarea
+                                                                value={diagStrengths}
+                                                                onChange={e => setDiagStrengths(e.target.value.slice(0, 200))}
+                                                                rows={3}
+                                                                maxLength={200}
+                                                                placeholder="Ex : bonne compréhension, rigueur..."
+                                                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#1A6CC8] resize-none"
+                                                            />
+                                                            <span className="absolute bottom-1.5 right-2 text-[9px] text-gray-300">{diagStrengths.length}/200</span>
                                                         </div>
-                                                        <input
-                                                            type="range"
-                                                            min={0}
-                                                            max={10}
-                                                            value={diagScores[subj] ?? 5}
-                                                            onChange={e => setDiagScores(prev => ({ ...prev, [subj]: +e.target.value }))}
-                                                            className="w-full accent-[#0F9B8E]"
-                                                        />
                                                     </div>
-                                                ))}
-                                                <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest pt-1">Points forts et à renforcer</p>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div className="relative">
-                                                        <textarea
-                                                            value={diagStrengths}
-                                                            onChange={e => setDiagStrengths(e.target.value.slice(0, 200))}
-                                                            rows={3}
-                                                            maxLength={200}
-                                                            placeholder="Ex : bonne compréhension, rigueur..."
-                                                            className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-[10px] outline-none focus:border-emerald-400 resize-none"
-                                                        />
-                                                        <span className="absolute bottom-1.5 right-2 text-[8px] text-gray-300">{diagStrengths.length}/200</span>
-                                                    </div>
-                                                    <div className="relative">
-                                                        <textarea
-                                                            value={diagWeaknesses}
-                                                            onChange={e => setDiagWeaknesses(e.target.value.slice(0, 200))}
-                                                            rows={3}
-                                                            maxLength={200}
-                                                            placeholder="Ex : exercices, expression écrite..."
-                                                            className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-[10px] outline-none focus:border-red-400 resize-none"
-                                                        />
-                                                        <span className="absolute bottom-1.5 right-2 text-[8px] text-gray-300">{diagWeaknesses.length}/200</span>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-[#0D2D5A] mb-1.5">Points à renforcer</p>
+                                                        <div className="relative">
+                                                            <textarea
+                                                                value={diagWeaknesses}
+                                                                onChange={e => setDiagWeaknesses(e.target.value.slice(0, 200))}
+                                                                rows={3}
+                                                                maxLength={200}
+                                                                placeholder="Ex : exercices, expression écrite..."
+                                                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#1A6CC8] resize-none"
+                                                            />
+                                                            <span className="absolute bottom-1.5 right-2 text-[9px] text-gray-300">{diagWeaknesses.length}/200</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <button
                                                     disabled={diagMutation.isPending}
                                                     onClick={() => diagMutation.mutate()}
-                                                    className="w-full h-10 bg-[#0D2D5A] text-white text-xs font-black uppercase tracking-widest rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                                                    className="w-full h-12 bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white text-sm font-bold rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
                                                 >
-                                                    {diagMutation.isPending ? "..." : "Enregistrer le diagnostic"}
+                                                    {diagMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                                    {diagMutation.isPending ? "Enregistrement..." : "Enregistrer le diagnostic"}
                                                 </button>
                                             </div>
                                         )}
