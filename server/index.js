@@ -14,6 +14,7 @@ import { OAuth2Client } from "google-auth-library";
 import { resolveJwtSecret } from "./jwtSecret.js";
 import { parseJson, parseJsonObject } from "./parseJson.js";
 import { sanitizeEvidence } from "./diagnosticEvidence.js";
+import { subjectsToReinforce, geoProximity, scoreTutor } from "./matchScoring.js";
 
 const rootDir = process.cwd();
 const envFiles = [".env.local", ".env"];
@@ -6043,6 +6044,16 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
       }
     }
 
+    // Tuteur rattaché par identifiant (affectation depuis l'onglet Match) : prioritaire sur assignments.
+    const linkedTeacher = new Map();
+    if (studentIds.length) {
+      const [lt] = await pool.query(
+        `SELECT st.student_id, u.name FROM student_teacher st JOIN users u ON u.id = st.teacher_id WHERE st.student_id IN (?)`,
+        [studentIds]
+      ).catch(() => [[]]);
+      for (const l of lt) if (!linkedTeacher.has(l.student_id)) linkedTeacher.set(l.student_id, l.name);
+    }
+
     const rows = resolved.map(({ r, parent, student }) => {
       const ambiguousAssignment = requestRows.some(
         (o) =>
@@ -6064,8 +6075,8 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
         level: r.level,
         subject: r.subject,
         request_status: r.request_status,
-        selected_teacher: a?.selected_teacher ?? null,
-        assignment_status: a?.status ?? null,
+        selected_teacher: (student && linkedTeacher.get(student.id)) || a?.selected_teacher || null,
+        assignment_status: (student && linkedTeacher.has(student.id)) ? "confirmed" : (a?.status ?? null),
         parent_email: parent?.email ?? null,
         child_email: student?.email ?? null,
         student_id: student?.id ?? null,
@@ -10630,12 +10641,12 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
     // level restent null (dégradation propre) : pas de rapprochement par nom seul
     // vers une autre famille.
     const [[user]] = await pool.query(
-      `SELECT id, name, parent_id FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id, name, parent_id, location, geo_location_id FROM users WHERE id = ? LIMIT 1`,
       [studentId]
     );
     let student = null;
     if (user) {
-      student = { id: user.id, name: user.name, subject: null, level: null };
+      student = { id: user.id, name: user.name, subject: null, level: null, city: user.location || "", geoId: user.geo_location_id || null };
       let parentId = user.parent_id;
       if (!parentId) {
         const [[link]] = await pool.query(
@@ -10648,12 +10659,18 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
         const [[parent]] = await pool.query(`SELECT email FROM users WHERE id = ? LIMIT 1`, [parentId]);
         if (parent?.email) {
           const [reqs] = await pool.query(
-            `SELECT subject, level, child_name FROM requests WHERE email = ? ORDER BY request_date DESC`,
+            `SELECT subject, level, child_name, location, geo_location_id FROM requests WHERE email = ? ORDER BY request_date DESC`,
             [parent.email]
           );
           const norm = (v) => String(v ?? "").trim().toLowerCase();
-          const chosen = reqs.find((r) => norm(r.child_name) === norm(user.name)) ?? reqs[0];
-          if (chosen) { student.subject = chosen.subject; student.level = chosen.level; }
+          // Uniquement la demande de CET enfant : pas de repli sur celle d'un frère ou d'une sœur.
+          const chosen = reqs.find((r) => norm(r.child_name) === norm(user.name));
+          if (chosen) {
+            student.subject = chosen.subject;
+            student.level = chosen.level;
+            student.city = student.city || chosen.location || "";
+            student.geoId = student.geoId || chosen.geo_location_id || null;
+          }
         }
       }
     }
@@ -10665,50 +10682,123 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
     ).catch(() => [[null]]);
 
     const diagScores = parseJsonObject(diag?.scores);
-    const weakSubjects = Object.entries(diagScores)
-      .filter(([, s]) => Number(s) < 5)
-      .map(([subj]) => subj);
+    const reinforce = subjectsToReinforce(diagScores);
 
     const [teachers] = await pool.query(
-      `SELECT t.id, u.name, t.subjects, t.levels, t.level, t.availability_json,
-              COALESCE(t.performance_index, 3.0) AS perf,
-              COALESCE(t.hourly_rate, 7500) AS rate,
+      `SELECT t.id, u.name, t.subjects, t.levels, t.level, t.availability_json, t.city,
+              t.geo_location_id, t.geo_zone_ids,
+              COALESCE(t.hourly_rate, 0) AS rate,
               COALESCE(t.currency, 'XAF') AS currency,
-              COUNT(s.id) AS sessionCount
+              (SELECT COUNT(*) FROM sessions s WHERE s.teacher_id = t.id AND s.status = 'effectué') AS sessionCount
        FROM teachers t
        JOIN users u ON u.id = t.id
-       LEFT JOIN sessions s ON s.teacher_id = t.id AND s.status = 'effectué'
-       WHERE u.role IN ('teacher','tutor')
-       GROUP BY t.id, u.name`
+       WHERE u.role IN ('teacher','tutor') OR u.secondary_role = 'teacher'`
     );
 
-    const scored = teachers.map(t => {
-      const subjs = parseJson(t.subjects, []);
-      const levels = parseJson(t.levels, null) ?? parseJson(t.level, []);
-      // availability_json : liste de créneaux (tableau) ou objet
+    // Avis réels des familles (aucune note par défaut).
+    const reviews = new Map();
+    if (teachers.length) {
+      const [rv] = await pool.query(
+        `SELECT teacher_id, COUNT(*) AS n, AVG(rating) AS avg FROM session_feedback WHERE teacher_id IN (?) GROUP BY teacher_id`,
+        [teachers.map((t) => t.id)]
+      ).catch(() => [[]]);
+      for (const r of rv) reviews.set(r.teacher_id, { n: Number(r.n), avg: Number(r.avg) });
+    }
+
+    // Hiérarchie géographique pour l'élève et les zones des tuteurs.
+    const geoIds = new Set();
+    if (student.geoId) geoIds.add(student.geoId);
+    for (const t of teachers) {
+      if (t.geo_location_id) geoIds.add(t.geo_location_id);
+      for (const z of parseJson(t.geo_zone_ids, [])) geoIds.add(z);
+    }
+    const geoMap = new Map();
+    if (geoIds.size) {
+      const [geoRows] = await pool.query(
+        "SELECT id, type, country_id, region_id, department_id, arrondissement_id FROM geo_locations WHERE id IN (?)",
+        [[...geoIds]]
+      ).catch(() => [[]]);
+      for (const g of geoRows) geoMap.set(g.id, g);
+    }
+
+    // Tuteurs déjà rattachés à l'élève
+    const [linked] = await pool.query(
+      "SELECT teacher_id FROM student_teacher WHERE student_id = ?",
+      [studentId]
+    ).catch(() => [[]]);
+    const linkedIds = new Set(linked.map((l) => l.teacher_id));
+
+    const scored = teachers.map((t) => {
       let avail = t.availability_json;
       if (typeof avail === "string") { try { avail = JSON.parse(avail); } catch { avail = null; } }
-      if (!avail || typeof avail !== "object") avail = {};
-
-      let score = Number(t.perf) * 20;
-      if (student.subject && subjs.some((s) => s.toLowerCase().includes(student.subject?.toLowerCase()))) score += 30;
-      if (weakSubjects.some(ws => subjs.some((s) => s.toLowerCase().includes(ws.toLowerCase())))) score += 20;
-      if (student.level && levels.some((l) => l.toLowerCase().includes(student.level?.toLowerCase()))) score += 15;
-      if (Object.keys(avail).length > 0) score += 10;
-      if (t.sessionCount > 10) score += 5;
-
-      return { id: t.id, name: t.name, subjects: subjs, levels, rate: t.rate, currency: t.currency, perf: Number(t.perf), score: Math.round(score) };
+      const hasAvailability = Array.isArray(avail) ? avail.length > 0 : !!avail && typeof avail === "object" && Object.keys(avail).length > 0;
+      const levels = parseJson(t.levels, null) ?? parseJson(t.level, []);
+      const rv = reviews.get(t.id) || { n: 0, avg: 0 };
+      const result = scoreTutor(student, reinforce, {
+        subjects: parseJson(t.subjects, []),
+        levels: Array.isArray(levels) ? levels : [],
+        city: t.city || "",
+        geoProximity: geoProximity(student.geoId, [t.geo_location_id, ...parseJson(t.geo_zone_ids, [])].filter(Boolean), geoMap),
+        hasAvailability,
+        reviewCount: rv.n,
+        reviewAvg: rv.avg,
+        sessionCount: Number(t.sessionCount) || 0,
+        rate: Number(t.rate),
+      });
+      return {
+        id: t.id,
+        name: t.name,
+        subjects: parseJson(t.subjects, []),
+        rate: Number(t.rate),
+        currency: t.currency,
+        reviewCount: rv.n,
+        reviewAvg: rv.n ? Math.round(rv.avg * 10) / 10 : null,
+        alreadyAssigned: linkedIds.has(t.id),
+        ...result,
+      };
     });
 
     scored.sort((a, b) => b.score - a.score);
 
     res.json({
-      student: { id: student.id, name: student.name, subject: student.subject, level: student.level, weakSubjects },
+      student: {
+        id: student.id, name: student.name, subject: student.subject, level: student.level,
+        prioritySubjects: reinforce.priority,
+        consolidateSubjects: reinforce.consolidate,
+        weakSubjects: [...reinforce.priority, ...reinforce.consolidate],
+      },
       matches: scored.slice(0, 5),
     });
   } catch (err) {
     console.error("[matching]", err);
     res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+// Affectation d'un tuteur à un élève par IDENTIFIANTS (jamais par nom, cf. homonymes).
+app.post("/api/advisor/students/:studentId/assign", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  const { studentId } = req.params;
+  const { teacherId, requestId } = req.body ?? {};
+  if (!teacherId) return res.status(400).json({ message: "teacherId est requis." });
+  try {
+    const [[student]] = await pool.query("SELECT id, name FROM users WHERE id = ? AND role = 'student' LIMIT 1", [studentId]);
+    if (!student) return res.status(404).json({ message: "Élève introuvable." });
+    const [[teacher]] = await pool.query(
+      `SELECT u.id, u.name FROM users u JOIN teachers t ON t.id = u.id
+       WHERE u.id = ? AND (u.role IN ('teacher','tutor') OR u.secondary_role = 'teacher') LIMIT 1`,
+      [teacherId]
+    );
+    if (!teacher) return res.status(404).json({ message: "Tuteur introuvable." });
+
+    await linkStudentTeacherRelation(student.id, teacher.id);
+    if (requestId) {
+      await pool.query("UPDATE requests SET status = 'assigné' WHERE id = ?", [requestId]).catch(() => {});
+    }
+    console.log(`[Matching] ${teacher.name} (${teacher.id}) affecté à ${student.name} (${student.id}) par ${req.user.sub}`);
+    res.json({ studentId: student.id, teacherId: teacher.id, teacherName: teacher.name });
+  } catch (error) {
+    console.error("Failed to assign tutor", error);
+    res.status(500).json({ message: "Erreur serveur." });
   }
 });
 

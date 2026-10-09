@@ -439,7 +439,7 @@ export default function AdvisorFamilies() {
             }
         } else {
             // Par défaut, la première ligne du tableau ; une sélection existante est conservée au rechargement.
-            setSelectedFamily((prev: any) => prev ?? families[0]);
+            setSelectedFamily((prev: any) => (prev ? (families.find((f: any) => f.id === prev.id) ?? prev) : families[0]));
         }
     }, [families, location.state, searchParams]);
 
@@ -636,6 +636,29 @@ export default function AdvisorFamilies() {
             return res.json();
         },
         enabled: !!studentId && !!token && activePanel === "matching",
+    });
+
+    // Affectation par identifiants ; confirmation dans la carte (pas de boîte de dialogue navigateur).
+    const [confirmAssign, setConfirmAssign] = useState<string | null>(null);
+    const assignMutation = useMutation({
+        mutationFn: async (teacher: { id: string; name: string }) => {
+            const res = await fetch(`${API}/advisor/students/${studentId}/assign`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ teacherId: teacher.id, requestId: requestId || undefined }),
+            });
+            const data = await readJsonSafe(res);
+            if (!res.ok) throw new Error(data?.message || "Impossible d'affecter le tuteur.");
+            return data ?? {};
+        },
+        onSuccess: (data: any) => {
+            toast.success(`${data.teacherName || "Le tuteur"} est maintenant affecté à ${displayOr(selectedFamily?.childName || selectedFamily?.child, "l'élève")}`);
+            setConfirmAssign(null);
+            qc.invalidateQueries({ queryKey: ["advisorFamilies"] });
+            qc.invalidateQueries({ queryKey: ["matching", studentId] });
+            qc.invalidateQueries({ queryKey: ["advisorDashboard"] });
+        },
+        onError: (err: Error) => toast.error(err.message),
     });
 
     // ──────────────────────────────────────────────────────────────────────
@@ -1578,7 +1601,7 @@ export default function AdvisorFamilies() {
 
                                 {/* ── Panel Matching ── */}
                                 {activePanel === "matching" && !prospect && (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                         {matchFetching ? (
                                             <div className="flex items-center justify-center py-8">
                                                 <Loader2 className="w-5 h-5 animate-spin text-[#0F9B8E]/40" />
@@ -1587,43 +1610,95 @@ export default function AdvisorFamilies() {
                                             <PanelError message="Impossible de charger les tuteurs recommandés." onRetry={() => refetchMatching()} />
                                         ) : matching?.matches?.length > 0 ? (
                                             <>
-                                                {matching.student?.weakSubjects?.length > 0 && (
-                                                    <div className="p-2 bg-red-50 rounded-lg border border-red-100 mb-2">
-                                                        <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mb-0.5">Matières à renforcer</p>
-                                                        <div className="flex gap-1 flex-wrap">
-                                                            {matching.student.weakSubjects.map((s: string) => (
-                                                                <span key={s} className="text-[8px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">{s}</span>
-                                                            ))}
-                                                        </div>
+                                                {(matching.student?.prioritySubjects?.length || matching.student?.consolidateSubjects?.length) ? (
+                                                    <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 text-xs space-y-1">
+                                                        <p className="font-bold text-[#0D2D5A]">Besoins de l'élève d'après le diagnostic</p>
+                                                        <p className="text-gray-600"><span className="font-semibold text-red-600">Prioritaires : </span>{matching.student.prioritySubjects?.length ? matching.student.prioritySubjects.join(", ") : "aucune"}</p>
+                                                        <p className="text-gray-600"><span className="font-semibold text-amber-600">À consolider : </span>{matching.student.consolidateSubjects?.length ? matching.student.consolidateSubjects.join(", ") : "aucune"}</p>
                                                     </div>
+                                                ) : (
+                                                    <p className="text-xs text-gray-500 rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+                                                        Aucun besoin issu du diagnostic : le classement s'appuie sur la matière demandée, le niveau et la proximité.
+                                                    </p>
                                                 )}
-                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tuteurs recommandés</p>
-                                                {matching.matches.map((t: any, i: number) => (
-                                                    <div key={t.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
-                                                        <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] font-black text-white ${i === 0 ? "bg-[#F5A623]" : "bg-[#0F9B8E]/30 text-[#0F9B8E]"}`}>{i + 1}</div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center justify-between">
-                                                                <p className="text-[11px] font-black text-[#0D2D5A]">{t.name}</p>
-                                                                <div className="flex items-center gap-0.5">
-                                                                    <Star className="w-2.5 h-2.5 text-[#F5A623] fill-[#F5A623]" />
-                                                                    <span className="text-[9px] font-black text-[#0D2D5A]">{t.perf?.toFixed(1)}</span>
+                                                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Tuteurs recommandés</p>
+                                                {matching.matches.map((t: any, i: number) => {
+                                                    const color = t.score >= 70 ? "#16A34A" : t.score >= 40 ? "#D97706" : "#94A3B8";
+                                                    const confirmKey = `${studentId}:${t.id}`;
+                                                    return (
+                                                        <div key={t.id} className="p-3 bg-white rounded-xl border border-gray-100 space-y-2.5">
+                                                            <div className="flex items-start gap-3">
+                                                                <div className={cn(
+                                                                    "w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold",
+                                                                    i === 0 ? "bg-[#F5A623] text-white" : "bg-[#0F9B8E]/10 text-[#0F9B8E]"
+                                                                )}>{i + 1}</div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <p className="text-sm font-bold text-[#0D2D5A] truncate">
+                                                                            {t.name}
+                                                                            {t.alreadyAssigned && <span className="ml-2 align-middle text-[10px] font-bold text-[#0F9B8E] bg-[#0F9B8E]/10 px-1.5 py-0.5 rounded">Déjà affecté</span>}
+                                                                        </p>
+                                                                        <span className="text-sm font-bold shrink-0" style={{ color }}>
+                                                                            {t.score}<span className="text-[10px] font-medium text-gray-400">/100</span>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="h-1.5 rounded-full bg-gray-100 mt-1.5" aria-hidden>
+                                                                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, t.score)}%`, background: color }} />
+                                                                    </div>
+                                                                    <p className="text-xs text-gray-500 mt-1.5">
+                                                                        {t.rateToCheck
+                                                                            ? <span className="font-semibold text-amber-600">Tarif à vérifier</span>
+                                                                            : `${new Intl.NumberFormat("fr-FR").format(t.rate)} ${t.currency === "XAF" ? "FCFA" : t.currency}/h`}
+                                                                        {" · "}
+                                                                        {t.reviewCount ? `${t.reviewAvg}/5 sur ${t.reviewCount} avis` : "Pas encore d'avis"}
+                                                                    </p>
                                                                 </div>
                                                             </div>
-                                                            <p className="text-[8px] text-gray-400 mt-0.5">{new Intl.NumberFormat("fr-FR").format(t.rate)} FCFA/h · Score : {t.score}</p>
+                                                            <ul className="flex flex-wrap gap-1.5" aria-label={`Critères pour ${t.name}`}>
+                                                                {(t.reasons || []).filter((r: any) => r.key !== "reviews").map((r: any) => (
+                                                                    <li
+                                                                        key={r.key}
+                                                                        className={cn(
+                                                                            "inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border",
+                                                                            r.ok ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                                                                                : r.partial ? "bg-amber-50 border-amber-100 text-amber-700"
+                                                                                : "bg-gray-50 border-gray-100 text-gray-400"
+                                                                        )}
+                                                                    >
+                                                                        {r.ok ? <Check className="w-3 h-3" /> : <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-current" />}
+                                                                        {r.label}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                            {!t.alreadyAssigned && (
+                                                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                                                    {confirmAssign === confirmKey ? (
+                                                                        <>
+                                                                            <span className="text-xs text-[#0D2D5A]">
+                                                                                Affecter <strong>{t.name}</strong> à {displayOr(selectedFamily.childName || selectedFamily.child, "l'élève")} ?
+                                                                            </span>
+                                                                            <button className={BTN_OUTLINE} onClick={() => setConfirmAssign(null)} disabled={assignMutation.isPending}>Annuler</button>
+                                                                            <button
+                                                                                className={BTN_PRIMARY}
+                                                                                disabled={assignMutation.isPending}
+                                                                                onClick={() => assignMutation.mutate({ id: t.id, name: t.name })}
+                                                                            >
+                                                                                {assignMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Confirmer
+                                                                            </button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <button className={BTN_OUTLINE} onClick={() => setConfirmAssign(confirmKey)}>
+                                                                            <UserPlus className="w-4 h-4" /> Assigner
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    </div>
-                                                ))}
-                                                <button
-                                                    onClick={() => navigate("/advisor/matching", {
-                                                        state: { childName: selectedFamily.childName || selectedFamily.child, level: selectedFamily.level, subject: selectedFamily.subject }
-                                                    })}
-                                                    className={`${BTN} mt-1 bg-violet-50 text-violet-700 border border-violet-100 hover:bg-violet-100`}
-                                                >
-                                                    <GitMerge className="w-3 h-3" /> Confirmer l'assignation
-                                                </button>
+                                                    );
+                                                })}
                                             </>
                                         ) : (
-                                            <p className="text-[9px] text-gray-300 italic text-center py-6">Aucun tuteur disponible pour le moment</p>
+                                            <p className="text-sm text-gray-400 italic text-center py-6">Aucun tuteur disponible pour le moment</p>
                                         )}
                                     </div>
                                 )}

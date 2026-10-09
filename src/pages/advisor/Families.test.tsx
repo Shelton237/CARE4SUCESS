@@ -485,8 +485,14 @@ describe("AdvisorFamilies — Mes familles", () => {
     it("succès : affiche les tuteurs recommandés (GET /advisor/match/:studentId)", async () => {
       const fetchMock = mockFetchByUrl({
         "/advisor/match/": () => jsonResponse({
-          student: { weakSubjects: ["Anglais"] },
-          matches: [{ id: "t1", name: "M. Sow", perf: 4.5, subjects: ["Mathématiques"], rate: 5000, score: 92 }],
+          student: { prioritySubjects: ["Anglais"], consolidateSubjects: ["Physique"] },
+          matches: [{
+            id: "t1", name: "M. Sow", subjects: ["Anglais"], rate: 5000, currency: "XAF", score: 92, reviewCount: 0,
+            reasons: [
+              { key: "priority", ok: true, label: "Prioritaires couvertes : Anglais" },
+              { key: "consolidate", ok: false, label: "Ne couvre pas les matières à consolider" },
+            ],
+          }],
         }),
         "/advisor-notes/": () => jsonResponse([]),
       });
@@ -498,7 +504,40 @@ describe("AdvisorFamilies — Mes familles", () => {
       await user.click(screen.getByText("Match"));
 
       expect(await screen.findByText("M. Sow")).toBeInTheDocument();
-      expect(screen.getByText("Anglais")).toBeInTheDocument();
+      expect(screen.getByText("92")).toBeInTheDocument();
+      expect(screen.getByText("Prioritaires couvertes : Anglais")).toBeInTheDocument();
+      expect(screen.getByText(/5 000 FCFA\/h · Pas encore d'avis/)).toBeInTheDocument();
+    });
+
+    it("affectation : confirmation dans la carte puis POST par identifiants", async () => {
+      const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+        if (init?.method === "POST" && url.includes("/assign")) return Promise.resolve(jsonResponse({ teacherName: "M. Sow" }));
+        if (url.includes("/advisor/match/")) return Promise.resolve(jsonResponse({
+          student: { prioritySubjects: [], consolidateSubjects: [] },
+          matches: [{ id: "t1", name: "M. Sow", rate: 1, currency: "XAF", score: 50, reviewCount: 0, rateToCheck: true, reasons: [] }],
+        }));
+        if (url.includes("/advisor-notes/")) return Promise.resolve(jsonResponse([]));
+        return Promise.resolve(jsonResponse(null));
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Match"));
+
+      expect(await screen.findByText("Tarif à vérifier")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /Assigner/ }));
+      expect(fetchMock.mock.calls.some(([, init]: any) => init?.method === "POST")).toBe(false);
+      expect(screen.getByText(/Affecter/)).toHaveTextContent("Affecter M. Sow à Idris Ba ?");
+
+      await user.click(screen.getByRole("button", { name: /Confirmer/ }));
+      await waitFor(() => {
+        const call = fetchMock.mock.calls.find(([url, init]: any) => init?.method === "POST" && url.includes("/advisor/students/student-1/assign"));
+        expect(call).toBeTruthy();
+        expect(JSON.parse((call as any)[1].body).teacherId).toBe("t1");
+      });
+      await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith("M. Sow est maintenant affecté à Idris Ba"));
     });
 
     it("état vide : affiche un message si aucun tuteur n'est disponible", async () => {
