@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { LucideIcon, LogOut, UserCircle2, Menu } from "lucide-react";
+import { LucideIcon, LogOut, UserCircle2, Menu, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationCenter } from "./NotificationCenter";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -40,12 +40,12 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
     const SidebarContent = () => (
         <div className="flex flex-col h-full overflow-hidden" style={{ background: "#0D2D5A" }}>
             {/* Logo */}
-            <div className="px-5 py-6 border-b border-white/5">
-                <img src="/logo/care4success-long-white.png" alt="Care 4 Success" className="h-9 w-auto object-contain" />
+            <div className="px-5 pt-8 pb-7 flex justify-center">
+                <img src="/logo/care4success-compact-white.png" alt="Care 4 Success" className="h-20 w-auto object-contain" />
             </div>
 
             {/* Nav */}
-            <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto scrollbar-hide">
+            <nav className="flex-1 px-3 py-2 space-y-3 overflow-y-auto scrollbar-hide">
                 {items.map((item, idx) => {
                     const prevSection = idx > 0 ? items[idx - 1].section : undefined;
                     const showSectionHeader = item.section && item.section !== prevSection;
@@ -61,7 +61,7 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
                                 end
                                 onClick={() => setOpen(false)}
                                 className={({ isActive }) =>
-                                    `flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${isActive
+                                    `flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-200 ${isActive
                                         ? "text-white shadow-lg"
                                         : "text-blue-100/60 hover:text-white hover:bg-white/5"
                                     }`
@@ -88,34 +88,38 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
             </nav>
 
             {/* User footer */}
-            <div className="px-3 py-5 border-t border-white/10">
-                <div className="flex items-center gap-3 px-2 mb-3">
-                    <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-                        style={{ background: roleColor, color: "#fff" }}
-                    >
-                        {user?.avatar || user?.name?.charAt(0)}
+            <div className="px-3 pb-5 pt-2">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+                    <div className="flex items-center gap-3 px-3 py-3">
+                        <div
+                            className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                            style={{ background: roleColor, color: "#fff" }}
+                        >
+                            {user?.avatar || user?.name?.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-white truncate tracking-tight">{user?.name}</div>
+                            <div className="text-[11px] text-blue-200/60 truncate">{roleLabel}</div>
+                        </div>
+                        <ChevronDown className="w-3.5 h-3.5 text-blue-200/40 flex-shrink-0" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="text-sm font-bold text-white truncate tracking-tight">{user?.name}</div>
-                        <div className="text-[11px] text-blue-200/60 truncate">{roleLabel}</div>
+                    <div className="border-t border-white/10 flex items-center">
+                        <button
+                            onClick={handleProfile}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-semibold text-blue-100/70 hover:text-white hover:bg-white/5 transition-colors"
+                        >
+                            <UserCircle2 className="w-3.5 h-3.5" />
+                            Profil
+                        </button>
+                        <div className="w-px self-stretch bg-white/10" />
+                        <button
+                            onClick={handleLogout}
+                            className="group flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-semibold text-red-400 hover:bg-red-500/5 transition-colors"
+                        >
+                            <LogOut className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                            Quitter
+                        </button>
                     </div>
-                </div>
-                <div className="flex flex-col gap-0.5">
-                    <button
-                        onClick={handleProfile}
-                        className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-semibold text-blue-100/70 hover:text-white hover:bg-white/5 transition-colors"
-                    >
-                        <UserCircle2 className="w-3.5 h-3.5" />
-                        Profil
-                    </button>
-                    <button
-                        onClick={handleLogout}
-                        className="group flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-semibold text-red-300/80 hover:text-red-300 hover:bg-red-500/5 transition-colors"
-                    >
-                        <LogOut className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                        Quitter
-                    </button>
                 </div>
             </div>
         </div>

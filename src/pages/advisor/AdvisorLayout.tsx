@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, GitMerge, ClipboardList, UserPlus, MessageCircle, CalendarDays, Inbox } from "lucide-react";
+import { Home, Users, GitMerge, User, BarChart3, Mail, CalendarDays, FileText } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { DashboardTopbar } from "@/components/dashboard/DashboardTopbar";
 import AdvisorDashboard from "./Dashboard";
@@ -12,13 +12,13 @@ import AdvisorSchedule from "./Schedule";
 import AdvisorRequests from "./Requests";
 
 const NAV = [
-    { to: "/advisor", label: "Tableau de bord", icon: LayoutDashboard },
-    { to: "/advisor/requests", label: "Demandes de bilan", icon: Inbox },
+    { to: "/advisor", label: "Tableau de bord", icon: Home },
+    { to: "/advisor/requests", label: "Demandes de bilan", icon: FileText },
     { to: "/advisor/families", label: "Mes familles", icon: Users },
     { to: "/advisor/matching", label: "Matching", icon: GitMerge },
-    { to: "/advisor/applications", label: "Candidatures profs", icon: UserPlus },
-    { to: "/advisor/reports", label: "Bilans", icon: ClipboardList },
-    { to: "/advisor/messages", label: "Messagerie", icon: MessageCircle },
+    { to: "/advisor/applications", label: "Candidatures profs", icon: User },
+    { to: "/advisor/reports", label: "Bilans", icon: BarChart3 },
+    { to: "/advisor/messages", label: "Messagerie", icon: Mail },
     { to: "/advisor/schedule", label: "Tâches & RDV", icon: CalendarDays },
 ];
 
