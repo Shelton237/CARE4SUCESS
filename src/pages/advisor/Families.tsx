@@ -22,6 +22,40 @@ import { toast } from "sonner";
 
 const API = import.meta.env.VITE_API_URL || "/api";
 const SUBJECTS_DIAG = ["Mathématiques", "Français", "Anglais", "Physique", "SVT", "Histoire-Géo"];
+// Valeur par défaut des curseurs du diagnostic : partagée entre l'affichage et le payload envoyé
+const DEFAULT_DIAG_SCORE = 3;
+const NOT_PROVIDED = "Non renseigné";
+
+// Normalise une valeur d'affichage : vide ou tiret (valeurs de repli du serveur) => libellé neutre
+const displayOr = (value: unknown, fallback: string = NOT_PROVIDED): string => {
+    if (typeof value !== "string") return fallback;
+    const v = value.trim();
+    return v === "" || v === String.fromCharCode(0x2014) ? fallback : v;
+};
+
+// Lecture JSON protégée (corps vide ou non JSON, ex. page HTML d'un proxy en 502)
+async function readJsonSafe(res: Response): Promise<any> {
+    try {
+        return await res.json();
+    } catch {
+        return null;
+    }
+}
+
+function PanelError({ message, onRetry }: { message: string; onRetry: () => void }) {
+    return (
+        <div role="alert" className="p-3 bg-red-50 rounded-lg border border-red-100 flex items-center justify-between gap-2 text-[10px] text-red-700 font-semibold">
+            <span>{message}</span>
+            <button
+                onClick={onRetry}
+                className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-[9px] font-black hover:bg-red-100 transition-colors shrink-0"
+            >
+                <RefreshCw className="w-2.5 h-2.5" /> Réessayer
+            </button>
+        </div>
+    );
+}
+
 const SUBJECT_ICON: Record<string, any> = {
     "Mathématiques": Calculator,
     "Français": BookOpen,
@@ -181,14 +215,16 @@ export default function AdvisorFamilies() {
     // ──────────────────────────────────────────────────────────────────────
     // Notes (uniquement pour les élèves avec compte)
     // ──────────────────────────────────────────────────────────────────────
-    const { data: advisorNotes = [] } = useQuery({
+    const { data: advisorNotes = [], isError: notesError, refetch: refetchNotes } = useQuery<any[]>({
         queryKey: ["advisorNotes", studentId],
         queryFn: async () => {
             if (!studentId) return [];
             const res = await fetch(`${API}/advisor-notes/${studentId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            return res.json();
+            if (!res.ok) throw new Error("Impossible de charger les notes");
+            const data = await readJsonSafe(res);
+            return Array.isArray(data) ? data : [];
         },
         enabled: !!studentId && !!token,
     });
@@ -207,23 +243,30 @@ export default function AdvisorFamilies() {
                     content: noteContent,
                 })
             });
-            if (!res.ok) throw new Error();
+            if (!res.ok) throw new Error("Echec ajout note");
         },
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["advisorNotes", studentId] });
             setNoteContent("");
             setShowNoteForm(false);
-        }
+            toast.success("Note ajoutée");
+        },
+        onError: () => toast.error("Erreur lors de l'ajout de la note"),
     });
 
     const deleteNoteMutation = useMutation({
         mutationFn: async (noteId: string) => {
-            await fetch(`${API}/advisor-notes/${noteId}`, {
+            const res = await fetch(`${API}/advisor-notes/${noteId}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` }
             });
+            if (!res.ok) throw new Error("Echec suppression note");
         },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["advisorNotes", studentId] })
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["advisorNotes", studentId] });
+            toast.success("Note supprimée");
+        },
+        onError: () => toast.error("Erreur lors de la suppression de la note"),
     });
 
     // ──────────────────────────────────────────────────────────────────────
@@ -233,7 +276,7 @@ export default function AdvisorFamilies() {
         ? `${API}/requests/${requestId}/diagnostic`
         : `${API}/students/${studentId}/diagnostic`;
 
-    const { data: diagnostic } = useQuery({
+    const { data: diagnostic, isError: diagError, refetch: refetchDiag } = useQuery({
         queryKey: diagQueryKey,
         queryFn: async () => {
             const url = isProspect(selectedFamily)
@@ -241,6 +284,7 @@ export default function AdvisorFamilies() {
                 : `${API}/students/${studentId}/diagnostic`;
             const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
             if (res.status === 404) return null;
+            if (!res.ok) throw new Error("Impossible de charger le diagnostic");
             return res.json();
         },
         enabled: !!(isProspect(selectedFamily) ? requestId : studentId) && !!token,
@@ -255,7 +299,10 @@ export default function AdvisorFamilies() {
                     studentName: selectedFamily?.childName,
                     evaluatorId: user?.id,
                     evaluatorName: user?.name,
-                    scores: diagScores,
+                    // Même valeur par défaut que l'affichage des curseurs (DEFAULT_DIAG_SCORE)
+                    scores: Object.fromEntries(
+                        SUBJECTS_DIAG.map(subj => [subj, diagScores[subj] ?? DEFAULT_DIAG_SCORE])
+                    ),
                     strengths: diagStrengths || null,
                     weaknesses: diagWeaknesses || null,
                 })
@@ -264,6 +311,11 @@ export default function AdvisorFamilies() {
         },
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: diagQueryKey });
+            // Dossier académique (AcademicFile) et matching dérivent du même diagnostic
+            if (studentId) {
+                qc.invalidateQueries({ queryKey: ["studentDiagnostic", studentId] });
+                qc.invalidateQueries({ queryKey: ["matching", studentId] });
+            }
             setDiagScores({});
             setDiagStrengths("");
             setDiagWeaknesses("");
@@ -279,7 +331,7 @@ export default function AdvisorFamilies() {
         ? `${API}/requests/${requestId}/plan`
         : `${API}/students/${studentId}/academic-plan`;
 
-    const { data: activePlan } = useQuery({
+    const { data: activePlan, isError: planError, refetch: refetchPlan } = useQuery({
         queryKey: planQueryKey,
         queryFn: async () => {
             const url = isProspect(selectedFamily)
@@ -287,6 +339,7 @@ export default function AdvisorFamilies() {
                 : `${API}/students/${studentId}/academic-plan`;
             const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
             if (res.status === 404) return null;
+            if (!res.ok) throw new Error("Impossible de charger le plan");
             return res.json();
         },
         enabled: !!(isProspect(selectedFamily) ? requestId : studentId) && !!token,
@@ -306,6 +359,8 @@ export default function AdvisorFamilies() {
         },
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: planQueryKey });
+            // Dossier académique (AcademicFile) lit le plan avec sa propre clé
+            if (studentId) qc.invalidateQueries({ queryKey: ["studentPlan", studentId] });
             setPlanTitle("");
             setPlanStart("");
             setPlanWeeks([{ objective: "", subjects: [], done: false }]);
@@ -317,12 +372,13 @@ export default function AdvisorFamilies() {
     // ──────────────────────────────────────────────────────────────────────
     // Matching (uniquement pour les élèves avec compte)
     // ──────────────────────────────────────────────────────────────────────
-    const { data: matching, isFetching: matchFetching } = useQuery({
+    const { data: matching, isFetching: matchFetching, isError: matchError, refetch: refetchMatching } = useQuery({
         queryKey: ["matching", studentId],
         queryFn: async () => {
             const res = await fetch(`${API}/advisor/match/${studentId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            if (!res.ok) throw new Error("Impossible de charger le matching");
             return res.json();
         },
         enabled: !!studentId && !!token && activePanel === "matching",
@@ -337,17 +393,20 @@ export default function AdvisorFamilies() {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             });
-            const data = await res.json();
+            // Parse protégé : une 502 HTML ne doit pas afficher "Unexpected token <"
+            const data = await readJsonSafe(res);
             if (!res.ok) {
                 // 409 = compte déjà existant
-                if (res.status === 409) throw new Error(data.message);
-                throw new Error(data.message || "Erreur lors de la conversion");
+                throw new Error(data?.message || "Erreur lors de la conversion. Veuillez réessayer.");
             }
-            return data;
+            return data ?? {};
         },
         onSuccess: (data) => {
             toast.success(`✅ Compte élève créé ! Email temporaire : ${data.studentEmail}`);
             qc.invalidateQueries({ queryKey: ["advisorFamilies"] });
+            // Compteurs du tableau de bord conseiller et liste des demandes
+            qc.invalidateQueries({ queryKey: ["advisorDashboard"] });
+            qc.invalidateQueries({ queryKey: ["backoffice", "requests"] });
             setSelectedFamily(null);
         },
         onError: (err: Error) => toast.error(err.message),
@@ -408,10 +467,10 @@ export default function AdvisorFamilies() {
     // Statut d'avancement du dossier sélectionné, pour le stepper du panneau de droite
     const stepDone = selectedFamily ? [
         !prospect,
-        !!selectedFamily.nextRdv && selectedFamily.nextRdv !== "—",
+        displayOr(selectedFamily.nextRdv, "") !== "",
         !!(diagnostic as any)?.id,
         !!(activePlan as any)?.id,
-        !prospect && !!selectedFamily.teacherName && !["—", "Non assigné"].includes(selectedFamily.teacherName),
+        !prospect && !["", "Non assigné"].includes(displayOr(selectedFamily.teacherName, "")),
     ] : [false, false, false, false, false];
     const currentStepIdx = stepDone.findIndex(d => !d);
     const activeStepIdx = currentStepIdx === -1 ? STEPS.length - 1 : currentStepIdx;
@@ -514,11 +573,11 @@ export default function AdvisorFamilies() {
                                                                 ? (fp ? "bg-[#F5A623] text-white" : "bg-[#0D2D5A] text-white")
                                                                 : "bg-gray-50 border border-gray-100 text-[#0D2D5A]"
                                                         )}>
-                                                            {(f.parentName || f.parent || "?").charAt(0)}
+                                                            {displayOr(f.parentName || f.parent, "?").charAt(0)}
                                                         </div>
                                                         <div className="min-w-0">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-[#0D2D5A] truncate">{f.parentName || f.parent}</span>
+                                                                <span className="font-bold text-[#0D2D5A] truncate">{displayOr(f.parentName || f.parent, "Parent non renseigné")}</span>
                                                                 {fp ? (
                                                                     <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] px-1.5 rounded-md uppercase tracking-wide font-bold">Prospect</Badge>
                                                                 ) : (
@@ -526,23 +585,23 @@ export default function AdvisorFamilies() {
                                                                 )}
                                                             </div>
                                                             <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                                <MessageCircle className="w-3 h-3" /> {f.parentEmail || f.email || "—"}
+                                                                <MessageCircle className="w-3 h-3" /> {displayOr(f.parentEmail || f.email)}
                                                             </span>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3.5">
                                                     <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
-                                                        <Users className="w-3.5 h-3.5 text-gray-300" /> {f.childName || f.child || "(Non renseigné)"}
+                                                        <Users className="w-3.5 h-3.5 text-gray-300" /> {displayOr(f.childName || f.child, "(Non renseigné)")}
                                                     </div>
-                                                    <div className="text-[11px] text-gray-400 mt-0.5">Niveau : {f.level || "—"}</div>
+                                                    <div className="text-[11px] text-gray-400 mt-0.5">Niveau : {displayOr(f.level)}</div>
                                                 </td>
                                                 <td className="px-4 py-3.5">
                                                     <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
                                                         <UserCircle2 className="w-3.5 h-3.5 text-gray-300" />
-                                                        {fp ? "Pas encore assigné" : (f.teacherName || f.teacher || "Non assigné")}
+                                                        {fp ? "Pas encore assigné" : displayOr(f.teacherName || f.teacher, "Non assigné")}
                                                     </div>
-                                                    <div className="text-[11px] text-gray-400 mt-0.5">{fp ? "—" : "Tuteur"}</div>
+                                                    <div className="text-[11px] text-gray-400 mt-0.5">{fp ? "Prospect" : "Tuteur"}</div>
                                                 </td>
                                                 <td className="px-4 py-3.5">
                                                     {(() => {
@@ -589,11 +648,11 @@ export default function AdvisorFamilies() {
                                         "w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white shrink-0",
                                         prospect ? "bg-[#F5A623]" : "bg-[#0D2D5A]"
                                     )}>
-                                        {(selectedFamily.parentName || selectedFamily.parent || "?").charAt(0)}
+                                        {displayOr(selectedFamily.parentName || selectedFamily.parent, "?").charAt(0)}
                                     </div>
                                     <div className="min-w-0">
                                         <h2 className="text-base font-bold text-[#0D2D5A] uppercase truncate">
-                                            {selectedFamily.parentName || selectedFamily.parent} & {selectedFamily.childName || selectedFamily.child}
+                                            {displayOr(selectedFamily.parentName || selectedFamily.parent, "Parent non renseigné")} & {displayOr(selectedFamily.childName || selectedFamily.child, "Élève non renseigné")}
                                         </h2>
                                         <p className="text-sm text-gray-400 mt-0.5">
                                             {selectedFamily.level || "Niveau non défini"}{selectedFamily.subject ? ` · ${selectedFamily.subject}` : ""}
@@ -615,15 +674,15 @@ export default function AdvisorFamilies() {
                                 <div className="flex items-center gap-2">
                                     <UserCircle2 className="w-4 h-4 text-gray-300 shrink-0" />
                                     <div>
-                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{selectedFamily.childName || selectedFamily.child || "—"}</p>
-                                        <p className="text-[10px] text-gray-400 leading-tight">Élève · {selectedFamily.level || "—"}</p>
+                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{displayOr(selectedFamily.childName || selectedFamily.child)}</p>
+                                        <p className="text-[10px] text-gray-400 leading-tight">Élève · {displayOr(selectedFamily.level)}</p>
                                     </div>
                                 </div>
                                 <div className="w-px h-8 bg-gray-100" />
                                 <div className="flex items-center gap-2">
                                     <Users className="w-4 h-4 text-gray-300 shrink-0" />
                                     <div>
-                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{prospect ? "—" : (selectedFamily.teacherName || selectedFamily.teacher || "—")}</p>
+                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{prospect ? "Non assigné" : displayOr(selectedFamily.teacherName || selectedFamily.teacher, "Non assigné")}</p>
                                         <p className="text-[10px] text-gray-400 leading-tight">Tuteur assigné</p>
                                     </div>
                                 </div>
@@ -631,7 +690,7 @@ export default function AdvisorFamilies() {
                                 <div className="flex items-center gap-2">
                                     <CalendarDays className="w-4 h-4 text-gray-300 shrink-0" />
                                     <div>
-                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{selectedFamily.requestDate || "—"}</p>
+                                        <p className="text-xs font-bold text-[#0D2D5A] leading-tight">{displayOr(selectedFamily.requestDate)}</p>
                                         <p className="text-[10px] text-gray-400 leading-tight">Date de la demande</p>
                                     </div>
                                 </div>
@@ -748,7 +807,7 @@ export default function AdvisorFamilies() {
                                             <>
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">
-                                                        Observations ({(advisorNotes as any[]).length})
+                                                        Observations{notesError ? "" : ` (${advisorNotes.length})`}
                                                     </p>
                                                     <button
                                                         onClick={() => setShowNoteForm(!showNoteForm)}
@@ -788,8 +847,11 @@ export default function AdvisorFamilies() {
                                                         </button>
                                                     </div>
                                                 )}
+                                                {notesError && (
+                                                    <PanelError message="Impossible de charger les notes." onRetry={() => refetchNotes()} />
+                                                )}
                                                 <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                                                    {(advisorNotes as any[]).map((note: any) => {
+                                                    {!notesError && advisorNotes.map((note: any) => {
                                                         const nt = NOTE_TYPES.find(n => n.value === note.note_type) || NOTE_TYPES[0];
                                                         return (
                                                             <div key={note.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 group">
@@ -800,14 +862,16 @@ export default function AdvisorFamilies() {
                                                                 </div>
                                                                 <button
                                                                     onClick={() => deleteNoteMutation.mutate(note.id)}
-                                                                    className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 text-[8px] font-black transition-opacity"
+                                                                    disabled={deleteNoteMutation.isPending}
+                                                                    aria-label="Supprimer la note"
+                                                                    className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 text-[8px] font-black transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                                                                 >
                                                                     ×
                                                                 </button>
                                                             </div>
                                                         );
                                                     })}
-                                                    {(advisorNotes as any[]).length === 0 && !showNoteForm && (
+                                                    {!notesError && advisorNotes.length === 0 && !showNoteForm && (
                                                         <p className="text-[9px] text-gray-300 italic px-1">Aucune observation enregistrée</p>
                                                     )}
                                                 </div>
@@ -822,10 +886,12 @@ export default function AdvisorFamilies() {
                                         {prospect && (
                                             <div className="flex items-center gap-1.5 p-2 bg-amber-50 rounded-lg border border-amber-100 mb-1">
                                                 <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                                                <p className="text-[9px] text-amber-700 font-semibold">Diagnostic prospect — sera migré vers le compte élève lors de la conversion.</p>
+                                                <p className="text-[9px] text-amber-700 font-semibold">Diagnostic prospect : sera migré vers le compte élève lors de la conversion.</p>
                                             </div>
                                         )}
-                                        {diagnostic && (diagnostic as any).id ? (
+                                        {diagError ? (
+                                            <PanelError message="Impossible de charger le diagnostic." onRetry={() => refetchDiag()} />
+                                        ) : diagnostic && (diagnostic as any).id ? (
                                             <div className="space-y-2">
                                                 <div className="flex items-center gap-2">
                                                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
@@ -843,11 +909,11 @@ export default function AdvisorFamilies() {
                                                     <div className="grid grid-cols-2 gap-3 pt-1">
                                                         <div>
                                                             <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points forts</p>
-                                                            <p className="text-[11px] text-gray-500 leading-relaxed">{(diagnostic as any).strengths || "—"}</p>
+                                                            <p className="text-[11px] text-gray-500 leading-relaxed">{(diagnostic as any).strengths || NOT_PROVIDED}</p>
                                                         </div>
                                                         <div>
                                                             <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points à renforcer</p>
-                                                            <p className="text-[11px] text-gray-500 leading-relaxed">{(diagnostic as any).weaknesses || "—"}</p>
+                                                            <p className="text-[11px] text-gray-500 leading-relaxed">{(diagnostic as any).weaknesses || NOT_PROVIDED}</p>
                                                         </div>
                                                     </div>
                                                 )}
@@ -881,7 +947,7 @@ export default function AdvisorFamilies() {
                                                         <SubjectBar
                                                             key={subj}
                                                             subject={subj}
-                                                            score={diagScores[subj] ?? 3}
+                                                            score={diagScores[subj] ?? DEFAULT_DIAG_SCORE}
                                                             editable
                                                             onChange={v => setDiagScores(prev => ({ ...prev, [subj]: v }))}
                                                         />
@@ -936,10 +1002,12 @@ export default function AdvisorFamilies() {
                                         {prospect && (
                                             <div className="flex items-center gap-1.5 p-2 bg-amber-50 rounded-lg border border-amber-100 mb-1">
                                                 <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                                                <p className="text-[9px] text-amber-700 font-semibold">Plan prospect — sera migré vers le compte élève lors de la conversion.</p>
+                                                <p className="text-[9px] text-amber-700 font-semibold">Plan prospect : sera migré vers le compte élève lors de la conversion.</p>
                                             </div>
                                         )}
-                                        {activePlan && (activePlan as any).id ? (
+                                        {planError ? (
+                                            <PanelError message="Impossible de charger le plan pédagogique." onRetry={() => refetchPlan()} />
+                                        ) : activePlan && (activePlan as any).id ? (
                                             <div className="space-y-2">
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-[11px] font-black text-[#0D2D5A]">{(activePlan as any).title}</p>
@@ -1052,6 +1120,8 @@ export default function AdvisorFamilies() {
                                             <div className="flex items-center justify-center py-8">
                                                 <Loader2 className="w-5 h-5 animate-spin text-[#0F9B8E]/40" />
                                             </div>
+                                        ) : matchError ? (
+                                            <PanelError message="Impossible de charger les tuteurs recommandés." onRetry={() => refetchMatching()} />
                                         ) : matching?.matches?.length > 0 ? (
                                             <>
                                                 {matching.student?.weakSubjects?.length > 0 && (

@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import AdvisorFamilies from "@/pages/advisor/Families";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
 
@@ -38,9 +39,11 @@ const FAMILY = {
 function renderFamilies() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={qc}>
-      <AdvisorFamilies />
-    </QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={qc}>
+        <AdvisorFamilies />
+      </QueryClientProvider>
+    </MemoryRouter>
   );
 }
 
@@ -80,7 +83,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       renderFamilies();
       await screen.findByText("Mme Ba");
 
-      const search = screen.getByPlaceholderText(/Rechercher un parent ou un élève/i);
+      const search = screen.getByPlaceholderText(/Rechercher un parent, un élève/i);
       await user.type(search, "Inexistant");
 
       expect(await screen.findByText(/Aucune famille ne correspond à votre recherche/i)).toBeInTheDocument();
@@ -188,7 +191,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       expect(screen.getByText("Lecture")).toBeInTheDocument();
     });
 
-    it("création : les curseurs de score sont bornés 0–10 (plage imposée par le composant)", async () => {
+    it("création : les curseurs de score sont bornés 0 à 5 (échelle du diagnostic)", async () => {
       const fetchMock = mockFetchByUrl({
         "/diagnostic": () => jsonResponse(null),
         "/advisor-notes/": () => jsonResponse([]),
@@ -204,7 +207,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       expect(sliders.length).toBeGreaterThan(0);
       sliders.forEach((slider) => {
         expect(slider).toHaveAttribute("min", "0");
-        expect(slider).toHaveAttribute("max", "10");
+        expect(slider).toHaveAttribute("max", "5");
       });
     });
 
@@ -259,7 +262,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       const user = userEvent.setup();
       renderFamilies();
       await user.click(await screen.findByText("Mme Ba"));
-      await user.click(screen.getByText("Plan"));
+      await user.click(screen.getByRole("button", { name: /^Plan$/ }));
 
       expect(await screen.findByText("Plan de rattrapage")).toBeInTheDocument();
       expect(screen.getByText("Revoir les fractions")).toBeInTheDocument();
@@ -275,7 +278,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       const user = userEvent.setup();
       renderFamilies();
       await user.click(await screen.findByText("Mme Ba"));
-      await user.click(screen.getByText("Plan"));
+      await user.click(screen.getByRole("button", { name: /^Plan$/ }));
 
       expect(screen.getByText("Enregistrer le plan")).toBeDisabled();
     });
@@ -290,7 +293,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       const user = userEvent.setup();
       renderFamilies();
       await user.click(await screen.findByText("Mme Ba"));
-      await user.click(screen.getByText("Plan"));
+      await user.click(screen.getByRole("button", { name: /^Plan$/ }));
 
       // Une semaine unique par défaut : aucune icône de suppression tant qu'il n'y en a qu'une.
       // (Documente qu'il n'est pas possible d'atteindre un plan "sans semaine" via l'UI.)
@@ -308,7 +311,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       const user = userEvent.setup();
       renderFamilies();
       await user.click(await screen.findByText("Mme Ba"));
-      await user.click(screen.getByText("Plan"));
+      await user.click(screen.getByRole("button", { name: /^Plan$/ }));
 
       await user.type(screen.getByPlaceholderText("Titre du plan..."), "Plan de soutien");
       const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
@@ -336,7 +339,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       const user = userEvent.setup();
       renderFamilies();
       await user.click(await screen.findByText("Mme Ba"));
-      await user.click(screen.getByText("Plan"));
+      await user.click(screen.getByRole("button", { name: /^Plan$/ }));
       await user.type(screen.getByPlaceholderText("Titre du plan..."), "Plan X");
       const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
       await user.type(dateInput, "2026-08-01");
@@ -382,7 +385,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       expect(await screen.findByText("Aucun tuteur disponible pour le moment")).toBeInTheDocument();
     });
 
-    it("erreur réseau : une erreur de récupération du matching ne fait pas planter l'écran (mais reste silencieuse pour l'utilisateur)", async () => {
+    it("erreur réseau : une erreur de récupération du matching affiche une erreur distincte avec Réessayer (pas « Aucun tuteur »)", async () => {
       const fetchMock = vi.fn((url: string) => {
         if (url.includes("/advisor/match/")) return Promise.reject(new Error("Network Error"));
         if (url.includes("/advisor-notes/")) return Promise.resolve(jsonResponse([]));
@@ -395,9 +398,125 @@ describe("AdvisorFamilies — Mes familles", () => {
       await user.click(await screen.findByText("Mme Ba"));
       await user.click(screen.getByText("Match"));
 
-      // Constat : en cas d'erreur réseau, l'onglet retombe sur le même message que l'état "vide"
-      // faute de gestion explicite de isError dans le composant — aucune bannière d'erreur dédiée.
-      expect(await screen.findByText("Aucun tuteur disponible pour le moment")).toBeInTheDocument();
+      expect(await screen.findByText("Impossible de charger les tuteurs recommandés.")).toBeInTheDocument();
+      expect(screen.getByText("Réessayer")).toBeInTheDocument();
+      expect(screen.queryByText("Aucun tuteur disponible pour le moment")).not.toBeInTheDocument();
+    });
+
+    it("erreur serveur (403) : le matching affiche l'erreur et non « Aucun tuteur »", async () => {
+      const fetchMock = mockFetchByUrl({
+        "/advisor/match/": () => jsonResponse({ message: "Accès refusé" }, 403),
+        "/advisor-notes/": () => jsonResponse([]),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Match"));
+
+      expect(await screen.findByText("Impossible de charger les tuteurs recommandés.")).toBeInTheDocument();
+    });
+  });
+
+  describe("Non-régression lot FAM", () => {
+    it("FAM-01 : une réponse 500 sur les notes n'écrase pas le panneau et affiche un message d'erreur", async () => {
+      const fetchMock = mockFetchByUrl({
+        "/advisor-notes/": () => jsonResponse({ message: "Erreur serveur" }, 500),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+
+      expect(await screen.findByText("Impossible de charger les notes.")).toBeInTheDocument();
+      expect(screen.getByText("Ajouter")).toBeInTheDocument();
+    });
+
+    it("FAM-02 : la suppression d'une note en échec ne plante pas et le bouton est actif à nouveau", async () => {
+      const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+        if (init?.method === "DELETE") return Promise.resolve(new Response(null, { status: 500 }));
+        if (url.includes("/advisor-notes/")) return Promise.resolve(jsonResponse([{ id: "n1", note_type: "observation", content: "Note", created_at: "2026-07-01" }]));
+        return Promise.resolve(jsonResponse(null));
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(await screen.findByText("×"));
+
+      await waitFor(() => expect(fetchMock.mock.calls.some(([, init]: any) => init?.method === "DELETE")).toBe(true));
+      await waitFor(() => expect(screen.getByText("×")).toBeEnabled());
+      expect(screen.getByText("Note")).toBeInTheDocument();
+    });
+
+    it("FAM-03 : le diagnostic enregistré sans toucher aux curseurs envoie 3 pour chaque matière", async () => {
+      const fetchMock = mockFetchByUrl({
+        "/diagnostic": () => jsonResponse(null),
+        "/advisor-notes/": () => jsonResponse([]),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Diag."));
+      await user.click(await screen.findByText("Enregistrer le diagnostic"));
+
+      await waitFor(() => {
+        const postCall = fetchMock.mock.calls.find(([url, init]: any) => init?.method === "POST" && url.includes("/diagnostic"));
+        expect(postCall).toBeTruthy();
+        const body = JSON.parse((postCall as any)[1].body);
+        expect(body.scores).toEqual({
+          "Mathématiques": 3, "Français": 3, "Anglais": 3, "Physique": 3, "SVT": 3, "Histoire-Géo": 3,
+        });
+      });
+    });
+
+    it("FAM-04 : une 500 sur le diagnostic affiche une erreur avec Réessayer et non le formulaire vide", async () => {
+      const fetchMock = mockFetchByUrl({
+        "/diagnostic": () => jsonResponse({ message: "boom" }, 500),
+        "/advisor-notes/": () => jsonResponse([]),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByText("Diag."));
+
+      expect(await screen.findByText("Impossible de charger le diagnostic.")).toBeInTheDocument();
+      expect(screen.queryByText("Enregistrer le diagnostic")).not.toBeInTheDocument();
+    });
+
+    it("FAM-04 : une 404 sur le plan reste un état « aucun plan » (formulaire de création)", async () => {
+      const fetchMock = mockFetchByUrl({
+        "/academic-plan": () => jsonResponse({ message: "none" }, 404),
+        "/advisor-notes/": () => jsonResponse([]),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByRole("button", { name: /^Plan$/ }));
+
+      expect(await screen.findByPlaceholderText("Titre du plan...")).toBeInTheDocument();
+    });
+
+    it("FAM-07 : aucun tiret cadratin visible quand les champs optionnels sont vides ou valent « tiret »", async () => {
+      (fetchAdvisorFamilies as any).mockResolvedValue([
+        { id: "fam-2", parentName: "Mme Sy", childName: "Awa Sy", studentId: "student-2", teacherName: "—", nextRdv: "—", level: null },
+      ]);
+      vi.stubGlobal("fetch", mockFetchByUrl({ "/advisor-notes/": () => jsonResponse([]) }));
+
+      const user = userEvent.setup();
+      const { container } = renderFamilies();
+      await user.click(await screen.findByText("Mme Sy"));
+
+      expect(container.textContent).not.toContain("—");
     });
   });
 
