@@ -426,11 +426,11 @@ export default function AdvisorFamilies() {
     };
 
     return (
-        <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
+        <div className="p-4 md:px-8 md:pb-8 md:pt-0 space-y-5 animate-in fade-in duration-500">
             {/* Header */}
             <div>
-                <h1 className="text-[28px] font-bold text-[#0D2D5A]" style={{ fontFamily: "'Playfair Display', serif" }}>Suivi des familles</h1>
-                <p className="text-gray-500 text-sm mt-1">Gérez les relations parents-élèves et les affectations de tuteurs.</p>
+                <h1 className="text-[28px] font-bold text-[#0D2D5A] leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Suivi des familles</h1>
+                <p className="text-gray-500 text-sm mt-0.5">Gérez les relations parents-élèves et les affectations de tuteurs.</p>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">

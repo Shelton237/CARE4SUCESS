@@ -29,7 +29,7 @@ export function DashboardTopbar({ homeTo, pageLabel, roleColor }: Props) {
     };
 
     return (
-        <div className="hidden md:flex items-center justify-between px-8 pt-6 pb-2">
+        <div className="hidden md:flex items-center justify-between px-8 pt-5 pb-1">
             <div className="flex items-center gap-2 text-sm">
                 <NavLink to={homeTo} end className="text-gray-400 hover:text-[#0D2D5A] transition-colors">
                     <Home className="w-4 h-4" />
