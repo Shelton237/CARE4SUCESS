@@ -68,7 +68,7 @@ export default function Services() {
 
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#012B54] xl:h-[472px]">
-        <div className="absolute inset-y-0 end-0 w-full md:w-[47.3%]">
+        <div className="absolute inset-y-0 end-0 w-full md:w-[59.3%]">
           <img
             src={IMG.hero}
             alt=""
@@ -88,7 +88,7 @@ export default function Services() {
           <div className="absolute inset-0 lg:hidden bg-[#012B54]/62" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[18.6%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.6%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
 
           <p className="text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">{t("Soutien scolaire")}</p>
           <h1

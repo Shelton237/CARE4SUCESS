@@ -77,7 +77,7 @@ export default function LanguesLanding() {
 
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#002A53] xl:h-[460px]">
-        <div className="absolute inset-y-0 end-0 w-full md:w-[47.3%]">
+        <div className="absolute inset-y-0 end-0 w-full md:w-[59.3%]">
           <img
             src={IMG.hero}
             alt=""
@@ -97,7 +97,7 @@ export default function LanguesLanding() {
           <div className="absolute inset-0 lg:hidden bg-[#002A53]/62" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[18.5%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.5%] relative z-10 pt-10 pb-10 xl:pt-[44px] xl:pb-0">
 
           <p className="text-[#F5A623] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">{t("Langues")}</p>
           <h1

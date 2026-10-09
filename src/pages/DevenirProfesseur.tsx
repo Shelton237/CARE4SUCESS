@@ -176,7 +176,7 @@ export default function DevenirProfesseur() {
 
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#022D58] xl:h-[464px]">
-        <div className="absolute inset-y-0 end-0 w-full md:w-[47%] xl:w-[46%]">
+        <div className="absolute inset-y-0 end-0 w-full md:w-[59%] xl:w-[58%]">
           {/* hero-coach.jpg avait un raccord de recadrage visible en haut à
               droite (une teinte plate, pas un vrai flou photo) : le fichier a
               été recoupé pour l'exclure, sans effet CSS ni perte de netteté. */}
@@ -208,7 +208,7 @@ export default function DevenirProfesseur() {
           <div className="absolute inset-0 lg:hidden bg-[#022D58]/62" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[18.5%] relative z-10 pt-12 pb-10 xl:pt-[48px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.5%] relative z-10 pt-12 pb-10 xl:pt-[48px] xl:pb-0">
           <p className="text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">{t("Devenir coach")}</p>
           <h1
             className="mt-3 xl:mt-[17px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[55.5px] leading-[1.12] xl:leading-[56px]"
