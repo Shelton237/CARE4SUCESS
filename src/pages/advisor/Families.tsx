@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Users, Search, Phone,
-    MessageCircle, FileText, Loader2, ChevronRight, ChevronLeft,
+    MessageCircle, FileText, Loader2, ChevronRight, ChevronLeft, Copy, Wand2,
     SearchCheck, Briefcase, PlusCircle, AlertTriangle,
     ThumbsUp, Lightbulb, Eye, UserCircle2,
     ClipboardCheck, CalendarRange, Trash2,
@@ -31,6 +31,10 @@ import {
     STRENGTH_CRITERIA, WEAKNESS_CRITERIA, EVIDENCE_SOURCES, evidenceLabel,
     type SubjectEvidence,
 } from "@/components/advisor/diagnosticRubric";
+import {
+    PLAN_DURATIONS, emptyWeek, nextMonday, weekLabel, planEndLabel, planSubjects,
+    buildPlanFromDiagnostic, subjectCoverage, missingPlanItems,
+} from "@/components/advisor/planBuilder";
 
 const SUBJECTS_DIAG = ["Mathématiques", "Français", "Anglais", "Physique", "SVT", "Histoire-Géo"];
 
@@ -593,13 +597,31 @@ export default function AdvisorFamilies() {
     ];
     const diagReady = diagChecklist.every(c => c.done);
 
-    const planChecklist = [
-        { label: "Titre du plan", done: planTitle.trim() !== "" },
-        { label: "Date de début", done: !!planStart },
-        { label: "Un objectif pour chaque semaine", done: planWeeks.every(w => w.objective.trim() !== "") },
-        { label: "Au moins une matière par semaine", done: planWeeks.every(w => w.subjects.length > 0) },
-    ];
-    const planReady = planChecklist.every(c => c.done);
+    // Plan : construit à partir du diagnostic, contrôle que les priorités sont couvertes.
+    const diagScoresMap = ((diagnostic as any)?.scores || {}) as Record<string, unknown>;
+    const hasDiagnostic = !!(diagnostic as any)?.id;
+    const subjectsForPlan = planSubjects(diagScoresMap, familySubjects);
+    const planMissing = missingPlanItems(planTitle, planStart, planWeeks);
+    const planReady = planMissing.length === 0;
+    const diagSummary = summarizeScores(diagScoresMap);
+    const planCoverage = subjectCoverage(planWeeks);
+    const uncoveredPriorities = diagSummary.priority.filter(sj => !planCoverage[sj]);
+    const durationOptions = [...new Set([...PLAN_DURATIONS, planWeeks.length])].sort((a, b) => a - b);
+
+    const resizePlan = (n: number) =>
+        setPlanWeeks(prev => (n > prev.length ? [...prev, ...Array.from({ length: n - prev.length }, emptyWeek)] : prev.slice(0, n)));
+    const duplicateWeek = (i: number) =>
+        setPlanWeeks(prev => [...prev.slice(0, i + 1), { ...prev[i], subjects: [...prev[i].subjects], done: false }, ...prev.slice(i + 1)]);
+    const generatePlan = () => {
+        const draft = buildPlanFromDiagnostic(
+            diagScoresMap,
+            displayOr(selectedFamily?.childName || selectedFamily?.child, ""),
+            planWeeks.length >= 4 ? planWeeks.length : 6,
+        );
+        setPlanTitle(prev => prev.trim() || draft.title);
+        setPlanStart(prev => prev || nextMonday());
+        setPlanWeeks(draft.weeks);
+    };
 
     // ──────────────────────────────────────────────────────────────────────
     // Matching (uniquement pour les élèves avec compte)
@@ -1202,7 +1224,7 @@ export default function AdvisorFamilies() {
                                         {prospect && (
                                             <div className="flex items-center gap-1.5 p-2 bg-amber-50 rounded-lg border border-amber-100 mb-1">
                                                 <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                                                <p className="text-[9px] text-amber-700 font-semibold">Diagnostic prospect : sera migré vers le compte élève lors de la conversion.</p>
+                                                <p className="text-xs text-amber-700 font-semibold">Diagnostic prospect : sera migré vers le compte élève lors de la conversion.</p>
                                             </div>
                                         )}
                                         {diagError ? (
@@ -1319,7 +1341,7 @@ export default function AdvisorFamilies() {
                                         {prospect && (
                                             <div className="flex items-center gap-1.5 p-2 bg-amber-50 rounded-lg border border-amber-100 mb-1">
                                                 <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                                                <p className="text-[9px] text-amber-700 font-semibold">Plan prospect : sera migré vers le compte élève lors de la conversion.</p>
+                                                <p className="text-xs text-amber-700 font-semibold">Plan prospect : sera migré vers le compte élève lors de la conversion.</p>
                                             </div>
                                         )}
                                         {planError ? (
@@ -1352,7 +1374,9 @@ export default function AdvisorFamilies() {
                                                         <div key={i} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
                                                             <div className={`w-4 h-4 flex-shrink-0 rounded-full border-2 mt-0.5 ${w.done ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`} />
                                                             <div>
-                                                                <p className="text-[9px] font-black text-gray-400 uppercase">Semaine {i + 1}</p>
+                                                                <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                                                    Semaine {i + 1}{(activePlan as any).start_date ? ` · ${weekLabel(String((activePlan as any).start_date).slice(0, 10), i)}` : ""}
+                                                                </p>
                                                                 <p className="text-[10px] font-bold text-[#0D2D5A]">{w.objective}</p>
                                                                 {w.subjects?.length > 0 && (
                                                                     <div className="flex gap-1 mt-0.5 flex-wrap">
@@ -1373,87 +1397,166 @@ export default function AdvisorFamilies() {
                                                 </button>
                                             </div>
                                         ) : (
-                                            <div className="space-y-2">
-                                                {(() => {
-                                                    const sum = summarizeScores((diagnostic as any)?.scores);
-                                                    if (!(diagnostic as any)?.id) {
-                                                        return <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2">Aucun diagnostic enregistré : réalisez-le d'abord pour cibler le plan sur les besoins réels de l'élève.</p>;
-                                                    }
-                                                    return (
-                                                        <p className="text-[10px] text-[#0D2D5A] bg-[#0F9B8E]/5 border border-[#0F9B8E]/15 rounded-lg p-2">
-                                                            <span className="font-bold">D'après le diagnostic :</span>{" "}
-                                                            prioritaires {sum.priority.length ? sum.priority.join(", ") : "aucune"} ; à consolider {sum.consolidate.length ? sum.consolidate.join(", ") : "aucune"}.
-                                                        </p>
-                                                    );
-                                                })()}
-                                                <input
-                                                    type="text"
-                                                    value={planTitle}
-                                                    onChange={e => setPlanTitle(e.target.value)}
-                                                    placeholder="Titre du plan..."
-                                                    className={INPUT}
-                                                />
-                                                <input
-                                                    type="date"
-                                                    value={planStart}
-                                                    onChange={e => setPlanStart(e.target.value)}
-                                                    className={INPUT}
-                                                />
-                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Semaines</p>
-                                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                            <div className="space-y-3">
+                                                <div className={cn(
+                                                    "rounded-lg border p-3 flex flex-wrap items-center justify-between gap-2",
+                                                    hasDiagnostic ? "bg-[#0F9B8E]/5 border-[#0F9B8E]/15" : "bg-amber-50 border-amber-100"
+                                                )}>
+                                                    <p className="text-xs text-[#0D2D5A] leading-relaxed">
+                                                        {hasDiagnostic ? (
+                                                            <>
+                                                                <span className="font-bold">D'après le diagnostic :</span>{" "}
+                                                                prioritaires {diagSummary.priority.length ? diagSummary.priority.join(", ") : "aucune"} · à consolider {diagSummary.consolidate.length ? diagSummary.consolidate.join(", ") : "aucune"}
+                                                            </>
+                                                        ) : "Aucun diagnostic enregistré : réalisez-le d'abord pour cibler le plan sur les besoins réels de l'élève."}
+                                                    </p>
+                                                    {hasDiagnostic && (
+                                                        <button type="button" onClick={generatePlan} className={`${BTN} bg-[#0F9B8E] text-white hover:bg-[#0F9B8E]/90`}>
+                                                            <Wand2 className="w-4 h-4" /> Générer la trame depuis le diagnostic
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+                                                    <label className="flex flex-col gap-1">
+                                                        <span className="text-[11px] font-semibold text-gray-500">Titre</span>
+                                                        <input
+                                                            type="text"
+                                                            value={planTitle}
+                                                            onChange={e => setPlanTitle(e.target.value)}
+                                                            placeholder="Titre du plan..."
+                                                            className={INPUT}
+                                                        />
+                                                    </label>
+                                                    <label className="flex flex-col gap-1">
+                                                        <span className="text-[11px] font-semibold text-gray-500">Début</span>
+                                                        <input
+                                                            type="date"
+                                                            value={planStart}
+                                                            onChange={e => setPlanStart(e.target.value)}
+                                                            className={`${INPUT} sm:w-40`}
+                                                        />
+                                                    </label>
+                                                    <label className="flex flex-col gap-1">
+                                                        <span className="text-[11px] font-semibold text-gray-500">Durée</span>
+                                                        <select
+                                                            value={planWeeks.length}
+                                                            onChange={e => resizePlan(Number(e.target.value))}
+                                                            className={`${INPUT} sm:w-32 bg-white`}
+                                                        >
+                                                            {durationOptions.map(n => <option key={n} value={n}>{n} semaine{n > 1 ? "s" : ""}</option>)}
+                                                        </select>
+                                                    </label>
+                                                </div>
+
+                                                <div className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
                                                     {planWeeks.map((week, i) => (
-                                                        <div key={i} className="p-2 bg-gray-50 rounded-lg border border-gray-100 space-y-1.5">
+                                                        <div key={i} className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
                                                             <div className="flex items-center justify-between">
-                                                                <span className="text-[9px] font-black text-gray-400 uppercase">S{i + 1}</span>
-                                                                {planWeeks.length > 1 && (
+                                                                <p className="text-xs font-bold text-[#0D2D5A]">
+                                                                    <span>S{i + 1}</span>
+                                                                    {planStart && <span className="font-normal text-gray-400"> · {weekLabel(planStart, i)}</span>}
+                                                                </p>
+                                                                <div className="flex items-center gap-0.5">
                                                                     <button
-                                                                        onClick={() => setPlanWeeks(prev => prev.filter((_, j) => j !== i))}
-                                                                        className="text-red-300 hover:text-red-500"
+                                                                        type="button"
+                                                                        aria-label={`Dupliquer la semaine ${i + 1}`}
+                                                                        onClick={() => duplicateWeek(i)}
+                                                                        className="p-1.5 rounded-md text-gray-400 hover:bg-white hover:text-[#0D2D5A] transition-colors"
                                                                     >
-                                                                        <Trash2 className="w-2.5 h-2.5" />
+                                                                        <Copy className="w-3.5 h-3.5" />
                                                                     </button>
-                                                                )}
+                                                                    {planWeeks.length > 1 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            aria-label={`Supprimer la semaine ${i + 1}`}
+                                                                            onClick={() => setPlanWeeks(prev => prev.filter((_, j) => j !== i))}
+                                                                            className="p-1.5 rounded-md text-gray-400 hover:bg-white hover:text-red-500 transition-colors"
+                                                                        >
+                                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                            <input
-                                                                type="text"
+                                                            <textarea
+                                                                rows={2}
                                                                 value={week.objective}
                                                                 onChange={e => setPlanWeeks(prev => prev.map((w, j) => j === i ? { ...w, objective: e.target.value } : w))}
                                                                 placeholder="Objectif de la semaine..."
-                                                                className={`${INPUT} h-9 bg-white`}
+                                                                className={`${INPUT} h-auto py-2 resize-none bg-white`}
                                                             />
-                                                            <div className="flex gap-1 flex-wrap">
-                                                                {familySubjects.map(s => (
-                                                                    <button
-                                                                        key={s}
-                                                                        onClick={() => setPlanWeeks(prev => prev.map((w, j) => j === i ? {
-                                                                            ...w,
-                                                                            subjects: w.subjects.includes(s) ? w.subjects.filter(x => x !== s) : [...w.subjects, s]
-                                                                        } : w))}
-                                                                        className={`text-xs font-semibold px-2 py-1 rounded-md border transition-colors ${
-                                                                            week.subjects.includes(s) ? "bg-[#0D2D5A] text-white border-[#0D2D5A]" : "bg-white text-gray-400 border-gray-200"
-                                                                        }`}
-                                                                    >
-                                                                        {s}
-                                                                    </button>
-                                                                ))}
+                                                            <div className="flex gap-1.5 flex-wrap">
+                                                                {subjectsForPlan.map(sj => {
+                                                                    const lvl = diagScoresMap[sj] !== undefined ? getDiagLevel(diagScoresMap[sj]) : null;
+                                                                    const on = week.subjects.includes(sj);
+                                                                    return (
+                                                                        <button
+                                                                            key={sj}
+                                                                            type="button"
+                                                                            aria-pressed={on}
+                                                                            title={lvl && lvl.value > 0 ? `${lvl.value}/${DIAG_MAX} · ${lvl.label}` : undefined}
+                                                                            onClick={() => setPlanWeeks(prev => prev.map((w, j) => j === i ? {
+                                                                                ...w,
+                                                                                subjects: w.subjects.includes(sj) ? w.subjects.filter(x => x !== sj) : [...w.subjects, sj]
+                                                                            } : w))}
+                                                                            className={cn(
+                                                                                "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors",
+                                                                                on ? "bg-[#0D2D5A] text-white border-[#0D2D5A]" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                                                                            )}
+                                                                        >
+                                                                            {lvl && lvl.value > 0 && <span aria-hidden className="w-2 h-2 rounded-full" style={{ background: lvl.color }} />}
+                                                                            {sj}
+                                                                        </button>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     ))}
                                                 </div>
                                                 <button
-                                                    onClick={() => setPlanWeeks(prev => [...prev, { objective: "", subjects: [], done: false }])}
+                                                    type="button"
+                                                    onClick={() => setPlanWeeks(prev => [...prev, emptyWeek()])}
                                                     className={`${BTN} border border-dashed border-[#0F9B8E]/40 text-[#0F9B8E] hover:bg-[#0F9B8E]/5`}
                                                 >
-                                                    <PlusCircle className="w-3 h-3" /> Ajouter une semaine
+                                                    <PlusCircle className="w-4 h-4" /> Ajouter une semaine
                                                 </button>
-                                                <Checklist items={planChecklist} />
-                                                <button
-                                                    disabled={!planReady || planMutation.isPending}
-                                                    onClick={() => planMutation.mutate()}
-                                                    className={BTN_PRIMARY}
-                                                >
-                                                    {planMutation.isPending ? "..." : "Enregistrer le plan"}
-                                                </button>
+
+                                                <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 space-y-1.5">
+                                                    <p className="text-xs text-[#0D2D5A]">
+                                                        <span className="font-bold">{planWeeks.length} semaine{planWeeks.length > 1 ? "s" : ""}</span>
+                                                        {planStart && <> · du {new Date(`${planStart}T00:00:00`).toLocaleDateString("fr-FR")} au {planEndLabel(planStart, planWeeks.length)}</>}
+                                                        {Object.keys(planCoverage).length > 0 && (
+                                                            <> · {Object.entries(planCoverage).map(([sj, n]) => `${sj} ${n} sem.`).join(", ")}</>
+                                                        )}
+                                                    </p>
+                                                    {hasDiagnostic && uncoveredPriorities.length > 0 && (
+                                                        <p className="text-xs text-red-600 flex items-center gap-1.5">
+                                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                                            Matière prioritaire absente du plan : {uncoveredPriorities.join(", ")}
+                                                        </p>
+                                                    )}
+                                                    {hasDiagnostic && diagSummary.priority.length > 0 && uncoveredPriorities.length === 0 && (
+                                                        <p className="text-xs text-emerald-700 flex items-center gap-1.5">
+                                                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Toutes les matières prioritaires sont couvertes
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center justify-end gap-3">
+                                                    {planMissing.length > 0 && (
+                                                        <p className="text-xs text-gray-400">
+                                                            Il manque : {planMissing.slice(0, 4).join(", ")}{planMissing.length > 4 ? ` et ${planMissing.length - 4} autre(s)` : ""}
+                                                        </p>
+                                                    )}
+                                                    <button
+                                                        disabled={!planReady || planMutation.isPending}
+                                                        onClick={() => planMutation.mutate()}
+                                                        className={BTN_PRIMARY}
+                                                    >
+                                                        {planMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                                        Enregistrer le plan
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>

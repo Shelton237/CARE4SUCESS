@@ -109,6 +109,48 @@ describe("AdvisorFamilies — Mes familles", () => {
       expect(fetchAdvisorFamilies).toHaveBeenCalledTimes(1);
     });
 
+    it("plan : la trame générée depuis le diagnostic couvre les priorités et peut être enregistrée", async () => {
+      const fetchMock = mockFetchByUrl({
+        "/academic-plan": () => jsonResponse(null),
+        "/diagnostic": () => jsonResponse({ id: "d1", created_at: "2026-06-01", scores: { "Mathématiques": 1, "Anglais": 3 } }),
+        "/advisor-notes/": () => jsonResponse([]),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByRole("button", { name: /^Plan$/ }));
+
+      await user.click(await screen.findByRole("button", { name: /Générer la trame depuis le diagnostic/ }));
+      expect(screen.getByPlaceholderText("Titre du plan...")).toHaveValue("Plan d'accompagnement de Idris Ba");
+      expect(screen.getAllByPlaceholderText("Objectif de la semaine...")).toHaveLength(6);
+      expect(screen.getByDisplayValue("Reprendre les bases en Mathématiques")).toBeInTheDocument();
+      expect(screen.getByText("Toutes les matières prioritaires sont couvertes")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /Enregistrer le plan/ }));
+      await waitFor(() => {
+        const postCall = fetchMock.mock.calls.find(([url, init]: any) => init?.method === "POST" && url.includes("/academic-plan"));
+        expect(JSON.parse((postCall as any)[1].body).weeks).toHaveLength(6);
+      });
+    });
+
+    it("plan : alerte si une matière prioritaire n'est dans aucune semaine", async () => {
+      vi.stubGlobal("fetch", mockFetchByUrl({
+        "/academic-plan": () => jsonResponse(null),
+        "/diagnostic": () => jsonResponse({ id: "d1", created_at: "2026-06-01", scores: { "Mathématiques": 1 } }),
+        "/advisor-notes/": () => jsonResponse([]),
+      }));
+
+      const user = userEvent.setup();
+      renderFamilies();
+      await user.click(await screen.findByText("Mme Ba"));
+      await user.click(screen.getByRole("button", { name: /^Plan$/ }));
+
+      expect(await screen.findByText(/Matière prioritaire absente du plan : Mathématiques/)).toBeInTheDocument();
+      expect(screen.getByText(/Il manque : titre, date de début, objectif S1, matière S1/)).toBeInTheDocument();
+    });
+
     it("le dossier académique est un onglet de la fiche, désactivé pour un prospect", async () => {
       (fetchAdvisorFamilies as any).mockResolvedValue([
         FAMILY,
