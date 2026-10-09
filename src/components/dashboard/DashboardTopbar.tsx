@@ -34,10 +34,8 @@ export function DashboardTopbar({ homeTo, pageLabel, roleColor }: Props) {
                 <NavLink to={homeTo} end className="text-gray-400 hover:text-[#0D2D5A] transition-colors">
                     <Home className="w-4 h-4" />
                 </NavLink>
-                <span className="text-gray-300">
-                    <ChevronRight className="w-3.5 h-3.5" />
-                </span>
-                <NavLink to={homeTo} end className="text-gray-400 hover:text-[#0D2D5A] transition-colors font-medium">
+                <span className="text-gray-300 font-light">|</span>
+                <NavLink to={homeTo} end className="text-gray-400 hover:text-[#0D2D5A] transition-colors">
                     Accueil
                 </NavLink>
                 <span className="text-gray-300">

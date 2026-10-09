@@ -9,6 +9,7 @@ import {
     Zap, Star, RefreshCw, UserPlus, GitMerge, CheckCircle2,
     CalendarDays, TrendingUp, ArrowUpDown, Check, ChevronDown,
     Calculator, BookOpen, Globe2, FlaskConical, Leaf, Landmark, Save,
+    Clock, Mail,
 } from "lucide-react";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -415,11 +416,13 @@ export default function AdvisorFamilies() {
     const currentStepIdx = stepDone.findIndex(d => !d);
     const activeStepIdx = currentStepIdx === -1 ? STEPS.length - 1 : currentStepIdx;
 
-    const STATUS_LABEL: Record<string, string> = {
-        "nouveau": "Nouveau",
-        "matching": "Matching",
-        "bilan planifié": "Bilan planifié",
-        "suivi actif": "Suivi actif",
+    const STATUS_BADGE: Record<string, { label: string; bg: string; text: string; icon: any }> = {
+        "nouveau":          { label: "Nouveau",        bg: "#EAF1FE", text: "#3B82F6", icon: Mail },
+        "matching":         { label: "Matching",        bg: "#F3EEFE", text: "#8B5CF6", icon: GitMerge },
+        "bilan planifié":   { label: "Bilan planifié",  bg: "#EAF1FE", text: "#3B82F6", icon: CalendarDays },
+        "suivi actif":      { label: "Suivi actif",     bg: "#E6F7F4", text: "#0F9B8E", icon: CheckCircle2 },
+        "à qualifier":      { label: "À qualifier",     bg: "#E6F7F4", text: "#0F9B8E", icon: Clock },
+        "prospect":         { label: "Prospect",        bg: "#FEF3E2", text: "#F5A623", icon: AlertTriangle },
     };
 
     return (
@@ -505,7 +508,12 @@ export default function AdvisorFamilies() {
                                             >
                                                 <td className="px-6 py-3.5">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center text-xs font-bold text-[#0D2D5A] shrink-0">
+                                                        <div className={cn(
+                                                            "w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
+                                                            isSelected
+                                                                ? (fp ? "bg-[#F5A623] text-white" : "bg-[#0D2D5A] text-white")
+                                                                : "bg-gray-50 border border-gray-100 text-[#0D2D5A]"
+                                                        )}>
                                                             {(f.parentName || f.parent || "?").charAt(0)}
                                                         </div>
                                                         <div className="min-w-0">
@@ -525,7 +533,7 @@ export default function AdvisorFamilies() {
                                                 </td>
                                                 <td className="px-4 py-3.5">
                                                     <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
-                                                        <Users className="w-3.5 h-3.5 text-gray-300" /> {f.childName || f.child || "—"}
+                                                        <Users className="w-3.5 h-3.5 text-gray-300" /> {f.childName || f.child || "(Non renseigné)"}
                                                     </div>
                                                     <div className="text-[11px] text-gray-400 mt-0.5">Niveau : {f.level || "—"}</div>
                                                 </td>
@@ -537,9 +545,18 @@ export default function AdvisorFamilies() {
                                                     <div className="text-[11px] text-gray-400 mt-0.5">{fp ? "—" : "Tuteur"}</div>
                                                 </td>
                                                 <td className="px-4 py-3.5">
-                                                    <span className="text-xs font-bold text-[#0D2D5A]">
-                                                        {fp ? "À qualifier" : (STATUS_LABEL[f.status] || f.status || "—")}
-                                                    </span>
+                                                    {(() => {
+                                                        const badge = fp ? STATUS_BADGE["à qualifier"] : (STATUS_BADGE[f.status] || STATUS_BADGE["nouveau"]);
+                                                        const BadgeIcon = badge.icon;
+                                                        return (
+                                                            <span
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+                                                                style={{ background: badge.bg, color: badge.text }}
+                                                            >
+                                                                <BadgeIcon className="w-3.5 h-3.5" /> {badge.label}
+                                                            </span>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td className="px-4 py-3.5 text-right">
                                                     <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 hover:bg-[#0D2D5A] hover:text-white transition-all ml-auto">
