@@ -45,7 +45,7 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
             </div>
 
             {/* Nav */}
-            <nav className="flex-1 px-3 py-2 space-y-3 overflow-y-auto scrollbar-hide">
+            <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto scrollbar-hide">
                 {items.map((item, idx) => {
                     const prevSection = idx > 0 ? items[idx - 1].section : undefined;
                     const showSectionHeader = item.section && item.section !== prevSection;
@@ -61,7 +61,7 @@ export function DashboardSidebar({ items, roleLabel, roleColor }: Props) {
                                 end
                                 onClick={() => setOpen(false)}
                                 className={({ isActive }) =>
-                                    `flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-200 ${isActive
+                                    `flex items-center justify-between px-4 py-2.5 rounded-none text-sm font-bold transition-all duration-200 ${isActive
                                         ? "text-white shadow-lg"
                                         : "text-blue-100/60 hover:text-white hover:bg-white/5"
                                     }`
