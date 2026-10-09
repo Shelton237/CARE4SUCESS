@@ -79,9 +79,11 @@ export function getDiagnosticScoreView(raw: unknown) {
 interface AcademicFileProps {
     studentId: string;
     parentId?: string; // Si fourni, on utilise la vue parent; sinon admin
+    // Masque Diagnostic / Plan quand l'écran hôte les affiche déjà (fiche conseiller).
+    hidePedagogyTabs?: boolean;
 }
 
-export default function AcademicFile({ studentId: propStudentId, parentId }: AcademicFileProps) {
+export default function AcademicFile({ studentId: propStudentId, parentId, hidePedagogyTabs = false }: AcademicFileProps) {
     const { token, user } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<"overview" | "diagnostic" | "plan" | "history">("overview");
@@ -229,7 +231,7 @@ export default function AcademicFile({ studentId: propStudentId, parentId }: Aca
                     </div>
                     {studentId && (
                         <div className="flex gap-2 flex-wrap">
-                            {(["overview", "diagnostic", "plan", "history"] as const).map((tab) => (
+                            {(hidePedagogyTabs ? (["overview", "history"] as const) : (["overview", "diagnostic", "plan", "history"] as const)).map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}

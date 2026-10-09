@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { DIAG_MAX, getDiagLevel, parseCriteria, STRENGTH_CRITERIA, WEAKNESS_CRITERIA } from "./diagnosticRubric";
 import { Printer, RefreshCw, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,11 @@ import {
 
 const NOT_PROVIDED = "Non renseigné";
 const MAX_NOTES = 5;
+
+const formatCriteria = (text: unknown, known: string[]) => {
+    const { criteria, comment } = parseCriteria(text, known);
+    return [criteria.join(", "), comment].filter(Boolean).join("\n");
+};
 const PRINT_ROOT_ID = "advisor-bilan-print";
 
 const NOTE_LABELS: Record<string, string> = {
@@ -185,15 +191,15 @@ export default function AdvisorBilanView({ family, onClose }: AdvisorBilanViewPr
                             <p className="text-xs text-gray-400">Réalisé le {formatDate(diagnostic.created_at)}</p>
                             <div className="space-y-2">
                                 {Object.entries(diagnostic.scores || {}).map(([subject, score]) => {
-                                    const value = Number(score);
-                                    const pct = Math.max(0, Math.min(100, (value / 5) * 100));
+                                    const level = getDiagLevel(score);
+                                    const pct = (level.value / DIAG_MAX) * 100;
                                     return (
                                         <div key={subject} className="flex items-center gap-3">
                                             <span className="text-sm font-semibold text-[#0D2D5A] w-32 shrink-0">{subject}</span>
                                             <div className="flex-1 h-2 rounded-full bg-gray-100">
-                                                <div className="h-full rounded-full bg-[#1A6CC8]" style={{ width: `${pct}%` }} />
+                                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: level.color }} />
                                             </div>
-                                            <span className="text-xs font-bold text-[#0D2D5A] w-10 text-right">{value}/5</span>
+                                            <span className="text-xs font-bold w-44 text-right" style={{ color: level.color }}>{level.value}/{DIAG_MAX} · {level.label}</span>
                                         </div>
                                     );
                                 })}
@@ -201,11 +207,11 @@ export default function AdvisorBilanView({ family, onClose }: AdvisorBilanViewPr
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points forts</p>
-                                    <p className="text-sm text-gray-600">{diagnostic.strengths || NOT_PROVIDED}</p>
+                                    <p className="text-sm text-gray-600 whitespace-pre-line">{formatCriteria(diagnostic.strengths, STRENGTH_CRITERIA) || NOT_PROVIDED}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points à renforcer</p>
-                                    <p className="text-sm text-gray-600">{diagnostic.weaknesses || NOT_PROVIDED}</p>
+                                    <p className="text-sm text-gray-600 whitespace-pre-line">{formatCriteria(diagnostic.weaknesses, WEAKNESS_CRITERIA) || NOT_PROVIDED}</p>
                                 </div>
                             </div>
                         </div>

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -49,6 +49,20 @@ const FAMILY = {
   subject: "Mathématiques",
   lastReportDate: "12/06/2026",
 };
+
+// Le diagnostic exige une note pour chaque matière, un point fort et un point à renforcer.
+async function fillDiagnostic(user: ReturnType<typeof userEvent.setup>, value = "4") {
+  const sliders = await screen.findAllByRole("slider");
+  sliders.forEach((s) => fireEvent.change(s, { target: { value } }));
+  await user.click(within(screen.getByRole("group", { name: "Points forts" })).getByRole("button", { name: "Méthodologie" }));
+  await user.click(within(screen.getByRole("group", { name: "Points à renforcer" })).getByRole("button", { name: "Concentration" }));
+}
+
+// Le plan exige un objectif et au moins une matière pour chaque semaine.
+async function fillPlanWeek(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByPlaceholderText("Objectif de la semaine..."), "Revoir les fractions");
+  await user.click(screen.getByRole("button", { name: "Mathématiques" }));
+}
 
 function renderFamilies() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -212,7 +226,8 @@ describe("AdvisorFamilies — Mes familles", () => {
       await user.click(await screen.findByText("Mme Ba"));
       await user.click(screen.getByText("Diag."));
 
-      expect(await screen.findByText("Mathématiques")).toBeInTheDocument();
+      expect((await screen.findAllByText("Mathématiques")).length).toBeGreaterThan(0);
+      expect(screen.getByText("5/5 · Maîtrisé")).toBeInTheDocument();
       expect(screen.getByText("Rigueur")).toBeInTheDocument();
       expect(screen.getByText("Lecture")).toBeInTheDocument();
     });
@@ -248,11 +263,16 @@ describe("AdvisorFamilies — Mes familles", () => {
       renderFamilies();
       await user.click(await screen.findByText("Mme Ba"));
       await user.click(screen.getByText("Diag."));
+      await fillDiagnostic(user);
       await user.click(screen.getByText("Enregistrer le diagnostic"));
 
       await waitFor(() => {
         const postCall = fetchMock.mock.calls.find(([url, init]: any) => init?.method === "POST" && url.includes("/diagnostic"));
         expect(postCall).toBeTruthy();
+        const body = JSON.parse((postCall as any)[1].body);
+        expect(body.scores).toEqual({ "Mathématiques": 4 });
+        expect(body.strengths).toBe("Méthodologie");
+        expect(body.weaknesses).toBe("Concentration");
       });
     });
 
@@ -269,6 +289,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       renderFamilies();
       await user.click(await screen.findByText("Mme Ba"));
       await user.click(screen.getByText("Diag."));
+      await fillDiagnostic(user);
       await user.click(screen.getByText("Enregistrer le diagnostic"));
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -342,6 +363,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       await user.type(screen.getByPlaceholderText("Titre du plan..."), "Plan de soutien");
       const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
       await user.type(dateInput, "2026-08-01");
+      await fillPlanWeek(user);
 
       const saveButton = screen.getByText("Enregistrer le plan");
       expect(saveButton).toBeEnabled();
@@ -369,6 +391,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       await user.type(screen.getByPlaceholderText("Titre du plan..."), "Plan X");
       const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
       await user.type(dateInput, "2026-08-01");
+      await fillPlanWeek(user);
       await user.click(screen.getByText("Enregistrer le plan"));
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -478,7 +501,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       expect(screen.getByText("Note")).toBeInTheDocument();
     });
 
-    it("FAM-03 : le diagnostic enregistré sans toucher aux curseurs envoie 3 pour chaque matière", async () => {
+    it("évaluation objective : aucune note par défaut, enregistrement bloqué tant que la grille n'est pas complète", async () => {
       const fetchMock = mockFetchByUrl({
         "/diagnostic": () => jsonResponse(null),
         "/advisor-notes/": () => jsonResponse([]),
@@ -489,14 +512,19 @@ describe("AdvisorFamilies — Mes familles", () => {
       renderFamilies();
       await user.click(await screen.findByText("Mme Ba"));
       await user.click(screen.getByText("Diag."));
-      await user.click(await screen.findByText("Enregistrer le diagnostic"));
 
-      await waitFor(() => {
-        const postCall = fetchMock.mock.calls.find(([url, init]: any) => init?.method === "POST" && url.includes("/diagnostic"));
-        expect(postCall).toBeTruthy();
-        const body = JSON.parse((postCall as any)[1].body);
-        expect(body.scores).toEqual({ "Mathématiques": 3 });
-      });
+      expect(await screen.findByText("0/5 · Non évalué")).toBeInTheDocument();
+      expect(screen.getByText("Enregistrer le diagnostic").closest("button")).toBeDisabled();
+      expect(screen.getByText(/Toutes les matières notées \(0\/1\)/)).toBeInTheDocument();
+
+      fireEvent.change(screen.getByRole("slider"), { target: { value: "2" } });
+      expect(screen.getByText("2/5 · Fragile")).toBeInTheDocument();
+      expect(screen.getByText(/Notions partiellement comprises/)).toBeInTheDocument();
+      expect(screen.getByText("Enregistrer le diagnostic").closest("button")).toBeDisabled();
+
+      await user.click(within(screen.getByRole("group", { name: "Points forts" })).getByRole("button", { name: "Autonomie" }));
+      await user.click(within(screen.getByRole("group", { name: "Points à renforcer" })).getByRole("button", { name: "Gestion du temps" }));
+      expect(screen.getByText("Enregistrer le diagnostic").closest("button")).toBeEnabled();
     });
 
     it("matières dynamiques : seules les matières choisies à l'inscription sont évaluées", async () => {
@@ -513,11 +541,12 @@ describe("AdvisorFamilies — Mes familles", () => {
       await user.click(screen.getByText("Diag."));
 
       expect(await screen.findAllByRole("slider")).toHaveLength(2);
+      await fillDiagnostic(user);
       await user.click(screen.getByText("Enregistrer le diagnostic"));
 
       await waitFor(() => {
         const postCall = fetchMock.mock.calls.find(([url, init]: any) => init?.method === "POST" && url.includes("/diagnostic"));
-        expect(JSON.parse((postCall as any)[1].body).scores).toEqual({ "Anglais": 3, "Mathématiques": 3 });
+        expect(JSON.parse((postCall as any)[1].body).scores).toEqual({ "Anglais": 4, "Mathématiques": 4 });
       });
     });
 
@@ -657,8 +686,8 @@ describe("AdvisorFamilies — Mes familles", () => {
 
       expect(view.getByText("Idris Ba")).toBeInTheDocument();
       expect(view.getByText("M. Diop")).toBeInTheDocument();
-      expect(await view.findByText("4/5")).toBeInTheDocument();
-      expect(view.getByText("2/5")).toBeInTheDocument();
+      expect(await view.findByText("4/5 · Acquis")).toBeInTheDocument();
+      expect(view.getByText("2/5 · Fragile")).toBeInTheDocument();
       expect(view.getByText("Rigueur")).toBeInTheDocument();
       expect(view.getByText("Lecture")).toBeInTheDocument();
       expect(await view.findByText("Plan de rattrapage")).toBeInTheDocument();

@@ -62,7 +62,7 @@ describe("AdvisorBilanView", () => {
     renderView(STUDENT_FAMILY, vi.fn(), qc);
 
     expect(await screen.findByText("Très motivé")).toBeInTheDocument();
-    expect(screen.getByText("5/5")).toBeInTheDocument();
+    expect(screen.getByText("5/5 · Maîtrisé")).toBeInTheDocument();
     expect(screen.getByText("Plan été")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });

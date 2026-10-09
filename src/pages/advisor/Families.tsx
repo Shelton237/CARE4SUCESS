@@ -26,6 +26,10 @@ import {
     diagnosticUrl, planUrl as buildPlanUrl,
     fetchNotes, fetchDiagnostic, fetchPlan,
 } from "@/components/advisor/familyQueries";
+import {
+    DIAG_MAX, getDiagLevel, parseCriteria, serializeCriteria, summarizeScores,
+    STRENGTH_CRITERIA, WEAKNESS_CRITERIA,
+} from "@/components/advisor/diagnosticRubric";
 
 const SUBJECTS_DIAG = ["Mathématiques", "Français", "Anglais", "Physique", "SVT", "Histoire-Géo"];
 
@@ -38,7 +42,8 @@ const getFamilySubjects = (family: any): string[] => {
     return list.length ? [...new Set(list)] : SUBJECTS_DIAG;
 };
 // Valeur par défaut des curseurs du diagnostic : partagée entre l'affichage et le payload envoyé
-const DEFAULT_DIAG_SCORE = 3;
+// 0 = « Non évalué » : chaque matière doit être notée explicitement avant enregistrement.
+const DEFAULT_DIAG_SCORE = 0;
 const PAGE_SIZE = 8;
 const NOT_PROVIDED = "Non renseigné";
 
@@ -68,36 +73,132 @@ const SUBJECT_ICON: Record<string, any> = {
     "Français": BookOpen,
     "Anglais": Globe2,
     "Physique": FlaskConical,
+    "Physique-Chimie": FlaskConical,
+    "Histoire-Géographie": Landmark,
     "SVT": Leaf,
     "Histoire-Géo": Landmark,
 };
 
-function SubjectBar({ subject, score, max = 5, editable = false, onChange }: { subject: string; score: number; max?: number; editable?: boolean; onChange?: (v: number) => void }) {
+function SubjectBar({ subject, score, max = DIAG_MAX, editable = false, onChange }: { subject: string; score: number; max?: number; editable?: boolean; onChange?: (v: number) => void }) {
     const Icon = SUBJECT_ICON[subject] || BookOpen;
-    const pct = Math.max(0, Math.min(100, (score / max) * 100));
+    const level = getDiagLevel(score);
+    const pct = (level.value / max) * 100;
     return (
-        <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full border border-[#0D2D5A]/15 flex items-center justify-center shrink-0 text-[#0D2D5A]">
-                <Icon className="w-3.5 h-3.5" />
+        <div>
+            <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full border border-[#0D2D5A]/15 flex items-center justify-center shrink-0 text-[#0D2D5A]">
+                    <Icon className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-sm font-semibold text-[#0D2D5A] w-28 shrink-0 truncate" title={subject}>{subject}</span>
+                {editable ? (
+                    <input
+                        type="range"
+                        min={0}
+                        max={max}
+                        value={score}
+                        aria-label={`Niveau en ${subject}`}
+                        aria-valuetext={`${score} sur ${max} : ${level.label}`}
+                        onChange={e => onChange?.(+e.target.value)}
+                        className="flex-1 h-2 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--lvl)] [&::-webkit-slider-thumb]:shadow [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
+                        style={{ ["--lvl" as any]: level.color, accentColor: level.color, background: `linear-gradient(to right, ${level.color} ${pct}%, #E5EAF1 ${pct}%)` }}
+                    />
+                ) : (
+                    <div className="flex-1 h-2 rounded-full bg-gray-100 relative">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: level.color }} />
+                    </div>
+                )}
+                <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full w-[9.5rem] text-center shrink-0 truncate"
+                    style={{ color: level.color, background: level.bg }}
+                >
+                    {level.value}/{max} · {level.label}
+                </span>
             </div>
-            <span className="text-sm font-semibold text-[#0D2D5A] w-24 shrink-0 truncate">{subject}</span>
-            {editable ? (
-                <input
-                    type="range"
-                    min={0}
-                    max={max}
-                    value={score}
-                    onChange={e => onChange?.(+e.target.value)}
-                    className="flex-1 h-2 rounded-full appearance-none cursor-pointer accent-[#1A6CC8] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#1A6CC8] [&::-webkit-slider-thumb]:shadow [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
-                    style={{ background: `linear-gradient(to right, #1A6CC8 ${pct}%, #E5EAF1 ${pct}%)` }}
-                />
-            ) : (
-                <div className="flex-1 h-2 rounded-full bg-gray-100 relative">
-                    <div className="h-full rounded-full bg-[#1A6CC8]" style={{ width: `${pct}%` }} />
-                    <div className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-[#1A6CC8] border-2 border-white shadow" style={{ left: `calc(${pct}% - 7px)` }} />
+            {editable && level.value > 0 && <p className="text-[10px] text-gray-400 mt-1 pl-10">{level.hint}</p>}
+        </div>
+    );
+}
+
+function CriteriaPicker({ label, options, selected, onToggle, comment, onComment, tone }: {
+    label: string; options: string[]; selected: string[]; onToggle: (c: string) => void;
+    comment: string; onComment: (v: string) => void; tone: "good" | "work";
+}) {
+    const on = tone === "good" ? "bg-emerald-600 text-white border-emerald-600" : "bg-[#D97706] text-white border-[#D97706]";
+    return (
+        <fieldset className="space-y-1.5">
+            <legend className="text-xs font-bold text-[#0D2D5A] mb-1.5">{label}</legend>
+            <div className="flex flex-wrap gap-1.5">
+                {options.map(c => (
+                    <button
+                        key={c}
+                        type="button"
+                        aria-pressed={selected.includes(c)}
+                        onClick={() => onToggle(c)}
+                        className={cn(
+                            "text-[10px] font-semibold px-2 py-1 rounded-full border transition-colors",
+                            selected.includes(c) ? on : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                        )}
+                    >
+                        {c}
+                    </button>
+                ))}
+            </div>
+            <input
+                type="text"
+                value={comment}
+                maxLength={200}
+                onChange={e => onComment(e.target.value)}
+                placeholder="Précision (facultatif)..."
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[11px] outline-none focus:border-[#1A6CC8]"
+            />
+        </fieldset>
+    );
+}
+
+function CriteriaChips({ text, known, tone }: { text: unknown; known: string[]; tone: "good" | "work" }) {
+    const { criteria, comment } = parseCriteria(text, known);
+    if (!criteria.length && !comment) return <p className="text-[11px] text-gray-400">{NOT_PROVIDED}</p>;
+    const chip = tone === "good" ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-amber-50 text-amber-700 border-amber-100";
+    return (
+        <div className="space-y-1">
+            {criteria.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                    {criteria.map(c => <span key={c} className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full border", chip)}>{c}</span>)}
                 </div>
             )}
-            <span className="text-xs font-bold text-[#0D2D5A] w-9 text-right shrink-0">{score}/{max}</span>
+            {comment && <p className="text-[11px] text-gray-500 leading-relaxed whitespace-pre-line">{comment}</p>}
+        </div>
+    );
+}
+
+function Checklist({ items }: { items: { label: string; done: boolean }[] }) {
+    return (
+        <ul className="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5 space-y-1" aria-label="Conditions avant enregistrement">
+            {items.map(i => (
+                <li key={i.label} className={cn("flex items-center gap-1.5 text-[11px]", i.done ? "text-emerald-700" : "text-gray-400")}>
+                    {i.done ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <span className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 shrink-0" />}
+                    {i.label}
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+function ScoreSummaryBlock({ scores }: { scores: Record<string, unknown> }) {
+    const s = summarizeScores(scores);
+    const groups = [
+        { title: "Prioritaires", hint: "notes 1-2", items: s.priority, color: "#DC2626", bg: "#FEF2F2" },
+        { title: "À consolider", hint: "note 3", items: s.consolidate, color: "#D97706", bg: "#FFFBEB" },
+        { title: "Acquises", hint: "notes 4-5", items: s.acquired, color: "#16A34A", bg: "#F0FDF4" },
+    ];
+    return (
+        <div className="grid grid-cols-3 gap-2">
+            {groups.map(g => (
+                <div key={g.title} className="rounded-lg p-2" style={{ background: g.bg }}>
+                    <p className="text-[10px] font-bold" style={{ color: g.color }}>{g.title} <span className="font-normal opacity-70">({g.hint})</span></p>
+                    <p className="text-[11px] font-semibold text-[#0D2D5A] mt-0.5 leading-snug">{g.items.length ? g.items.join(", ") : "Aucune"}</p>
+                </div>
+            ))}
         </div>
     );
 }
@@ -198,6 +299,10 @@ export default function AdvisorFamilies() {
     const [diagScores, setDiagScores] = useState<Record<string, number>>({});
     const [diagStrengths, setDiagStrengths] = useState("");
     const [diagWeaknesses, setDiagWeaknesses] = useState("");
+    const [diagStrengthCriteria, setDiagStrengthCriteria] = useState<string[]>([]);
+    const [diagWeaknessCriteria, setDiagWeaknessCriteria] = useState<string[]>([]);
+    const toggleIn = (setter: (fn: (prev: string[]) => string[]) => void) => (c: string) =>
+        setter(prev => (prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]));
 
     // Plan form
     const [planTitle, setPlanTitle] = useState("");
@@ -329,8 +434,8 @@ export default function AdvisorFamilies() {
                     scores: Object.fromEntries(
                         familySubjects.map(subj => [subj, diagScores[subj] ?? DEFAULT_DIAG_SCORE])
                     ),
-                    strengths: diagStrengths || null,
-                    weaknesses: diagWeaknesses || null,
+                    strengths: serializeCriteria(diagStrengthCriteria, diagStrengths),
+                    weaknesses: serializeCriteria(diagWeaknessCriteria, diagWeaknesses),
                 })
             });
             if (!res.ok) throw new Error("Echec sauvegarde diagnostic");
@@ -345,6 +450,8 @@ export default function AdvisorFamilies() {
             setDiagScores({});
             setDiagStrengths("");
             setDiagWeaknesses("");
+            setDiagStrengthCriteria([]);
+            setDiagWeaknessCriteria([]);
             toast.success("Diagnostic enregistré !");
         },
         onError: () => toast.error("Erreur lors de la sauvegarde du diagnostic"),
@@ -384,6 +491,21 @@ export default function AdvisorFamilies() {
         },
         onError: () => toast.error("Erreur lors de la sauvegarde du plan"),
     });
+
+    const diagChecklist = [
+        { label: `Toutes les matières notées (${familySubjects.filter(sj => (diagScores[sj] ?? DEFAULT_DIAG_SCORE) >= 1).length}/${familySubjects.length})`, done: familySubjects.every(sj => (diagScores[sj] ?? DEFAULT_DIAG_SCORE) >= 1) },
+        { label: "Au moins un point fort", done: diagStrengthCriteria.length > 0 || diagStrengths.trim() !== "" },
+        { label: "Au moins un point à renforcer", done: diagWeaknessCriteria.length > 0 || diagWeaknesses.trim() !== "" },
+    ];
+    const diagReady = diagChecklist.every(c => c.done);
+
+    const planChecklist = [
+        { label: "Titre du plan", done: planTitle.trim() !== "" },
+        { label: "Date de début", done: !!planStart },
+        { label: "Un objectif pour chaque semaine", done: planWeeks.every(w => w.objective.trim() !== "") },
+        { label: "Au moins une matière par semaine", done: planWeeks.every(w => w.subjects.length > 0) },
+    ];
+    const planReady = planChecklist.every(c => c.done);
 
     // ──────────────────────────────────────────────────────────────────────
     // Matching (uniquement pour les élèves avec compte)
@@ -993,24 +1115,24 @@ export default function AdvisorFamilies() {
                                                         Diagnostic enregistré · {new Date((diagnostic as any).created_at).toLocaleDateString("fr-FR")}
                                                     </p>
                                                 </div>
+                                                <p className="text-sm font-bold text-[#0D2D5A] pt-1">Synthèse</p>
+                                                <ScoreSummaryBlock scores={(diagnostic as any).scores || {}} />
                                                 <p className="text-sm font-bold text-[#0D2D5A] pt-1">Niveau des matières</p>
                                                 <div className="space-y-3">
                                                     {Object.entries((diagnostic as any).scores || {}).map(([subj, score]: any) => (
                                                         <SubjectBar key={subj} subject={subj} score={Number(score)} />
                                                     ))}
                                                 </div>
-                                                {((diagnostic as any).strengths || (diagnostic as any).weaknesses) && (
-                                                    <div className="grid grid-cols-2 gap-3 pt-1">
-                                                        <div>
-                                                            <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points forts</p>
-                                                            <p className="text-[11px] text-gray-500 leading-relaxed">{(diagnostic as any).strengths || NOT_PROVIDED}</p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points à renforcer</p>
-                                                            <p className="text-[11px] text-gray-500 leading-relaxed">{(diagnostic as any).weaknesses || NOT_PROVIDED}</p>
-                                                        </div>
+                                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points forts</p>
+                                                        <CriteriaChips text={(diagnostic as any).strengths} known={STRENGTH_CRITERIA} tone="good" />
                                                     </div>
-                                                )}
+                                                    <div>
+                                                        <p className="text-xs font-bold text-[#0D2D5A] mb-1">Points à renforcer</p>
+                                                        <CriteriaChips text={(diagnostic as any).weaknesses} known={WEAKNESS_CRITERIA} tone="work" />
+                                                    </div>
+                                                </div>
                                                 {/* Après le diagnostic : CTA Matching ou Lancer matching */}
                                                 <button
                                                     onClick={() => {
@@ -1035,7 +1157,10 @@ export default function AdvisorFamilies() {
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
-                                                <p className="text-sm font-bold text-[#0D2D5A]">Niveau des matières</p>
+                                                <div>
+                                                    <p className="text-sm font-bold text-[#0D2D5A]">Niveau des matières</p>
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">1 Lacunes importantes · 2 Fragile · 3 En cours d'acquisition · 4 Acquis · 5 Maîtrisé</p>
+                                                </div>
                                                 <div className="space-y-3">
                                                     {familySubjects.map(subj => (
                                                         <SubjectBar
@@ -1047,40 +1172,31 @@ export default function AdvisorFamilies() {
                                                         />
                                                     ))}
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-3 pt-1">
-                                                    <div>
-                                                        <p className="text-xs font-bold text-[#0D2D5A] mb-1.5">Points forts</p>
-                                                        <div className="relative">
-                                                            <textarea
-                                                                value={diagStrengths}
-                                                                onChange={e => setDiagStrengths(e.target.value.slice(0, 200))}
-                                                                rows={3}
-                                                                maxLength={200}
-                                                                placeholder="Ex : bonne compréhension, rigueur..."
-                                                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#1A6CC8] resize-none"
-                                                            />
-                                                            <span className="absolute bottom-1.5 right-2 text-[9px] text-gray-300">{diagStrengths.length}/200</span>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-[#0D2D5A] mb-1.5">Points à renforcer</p>
-                                                        <div className="relative">
-                                                            <textarea
-                                                                value={diagWeaknesses}
-                                                                onChange={e => setDiagWeaknesses(e.target.value.slice(0, 200))}
-                                                                rows={3}
-                                                                maxLength={200}
-                                                                placeholder="Ex : exercices, expression écrite..."
-                                                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#1A6CC8] resize-none"
-                                                            />
-                                                            <span className="absolute bottom-1.5 right-2 text-[9px] text-gray-300">{diagWeaknesses.length}/200</span>
-                                                        </div>
-                                                    </div>
+                                                <div className="space-y-3 pt-1">
+                                                    <CriteriaPicker
+                                                        label="Points forts"
+                                                        options={STRENGTH_CRITERIA}
+                                                        selected={diagStrengthCriteria}
+                                                        onToggle={toggleIn(setDiagStrengthCriteria)}
+                                                        comment={diagStrengths}
+                                                        onComment={setDiagStrengths}
+                                                        tone="good"
+                                                    />
+                                                    <CriteriaPicker
+                                                        label="Points à renforcer"
+                                                        options={WEAKNESS_CRITERIA}
+                                                        selected={diagWeaknessCriteria}
+                                                        onToggle={toggleIn(setDiagWeaknessCriteria)}
+                                                        comment={diagWeaknesses}
+                                                        onComment={setDiagWeaknesses}
+                                                        tone="work"
+                                                    />
                                                 </div>
+                                                <Checklist items={diagChecklist} />
                                                 <button
-                                                    disabled={diagMutation.isPending}
+                                                    disabled={!diagReady || diagMutation.isPending}
                                                     onClick={() => diagMutation.mutate()}
-                                                    className="w-full h-12 bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white text-sm font-bold rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                                                    className="w-full h-12 bg-[#0D2D5A] hover:bg-[#0D2D5A]/90 text-white text-sm font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     {diagMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                                     {diagMutation.isPending ? "Enregistrement..." : "Enregistrer le diagnostic"}
@@ -1108,6 +1224,22 @@ export default function AdvisorFamilies() {
                                                     <span className="text-[8px] font-bold text-[#0F9B8E] bg-[#0F9B8E]/10 px-1.5 py-0.5 rounded">Actif</span>
                                                 </div>
                                                 <p className="text-[9px] text-gray-400">Début : {new Date((activePlan as any).start_date).toLocaleDateString("fr-FR")}</p>
+                                                {(() => {
+                                                    const weeks = (activePlan as any).weeks || [];
+                                                    const done = weeks.filter((w: any) => w.done).length;
+                                                    const pct = weeks.length ? Math.round((done / weeks.length) * 100) : 0;
+                                                    return (
+                                                        <div>
+                                                            <div className="flex justify-between text-[10px] font-semibold text-[#0D2D5A] mb-1">
+                                                                <span>Avancement</span>
+                                                                <span>{done}/{weeks.length} semaines validées · {pct} %</span>
+                                                            </div>
+                                                            <div className="h-1.5 rounded-full bg-gray-100">
+                                                                <div className="h-full rounded-full bg-[#0F9B8E]" style={{ width: `${pct}%` }} />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
                                                     {((activePlan as any).weeks || []).map((w: any, i: number) => (
                                                         <div key={i} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
@@ -1135,6 +1267,18 @@ export default function AdvisorFamilies() {
                                             </div>
                                         ) : (
                                             <div className="space-y-2">
+                                                {(() => {
+                                                    const sum = summarizeScores((diagnostic as any)?.scores);
+                                                    if (!(diagnostic as any)?.id) {
+                                                        return <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2">Aucun diagnostic enregistré : réalisez-le d'abord pour cibler le plan sur les besoins réels de l'élève.</p>;
+                                                    }
+                                                    return (
+                                                        <p className="text-[10px] text-[#0D2D5A] bg-[#0F9B8E]/5 border border-[#0F9B8E]/15 rounded-lg p-2">
+                                                            <span className="font-bold">D'après le diagnostic :</span>{" "}
+                                                            prioritaires {sum.priority.length ? sum.priority.join(", ") : "aucune"} ; à consolider {sum.consolidate.length ? sum.consolidate.join(", ") : "aucune"}.
+                                                        </p>
+                                                    );
+                                                })()}
                                                 <input
                                                     type="text"
                                                     value={planTitle}
@@ -1182,7 +1326,7 @@ export default function AdvisorFamilies() {
                                                                             week.subjects.includes(s) ? "bg-[#0D2D5A] text-white border-[#0D2D5A]" : "bg-white text-gray-400 border-gray-200"
                                                                         }`}
                                                                     >
-                                                                        {s.slice(0, 4)}
+                                                                        {s}
                                                                     </button>
                                                                 ))}
                                                             </div>
@@ -1195,8 +1339,9 @@ export default function AdvisorFamilies() {
                                                 >
                                                     <PlusCircle className="w-3 h-3" /> Ajouter une semaine
                                                 </button>
+                                                <Checklist items={planChecklist} />
                                                 <button
-                                                    disabled={!planTitle.trim() || !planStart || planMutation.isPending}
+                                                    disabled={!planReady || planMutation.isPending}
                                                     onClick={() => planMutation.mutate()}
                                                     className="w-full h-8 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
                                                 >
@@ -1263,7 +1408,7 @@ export default function AdvisorFamilies() {
                                 {!prospect && (
                                     <div className="mt-4 pt-4 border-t border-gray-100">
                                         <h3 className="text-[12px] font-black text-[#0D2D5A] uppercase tracking-widest mb-4">Dossier Académique</h3>
-                                        <AcademicFile studentId={studentId} />
+                                        <AcademicFile studentId={studentId} hidePedagogyTabs />
                                     </div>
                                 )}
 
