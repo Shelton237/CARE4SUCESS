@@ -5950,43 +5950,151 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
   }
 
   try {
-    // Récupère les demandes avec leur assignment et la prochaine session à venir
-    const [rows] = await pool.query(
-      `SELECT
-         r.id,
-         r.parent_name,
-         r.child_name,
-         r.level,
-         r.subject,
-         r.status          AS request_status,
-         a.selected_teacher,
-         a.status          AS assignment_status,
-         (SELECT email FROM users WHERE name = r.parent_name AND role = 'parent' LIMIT 1) AS parent_email,
-         (SELECT email FROM users WHERE name = r.child_name AND role = 'student' LIMIT 1) AS child_email,
-         (SELECT id FROM users WHERE name = r.child_name AND role = 'student' LIMIT 1) AS student_id,
-         (SELECT location FROM users WHERE name = r.parent_name AND role = 'parent' LIMIT 1) AS parent_location,
-         MIN(CASE WHEN DATE(s.session_date) >= CURDATE() THEN s.session_date END) AS next_date,
-         MIN(CASE WHEN DATE(s.session_date) >= CURDATE() THEN s.session_time  END) AS next_time
-       FROM requests r
-       LEFT JOIN assignments a
-              ON a.child_name = r.child_name AND a.level = r.level
-              AND a.id = (
-                SELECT a2.id FROM assignments a2
-                WHERE a2.child_name = r.child_name AND a2.level = r.level
-                ORDER BY (a2.status = 'confirmed') DESC, a2.updated_at DESC, a2.created_at DESC
-                LIMIT 1
-              )
-       LEFT JOIN sessions s
-              ON s.student_name = r.child_name AND s.parent_name = r.parent_name
-       GROUP BY r.id, r.parent_name, r.child_name, r.level, r.subject, r.status,
-                a.selected_teacher, a.status
-       ORDER BY r.request_date DESC`
+    // SEC-04 : plus aucun rattachement par NOM seul. Une demande n'est reliée à
+    // un élève que si le lien est prouvé par identifiants :
+    //   parent = users (role/secondary_role parent) dont l'email = requests.email
+    //   élève  = users role student, de ce nom, lié à CE parent (users.parent_id
+    //            ou parent_child). Aucun lien prouvé ou plusieurs candidats =>
+    //            student_id NULL (la famille reste affichée en prospect).
+    const normName = (v) => String(v ?? "").trim().toLowerCase();
+    const normEmail = (v) => String(v ?? "").trim().toLowerCase();
+
+    const [requestRows] = await pool.query(
+      `SELECT id, parent_name, child_name, level, subject, status AS request_status, email
+       FROM requests
+       ORDER BY request_date DESC`
     );
 
-    // Élèves créés directement (ex: via l'admin) sans aucune demande de bilan
-    // associée — sans ce complément, ils n'apparaissent jamais sur cet écran
-    // alors que le compte existe bien.
-    const [directRows] = await pool.query(
+    // 1. Parents identifiés par email (email partagé par 2 comptes = ambigu = ignoré)
+    const reqEmails = [...new Set(requestRows.map((r) => normEmail(r.email)).filter(Boolean))];
+    const parentByEmail = new Map();
+    if (reqEmails.length) {
+      const [parentRows] = await pool.query(
+        `SELECT id, email, location FROM users
+         WHERE (role = 'parent' OR secondary_role = 'parent') AND LOWER(TRIM(email)) IN (?)`,
+        [reqEmails]
+      );
+      const seen = new Map();
+      for (const p of parentRows) {
+        const k = normEmail(p.email);
+        seen.set(k, [...(seen.get(k) || []), p]);
+      }
+      for (const [k, list] of seen) if (list.length === 1) parentByEmail.set(k, list[0]);
+    }
+
+    // 2. Élèves liés à ces parents (users.parent_id OU parent_child)
+    const parentIds = [...new Set([...parentByEmail.values()].map((p) => p.id))];
+    const studentsByParent = new Map(); // parentId -> Map(studentId -> {id,name,email})
+    if (parentIds.length) {
+      const addLink = (parentId, st) => {
+        if (!studentsByParent.has(parentId)) studentsByParent.set(parentId, new Map());
+        studentsByParent.get(parentId).set(st.id, st);
+      };
+      const [byParentId] = await pool.query(
+        `SELECT id, name, email, parent_id AS link_parent FROM users
+         WHERE role = 'student' AND parent_id IN (?)`,
+        [parentIds]
+      );
+      byParentId.forEach((st) => addLink(st.link_parent, st));
+      const [byPivot] = await pool
+        .query(
+          `SELECT u.id, u.name, u.email, pc.parent_id AS link_parent
+           FROM parent_child pc JOIN users u ON u.id = pc.child_id
+           WHERE u.role = 'student' AND pc.parent_id IN (?)`,
+          [parentIds]
+        )
+        .catch(() => [[]]);
+      byPivot.forEach((st) => addLink(st.link_parent, st));
+    }
+
+    // 3. Résolution par demande
+    const resolved = requestRows.map((r) => {
+      const parent = parentByEmail.get(normEmail(r.email)) || null;
+      let student = null;
+      if (parent) {
+        const candidates = [...(studentsByParent.get(parent.id)?.values() || [])].filter(
+          (st) => normName(st.name) === normName(r.child_name)
+        );
+        if (candidates.length === 1) student = candidates[0];
+      }
+      return { r, parent, student };
+    });
+
+    // Même famille = même email non vide, ou (sans email des deux côtés) même nom de parent.
+    const sameFamily = (x, y) => {
+      const ex = normEmail(x.email), ey = normEmail(y.email);
+      if (ex || ey) return ex === ey;
+      return normName(x.parent_name) === normName(y.parent_name);
+    };
+
+    // 4. Affectations (assignments n'a que child_name + level, pas d'identifiant
+    // de famille) : on ne rattache l'affectation que si aucune demande d'une AUTRE
+    // famille ne porte le même enfant + niveau (sinon ambigu => non rattachée).
+    const childNames = [...new Set(requestRows.map((r) => r.child_name))];
+    let assignmentRows = [];
+    if (childNames.length) {
+      [assignmentRows] = await pool.query(
+        `SELECT child_name, level, selected_teacher, status
+         FROM assignments WHERE child_name IN (?)
+         ORDER BY (status = 'confirmed') DESC, updated_at DESC, created_at DESC`,
+        [childNames]
+      );
+    }
+
+    // 5. Prochains RDV : uniquement via sessions.student_id d'un élève prouvé
+    const studentIds = [...new Set(resolved.map((x) => x.student?.id).filter(Boolean))];
+    const nextByStudent = new Map();
+    if (studentIds.length) {
+      const [sessRows] = await pool.query(
+        `SELECT student_id, session_date, session_time FROM sessions
+         WHERE student_id IN (?) AND DATE(session_date) >= CURDATE()`,
+        [studentIds]
+      );
+      for (const s of sessRows) {
+        const cur = nextByStudent.get(s.student_id) || { next_date: null, next_time: null };
+        if (cur.next_date === null || new Date(s.session_date) < new Date(cur.next_date)) cur.next_date = s.session_date;
+        if (cur.next_time === null || String(s.session_time) < String(cur.next_time)) cur.next_time = s.session_time;
+        nextByStudent.set(s.student_id, cur);
+      }
+    }
+
+    const rows = resolved.map(({ r, parent, student }) => {
+      const ambiguousAssignment = requestRows.some(
+        (o) =>
+          o.id !== r.id &&
+          normName(o.child_name) === normName(r.child_name) &&
+          normName(o.level) === normName(r.level) &&
+          !sameFamily(o, r)
+      );
+      const a = ambiguousAssignment
+        ? null
+        : assignmentRows.find(
+            (x) => normName(x.child_name) === normName(r.child_name) && normName(x.level) === normName(r.level)
+          ) || null;
+      const next = (student && nextByStudent.get(student.id)) || {};
+      return {
+        id: r.id,
+        parent_name: r.parent_name,
+        child_name: r.child_name,
+        level: r.level,
+        subject: r.subject,
+        request_status: r.request_status,
+        selected_teacher: a?.selected_teacher ?? null,
+        assignment_status: a?.status ?? null,
+        parent_email: parent?.email ?? null,
+        child_email: student?.email ?? null,
+        student_id: student?.id ?? null,
+        parent_location: parent?.location ?? null,
+        next_date: next.next_date ?? null,
+        next_time: next.next_time ?? null,
+      };
+    });
+
+    // Élèves créés directement (ex: via l'admin) sans demande de bilan associée.
+    // Exclusion sur le lien PROUVÉ (student_id résolu ci-dessus), pas sur le nom :
+    // un élève n'apparaît ni deux fois ni jamais.
+    const linkedStudentIds = new Set(rows.map((r) => r.student_id).filter(Boolean));
+    const [allStudentRows] = await pool.query(
       `SELECT
          u.id,
          u.name              AS child_name,
@@ -6000,9 +6108,9 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
        LEFT JOIN users p ON p.id = u.parent_id
        LEFT JOIN student_teacher st ON st.student_id = u.id
        WHERE u.role = 'student'
-         AND NOT EXISTS (SELECT 1 FROM requests r2 WHERE r2.child_name = u.name)
        ORDER BY u.created_at DESC`
     ).catch(() => [[]]);
+    const directRows = allStudentRows.filter((u) => !linkedStudentIds.has(u.id));
 
     const directTeacherIds = [...new Set(directRows.map((r) => r.teacher_id).filter(Boolean))];
     let directTeacherNames = {};
