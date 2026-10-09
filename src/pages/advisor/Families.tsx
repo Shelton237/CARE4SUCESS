@@ -492,7 +492,7 @@ export default function AdvisorFamilies() {
         return (
             <div className="p-4 md:p-8 flex flex-col items-center justify-center min-h-[400px]">
                 <Loader2 className="animate-spin text-[#0F9B8E] w-10 h-10" />
-                <p className="text-gray-400 text-sm mt-4">Chargement des familles...</p>
+                <p className="text-gray-400 text-sm mt-4">Chargement des élèves...</p>
             </div>
         );
     }
@@ -501,7 +501,7 @@ export default function AdvisorFamilies() {
         return (
             <div className="p-4 md:p-8">
                 <div className="bg-red-50 border border-red-100 rounded-2xl p-5 flex items-center justify-between text-sm text-red-700">
-                    <span>Impossible de charger les familles. Service temporairement indisponible.</span>
+                    <span>Impossible de charger les élèves. Service temporairement indisponible.</span>
                     <button
                         onClick={() => refetch()}
                         className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold hover:bg-red-100 transition-colors"
@@ -530,8 +530,8 @@ export default function AdvisorFamilies() {
         <div className="p-4 md:px-8 md:pb-8 md:pt-0 space-y-5 animate-in fade-in duration-500">
             {/* Header */}
             <div>
-                <h1 className="text-[28px] font-bold text-[#0D2D5A] leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Suivi des familles</h1>
-                <p className="text-gray-500 text-sm mt-0.5">Gérez les relations parents-élèves et les affectations de tuteurs.</p>
+                <h1 className="text-[28px] font-bold text-[#0D2D5A] leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Suivi des élèves</h1>
+                <p className="text-gray-500 text-sm mt-0.5">Suivez le parcours de chaque élève, de la demande à l'affectation d'un tuteur.</p>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
@@ -539,7 +539,7 @@ export default function AdvisorFamilies() {
                 <div className="xl:col-span-6 flex flex-col gap-5">
                     {/* Cartes statistiques */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <StatCard icon={Users} value={stats.total} label="Familles" desc="Total des familles enregistrées" bg="#0D2D5A" />
+                        <StatCard icon={Users} value={stats.total} label="Élèves" desc="Total des élèves suivis" bg="#0D2D5A" />
                         <StatCard icon={UserCircle2} value={stats.toQualify} label="À qualifier" desc="Nécessitent un suivi rapproché" bg="#F5A623" />
                         <StatCard icon={TrendingUp} value={stats.activeFollowups} label="Suivis actifs" desc="En accompagnement" bg="#0F9B8E" />
                     </div>
@@ -551,7 +551,7 @@ export default function AdvisorFamilies() {
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
                                 <input
                                     type="text"
-                                    placeholder="Rechercher un parent, un élève ou une famille..."
+                                    placeholder="Rechercher un élève ou un parent..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#0F9B8E]/20 focus:border-[#0F9B8E] transition-all"
@@ -680,15 +680,15 @@ export default function AdvisorFamilies() {
                             {filteredFamilies.length === 0 && (
                                 <div className="px-6 py-16 text-center">
                                     <SearchCheck className="w-12 h-12 text-gray-100 mx-auto mb-3" />
-                                    <p className="text-sm text-gray-400 italic">Aucune famille ne correspond à votre recherche.</p>
+                                    <p className="text-sm text-gray-400 italic">Aucun élève ne correspond à votre recherche.</p>
                                 </div>
                             )}
                         </div>
 
                         {sortedFamilies.length > PAGE_SIZE && (
-                            <nav aria-label="Pagination des familles" className="flex items-center justify-between gap-3 px-5 py-3 border-t border-gray-100">
+                            <nav aria-label="Pagination des élèves" className="flex items-center justify-between gap-3 px-5 py-3 border-t border-gray-100">
                                 <p className="text-xs text-gray-400">
-                                    <span className="font-bold text-[#0D2D5A]">{pageStart + 1}-{Math.min(pageStart + PAGE_SIZE, sortedFamilies.length)}</span> sur {sortedFamilies.length} familles
+                                    <span className="font-bold text-[#0D2D5A]">{pageStart + 1}-{Math.min(pageStart + PAGE_SIZE, sortedFamilies.length)}</span> sur {sortedFamilies.length} élèves
                                 </p>
                                 <div className="flex items-center gap-1">
                                     <button
@@ -1304,9 +1304,9 @@ export default function AdvisorFamilies() {
                         <div className="bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100 p-12 text-center h-full min-h-[500px] flex flex-col items-center justify-center space-y-4">
                             <Users className="w-12 h-12 text-gray-100" />
                             <div>
-                                <h3 className="text-lg font-bold text-gray-300 italic">Focus Famille</h3>
+                                <h3 className="text-lg font-bold text-gray-300 italic">Fiche élève</h3>
                                 <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-2 max-w-[220px] mx-auto leading-relaxed text-center">
-                                    Sélectionnez une famille pour accéder au dossier détaillé et aux affectations de tuteurs.
+                                    Sélectionnez un élève pour accéder à son dossier détaillé et à l'affectation de son tuteur.
                                 </p>
                             </div>
                         </div>

@@ -14,7 +14,7 @@ import AdvisorRequests from "./Requests";
 const NAV = [
     { to: "/advisor", label: "Tableau de bord", icon: Home },
     { to: "/advisor/requests", label: "Demandes de bilan", icon: FileText },
-    { to: "/advisor/families", label: "Mes familles", icon: Users },
+    { to: "/advisor/families", label: "Mes élèves", icon: Users },
     { to: "/advisor/matching", label: "Matching", icon: GitMerge },
     { to: "/advisor/applications", label: "Candidatures profs", icon: User },
     { to: "/advisor/reports", label: "Bilans", icon: BarChart3 },

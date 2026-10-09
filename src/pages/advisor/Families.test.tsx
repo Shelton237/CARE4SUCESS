@@ -97,10 +97,10 @@ describe("AdvisorFamilies — Mes familles", () => {
       renderFamilies();
       await screen.findByText("Mme Ba");
 
-      const search = screen.getByPlaceholderText(/Rechercher un parent, un élève/i);
+      const search = screen.getByPlaceholderText(/Rechercher un élève ou un parent/i);
       await user.type(search, "Inexistant");
 
-      expect(await screen.findByText(/Aucune famille ne correspond à votre recherche/i)).toBeInTheDocument();
+      expect(await screen.findByText(/Aucun élève ne correspond à votre recherche/i)).toBeInTheDocument();
     });
 
     it("erreur réseau : n'affiche aucune famille si fetchAdvisorFamilies échoue", async () => {
@@ -520,7 +520,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       await screen.findByText("Parent 00");
 
       expect(screen.getAllByRole("row")).toHaveLength(1 + 8);
-      expect(screen.getByText(/sur 10 familles/)).toBeInTheDocument();
+      expect(screen.getByText(/sur 10 élèves/)).toBeInTheDocument();
       expect(screen.queryByText("Parent 08")).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Page suivante" }));
@@ -822,7 +822,7 @@ describe("AdvisorFamilies — Mes familles", () => {
       renderFamilies();
       await screen.findByText("Zoe Martin");
 
-      await user.type(screen.getByPlaceholderText(/Rechercher un parent, un élève/i), "a");
+      await user.type(screen.getByPlaceholderText(/Rechercher un élève ou un parent/i), "a");
       await user.click(screen.getByRole("button", { name: /Parent \/ Contact/ }));
       const rows = rowsText();
       expect(rows).toHaveLength(3 - rows.filter(r => !/a/i.test(r)).length);
