@@ -19,12 +19,15 @@ import { motion } from "framer-motion";
 import { springPresets } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { createRequest } from "@/api/backoffice";
+import { PhoneCountryInput } from "@/components/common/PhoneCountryInput";
+import { LevelSelect } from "@/components/common/LevelSelect";
+import { SubjectSelect } from "@/components/common/SubjectSelect";
 
 const formSchema = z.object({
   firstName: z.string().min(2, "Le prénom doit contenir au moins 2 caractères"),
   lastName: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
   email: z.string().email("Adresse email invalide"),
-  phone: z.string().min(10, "Numéro de téléphone invalide"),
+  phone: z.string().min(6, "Numéro de téléphone trop court"),
   level: z.string().min(1, "Veuillez sélectionner un niveau"),
   subject: z.string().min(1, "Veuillez sélectionner une matière"),
   message: z.string().optional(),
@@ -45,6 +48,7 @@ export function ContactForm({ className }: ContactFormProps) {
     handleSubmit,
     formState: { errors, isSubmitting },
     setValue,
+    watch,
     reset,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -178,11 +182,10 @@ export function ContactForm({ className }: ContactFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="phone">Téléphone *</Label>
-          <Input
+          <PhoneCountryInput
             id="phone"
-            type="tel"
-            placeholder="+237 6XX XXX XXX"
-            {...register("phone")}
+            phone={watch("phone") || ""}
+            onPhoneChange={(val) => setValue("phone", val, { shouldValidate: true })}
             className={errors.phone ? "border-destructive" : ""}
           />
           {errors.phone && (
@@ -192,23 +195,12 @@ export function ContactForm({ className }: ContactFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="level">Niveau scolaire *</Label>
-          <Select onValueChange={(value) => setValue("level", value)}>
-            <SelectTrigger
-              id="level"
-              className={errors.level ? "border-destructive" : ""}
-            >
-              <SelectValue placeholder="Sélectionnez un niveau" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="primaire">Primaire (SIL-CM2 / CEP)</SelectItem>
-              <SelectItem value="college">Collège (6e-3e / BEPC)</SelectItem>
-              <SelectItem value="lycee">Lycée (2de-Terminale / BAC)</SelectItem>
-              <SelectItem value="superieur">
-                Études supérieures
-              </SelectItem>
-              <SelectItem value="adulte">Adulte</SelectItem>
-            </SelectContent>
-          </Select>
+          <LevelSelect
+            id="level"
+            value={watch("level") || ""}
+            onValueChange={(value) => setValue("level", value, { shouldValidate: true })}
+            className={errors.level ? "border-destructive" : ""}
+          />
           {errors.level && (
             <p className="text-sm text-destructive">{errors.level.message}</p>
           )}
@@ -216,28 +208,12 @@ export function ContactForm({ className }: ContactFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="subject">Matière principale *</Label>
-          <Select onValueChange={(value) => setValue("subject", value)}>
-            <SelectTrigger
-              id="subject"
-              className={errors.subject ? "border-destructive" : ""}
-            >
-              <SelectValue placeholder="Sélectionnez une matière" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="mathematiques">Mathématiques</SelectItem>
-              <SelectItem value="francais">Français</SelectItem>
-              <SelectItem value="anglais">Anglais</SelectItem>
-              <SelectItem value="physique-chimie">
-                Physique-Chimie
-              </SelectItem>
-              <SelectItem value="histoire-geo">
-                Histoire-Géographie
-              </SelectItem>
-              <SelectItem value="svt">SVT</SelectItem>
-              <SelectItem value="philosophie">Philosophie</SelectItem>
-              <SelectItem value="autre">Autre matière</SelectItem>
-            </SelectContent>
-          </Select>
+          <SubjectSelect
+            id="subject"
+            value={watch("subject") || ""}
+            onValueChange={(value) => setValue("subject", value, { shouldValidate: true })}
+            className={errors.subject ? "border-destructive" : ""}
+          />
           {errors.subject && (
             <p className="text-sm text-destructive">
               {errors.subject.message}

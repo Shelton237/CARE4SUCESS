@@ -1,8 +1,10 @@
-import { Users, GitMerge, ClipboardList, Clock, Loader2 } from "lucide-react";
+import { Users, GitMerge, ClipboardList, Clock, Loader2, UserCheck, Inbox } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
-import { fetchAdvisorDashboard } from "@/api/backoffice";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchAdvisorDashboard, updateRequestStatus } from "@/api/backoffice";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const STATUS_COLOR: Record<string, string> = {
     "suivi actif": "bg-green-50 text-green-600",
@@ -11,20 +13,27 @@ const STATUS_COLOR: Record<string, string> = {
     "nouveau": "bg-blue-50 text-[#1A6CC8]",
 };
 
-const REQUEST_STATUS_COLOR: Record<string, string> = {
-    "reçu": "bg-yellow-50 text-yellow-600",
-    "en traitement": "bg-blue-50 text-blue-600",
-    "assigné": "bg-green-50 text-green-600",
-    "clôturé": "bg-gray-100 text-gray-500",
-};
+
 
 export default function AdvisorDashboard() {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
     const { data, isLoading, error } = useQuery({
         queryKey: ["advisorDashboard", user?.id],
         queryFn: () => fetchAdvisorDashboard(user!.id),
         enabled: !!user?.id,
+    });
+
+    const takeOverMutation = useMutation({
+        mutationFn: (id: string) => updateRequestStatus(id, "en traitement"),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["advisorDashboard", user?.id] });
+            queryClient.invalidateQueries({ queryKey: ["backoffice", "requests"] });
+            toast.success("Demande prise en charge !");
+        },
+        onError: (err: Error) => toast.error(`Erreur: ${err.message}`),
     });
 
     if (isLoading) {
@@ -111,7 +120,11 @@ export default function AdvisorDashboard() {
                             <p className="text-xs text-gray-400 italic py-4 text-center">Aucune famille assignée.</p>
                         ) : (
                             families.map((f: any, idx: number) => (
-                                <div key={f.id || `fam-${idx}`} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                                <div
+                                    key={f.id || `fam-${idx}`}
+                                    onClick={() => navigate("/advisor/families", { state: { familyId: f.id, childName: f.child } })}
+                                    className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-xl border-b border-gray-50 last:border-0 hover:bg-gray-50/80 cursor-pointer transition-colors"
+                                >
                                     <div className="w-9 h-9 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-xs font-bold text-[#1A6CC8] flex-shrink-0">
                                         {f.child?.[0] || "?"}
                                     </div>
@@ -128,21 +141,62 @@ export default function AdvisorDashboard() {
 
                 {/* Demandes récentes */}
                 <div className="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-gray-100">
-                    <h2 className="text-base font-bold text-[#0D2D5A] mb-4">Dernières demandes reçues</h2>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-base font-bold text-[#0D2D5A]">Dernières demandes reçues</h2>
+                        <button
+                            onClick={() => navigate("/advisor/requests")}
+                            className="flex items-center gap-1 text-[#1A6CC8] text-xs font-bold hover:underline"
+                        >
+                            <Inbox className="w-3.5 h-3.5" /> Voir toutes
+                        </button>
+                    </div>
                     <div className="space-y-3">
                         {requests.length === 0 ? (
                             <p className="text-xs text-gray-400 italic py-4 text-center">Aucune demande récente.</p>
                         ) : (
                             requests.map((r: any, idx: number) => (
-                                <div key={r.id || `req-${idx}`} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                                    <div className="w-9 h-9 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-xs font-bold text-[#1A6CC8] flex-shrink-0">
+                                <div key={r.id || `req-${idx}`} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+                                    <div className="w-9 h-9 rounded-full bg-[#1A6CC8]/10 flex items-center justify-center text-xs font-bold text-[#1A6CC8] flex-shrink-0 mt-0.5">
                                         {r.parent ? r.parent[0] : "?"}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="font-semibold text-[#0D2D5A] text-sm">{r.child || "Élève non spécifié"}</div>
                                         <div className="text-xs text-gray-400">{r.level} · {r.subject} · {r.date}</div>
+                                        {/* Boutons contextuels selon le statut */}
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            {r.status === "reçu" && (
+                                                <button
+                                                    disabled={takeOverMutation.isPending}
+                                                    onClick={() => takeOverMutation.mutate(r.id)}
+                                                    className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-black text-white bg-[#1A6CC8] hover:bg-[#0D2D5A] rounded-lg px-2.5 py-1 transition-colors"
+                                                >
+                                                    <UserCheck className="w-3 h-3" /> Prendre en charge
+                                                </button>
+                                            )}
+                                            {r.status === "en traitement" && (
+                                                <>
+                                                    <button
+                                                        onClick={() => navigate("/advisor/families", { state: { requestId: r.id, defaultPanel: "diagnostic" } })}
+                                                        className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg px-2 py-1 transition-colors"
+                                                    >
+                                                        <ClipboardList className="w-3 h-3" /> Diagnostic & Bilan
+                                                    </button>
+                                                    <button
+                                                        onClick={() => navigate("/advisor/matching", { state: { childName: r.child, level: r.level, subject: r.subject } })}
+                                                        className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-black text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-100 rounded-lg px-2 py-1 transition-colors"
+                                                    >
+                                                        <GitMerge className="w-3 h-3" /> Lancer le matching
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${REQUEST_STATUS_COLOR[r.status] ?? "bg-gray-100 text-gray-500"}`}>{r.status}</span>
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${
+                                        r.status === "reçu" ? "bg-amber-50 text-amber-700" :
+                                        r.status === "en traitement" ? "bg-blue-50 text-blue-700" :
+                                        r.status === "assigné" ? "bg-emerald-50 text-emerald-700" :
+                                        "bg-gray-100 text-gray-500"
+                                    }`}>{r.status}</span>
                                 </div>
                             ))
                         )}

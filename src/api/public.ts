@@ -79,6 +79,17 @@ export interface PublicTeacherProfile extends PublicTeacher {
 
 export const fetchPublicTeachers = () => publicRequest<PublicTeacher[]>("/public/teachers");
 
+export interface EducationOptions {
+    availableSubjects: string[];
+    availableLevels: string[];
+    count: number;
+}
+
+export const fetchEducationOptions = (country?: string) =>
+    publicRequest<EducationOptions>(
+        `/public/education-options${country ? `?country=${encodeURIComponent(country)}` : ""}`
+    );
+
 export const fetchPublicTeacherProfile = (id: string) =>
     publicRequest<PublicTeacherProfile>(`/public/teachers/${id}`);
 
@@ -109,6 +120,12 @@ export const submitEvaluationRequest = (payload: EvaluationRequestPayload) =>
         method: "POST",
         body: JSON.stringify(payload),
     });
+
+export const checkPublicEmail = (email: string) =>
+    publicRequest<{ available: boolean; reason?: string }>(
+        `/public/check-email?email=${encodeURIComponent(email)}`,
+        { method: "GET" }
+    );
 
 export type MobileMoneyNetwork = "MTN" | "ORANGE";
 

@@ -921,6 +921,39 @@ const ensureRequestsTable = async () => {
       console.log("Migration: Added details to requests ✅");
     }
   } catch (e) { console.warn("Migration requests.details:", e.message); }
+  // Migration: add email column in requests if missing
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM requests LIKE 'email'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE requests ADD COLUMN email VARCHAR(191) DEFAULT NULL AFTER phone");
+      console.log("Migration: Added email to requests ✅");
+    }
+  } catch (e) { console.warn("Migration requests.email:", e.message); }
+  // Migration: add index on email in requests
+  try {
+    const [idxs] = await pool.query("SHOW INDEX FROM requests WHERE Key_name = 'idx_requests_email'");
+    if (idxs.length === 0) {
+      await pool.query("ALTER TABLE requests ADD INDEX idx_requests_email (email)");
+      console.log("Migration: Added index idx_requests_email to requests ✅");
+    }
+  } catch (e) { /* index may already exist */ }
+  // Migration: ajouter colonne diagnostic JSON pour stocker le bilan pédagogique
+  // directement sur la demande (prospect sans compte utilisateur)
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM requests LIKE 'diagnostic'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE requests ADD COLUMN diagnostic JSON DEFAULT NULL AFTER details");
+      console.log("Migration: Added diagnostic to requests ✅");
+    }
+  } catch (e) { console.warn("Migration requests.diagnostic:", e.message); }
+  // Migration: ajouter colonne academic_plan JSON pour le plan pédagogique prospect
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM requests LIKE 'academic_plan'");
+    if (cols.length === 0) {
+      await pool.query("ALTER TABLE requests ADD COLUMN academic_plan JSON DEFAULT NULL AFTER diagnostic");
+      console.log("Migration: Added academic_plan to requests ✅");
+    }
+  } catch (e) { console.warn("Migration requests.academic_plan:", e.message); }
 };
 
 const ensureAssignmentsTable = async () => {
@@ -2485,6 +2518,54 @@ app.get("/api/public/teachers", async (req, res) => {
   }
 });
 
+// Options éducatives dynamiques (matières et niveaux réellement proposés par les coachs actifs)
+app.get("/api/public/education-options", async (req, res) => {
+  try {
+    await ensureTeachersTable();
+    await ensureGeoLocationsTable();
+    const country = (req.query.country || "").trim().toLowerCase();
+    const [rows] = await pool.query(
+      `SELECT t.id, t.subjects, t.level, t.city, t.formats,
+              ${PUBLIC_TEACHER_GEO_COLUMNS}
+       FROM teachers t
+       ${PUBLIC_TEACHER_GEO_JOIN}
+       WHERE t.status = 'actif'`
+    );
+
+    const subjectsSet = new Set();
+    const levelsSet = new Set();
+
+    rows.forEach((r) => {
+      const teacherCountry = (r.geo_country_name || "").toLowerCase().trim();
+      const formats = parseJson(r.formats, []);
+      const isOnline = formats.some((f) => String(f).toLowerCase().includes("ligne"));
+      const matchesCountry = !country || !teacherCountry || teacherCountry.includes(country) || country.includes(teacherCountry) || isOnline;
+
+      if (matchesCountry) {
+        const subs = parseJson(r.subjects, []);
+        subs.forEach((s) => {
+          if (s && typeof s === "string" && s.trim()) subjectsSet.add(s.trim());
+        });
+        if (r.level && typeof r.level === "string" && r.level.trim()) {
+          levelsSet.add(r.level.trim());
+        }
+      }
+    });
+
+    res.json({
+      availableSubjects: Array.from(subjectsSet).sort(),
+      availableLevels: Array.from(levelsSet),
+      count: rows.length,
+    });
+  } catch (error) {
+    if (isDbConnectionError(error)) {
+      return res.status(503).json({ message: "Base de données indisponible." });
+    }
+    console.error("[public/education-options]", error);
+    res.status(500).json({ message: "Impossible de récupérer les options éducatives." });
+  }
+});
+
 // ─── Aperçu de lien (Open Graph) pour la page publique d'un coach ────────────
 // Les robots (WhatsApp, Facebook, LinkedIn, X, Telegram...) n'exécutent pas le
 // JavaScript de la SPA : Apache leur envoie cette route, qui renvoie index.html
@@ -2787,6 +2868,49 @@ app.put("/api/teachers/me/public-profile", authenticateRequest, async (req, res)
   }
 });
 
+// Endpoint de vérification rapide d'unicité d'email pour les formulaires publics
+app.get("/api/public/check-email", async (req, res) => {
+  const email = (req.query.email || "").toString().trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    return res.json({ available: true });
+  }
+  try {
+    await Promise.all([ensureUsersTable(), ensureRequestsTable()]);
+
+    // 1. Vérifier si un compte utilisateur existe déjà avec cet email
+    const [existingUsers] = await pool.query(
+      "SELECT id, email FROM users WHERE LOWER(email) = ? LIMIT 1",
+      [email]
+    );
+    if (existingUsers.length > 0) {
+      return res.json({
+        available: false,
+        reason: "Cette adresse email est déjà associée à un compte utilisateur existant. Veuillez vous connecter.",
+      });
+    }
+
+    // 2. Vérifier si une demande d'évaluation existe déjà avec cet email
+    const [existingRequests] = await pool.query(
+      "SELECT id FROM requests WHERE LOWER(email) = ? OR LOWER(JSON_UNQUOTE(JSON_EXTRACT(details, '$.email'))) = ? LIMIT 1",
+      [email, email]
+    );
+    if (existingRequests.length > 0) {
+      return res.json({
+        available: false,
+        reason: "Une demande d'évaluation a déjà été enregistrée avec cette adresse email.",
+      });
+    }
+
+    return res.json({ available: true });
+  } catch (error) {
+    if (isDbConnectionError(error)) {
+      return res.json({ available: true });
+    }
+    console.error("[public/check-email]", error);
+    return res.json({ available: true });
+  }
+});
+
 // Formulaire public multi-étapes "Évaluation gratuite" (/evaluation-gratuite)
 // — aucune authentification requise, contrairement à POST /api/requests qui
 // sert le back-office. Alimente la même table `requests` que les conseillers
@@ -2802,15 +2926,45 @@ app.post("/api/public/evaluation-requests", async (req, res) => {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+    return res.status(400).json({ message: "Adresse email invalide." });
+  }
+
   try {
-    await ensureRequestsTable();
+    await Promise.all([ensureUsersTable(), ensureRequestsTable()]);
+
+    // 1. Unicité stricte en BD : vérifier la table `users`
+    const [existingUsers] = await pool.query(
+      "SELECT id, email FROM users WHERE LOWER(email) = ? LIMIT 1",
+      [cleanEmail]
+    );
+    if (existingUsers.length > 0) {
+      return res.status(409).json({
+        message: "Cette adresse email est déjà associée à un compte existant. Veuillez vous connecter ou utiliser une autre adresse.",
+        code: "EMAIL_ALREADY_EXISTS_USER"
+      });
+    }
+
+    // 2. Unicité stricte en BD : vérifier la table `requests`
+    const [existingRequests] = await pool.query(
+      "SELECT id FROM requests WHERE LOWER(email) = ? OR LOWER(JSON_UNQUOTE(JSON_EXTRACT(details, '$.email'))) = ? LIMIT 1",
+      [cleanEmail, cleanEmail]
+    );
+    if (existingRequests.length > 0) {
+      return res.status(409).json({
+        message: "Une demande d'évaluation a déjà été soumise avec cette adresse email.",
+        code: "EMAIL_ALREADY_EXISTS_REQUEST"
+      });
+    }
+
     const id = crypto.randomUUID();
     const parentName = `${parentFirstName} ${parentLastName}`.trim();
-    const details = { email, country, schoolSystem, currentSchool, format, needs, urgency, availability, howHeard };
+    const details = { email: cleanEmail, country, schoolSystem, currentSchool, format, needs, urgency, availability, howHeard };
     await pool.query(
-      `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, location, details, status, request_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
-      [id, parentName, childFirstName, level, subjects || "", phone, city || null, JSON.stringify(details)]
+      `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, email, location, details, status, request_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'reçu', CURRENT_DATE)`,
+      [id, parentName, childFirstName, level, subjects || "", phone, cleanEmail, city || null, JSON.stringify(details)]
     );
     res.status(201).json({ id });
   } catch (error) {
@@ -3336,6 +3490,174 @@ app.patch("/api/assignments/:id", authenticateRequest, async (req, res) => {
   } catch (error) {
     console.error("Failed to update assignment", error);
     res.status(500).json({ message: "Impossible de confirmer le matching." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTES DIAGNOSTIC & PLAN PÉDAGOGIQUE SUR DEMANDE (prospect sans compte)
+// Ces endpoints permettent à la conseillère de saisir le diagnostic initial
+// et le plan d'accompagnement directement sur une demande (request), sans
+// nécessiter la création préalable d'un compte élève.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET diagnostic d'une demande
+app.get("/api/requests/:id/diagnostic", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureRequestsTable();
+    const [rows] = await pool.query("SELECT diagnostic FROM requests WHERE id = ?", [id]);
+    if (!rows.length) return res.status(404).json({ message: "Demande introuvable." });
+    const diag = rows[0].diagnostic;
+    if (!diag) return res.json(null);
+    const parsed = typeof diag === "string" ? JSON.parse(diag) : diag;
+    res.json({ id, ...parsed });
+  } catch (error) {
+    console.error("Failed to fetch request diagnostic", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// POST sauvegarder le diagnostic d'une demande
+app.post("/api/requests/:id/diagnostic", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  const { id } = req.params;
+  const { scores, strengths, weaknesses, evaluatorId, evaluatorName } = req.body ?? {};
+  if (!scores) return res.status(400).json({ message: "Les scores sont obligatoires." });
+  try {
+    await ensureRequestsTable();
+    const [rows] = await pool.query("SELECT id FROM requests WHERE id = ?", [id]);
+    if (!rows.length) return res.status(404).json({ message: "Demande introuvable." });
+    const diagData = {
+      scores,
+      strengths: strengths || null,
+      weaknesses: weaknesses || null,
+      evaluatorId: evaluatorId || null,
+      evaluatorName: evaluatorName || null,
+      created_at: new Date().toISOString(),
+    };
+    await pool.query("UPDATE requests SET diagnostic = ? WHERE id = ?", [JSON.stringify(diagData), id]);
+    res.json({ id, ...diagData });
+  } catch (error) {
+    console.error("Failed to save request diagnostic", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// GET plan pédagogique d'une demande
+app.get("/api/requests/:id/plan", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureRequestsTable();
+    const [rows] = await pool.query("SELECT academic_plan FROM requests WHERE id = ?", [id]);
+    if (!rows.length) return res.status(404).json({ message: "Demande introuvable." });
+    const plan = rows[0].academic_plan;
+    if (!plan) return res.json(null);
+    const parsed = typeof plan === "string" ? JSON.parse(plan) : plan;
+    res.json({ id, ...parsed });
+  } catch (error) {
+    console.error("Failed to fetch request plan", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// POST sauvegarder le plan pédagogique d'une demande
+app.post("/api/requests/:id/plan", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  const { id } = req.params;
+  const { title, startDate, weeks, createdBy } = req.body ?? {};
+  if (!title || !startDate || !weeks) return res.status(400).json({ message: "Titre, date de début et semaines sont obligatoires." });
+  try {
+    await ensureRequestsTable();
+    const [rows] = await pool.query("SELECT id FROM requests WHERE id = ?", [id]);
+    if (!rows.length) return res.status(404).json({ message: "Demande introuvable." });
+    const planData = {
+      title,
+      start_date: startDate,
+      weeks,
+      createdBy: createdBy || null,
+      created_at: new Date().toISOString(),
+    };
+    await pool.query("UPDATE requests SET academic_plan = ? WHERE id = ?", [JSON.stringify(planData), id]);
+    res.json({ id, ...planData });
+  } catch (error) {
+    console.error("Failed to save request plan", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// POST convertir un prospect (demande) en compte élève + compte parent
+app.post("/api/requests/:id/convert", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureRequestsTable();
+    await ensureUsersTable();
+    const [rows] = await pool.query("SELECT * FROM requests WHERE id = ?", [id]);
+    if (!rows.length) return res.status(404).json({ message: "Demande introuvable." });
+    const r = rows[0];
+
+    // Vérifier si le compte élève existe déjà
+    const [existingStudent] = await pool.query(
+      "SELECT id FROM users WHERE TRIM(name) = TRIM(?) AND role = 'student' LIMIT 1",
+      [r.child_name]
+    );
+    if (existingStudent.length > 0) {
+      return res.status(409).json({ message: "Un compte élève existe déjà pour cet élève.", studentId: existingStudent[0].id });
+    }
+
+    // Chercher ou créer le compte parent
+    let parentId = null;
+    const [existingParent] = await pool.query(
+      "SELECT id FROM users WHERE TRIM(name) = TRIM(?) AND (role = 'parent' OR secondary_role = 'parent') LIMIT 1",
+      [r.parent_name]
+    );
+    if (existingParent.length > 0) {
+      parentId = existingParent[0].id;
+    } else {
+      parentId = crypto.randomUUID();
+      const parentEmail = r.email ? r.email : `parent.${Date.now()}@care4success.fr`;
+      const hashedPw = await bcrypt.hash(crypto.randomBytes(8).toString("hex"), 10);
+      await pool.query(
+        `INSERT INTO users (id, name, email, password, role, phone, created_at) VALUES (?, ?, ?, ?, 'parent', ?, NOW())`,
+        [parentId, r.parent_name, parentEmail, hashedPw, r.phone || null]
+      );
+    }
+
+    // Créer le compte élève
+    const studentId = crypto.randomUUID();
+    const studentEmail = `eleve.${Date.now()}@care4success.fr`;
+    const hashedPw = await bcrypt.hash(crypto.randomBytes(8).toString("hex"), 10);
+    await pool.query(
+      `INSERT INTO users (id, name, email, password, role, parent_id, created_at) VALUES (?, ?, ?, ?, 'student', ?, NOW())`,
+      [studentId, r.child_name, studentEmail, hashedPw, parentId]
+    );
+
+    // Si un diagnostic était stocké sur la demande, le migrer vers academic_diagnostics
+    if (r.diagnostic) {
+      await ensureAcademicDiagnosticsTable();
+      const diag = typeof r.diagnostic === "string" ? JSON.parse(r.diagnostic) : r.diagnostic;
+      await pool.query(
+        `INSERT INTO academic_diagnostics (student_id, student_name, evaluator_id, evaluator_name, scores, strengths, weaknesses) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [studentId, r.child_name, diag.evaluatorId || req.user.sub, diag.evaluatorName || "Conseillère", JSON.stringify(diag.scores), diag.strengths || null, diag.weaknesses || null]
+      );
+    }
+
+    // Si un plan était stocké sur la demande, le migrer vers academic_plans
+    if (r.academic_plan) {
+      await ensureAcademicPlansTable();
+      const plan = typeof r.academic_plan === "string" ? JSON.parse(r.academic_plan) : r.academic_plan;
+      await pool.query(
+        `INSERT INTO academic_plans (student_id, student_name, created_by, title, weeks, start_date) VALUES (?, ?, ?, ?, ?, ?)`,
+        [studentId, r.child_name, plan.createdBy || req.user.sub, plan.title, JSON.stringify(plan.weeks), plan.start_date]
+      );
+    }
+
+    res.status(201).json({
+      message: `Compte élève créé pour ${r.child_name}.`,
+      studentId,
+      parentId,
+      studentEmail,
+    });
+  } catch (error) {
+    console.error("Failed to convert request to student", error);
+    res.status(500).json({ message: "Erreur lors de la conversion du prospect en élève." });
   }
 });
 

@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    Users, Search, Phone, Mail,
-    TrendingUp, MessageCircle, FileText, Loader2, ChevronRight,
+    Users, Search, Phone,
+    MessageCircle, FileText, Loader2, ChevronRight,
     SearchCheck, Briefcase, PlusCircle, AlertTriangle,
     ThumbsUp, Lightbulb, Eye, UserCircle2,
-    ClipboardCheck, CalendarRange, ChevronDown, ChevronUp, Trash2,
-    Zap, Star, RefreshCw
+    ClipboardCheck, CalendarRange, Trash2,
+    Zap, Star, RefreshCw, UserPlus, GitMerge, CheckCircle2,
+    CalendarDays,
 } from "lucide-react";
 import { fetchAdvisorFamilies } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,43 +15,101 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import AcademicFile from "../common/AcademicFile";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 const API = import.meta.env.VITE_API_URL || "/api";
+const SUBJECTS_DIAG = ["Mathématiques", "Français", "Anglais", "Physique", "SVT", "Histoire-Géo"];
 const NOTE_TYPES = [
-    { value: "observation", label: "Observation", icon: Eye, color: "text-slate-500" },
-    { value: "recommandation", label: "Recommandation", icon: Lightbulb, color: "text-[#1A6CC8]" },
-    { value: "alerte", label: "Alerte", icon: AlertTriangle, color: "text-[#F5A623]" },
-    { value: "positif", label: "Positif", icon: ThumbsUp, color: "text-emerald-600" },
+    { value: "observation",    label: "Observation",    icon: Eye,          color: "text-slate-500" },
+    { value: "recommandation", label: "Recommandation", icon: Lightbulb,    color: "text-[#1A6CC8]" },
+    { value: "alerte",         label: "Alerte",         icon: AlertTriangle, color: "text-[#F5A623]" },
+    { value: "positif",        label: "Positif",        icon: ThumbsUp,     color: "text-emerald-600" },
 ];
 
 export default function AdvisorFamilies() {
     const { user, token } = useAuth();
     const qc = useQueryClient();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [searchParams] = useSearchParams();
+
+    // Selection
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedFamily, setSelectedFamily] = useState<any>(null);
+
+    // Notes
     const [noteContent, setNoteContent] = useState("");
     const [noteType, setNoteType] = useState("observation");
     const [showNoteForm, setShowNoteForm] = useState(false);
-    const [activePanel, setActivePanel] = useState<"notes"|"diagnostic"|"plan"|"matching">("notes");
 
-    // Diagnostic form state
-    const SUBJECTS_DIAG = ["Mathématiques","Français","Anglais","Physique","SVT","Histoire-Géo"];
-    const [diagScores, setDiagScores] = useState<Record<string,number>>({});
+    // Active panel
+    const [activePanel, setActivePanel] = useState<"notes" | "diagnostic" | "plan" | "matching">("notes");
+
+    // Diagnostic form
+    const [diagScores, setDiagScores] = useState<Record<string, number>>({});
     const [diagStrengths, setDiagStrengths] = useState("");
     const [diagWeaknesses, setDiagWeaknesses] = useState("");
 
-    // Plan form state
+    // Plan form
     const [planTitle, setPlanTitle] = useState("");
     const [planStart, setPlanStart] = useState("");
     const [planWeeks, setPlanWeeks] = useState([{ objective: "", subjects: [] as string[], done: false }]);
 
+    // ──────────────────────────────────────────────────────────────────────
+    // Helper : est-ce un prospect (pas encore de compte élève) ?
+    // ──────────────────────────────────────────────────────────────────────
+    const isProspect = (f: any) => !f?.studentId && !f?.childId;
+    const requestId  = selectedFamily?.id && !selectedFamily.id.startsWith("no-request-")
+        ? selectedFamily.id
+        : null;
+    const studentId  = selectedFamily?.studentId || selectedFamily?.childId || null;
+
+    // Clé unifiée pour les queries (request ou student)
+    const diagQueryKey  = isProspect(selectedFamily) ? ["reqDiagnostic",  requestId]  : ["diagnostic",   studentId];
+    const planQueryKey  = isProspect(selectedFamily) ? ["reqPlan",         requestId]  : ["academicPlan", studentId];
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Families list
+    // ──────────────────────────────────────────────────────────────────────
     const { data: families = [], isLoading, isError, refetch } = useQuery({
         queryKey: ["advisorFamilies"],
         queryFn: fetchAdvisorFamilies,
     });
 
-    const studentId = selectedFamily?.studentId || selectedFamily?.childId;
+    // Auto-sélection si on arrive avec un requestId, familyId ou childName
+    useEffect(() => {
+        if (!families || families.length === 0) return;
+        const targetReqId = location.state?.requestId || searchParams.get("requestId");
+        const targetFamilyId = location.state?.familyId || searchParams.get("familyId");
+        const targetChild = location.state?.childName || searchParams.get("child");
+        const targetPanel = location.state?.defaultPanel || searchParams.get("panel");
 
+        let found = null;
+        if (targetReqId) {
+            found = families.find((f: any) => String(f.id) === String(targetReqId));
+        }
+        if (!found && targetFamilyId) {
+            found = families.find((f: any) => String(f.id) === String(targetFamilyId) || String(f.studentId) === String(targetFamilyId));
+        }
+        if (!found && targetChild) {
+            found = families.find((f: any) => 
+                (f.childName || f.child || "").toLowerCase().includes(targetChild.toLowerCase()) ||
+                (f.parentName || f.parent || "").toLowerCase().includes(targetChild.toLowerCase())
+            );
+        }
+
+        if (found) {
+            setSelectedFamily(found);
+            if (targetPanel && ["notes", "diagnostic", "plan", "matching"].includes(targetPanel)) {
+                setActivePanel(targetPanel as any);
+            }
+        }
+    }, [families, location.state, searchParams]);
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Notes (uniquement pour les élèves avec compte)
+    // ──────────────────────────────────────────────────────────────────────
     const { data: advisorNotes = [] } = useQuery({
         queryKey: ["advisorNotes", studentId],
         queryFn: async () => {
@@ -96,21 +155,29 @@ export default function AdvisorFamilies() {
         onSuccess: () => qc.invalidateQueries({ queryKey: ["advisorNotes", studentId] })
     });
 
-    // Diagnostic query & mutation
+    // ──────────────────────────────────────────────────────────────────────
+    // Diagnostic — adapte l'endpoint selon prospect ou élève
+    // ──────────────────────────────────────────────────────────────────────
+    const diagUrl = isProspect(selectedFamily)
+        ? `${API}/requests/${requestId}/diagnostic`
+        : `${API}/students/${studentId}/diagnostic`;
+
     const { data: diagnostic } = useQuery({
-        queryKey: ["diagnostic", studentId],
+        queryKey: diagQueryKey,
         queryFn: async () => {
-            const res = await fetch(`${API}/students/${studentId}/diagnostic`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const url = isProspect(selectedFamily)
+                ? `${API}/requests/${requestId}/diagnostic`
+                : `${API}/students/${studentId}/diagnostic`;
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            if (res.status === 404) return null;
             return res.json();
         },
-        enabled: !!studentId && !!token,
+        enabled: !!(isProspect(selectedFamily) ? requestId : studentId) && !!token,
     });
 
     const diagMutation = useMutation({
         mutationFn: async () => {
-            const res = await fetch(`${API}/students/${studentId}/diagnostic`, {
+            const res = await fetch(diagUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
@@ -122,17 +189,63 @@ export default function AdvisorFamilies() {
                     weaknesses: diagWeaknesses || null,
                 })
             });
-            if (!res.ok) throw new Error();
+            if (!res.ok) throw new Error("Echec sauvegarde diagnostic");
         },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["diagnostic", studentId] });
+            qc.invalidateQueries({ queryKey: diagQueryKey });
             setDiagScores({});
             setDiagStrengths("");
             setDiagWeaknesses("");
-        }
+            toast.success("Diagnostic enregistré !");
+        },
+        onError: () => toast.error("Erreur lors de la sauvegarde du diagnostic"),
     });
 
-    // Matching query
+    // ──────────────────────────────────────────────────────────────────────
+    // Plan pédagogique — adapte l'endpoint selon prospect ou élève
+    // ──────────────────────────────────────────────────────────────────────
+    const planUrl = isProspect(selectedFamily)
+        ? `${API}/requests/${requestId}/plan`
+        : `${API}/students/${studentId}/academic-plan`;
+
+    const { data: activePlan } = useQuery({
+        queryKey: planQueryKey,
+        queryFn: async () => {
+            const url = isProspect(selectedFamily)
+                ? `${API}/requests/${requestId}/plan`
+                : `${API}/students/${studentId}/academic-plan`;
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            if (res.status === 404) return null;
+            return res.json();
+        },
+        enabled: !!(isProspect(selectedFamily) ? requestId : studentId) && !!token,
+    });
+
+    const planMutation = useMutation({
+        mutationFn: async () => {
+            const body = isProspect(selectedFamily)
+                ? { title: planTitle, startDate: planStart, weeks: planWeeks, createdBy: user?.id }
+                : { studentName: selectedFamily?.childName, createdBy: user?.id, title: planTitle, weeks: planWeeks, startDate: planStart };
+            const res = await fetch(planUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error("Echec sauvegarde plan");
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: planQueryKey });
+            setPlanTitle("");
+            setPlanStart("");
+            setPlanWeeks([{ objective: "", subjects: [], done: false }]);
+            toast.success("Plan pédagogique enregistré !");
+        },
+        onError: () => toast.error("Erreur lors de la sauvegarde du plan"),
+    });
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Matching (uniquement pour les élèves avec compte)
+    // ──────────────────────────────────────────────────────────────────────
     const { data: matching, isFetching: matchFetching } = useQuery({
         queryKey: ["matching", studentId],
         queryFn: async () => {
@@ -144,41 +257,34 @@ export default function AdvisorFamilies() {
         enabled: !!studentId && !!token && activePanel === "matching",
     });
 
-    // Plan query & mutation
-    const { data: activePlan } = useQuery({
-        queryKey: ["academicPlan", studentId],
-        queryFn: async () => {
-            const res = await fetch(`${API}/students/${studentId}/academic-plan`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            return res.json();
-        },
-        enabled: !!studentId && !!token,
-    });
-
-    const planMutation = useMutation({
+    // ──────────────────────────────────────────────────────────────────────
+    // Conversion prospect → élève
+    // ──────────────────────────────────────────────────────────────────────
+    const convertMutation = useMutation({
         mutationFn: async () => {
-            const res = await fetch(`${API}/students/${studentId}/academic-plan`, {
+            const res = await fetch(`${API}/requests/${requestId}/convert`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({
-                    studentName: selectedFamily?.childName,
-                    createdBy: user?.id,
-                    title: planTitle,
-                    weeks: planWeeks,
-                    startDate: planStart,
-                })
             });
-            if (!res.ok) throw new Error();
+            const data = await res.json();
+            if (!res.ok) {
+                // 409 = compte déjà existant
+                if (res.status === 409) throw new Error(data.message);
+                throw new Error(data.message || "Erreur lors de la conversion");
+            }
+            return data;
         },
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["academicPlan", studentId] });
-            setPlanTitle("");
-            setPlanStart("");
-            setPlanWeeks([{ objective: "", subjects: [], done: false }]);
-        }
+        onSuccess: (data) => {
+            toast.success(`✅ Compte élève créé ! Email temporaire : ${data.studentEmail}`);
+            qc.invalidateQueries({ queryKey: ["advisorFamilies"] });
+            setSelectedFamily(null);
+        },
+        onError: (err: Error) => toast.error(err.message),
     });
 
+    // ──────────────────────────────────────────────────────────────────────
+    // Filter
+    // ──────────────────────────────────────────────────────────────────────
     const filteredFamilies = (Array.isArray(families) ? families : []).filter((f: any) => {
         const pName = (f.parentName || f.parent || "").toLowerCase();
         const cName = (f.childName || f.child || "").toLowerCase();
@@ -205,17 +311,18 @@ export default function AdvisorFamilies() {
                         onClick={() => refetch()}
                         className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold hover:bg-red-100 transition-colors"
                     >
-                        <RefreshCw className="w-3 h-3" />
-                        Réessayer
+                        <RefreshCw className="w-3 h-3" /> Réessayer
                     </button>
                 </div>
             </div>
         );
     }
 
+    const prospect = isProspect(selectedFamily);
+
     return (
         <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
-            {/* Header Advisor Style */}
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-[#0D2D5A]">Suivi des Familles</h1>
@@ -247,39 +354,49 @@ export default function AdvisorFamilies() {
                         </div>
 
                         <div className="divide-y divide-gray-50">
-                            {filteredFamilies.map((f: any) => (
-                                <div
-                                    key={f.id}
-                                    onClick={() => setSelectedFamily(f)}
-                                    className={cn(
-                                        "flex flex-col md:flex-row items-center gap-5 px-6 py-4 hover:bg-gray-50/50 transition-colors cursor-pointer group",
-                                        selectedFamily?.id === f.id ? "bg-blue-50/30 border-l-4 border-l-[#1A6CC8]" : ""
-                                    )}
-                                >
-                                    <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-[#0D2D5A] shadow-inner group-hover:bg-white">
-                                        {(f.parentName || f.parent || "?").charAt(0)}
+                            {filteredFamilies.map((f: any) => {
+                                const fp = isProspect(f);
+                                return (
+                                    <div
+                                        key={f.id}
+                                        onClick={() => { setSelectedFamily(f); setActivePanel("notes"); }}
+                                        className={cn(
+                                            "flex flex-col md:flex-row items-center gap-5 px-6 py-4 hover:bg-gray-50/50 transition-colors cursor-pointer group",
+                                            selectedFamily?.id === f.id ? "bg-blue-50/30 border-l-4 border-l-[#1A6CC8]" : ""
+                                        )}
+                                    >
+                                        <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-[#0D2D5A] shadow-inner group-hover:bg-white">
+                                            {(f.parentName || f.parent || "?").charAt(0)}
+                                        </div>
+                                        <div className="flex-1 min-w-0 text-center md:text-left">
+                                            <div className="flex flex-col md:flex-row md:items-center gap-2">
+                                                <span className="font-bold text-[#0D2D5A] text-sm">{f.parentName || f.parent}</span>
+                                                {fp && (
+                                                    <Badge className="w-fit mx-auto md:mx-0 bg-amber-100 text-amber-700 border-amber-200 text-[8px] px-1.5 rounded-md uppercase tracking-widest font-bold">
+                                                        Prospect
+                                                    </Badge>
+                                                )}
+                                                {!fp && (
+                                                    <Badge variant="outline" className="w-fit mx-auto md:mx-0 border-gray-100 text-gray-400 font-bold text-[8px] px-1.5 rounded-md uppercase tracking-widest">Parent</Badge>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center justify-center md:justify-start gap-4 mt-1 text-[11px] text-gray-400 font-medium">
+                                                <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Élève : {f.childName || f.child}</span>
+                                                <span className="flex items-center gap-1 text-[#1A6CC8]"><Briefcase className="w-3 h-3" /> {fp ? "Pas encore assigné" : (f.teacherName || f.teacher || "Non assigné")}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-8">
+                                            <div className="hidden lg:block text-right">
+                                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Statut</p>
+                                                <p className="text-xs font-bold text-[#0D2D5A]">{fp ? "À qualifier" : (f.status || "—")}</p>
+                                            </div>
+                                            <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-[#0D2D5A] group-hover:text-white transition-all shadow-sm">
+                                                <ChevronRight className="w-4 h-4" />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0 text-center md:text-left">
-                                        <div className="flex flex-col md:flex-row md:items-center gap-2">
-                                            <span className="font-bold text-[#0D2D5A] text-sm">{f.parentName || f.parent}</span>
-                                            <Badge variant="outline" className="w-fit mx-auto md:mx-0 border-gray-100 text-gray-400 font-bold text-[8px] px-1.5 rounded-md uppercase tracking-widest">Parent</Badge>
-                                        </div>
-                                        <div className="flex items-center justify-center md:justify-start gap-4 mt-1 text-[11px] text-gray-400 font-medium">
-                                            <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Élève : {f.childName || f.child}</span>
-                                            <span className="flex items-center gap-1 text-[#1A6CC8]"><Briefcase className="w-3 h-3" /> Tuteur : {f.teacherName || f.teacher || "Non assigné"}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-8">
-                                        <div className="hidden lg:block text-right">
-                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Dernier Bilan</p>
-                                            <p className="text-xs font-bold text-[#0D2D5A]">{f.lastReportDate || "À planifier"}</p>
-                                        </div>
-                                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-[#0D2D5A] group-hover:text-white transition-all shadow-sm">
-                                            <ChevronRight className="w-4 h-4" />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                             {filteredFamilies.length === 0 && (
                                 <div className="px-6 py-16 text-center">
                                     <SearchCheck className="w-12 h-12 text-gray-100 mx-auto mb-3" />
@@ -294,141 +411,207 @@ export default function AdvisorFamilies() {
                 <div className="xl:col-span-4">
                     {selectedFamily ? (
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8 animate-in slide-in-from-right-4 duration-300">
-                            <div className="p-4 md:p-8 text-center border-b border-gray-50 bg-gray-50/30">
-                                <div className="mx-auto w-20 h-20 rounded-2xl bg-[#0D2D5A] border-4 border-white shadow-lg flex items-center justify-center text-3xl font-bold text-white mb-4">
+                            {/* Header fiche */}
+                            <div className={cn(
+                                "p-4 md:p-6 text-center border-b border-gray-50",
+                                prospect ? "bg-amber-50/40" : "bg-gray-50/30"
+                            )}>
+                                <div className={cn(
+                                    "mx-auto w-16 h-16 rounded-2xl border-4 border-white shadow-lg flex items-center justify-center text-2xl font-bold text-white mb-3",
+                                    prospect ? "bg-amber-500" : "bg-[#0D2D5A]"
+                                )}>
                                     {(selectedFamily.parentName || selectedFamily.parent || "?").charAt(0)}
                                 </div>
-                                <h2 className="text-lg font-bold text-[#0D2D5A]">{selectedFamily.parentName || selectedFamily.parent} & {selectedFamily.childName || selectedFamily.child}</h2>
-                                <p className="text-[10px] text-[#1A6CC8] font-bold uppercase tracking-[2px] mt-1">{selectedFamily.level || "Niveau non défini"}</p>
+                                <h2 className="text-base font-bold text-[#0D2D5A]">
+                                    {selectedFamily.parentName || selectedFamily.parent} & {selectedFamily.childName || selectedFamily.child}
+                                </h2>
+                                <p className="text-[10px] text-[#1A6CC8] font-bold uppercase tracking-[2px] mt-1">
+                                    {selectedFamily.level || "Niveau non défini"}{selectedFamily.subject ? ` · ${selectedFamily.subject}` : ""}
+                                </p>
+                                {prospect && (
+                                    <div className="mt-3 px-3 py-1.5 bg-amber-100 rounded-lg border border-amber-200 inline-flex items-center gap-1.5">
+                                        <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                        <span className="text-[10px] font-black text-amber-700">Prospect — pas encore de compte élève</span>
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="p-4 md:p-6 space-y-6">
-                                <div className="space-y-4">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Progression Académique</p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-50 text-center">
-                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Moyenne</p>
-                                            <p className="text-sm font-bold text-[#0D2D5A]">{selectedFamily.average || "--"}/20</p>
-                                        </div>
-                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-50 text-center">
-                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Assiduité</p>
-                                            <p className="text-sm font-bold text-emerald-600">{selectedFamily.attendance || "--%"}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div className="p-4 md:p-5 space-y-4">
 
-                                <div className="space-y-3">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Tuteur Actuel</p>
-                                    <div className="flex items-center gap-3 p-3 bg-[#0D2D5A]/5 rounded-xl border border-[#0D2D5A]/10">
-                                        <div className="w-10 h-10 rounded-lg bg-white border border-gray-100 flex items-center justify-center text-[#1A6CC8]">
-                                            <UserCircle2 className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold text-[#0D2D5A]">{selectedFamily.teacherName || selectedFamily.teacher || "En attente d'affectation"}</p>
-                                            <p className="text-[9px] text-gray-400 italic">Matière : {selectedFamily.subject || "Multi-disciplines"}</p>
+                                {/* Tuteur actuel / badge matching */}
+                                {!prospect && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Tuteur Actuel</p>
+                                        <div className="flex items-center gap-3 p-3 bg-[#0D2D5A]/5 rounded-xl border border-[#0D2D5A]/10">
+                                            <div className="w-10 h-10 rounded-lg bg-white border border-gray-100 flex items-center justify-center text-[#1A6CC8]">
+                                                <UserCircle2 className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-[#0D2D5A]">{selectedFamily.teacherName || selectedFamily.teacher || "En attente d'affectation"}</p>
+                                                <p className="text-[9px] text-gray-400 italic">Matière : {selectedFamily.subject || "Multi-disciplines"}</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
+
+                                {/* CTA : Créer le compte élève (prospect uniquement) */}
+                                {prospect && (
+                                    <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 space-y-2">
+                                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Étape 1 · Créer les comptes</p>
+                                        <p className="text-[10px] text-amber-600 leading-relaxed">
+                                            Créez les comptes parent & élève pour débloquer toutes les fonctionnalités (suivi de séances, messagerie, dossier académique).
+                                        </p>
+                                        <Button
+                                            disabled={convertMutation.isPending}
+                                            onClick={() => convertMutation.mutate()}
+                                            className="w-full h-9 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg gap-2"
+                                        >
+                                            {convertMutation.isPending ? (
+                                                <><Loader2 className="w-3 h-3 animate-spin" /> Création...</>
+                                            ) : (
+                                                <><UserPlus className="w-3 h-3" /> Créer le compte élève</>
+                                            )}
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* Bouton Planifier RDV */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigate("/advisor/schedule", {
+                                        state: {
+                                            familyName: selectedFamily.parentName || selectedFamily.parent,
+                                            childName: selectedFamily.childName || selectedFamily.child,
+                                            type: prospect ? "Bilan pédagogique initial" : "Suivi régulier",
+                                        }
+                                    })}
+                                    className="w-full text-xs font-bold text-[#1A6CC8] border-[#1A6CC8]/30 hover:bg-[#1A6CC8]/5 gap-2 h-9 rounded-xl"
+                                >
+                                    <CalendarDays className="w-3.5 h-3.5" /> Planifier un rendez-vous
+                                </Button>
 
                                 {/* Tabs navigation */}
                                 <div className="flex border border-gray-100 rounded-xl overflow-hidden">
                                     {([
-                                        { key: "notes", label: "Notes", icon: FileText },
+                                        { key: "notes",      label: "Notes", icon: FileText },
                                         { key: "diagnostic", label: "Diag.", icon: ClipboardCheck },
-                                        { key: "plan", label: "Plan", icon: CalendarRange },
-                                        { key: "matching", label: "Match", icon: Zap },
+                                        { key: "plan",       label: "Plan",  icon: CalendarRange },
+                                        { key: "matching",   label: "Match", icon: Zap },
                                     ] as const).map(({ key, label, icon: Icon }) => (
                                         <button
                                             key={key}
                                             onClick={() => setActivePanel(key)}
-                                            className={`flex-1 flex items-center justify-center gap-1 py-2 text-[9px] font-black uppercase tracking-widest transition-colors ${
-                                                activePanel === key ? "bg-[#0D2D5A] text-white" : "text-gray-400 hover:bg-gray-50"
-                                            }`}
+                                            disabled={key === "matching" && prospect}
+                                            className={cn(
+                                                "flex-1 flex items-center justify-center gap-1 py-2 text-[9px] font-black uppercase tracking-widest transition-colors",
+                                                activePanel === key ? "bg-[#0D2D5A] text-white" : "text-gray-400 hover:bg-gray-50",
+                                                key === "matching" && prospect ? "opacity-30 cursor-not-allowed" : ""
+                                            )}
                                         >
                                             <Icon className="w-3 h-3" /> {label}
                                         </button>
                                     ))}
                                 </div>
 
-                                {/* Panel Notes */}
+                                {/* ── Panel Notes ── */}
                                 {activePanel === "notes" && (
                                     <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">
-                                                Observations ({(advisorNotes as any[]).length})
-                                            </p>
-                                            <button
-                                                onClick={() => setShowNoteForm(!showNoteForm)}
-                                                className="text-[9px] font-black text-[#1A6CC8] uppercase tracking-widest flex items-center gap-1"
-                                            >
-                                                <PlusCircle className="w-3 h-3" /> Ajouter
-                                            </button>
-                                        </div>
-                                        {showNoteForm && (
-                                            <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                                <div className="flex gap-1 flex-wrap">
-                                                    {NOTE_TYPES.map(nt => (
-                                                        <button
-                                                            key={nt.value}
-                                                            onClick={() => setNoteType(nt.value)}
-                                                            className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest border rounded-md transition-colors flex items-center gap-1 ${
-                                                                noteType === nt.value ? "bg-[#0D2D5A] text-white border-[#0D2D5A]" : "bg-white text-slate-400 border-slate-200"
-                                                            }`}
-                                                        >
-                                                            <nt.icon className="w-2.5 h-2.5" /> {nt.label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                                <textarea
-                                                    value={noteContent}
-                                                    onChange={e => setNoteContent(e.target.value)}
-                                                    rows={3}
-                                                    placeholder="Votre observation..."
-                                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[11px] outline-none focus:border-[#1A6CC8] resize-none"
-                                                />
-                                                <button
-                                                    disabled={!noteContent.trim() || addNoteMutation.isPending}
-                                                    onClick={() => addNoteMutation.mutate()}
-                                                    className="w-full h-8 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
-                                                >
-                                                    {addNoteMutation.isPending ? "..." : "Enregistrer"}
-                                                </button>
+                                        {prospect && (
+                                            <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 text-[9px] text-blue-600 font-semibold flex items-center gap-1">
+                                                <AlertTriangle className="w-3 h-3" />
+                                                Notes disponibles uniquement après création du compte élève.
                                             </div>
                                         )}
-                                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                                            {(advisorNotes as any[]).map((note: any) => {
-                                                const nt = NOTE_TYPES.find(n => n.value === note.note_type) || NOTE_TYPES[0];
-                                                return (
-                                                    <div key={note.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 group">
-                                                        <nt.icon className={`w-3 h-3 mt-0.5 flex-shrink-0 ${nt.color}`} />
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-[10px] font-bold text-[#0D2D5A] leading-relaxed">{note.content}</p>
-                                                            <p className="text-[8px] text-gray-300 mt-0.5">{new Date(note.created_at).toLocaleDateString("fr-FR")}</p>
+                                        {!prospect && (
+                                            <>
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">
+                                                        Observations ({(advisorNotes as any[]).length})
+                                                    </p>
+                                                    <button
+                                                        onClick={() => setShowNoteForm(!showNoteForm)}
+                                                        className="text-[9px] font-black text-[#1A6CC8] uppercase tracking-widest flex items-center gap-1"
+                                                    >
+                                                        <PlusCircle className="w-3 h-3" /> Ajouter
+                                                    </button>
+                                                </div>
+                                                {showNoteForm && (
+                                                    <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                                        <div className="flex gap-1 flex-wrap">
+                                                            {NOTE_TYPES.map(nt => (
+                                                                <button
+                                                                    key={nt.value}
+                                                                    onClick={() => setNoteType(nt.value)}
+                                                                    className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest border rounded-md transition-colors flex items-center gap-1 ${
+                                                                        noteType === nt.value ? "bg-[#0D2D5A] text-white border-[#0D2D5A]" : "bg-white text-slate-400 border-slate-200"
+                                                                    }`}
+                                                                >
+                                                                    <nt.icon className="w-2.5 h-2.5" /> {nt.label}
+                                                                </button>
+                                                            ))}
                                                         </div>
+                                                        <textarea
+                                                            value={noteContent}
+                                                            onChange={e => setNoteContent(e.target.value)}
+                                                            rows={3}
+                                                            placeholder="Votre observation..."
+                                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[11px] outline-none focus:border-[#1A6CC8] resize-none"
+                                                        />
                                                         <button
-                                                            onClick={() => deleteNoteMutation.mutate(note.id)}
-                                                            className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 text-[8px] font-black transition-opacity"
+                                                            disabled={!noteContent.trim() || addNoteMutation.isPending}
+                                                            onClick={() => addNoteMutation.mutate()}
+                                                            className="w-full h-8 bg-[#0D2D5A] text-white text-[9px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50"
                                                         >
-                                                            ×
+                                                            {addNoteMutation.isPending ? "..." : "Enregistrer"}
                                                         </button>
                                                     </div>
-                                                );
-                                            })}
-                                            {(advisorNotes as any[]).length === 0 && !showNoteForm && (
-                                                <p className="text-[9px] text-gray-300 italic px-1">Aucune observation enregistrée</p>
-                                            )}
-                                        </div>
+                                                )}
+                                                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                                                    {(advisorNotes as any[]).map((note: any) => {
+                                                        const nt = NOTE_TYPES.find(n => n.value === note.note_type) || NOTE_TYPES[0];
+                                                        return (
+                                                            <div key={note.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 group">
+                                                                <nt.icon className={`w-3 h-3 mt-0.5 flex-shrink-0 ${nt.color}`} />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-[10px] font-bold text-[#0D2D5A] leading-relaxed">{note.content}</p>
+                                                                    <p className="text-[8px] text-gray-300 mt-0.5">{new Date(note.created_at).toLocaleDateString("fr-FR")}</p>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => deleteNoteMutation.mutate(note.id)}
+                                                                    className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500 text-[8px] font-black transition-opacity"
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {(advisorNotes as any[]).length === 0 && !showNoteForm && (
+                                                        <p className="text-[9px] text-gray-300 italic px-1">Aucune observation enregistrée</p>
+                                                    )}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
 
-                                {/* Panel Diagnostic */}
+                                {/* ── Panel Diagnostic ── */}
                                 {activePanel === "diagnostic" && (
                                     <div className="space-y-3">
+                                        {prospect && (
+                                            <div className="flex items-center gap-1.5 p-2 bg-amber-50 rounded-lg border border-amber-100 mb-1">
+                                                <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                                                <p className="text-[9px] text-amber-700 font-semibold">Diagnostic prospect — sera migré vers le compte élève lors de la conversion.</p>
+                                            </div>
+                                        )}
                                         {diagnostic && (diagnostic as any).id ? (
                                             <div className="space-y-2">
-                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                                                    Dernier diagnostic : {new Date((diagnostic as any).created_at).toLocaleDateString("fr-FR")}
-                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                                                        Diagnostic enregistré · {new Date((diagnostic as any).created_at).toLocaleDateString("fr-FR")}
+                                                    </p>
+                                                </div>
                                                 {Object.entries((diagnostic as any).scores || {}).map(([subj, score]: any) => (
                                                     <div key={subj}>
                                                         <div className="flex justify-between mb-0.5">
@@ -455,8 +638,23 @@ export default function AdvisorFamilies() {
                                                         <p className="text-[10px] text-red-800">{(diagnostic as any).weaknesses}</p>
                                                     </div>
                                                 )}
+                                                {/* Après le diagnostic : CTA Matching ou Lancer matching */}
                                                 <button
-                                                    onClick={() => qc.setQueryData(["diagnostic", studentId], null)}
+                                                    onClick={() => {
+                                                        if (prospect) {
+                                                            navigate("/advisor/matching", {
+                                                                state: { childName: selectedFamily.childName || selectedFamily.child, level: selectedFamily.level, subject: selectedFamily.subject }
+                                                            });
+                                                        } else {
+                                                            setActivePanel("matching");
+                                                        }
+                                                    }}
+                                                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-violet-50 text-violet-600 border border-violet-100 rounded-lg text-[10px] font-black hover:bg-violet-100 transition-colors mt-1"
+                                                >
+                                                    <GitMerge className="w-3 h-3" /> Lancer le matching
+                                                </button>
+                                                <button
+                                                    onClick={() => qc.setQueryData(diagQueryKey, null)}
                                                     className="text-[9px] font-black text-[#1A6CC8] uppercase tracking-widest"
                                                 >
                                                     + Nouveau diagnostic
@@ -505,9 +703,15 @@ export default function AdvisorFamilies() {
                                     </div>
                                 )}
 
-                                {/* Panel Plan Pédagogique */}
+                                {/* ── Panel Plan Pédagogique ── */}
                                 {activePanel === "plan" && (
                                     <div className="space-y-3">
+                                        {prospect && (
+                                            <div className="flex items-center gap-1.5 p-2 bg-amber-50 rounded-lg border border-amber-100 mb-1">
+                                                <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                                                <p className="text-[9px] text-amber-700 font-semibold">Plan prospect — sera migré vers le compte élève lors de la conversion.</p>
+                                            </div>
+                                        )}
                                         {activePlan && (activePlan as any).id ? (
                                             <div className="space-y-2">
                                                 <div className="flex items-center justify-between">
@@ -534,7 +738,7 @@ export default function AdvisorFamilies() {
                                                     ))}
                                                 </div>
                                                 <button
-                                                    onClick={() => qc.setQueryData(["academicPlan", studentId], null)}
+                                                    onClick={() => qc.setQueryData(planQueryKey, null)}
                                                     className="text-[9px] font-black text-[#1A6CC8] uppercase tracking-widest"
                                                 >
                                                     + Nouveau plan
@@ -614,8 +818,8 @@ export default function AdvisorFamilies() {
                                     </div>
                                 )}
 
-                                {/* Panel Matching */}
-                                {activePanel === "matching" && (
+                                {/* ── Panel Matching ── */}
+                                {activePanel === "matching" && !prospect && (
                                     <div className="space-y-2">
                                         {matchFetching ? (
                                             <div className="flex items-center justify-center py-8">
@@ -642,34 +846,54 @@ export default function AdvisorFamilies() {
                                                                 <p className="text-[11px] font-black text-[#0D2D5A]">{t.name}</p>
                                                                 <div className="flex items-center gap-0.5">
                                                                     <Star className="w-2.5 h-2.5 text-[#F5A623] fill-[#F5A623]" />
-                                                                    <span className="text-[9px] font-black text-[#0D2D5A]">{t.perf.toFixed(1)}</span>
+                                                                    <span className="text-[9px] font-black text-[#0D2D5A]">{t.perf?.toFixed(1)}</span>
                                                                 </div>
-                                                            </div>
-                                                            <div className="flex gap-1 mt-0.5 flex-wrap">
-                                                                {t.subjects.slice(0, 3).map((s: string) => (
-                                                                    <span key={s} className="text-[7px] bg-[#1A6CC8]/10 text-[#1A6CC8] px-1 rounded font-bold">{s}</span>
-                                                                ))}
                                                             </div>
                                                             <p className="text-[8px] text-gray-400 mt-0.5">{new Intl.NumberFormat("fr-FR").format(t.rate)} FCFA/h · Score : {t.score}</p>
                                                         </div>
                                                     </div>
                                                 ))}
+                                                <button
+                                                    onClick={() => navigate("/advisor/matching", {
+                                                        state: { childName: selectedFamily.childName || selectedFamily.child, level: selectedFamily.level, subject: selectedFamily.subject }
+                                                    })}
+                                                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-violet-50 text-violet-600 border border-violet-100 rounded-lg text-[10px] font-black hover:bg-violet-100 transition-colors mt-1"
+                                                >
+                                                    <GitMerge className="w-3 h-3" /> Confirmer l'assignation
+                                                </button>
                                             </>
                                         ) : (
                                             <p className="text-[9px] text-gray-300 italic text-center py-6">Aucun tuteur disponible pour le moment</p>
                                         )}
                                     </div>
                                 )}
-                                {/* Dossier Académique Intégré */}
-                                <div className="mt-4 pt-4 border-t border-gray-100">
-                                    <h3 className="text-[12px] font-black text-[#0D2D5A] uppercase tracking-widest mb-4">Dossier Académique</h3>
-                                    <AcademicFile studentId={studentId} />
-                                </div>
 
-                                <div className="pt-2 space-y-2 mt-6">
-                                    <Button className="w-full bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-11 rounded-xl shadow-sm gap-2">
-                                        <MessageCircle className="w-4 h-4" /> Contacter la famille
-                                    </Button>
+                                {/* ── Dossier Académique (élèves avec compte uniquement) ── */}
+                                {!prospect && (
+                                    <div className="mt-4 pt-4 border-t border-gray-100">
+                                        <h3 className="text-[12px] font-black text-[#0D2D5A] uppercase tracking-widest mb-4">Dossier Académique</h3>
+                                        <AcademicFile studentId={studentId} />
+                                    </div>
+                                )}
+
+                                {/* CTA bas de fiche */}
+                                <div className="pt-2 space-y-2 mt-4">
+                                    {selectedFamily?.phone && (
+                                        <a
+                                            href={`tel:${selectedFamily.phone}`}
+                                            className="w-full flex items-center justify-center gap-2 bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-11 rounded-xl shadow-sm transition-colors text-sm"
+                                        >
+                                            <Phone className="w-4 h-4" /> Appeler la famille
+                                        </a>
+                                    )}
+                                    {!prospect && (
+                                        <Button
+                                            onClick={() => navigate("/advisor/messages")}
+                                            className="w-full bg-[#1A6CC8] hover:bg-[#0D2D5A] text-white font-bold h-11 rounded-xl shadow-sm gap-2"
+                                        >
+                                            <MessageCircle className="w-4 h-4" /> Contacter la famille
+                                        </Button>
+                                    )}
                                     <Button variant="outline" className="w-full border-gray-200 text-gray-500 font-bold h-11 rounded-xl hover:bg-gray-50 gap-2">
                                         <FileText className="w-4 h-4" /> Bilan Conseil
                                     </Button>

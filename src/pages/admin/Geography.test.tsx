@@ -1,12 +1,13 @@
 // Tests unitaires — Admin — Géographie & Zones (/admin/geography)
 // Périmètre : actor-admin (voir docs/CARTOGRAPHIE_FONCTIONNELLE.md, section Admin).
-// Capacité couverte : validateGeoLocation (action "validate" ou "reject").
+// Capacité couverte : validateGeoLocation (action "validate" ou "reject") + Configuration Pays & Villes.
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdminGeography from "@/pages/admin/Geography";
 import { fetchPendingGeoLocations, validateGeoLocation } from "@/api/geo";
+import { resetConfiguredCountries } from "@/data/countries";
 
 vi.mock("@/api/geo", () => ({
   fetchPendingGeoLocations: vi.fn(),
@@ -43,7 +44,7 @@ function renderGeography() {
   );
 }
 
-describe("Admin Geography — Géographie & Zones", () => {
+describe("Admin Geography — Suggestions de zones", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -113,12 +114,67 @@ describe("Admin Geography — Géographie & Zones", () => {
     ));
   });
 
-  it("erreur réseau (chargement) : comportement documenté — l'échec de fetchPendingGeoLocations affiche l'état vide, sans bannière d'erreur dédiée", async () => {
+  it("erreur réseau (chargement) : l'échec de fetchPendingGeoLocations affiche l'état vide", async () => {
     (fetchPendingGeoLocations as any).mockRejectedValue(new Error("Erreur serveur"));
     renderGeography();
 
-    // Geography.tsx n'exploite pas isError de useQuery : la liste retombe sur son
-    // défaut ([]) et affiche le même message que l'état "aucune suggestion".
     expect(await screen.findByText("Aucune suggestion en attente.")).toBeInTheDocument();
+  });
+});
+
+describe("Admin Geography — Configuration des Pays & Villes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    resetConfiguredCountries();
+    (fetchPendingGeoLocations as any).mockResolvedValue([]);
+  });
+
+  it("permet de basculer sur l'onglet 'Pays & Villes' et affiche les pays configurés", async () => {
+    const user = userEvent.setup();
+    renderGeography();
+
+    const tabBtn = screen.getByRole("button", { name: /Pays & Villes/i });
+    await user.click(tabBtn);
+
+    expect(await screen.findByText("Cameroun")).toBeInTheDocument();
+    expect(screen.getByText("Côte d'Ivoire")).toBeInTheDocument();
+    expect(screen.getByText("France")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ajouter un pays/i })).toBeInTheDocument();
+  });
+
+  it("permet de filtrer les pays par recherche textuelle", async () => {
+    const user = userEvent.setup();
+    renderGeography();
+
+    await user.click(screen.getByRole("button", { name: /Pays & Villes/i }));
+    await screen.findByText("Cameroun");
+
+    const searchInput = screen.getByPlaceholderText(/Rechercher un pays/i);
+    await user.type(searchInput, "Sénégal");
+
+    expect(screen.getByText("Sénégal")).toBeInTheDocument();
+    expect(screen.queryByText("Cameroun")).not.toBeInTheDocument();
+  });
+
+  it("permet de sauvegarder la configuration", async () => {
+    const user = userEvent.setup();
+    renderGeography();
+
+    await user.click(screen.getByRole("button", { name: /Pays & Villes/i }));
+    await screen.findByText("Cameroun");
+
+    // Cliquer sur le toggle d'un pays pour modifier la liste (le rendre dirty)
+    const toggles = screen.getAllByTitle(/Désactiver|Activer/i);
+    await user.click(toggles[0]);
+
+    // Le bouton Enregistrer est actif
+    const saveBtn = screen.getByRole("button", { name: /Enregistrer/i });
+    expect(saveBtn).not.toBeDisabled();
+    await user.click(saveBtn);
+
+    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Configuration sauvegardée" })
+    ));
   });
 });

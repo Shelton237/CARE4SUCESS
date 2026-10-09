@@ -22,13 +22,13 @@ export default function AdvisorSchedule() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
-    // Si on vient du bouton "Planifier RDV" de Mes Familles
-    const targeted = location.state as { familyName?: string; } | null;
-    const targetFamily = targeted?.familyName ?? null;
+    // Si on vient du bouton "Planifier RDV" (de Demandes de bilan ou Mes Familles)
+    const targeted = location.state as { familyName?: string; childName?: string; type?: string } | null;
+    const targetFamily = targeted?.familyName || (targeted?.childName ? `${targeted.childName} (Famille ${targeted.familyName || ''})`.trim() : null);
 
     // Formulaire
     const [familySelect, setFamilySelect] = useState(targetFamily || "");
-    const [typeSelect, setTypeSelect] = useState("Suivi régulier");
+    const [typeSelect, setTypeSelect] = useState(targeted?.type || "Bilan pédagogique initial");
     const [dateSelect, setDateSelect] = useState("");
     const [timeSelect, setTimeSelect] = useState("");
 

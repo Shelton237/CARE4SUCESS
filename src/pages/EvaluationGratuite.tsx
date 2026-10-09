@@ -1,17 +1,25 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { NavLink } from "react-router-dom";
-import { CheckCircle2, ArrowRight, Clock } from "lucide-react";
+import { CheckCircle2, ArrowRight, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { submitEvaluationRequest } from "@/api/public";
+import { submitEvaluationRequest, checkPublicEmail, fetchPublicTeachers } from "@/api/public";
 import { ROUTE_PATHS } from "@/lib/index";
 import { ShieldFilled, UsersOutline } from "@/components/decor";
 import { useT, tt, rich } from "@/i18n";
+import { CountrySelect } from "@/components/common/CountrySelect";
+import { CityAutocomplete } from "@/components/common/CityAutocomplete";
+import { LevelSelect } from "@/components/common/LevelSelect";
+import { SchoolSystemSelect } from "@/components/common/SchoolSystemSelect";
+import { SubjectBadgePicker } from "@/components/common/SubjectSelect";
+import { Country, findCountry } from "@/data/countries";
+import { getSchoolSystemsForCountry } from "@/data/education";
+import { AvailabilityPicker } from "@/components/common/AvailabilityPicker";
 
 const STAGES = [
   { label: tt("Formulaire"), sub: tt("2 minutes") },
@@ -20,24 +28,6 @@ const STAGES = [
   { label: tt("Premier cours"), sub: tt("C'est parti") },
 ];
 
-const COUNTRIES = [
-  { name: "Cameroun", code: "+237" },
-  { name: "Madagascar", code: "+261" },
-  { name: "Tchad", code: "+235" },
-  { name: "Gabon", code: "+241" },
-  { name: "Comores", code: "+269" },
-  { name: "Côte d'Ivoire", code: "+225" },
-  { name: "Sénégal", code: "+221" },
-  { name: "Autres", code: "" },
-];
-
-const SCHOOL_SYSTEMS = [
-  { value: "camerounais", label: tt("Camerounais (BEPC / BAC)") },
-  { value: "francais", label: tt("Français") },
-  { value: "britannique", label: tt("Britannique (IB / Cambridge)") },
-  { value: "americain", label: tt("Américain") },
-  { value: "autre", label: tt("Autre") },
-];
 
 const FORMATS = [
   { value: "en-ligne", label: tt("En ligne (visioconférence)") },
@@ -66,6 +56,8 @@ const defaultForm = () => ({
   needs: "", urgency: "aucune", availability: "", howHeard: "",
 });
 
+type EmailCheckStatus = "idle" | "checking" | "available" | "taken";
+
 export default function EvaluationGratuite() {
   const { t } = useT();
   const { toast } = useToast();
@@ -73,19 +65,101 @@ export default function EvaluationGratuite() {
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState(defaultForm());
 
+  // ── Email uniqueness check ──────────────────────────────────────────
+  const [emailStatus, setEmailStatus] = useState<EmailCheckStatus>("idle");
+  const [emailStatusMsg, setEmailStatusMsg] = useState("");
+  const emailDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const email = form.email.trim();
+    if (!email || !email.includes("@") || !email.includes(".")) {
+      setEmailStatus("idle");
+      setEmailStatusMsg("");
+      return;
+    }
+    setEmailStatus("checking");
+    setEmailStatusMsg("");
+    if (emailDebounceRef.current) clearTimeout(emailDebounceRef.current);
+    emailDebounceRef.current = setTimeout(async () => {
+      try {
+        const result = await checkPublicEmail(email);
+        if (result.available) {
+          setEmailStatus("available");
+          setEmailStatusMsg("Adresse email disponible.");
+        } else {
+          setEmailStatus("taken");
+          setEmailStatusMsg(result.reason || "Cette adresse email est déjà utilisée.");
+        }
+      } catch {
+        setEmailStatus("idle");
+        setEmailStatusMsg("");
+      }
+    }, 600);
+  }, [form.email]);
+  // ────────────────────────────────────────────────────────────────────
+
   const set = (field: keyof ReturnType<typeof defaultForm>) => (value: string) =>
     setForm(f => ({ ...f, [field]: value }));
 
-  // Change l'indicatif au début du numéro quand le pays change, sans
-  // écraser un numéro déjà saisi par l'utilisateur.
-  const handleCountryChange = (countryName: string) => {
+  // ── Chargement dynamique des enseignants pour options pays / matières / niveaux ──
+  const { data: teachers = [], isLoading: isLoadingTeachers } = useQuery({
+    queryKey: ["public-teachers"],
+    queryFn: fetchPublicTeachers,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Filtrage des coachs disponibles pour le pays sélectionné
+  const availableTeachers = useMemo(() => {
+    if (!form.country) return teachers;
+    const countryLower = form.country.toLowerCase().trim();
+    return teachers.filter((t) => {
+      const coachCountry = (t.country || "").toLowerCase().trim();
+      const isOnline = Array.isArray(t.formats) && t.formats.some((f) => String(f).toLowerCase().includes("ligne"));
+      const isMatchCountry = coachCountry.includes(countryLower) || countryLower.includes(coachCountry);
+      return !coachCountry || isMatchCountry || isOnline;
+    });
+  }, [teachers, form.country]);
+
+  // Matières réellement proposées par les coachs actifs disponibles
+  const availableSubjects = useMemo(() => {
+    const list = availableTeachers.length > 0 ? availableTeachers : teachers;
+    const setSubs = new Set<string>();
+    list.forEach((t) => {
+      if (Array.isArray(t.subjects)) {
+        t.subjects.forEach((s) => {
+          if (s && typeof s === "string" && s.trim()) setSubs.add(s.trim());
+        });
+      }
+    });
+    return Array.from(setSubs).sort();
+  }, [availableTeachers, teachers]);
+
+  // Niveaux réellement couverts par les coachs actifs disponibles
+  const availableLevels = useMemo(() => {
+    const list = availableTeachers.length > 0 ? availableTeachers : teachers;
+    const setLvls = new Set<string>();
+    list.forEach((t) => {
+      if (t.level && typeof t.level === "string" && t.level.trim()) {
+        setLvls.add(t.level.trim());
+      }
+    });
+    return Array.from(setLvls);
+  }, [availableTeachers, teachers]);
+
+  // Change l'indicatif au début du numéro quand le pays change, et adapte
+  // automatiquement le système scolaire par défaut correspondant au pays sélectionné.
+  const handleCountryChange = (countryName: string, countryObj?: Country) => {
     setForm(f => {
-      const newCode = COUNTRIES.find(c => c.name === countryName)?.code ?? "";
-      const previousCode = COUNTRIES.find(c => c.name === f.country)?.code ?? "";
+      const newCode = countryObj?.dialCode ?? findCountry(countryName)?.dialCode ?? "";
+      const previousCode = findCountry(f.country)?.dialCode ?? "";
       const phoneIsUntouched = !f.phone.trim() || f.phone.trim() === previousCode;
+      const systems = getSchoolSystemsForCountry(countryName);
+      const defaultSys = systems[0]?.value || "";
       return {
         ...f,
         country: countryName,
+        schoolSystem: defaultSys,
+        level: "", // Réinitialise la classe pour forcer un choix cohérent avec le pays
         phone: phoneIsUntouched ? (newCode ? `${newCode} ` : "") : f.phone,
       };
     });
@@ -103,6 +177,14 @@ export default function EvaluationGratuite() {
     if (step === 1) {
       if (!form.parentFirstName || !form.parentLastName || !form.email || !form.phone) {
         toast({ title: t("Champs manquants"), description: t("Merci de renseigner votre prénom, nom, email et téléphone."), variant: "destructive" });
+        return;
+      }
+      if (emailStatus === "taken") {
+        toast({ title: t("Email déjà utilisé"), description: emailStatusMsg, variant: "destructive" });
+        return;
+      }
+      if (emailStatus === "checking") {
+        toast({ title: t("Vérification en cours"), description: t("Merci de patienter quelques instants."), variant: "destructive" });
         return;
       }
     }
@@ -265,31 +347,72 @@ export default function EvaluationGratuite() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="email">{t("Email")}</Label>
-                    <Input id="email" type="email" placeholder={t("parent@email.com")} value={form.email} onChange={e => set("email")(e.target.value)} />
+                    <div className="relative">
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder={t("parent@email.com")}
+                        value={form.email}
+                        onChange={e => set("email")(e.target.value)}
+                        className={`pr-9 ${
+                          emailStatus === "taken" ? "border-red-400 focus-visible:ring-red-300" :
+                          emailStatus === "available" ? "border-green-400 focus-visible:ring-green-300" : ""
+                        }`}
+                      />
+                      {emailStatus === "checking" && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
+                      )}
+                      {emailStatus === "available" && (
+                        <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                      )}
+                      {emailStatus === "taken" && (
+                        <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+                      )}
+                    </div>
+                    {emailStatus === "taken" && (
+                      <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                        <XCircle className="w-3 h-3 shrink-0" />
+                        {emailStatusMsg}
+                      </p>
+                    )}
+                    {emailStatus === "available" && (
+                      <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                        <CheckCircle className="w-3 h-3 shrink-0" />
+                        {emailStatusMsg}
+                      </p>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="phone">{t("Téléphone")}</Label>
                       <Input
                         id="phone"
-                        placeholder={`${COUNTRIES.find(c => c.name === form.country)?.code || "+237"} XX XXX XXX`}
+                        placeholder={`${findCountry(form.country)?.dialCode || "+237"} ${findCountry(form.country)?.phonePlaceholder || "XX XXX XXX"}`}
                         value={form.phone}
                         onChange={e => set("phone")(e.target.value)}
                       />
                     </div>
                     <div className="space-y-1.5">
                       <Label>{t("Pays")}</Label>
-                      <Select value={form.country} onValueChange={handleCountryChange}>
-                        <SelectTrigger><SelectValue placeholder={t("Choisissez...")} /></SelectTrigger>
-                        <SelectContent>
-                          {COUNTRIES.map(c => <SelectItem key={c.name} value={c.name}>{t(c.name)}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <CountrySelect
+                        value={form.country}
+                        onValueChange={handleCountryChange}
+                        placeholder={t("Choisissez...")}
+                        showFlag={true}
+                      />
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="city">{t("Ville")}</Label>
-                    <Input id="city" placeholder={t("Ex : Antananarivo, Douala...")} value={form.city} onChange={e => set("city")(e.target.value)} />
+                    <CityAutocomplete
+                      id="city"
+                      country={form.country}
+                      value={form.city}
+                      onChange={set("city")}
+                      onSelectCountry={(countryName) => {
+                        if (!form.country) handleCountryChange(countryName);
+                      }}
+                    />
                   </div>
                   <Button onClick={goNext} className="w-full bg-[#0D2D5A] hover:bg-[#0B2545] text-white h-12 text-base font-bold mt-2">{t("Continuer")}{" "}<ArrowRight className="w-4 h-4 ms-1" />
                   </Button>
@@ -305,24 +428,48 @@ export default function EvaluationGratuite() {
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="level">{t("Classe / niveau")}</Label>
-                      <Input id="level" placeholder={t("Ex : 3ème, Grade 10...")} value={form.level} onChange={e => set("level")(e.target.value)} />
+                      <LevelSelect
+                        id="level"
+                        value={form.level}
+                        onValueChange={set("level")}
+                        country={form.country}
+                        schoolSystem={form.schoolSystem}
+                        availableLevels={availableLevels}
+                        placeholder={t("Choisissez le niveau...")}
+                      />
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t("Système scolaire")}</Label>
-                    <Select value={form.schoolSystem} onValueChange={set("schoolSystem")}>
-                      <SelectTrigger><SelectValue placeholder={t("Choisissez...")} /></SelectTrigger>
-                      <SelectContent>
-                        {SCHOOL_SYSTEMS.map(s => <SelectItem key={s.value} value={s.value}>{t(s.label)}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <SchoolSystemSelect
+                      value={form.schoolSystem}
+                      onValueChange={(val) => {
+                        setForm(f => ({ ...f, schoolSystem: val, level: "" }));
+                      }}
+                      country={form.country}
+                      placeholder={t("Choisissez le système scolaire...")}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="currentSchool">{t("École actuelle (optionnel)")}</Label>
                     <Input id="currentSchool" placeholder={t("Ex : Lycée Français, ESCA...")} value={form.currentSchool} onChange={e => set("currentSchool")(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="subjects">{t("Matière(s) souhaitée(s)")}</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="subjects">{t("Matière(s) souhaitée(s)")}</Label>
+                      {availableSubjects.length > 0 && (
+                        <span className="text-xs text-muted-foreground font-medium">
+                          {availableSubjects.length} {availableSubjects.length > 1 ? t("matières disponibles") : t("matière disponible")}
+                        </span>
+                      )}
+                    </div>
+                    <SubjectBadgePicker
+                      selectedSubjects={form.subjects ? form.subjects.split(", ").map(s => s.trim()).filter(Boolean) : []}
+                      onChange={(subs) => set("subjects")(subs.join(", "))}
+                      availableSubjects={availableSubjects}
+                      loading={isLoadingTeachers}
+                      className="mb-2"
+                    />
                     <Input id="subjects" placeholder={t("Ex : Mathématiques, Physique, Anglais...")} value={form.subjects} onChange={e => set("subjects")(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
@@ -364,9 +511,17 @@ export default function EvaluationGratuite() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="availability">{t("Disponibilités souhaitées")}</Label>
-                    <Input id="availability" placeholder={t("Ex : Lundi et jeudi après 16h, samedi matin...")} value={form.availability} onChange={e => set("availability")(e.target.value)} />
+                  <div className="space-y-2">
+                    <div>
+                      <Label>{t("Disponibilités souhaitées")}</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {t("Cliquez sur une case pour sélectionner vos créneaux disponibles")}
+                      </p>
+                    </div>
+                    <AvailabilityPicker
+                      value={form.availability}
+                      onChange={set("availability")}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t("Comment avez-vous entendu parler de nous ?")}</Label>

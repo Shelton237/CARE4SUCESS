@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { LayoutDashboard, Users, GitMerge, ClipboardList, UserPlus } from "lucide-react";
+import { LayoutDashboard, Users, GitMerge, ClipboardList, UserPlus, MessageCircle, CalendarDays, Inbox } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import AdvisorDashboard from "./Dashboard";
 import AdvisorFamilies from "./Families";
@@ -8,10 +8,11 @@ import AdvisorReports from "./Reports";
 import AdvisorTeacherApplications from "./TeacherApplications";
 import AdvisorMessages from "./Messages";
 import AdvisorSchedule from "./Schedule";
-import { MessageCircle, CalendarDays } from "lucide-react";
+import AdvisorRequests from "./Requests";
 
 const NAV = [
     { to: "/advisor", label: "Tableau de bord", icon: LayoutDashboard },
+    { to: "/advisor/requests", label: "Demandes de bilan", icon: Inbox },
     { to: "/advisor/families", label: "Mes familles", icon: Users },
     { to: "/advisor/matching", label: "Matching", icon: GitMerge },
     { to: "/advisor/applications", label: "Candidatures profs", icon: UserPlus },
@@ -28,6 +29,7 @@ export default function AdvisorLayout() {
             <main className="flex-1 md:ml-72 ml-0 min-h-screen pt-16 md:pt-0 overflow-y-auto w-full">
                 <Routes>
                     <Route index element={<AdvisorDashboard />} />
+                    <Route path="requests" element={<AdvisorRequests />} />
                     <Route path="families" element={<AdvisorFamilies />} />
                     <Route path="matching" element={<AdvisorMatching />} />
                     <Route path="applications" element={<AdvisorTeacherApplications />} />

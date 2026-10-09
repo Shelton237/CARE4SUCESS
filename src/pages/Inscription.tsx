@@ -3,6 +3,9 @@ import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
 import { useNavigate } from "react-router-dom";
 import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { GeoSelector } from "@/components/GeoSelector";
+import { PhoneCountryInput } from "@/components/common/PhoneCountryInput";
+import { LevelSelect } from "@/components/common/LevelSelect";
+import { SubjectBadgePicker } from "@/components/common/SubjectSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -257,10 +260,10 @@ export default function Inscription() {
                                     <div className={googleIdToken ? "" : "grid grid-cols-2 gap-4"}>
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Téléphone</label>
-                                            <div className="relative">
-                                                <Phone className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                                <Input className="pl-10" name="parentPhone" placeholder="+237 ..." value={formData.parentPhone} onChange={handleChange} />
-                                            </div>
+                                            <PhoneCountryInput
+                                                phone={formData.parentPhone}
+                                                onPhoneChange={(phone) => setFormData(prev => ({ ...prev, parentPhone: phone }))}
+                                            />
                                         </div>
                                         {!googleIdToken && (
                                             <div className="space-y-2">
@@ -364,38 +367,18 @@ export default function Inscription() {
 
                                             <div className="space-y-1.5">
                                                 <label className="text-xs font-bold text-slate-600">Niveau scolaire</label>
-                                                <select
-                                                    className="flex h-11 w-full rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#1A6CC8]/50 focus:border-[#1A6CC8] transition-all"
+                                                <LevelSelect
                                                     value={child.level}
-                                                    onChange={(e) => handleChildChange(child.id, "level", e.target.value)}
-                                                >
-                                                    {ALL_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                                                </select>
+                                                    onValueChange={(level) => handleChildChange(child.id, "level", level)}
+                                                />
                                             </div>
                                             
                                             <div className="space-y-2">
                                                 <label className="text-xs font-bold text-slate-600">Matières prioritaires (plusieurs choix possibles)</label>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {ALL_SUBJECTS.map(sub => {
-                                                        const isSelected = Array.isArray(child.subject) && child.subject.includes(sub);
-                                                        return (
-                                                            <button
-                                                                key={sub}
-                                                                type="button"
-                                                                className={`px-3 py-2 text-[11px] font-bold rounded-lg border transition-all ${isSelected ? 'bg-[#1A6CC8] text-white border-[#1A6CC8] shadow-md shadow-[#1A6CC8]/20' : 'bg-white text-slate-600 border-slate-200 hover:border-[#1A6CC8]/50 hover:bg-blue-50'}`}
-                                                                onClick={() => {
-                                                                    const currentSubjects = Array.isArray(child.subject) ? child.subject : [];
-                                                                    const newSubjects = isSelected 
-                                                                        ? currentSubjects.filter(s => s !== sub) 
-                                                                        : [...currentSubjects, sub];
-                                                                    handleChildChange(child.id, "subject", newSubjects);
-                                                                }}
-                                                            >
-                                                                {sub}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
+                                                <SubjectBadgePicker
+                                                    selectedSubjects={Array.isArray(child.subject) ? child.subject : []}
+                                                    onChange={(newSubjects) => handleChildChange(child.id, "subject", newSubjects as any)}
+                                                />
                                             </div>
                                         </div>
                                     ))}

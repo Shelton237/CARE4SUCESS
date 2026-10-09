@@ -1,9 +1,10 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapPin, Check, X, Globe, Clock, ChevronRight } from "lucide-react";
 import { fetchPendingGeoLocations, validateGeoLocation, type PendingGeoLocation, type GeoType } from "@/api/geo";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import CountriesConfig from "./CountriesConfig";
 
 const TYPE_LABELS: Record<GeoType, string> = {
     country: "Pays",
@@ -21,7 +22,7 @@ const TYPE_COLORS: Record<GeoType, string> = {
     quartier: "bg-green-50 text-green-700 border-green-100",
 };
 
-export default function AdminGeography() {
+function ZoneSuggestions() {
     const { user } = useAuth();
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -63,96 +64,83 @@ export default function AdminGeography() {
     };
 
     return (
-        <div className="p-4 md:p-8 space-y-8">
-            <div>
-                <h1 className="text-2xl font-bold text-[#0D2D5A] flex items-center gap-2">
-                    <Globe className="w-6 h-6 text-[#1A6CC8]" />
-                    Géographie & Zones
-                </h1>
-                <p className="text-sm text-gray-500 mt-1">
-                    Gérez les suggestions de nouvelles zones soumises par les utilisateurs.
-                </p>
+        <section className="space-y-4">
+            <div className="flex items-center gap-3">
+                <h2 className="text-base font-bold text-[#0D2D5A]">Suggestions en attente</h2>
+                {pending.length > 0 && (
+                    <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                        {pending.length}
+                    </span>
+                )}
             </div>
 
-            {/* Suggestions en attente */}
-            <section className="space-y-4">
-                <div className="flex items-center gap-3">
-                    <h2 className="text-base font-bold text-[#0D2D5A]">Suggestions en attente</h2>
-                    {pending.length > 0 && (
-                        <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                            {pending.length}
-                        </span>
-                    )}
+            {isLoading && (
+                <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-sm">
+                    Chargement…
                 </div>
+            )}
 
-                {isLoading && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-sm">
-                        Chargement…
-                    </div>
-                )}
+            {!isLoading && pending.length === 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center space-y-2">
+                    <Check className="w-10 h-10 text-green-400 mx-auto" />
+                    <p className="text-sm text-gray-500 font-medium">Aucune suggestion en attente.</p>
+                    <p className="text-xs text-gray-400">Les nouvelles zones suggérées par les utilisateurs apparaîtront ici.</p>
+                </div>
+            )}
 
-                {!isLoading && pending.length === 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center space-y-2">
-                        <Check className="w-10 h-10 text-green-400 mx-auto" />
-                        <p className="text-sm text-gray-500 font-medium">Aucune suggestion en attente.</p>
-                        <p className="text-xs text-gray-400">Les nouvelles zones suggérées par les utilisateurs apparaîtront ici.</p>
-                    </div>
-                )}
+            <div className="space-y-3">
+                {pending.map((loc: PendingGeoLocation) => {
+                    const isProcessing = processingId === loc.id;
+                    return (
+                        <div key={loc.id} className="bg-white rounded-2xl border border-amber-100 p-4 flex items-center gap-4">
+                            <div className="flex-1 space-y-1.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-[#0D2D5A]">{loc.name}</span>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TYPE_COLORS[loc.type]}`}>
+                                        {TYPE_LABELS[loc.type]}
+                                    </span>
+                                    <span className="flex items-center gap-1 text-xs text-amber-600">
+                                        <Clock className="w-3 h-3" /> {formatDate(loc.created_at)}
+                                    </span>
+                                </div>
 
-                <div className="space-y-3">
-                    {pending.map((loc: PendingGeoLocation) => {
-                        const isProcessing = processingId === loc.id;
-                        return (
-                            <div key={loc.id} className="bg-white rounded-2xl border border-amber-100 p-4 flex items-center gap-4">
-                                <div className="flex-1 space-y-1.5">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-semibold text-[#0D2D5A]">{loc.name}</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TYPE_COLORS[loc.type]}`}>
-                                            {TYPE_LABELS[loc.type]}
-                                        </span>
-                                        <span className="flex items-center gap-1 text-xs text-amber-600">
-                                            <Clock className="w-3 h-3" /> {formatDate(loc.created_at)}
-                                        </span>
+                                {loc.parent_name && (
+                                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                                        <ChevronRight className="w-3 h-3" />
+                                        <span>{loc.parent_type ? TYPE_LABELS[loc.parent_type] : ""} :</span>
+                                        <span className="font-medium text-gray-600">{loc.parent_name}</span>
                                     </div>
+                                )}
 
-                                    {loc.parent_name && (
-                                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                                            <ChevronRight className="w-3 h-3" />
-                                            <span>{loc.parent_type ? TYPE_LABELS[loc.parent_type] : ""} :</span>
-                                            <span className="font-medium text-gray-600">{loc.parent_name}</span>
-                                        </div>
-                                    )}
-
-                                    {loc.suggested_by && (
-                                        <div className="text-xs text-gray-400">
-                                            Suggéré par : <span className="font-medium text-gray-600">{loc.suggested_by}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex gap-2 flex-shrink-0">
-                                    <button
-                                        onClick={() => handle(loc.id, "validate")}
-                                        disabled={isProcessing}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-100 transition-colors disabled:opacity-50"
-                                    >
-                                        <Check className="w-3.5 h-3.5" />
-                                        Valider
-                                    </button>
-                                    <button
-                                        onClick={() => handle(loc.id, "reject")}
-                                        disabled={isProcessing}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold border border-red-100 transition-colors disabled:opacity-50"
-                                    >
-                                        <X className="w-3.5 h-3.5" />
-                                        Rejeter
-                                    </button>
-                                </div>
+                                {loc.suggested_by && (
+                                    <div className="text-xs text-gray-400">
+                                        Suggéré par : <span className="font-medium text-gray-600">{loc.suggested_by}</span>
+                                    </div>
+                                )}
                             </div>
-                        );
-                    })}
-                </div>
-            </section>
+
+                            <div className="flex gap-2 flex-shrink-0">
+                                <button
+                                    onClick={() => handle(loc.id, "validate")}
+                                    disabled={isProcessing}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-100 transition-colors disabled:opacity-50"
+                                >
+                                    <Check className="w-3.5 h-3.5" />
+                                    Valider
+                                </button>
+                                <button
+                                    onClick={() => handle(loc.id, "reject")}
+                                    disabled={isProcessing}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold border border-red-100 transition-colors disabled:opacity-50"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                    Rejeter
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
 
             {/* Info pédagogique */}
             <section className="bg-blue-50 border border-blue-100 rounded-2xl p-5 space-y-2 text-sm text-blue-800">
@@ -165,6 +153,56 @@ export default function AdminGeography() {
                     <li>Le matching calcule un score de proximité : même quartier = 5, même arrondissement = 4, même département = 3, même région = 2, même pays = 1.</li>
                 </ul>
             </section>
+        </section>
+    );
+}
+
+type Tab = "suggestions" | "countries";
+
+export default function AdminGeography() {
+    const [tab, setTab] = useState<Tab>("suggestions");
+
+    return (
+        <div className="p-4 md:p-8 space-y-6">
+            <div>
+                <h1 className="text-2xl font-bold text-[#0D2D5A] flex items-center gap-2">
+                    <Globe className="w-6 h-6 text-[#1A6CC8]" />
+                    Géographie & Zones
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
+                    Gérez les pays disponibles sur la plateforme et les suggestions de zones des utilisateurs.
+                </p>
+            </div>
+
+            {/* Onglets */}
+            <div className="flex gap-1 border-b border-slate-200">
+                <button
+                    type="button"
+                    onClick={() => setTab("suggestions")}
+                    className={`px-4 py-2 text-sm font-bold transition-colors border-b-2 -mb-px ${
+                        tab === "suggestions"
+                            ? "border-[#1A6CC8] text-[#1A6CC8]"
+                            : "border-transparent text-slate-500 hover:text-[#0D2D5A]"
+                    }`}
+                >
+                    Suggestions de zones
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setTab("countries")}
+                    className={`px-4 py-2 text-sm font-bold transition-colors border-b-2 -mb-px ${
+                        tab === "countries"
+                            ? "border-[#1A6CC8] text-[#1A6CC8]"
+                            : "border-transparent text-slate-500 hover:text-[#0D2D5A]"
+                    }`}
+                >
+                    Pays & Villes
+                </button>
+            </div>
+
+            {/* Contenu de l'onglet actif */}
+            {tab === "suggestions" && <ZoneSuggestions />}
+            {tab === "countries" && <CountriesConfig />}
         </div>
     );
 }

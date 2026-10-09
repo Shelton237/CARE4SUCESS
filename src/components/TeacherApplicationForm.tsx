@@ -14,6 +14,7 @@ import { CheckCircle2, Mail, Phone, GraduationCap } from "lucide-react";
 import { springPresets } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { GeoSelector } from "@/components/GeoSelector";
+import { PhoneCountryInput } from "@/components/common/PhoneCountryInput";
 
 const formSchema = z.object({
     fullName: z.string().min(3, "Le nom doit contenir au moins 3 caractères"),
@@ -188,15 +189,12 @@ export function TeacherApplicationForm({ className }: TeacherApplicationFormProp
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="phone">Téléphone *</Label>
-                    <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                            id="phone"
-                            placeholder="+237 6XX XXX XXX"
-                            className="pl-9"
-                            {...form.register("phone")}
-                        />
-                    </div>
+                    <PhoneCountryInput
+                        id="phone"
+                        phone={form.watch("phone") || ""}
+                        onPhoneChange={(val) => form.setValue("phone", val, { shouldValidate: true })}
+                        className={form.formState.errors.phone ? "border-destructive" : ""}
+                    />
                     {form.formState.errors.phone && (
                         <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
                     )}

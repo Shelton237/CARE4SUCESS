@@ -16,6 +16,8 @@ import { submitTeacherApplication } from "@/api/backoffice";
 import { ROUTE_PATHS } from "@/lib/index";
 import { BarsFilled, BarsOutline, HandUnderline, ShieldFilled, UsersFilled, type FilledIcon } from "@/components/decor";
 import { useT, tt, rich, lines } from "@/i18n";
+import { CountrySelect } from "@/components/common/CountrySelect";
+import { findCountry } from "@/data/countries";
 
 /* Les photos vivent dans public/images/coach/ (découpées dans la maquette, à remplacer
    par les originaux en gardant les mêmes noms). Tailles en px à 1440 de large. */
@@ -37,7 +39,6 @@ const VERTICALES = [
   { value: "langues-competences", label: tt("Langues et compétences") },
   { value: "soutien-scolaire", label: tt("Soutien scolaire") },
 ];
-const PAYS = ["Cameroun", "Madagascar"];
 
 const HERO_CARD: { icon: typeof Monitor; label: string }[] = [
   { icon: Monitor, label: tt("En ligne ou\nen présentiel") },
@@ -176,7 +177,7 @@ export default function DevenirProfesseur() {
 
       {/* ══════════ HERO ══════════ */}
       <section className="relative overflow-hidden bg-[#022D58] xl:h-[464px]">
-        <div className="absolute inset-y-0 end-0 w-full md:w-[59%] xl:w-[58%]">
+        <div className="absolute inset-y-0 end-0 w-full md:w-[47%] xl:w-[46%]">
           {/* hero-coach.jpg avait un raccord de recadrage visible en haut à
               droite (une teinte plate, pas un vrai flou photo) : le fichier a
               été recoupé pour l'exclure, sans effet CSS ni perte de netteté. */}
@@ -208,7 +209,7 @@ export default function DevenirProfesseur() {
           <div className="absolute inset-0 lg:hidden bg-[#022D58]/62" />
         </div>
 
-        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.5%] relative z-10 pt-12 pb-10 xl:pt-[48px] xl:pb-0">
+        <div className="mx-auto max-w-[1920px] px-6 xl:ps-[18.5%] relative z-10 pt-12 pb-10 xl:pt-[48px] xl:pb-0">
           <p className="text-[#2BB3A3] text-sm xl:text-[15px] font-bold uppercase tracking-[0.16em]">{t("Devenir coach")}</p>
           <h1
             className="mt-3 xl:mt-[17px] font-bold text-white text-[clamp(2rem,4.6vw,3rem)] xl:text-[55.5px] leading-[1.12] xl:leading-[56px]"
@@ -519,12 +520,20 @@ export default function DevenirProfesseur() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t("Pays")}</Label>
-                  <Select value={pays} onValueChange={setPays}>
-                    <SelectTrigger><SelectValue placeholder={t("Choisissez...")} /></SelectTrigger>
-                    <SelectContent>
-                      {PAYS.map(p => <SelectItem key={p} value={p}>{t(p)}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <CountrySelect
+                    value={pays}
+                    onValueChange={(selectedCountry, countryObj) => {
+                      setPays(selectedCountry);
+                      if (!phone || phone.startsWith("+")) {
+                        const previousDial = findCountry(pays)?.dialCode || "";
+                        if (!phone || phone.trim() === previousDial) {
+                          setPhone(countryObj.dialCode ? `${countryObj.dialCode} ` : "");
+                        }
+                      }
+                    }}
+                    placeholder={t("Choisissez...")}
+                    showFlag={true}
+                  />
                 </div>
               </div>
 
