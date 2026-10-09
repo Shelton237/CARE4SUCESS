@@ -70,10 +70,10 @@
     "ar": "نهجان وهدف واحد: نجاحك"
   },
   "Selon votre besoin, nous vous accompagnons différemment.": { "en": "Depending on your needs, we support you differently.", "mg": "Arakaraka ny filanao, mifanampy aminao amin'ny fomba samihafa izahay.", "ar": "بحسب حاجتك، نرافقك بطريقة مختلفة." },
-  "<b>Soutien scolaire</b> – un service managé (Madagascar)": {
-    "en": "<b>School support</b> – a managed service (Madagascar)",
-    "mg": "<b>Fanampiana ara-pianarana</b> – serivisy tantanana ho anao (Madagasikara)",
-    "ar": "<b>الدعم المدرسي</b> – خدمة مُدارة (مدغشقر)"
+  "<b>Soutien scolaire</b> – un service managé": {
+    "en": "<b>School support</b> – a managed service",
+    "mg": "<b>Fanampiana ara-pianarana</b> – serivisy tantanana ho anao",
+    "ar": "<b>الدعم المدرسي</b> – خدمة مُدارة"
   },
   "Vous nous confiez votre besoin, nous nous occupons du reste.": { "en": "You tell us what you need, we take care of the rest.", "mg": "Lazainao aminay ny filanao, izahay no mikarakara ny sisa.", "ar": "تخبرنا باحتياجك ونتكفّل بالباقي." },
   "Évaluation\ndu besoin": { "en": "Needs\nassessment", "mg": "Fanombanana\nny filana", "ar": "تقييم\nالاحتياج" },
@@ -81,10 +81,10 @@
   "Coach\nassigné": { "en": "Coach\nassigned", "mg": "Mpanazatra\nvoatendry", "ar": "تعيين\nالمدرّب" },
   "Suivi et bilan\nrégulier": { "en": "Regular follow-up\nand review", "mg": "Fanaraha-maso sy\nfamintinana tsy tapaka", "ar": "متابعة وتقييم\nدوريان" },
   "En savoir plus sur le soutien scolaire": { "en": "Learn more about school support", "mg": "Fantaro bebe kokoa ny fanampiana ara-pianarana", "ar": "اعرف المزيد عن الدعم المدرسي" },
-  "<b>Langues</b> – une <b>marketplace</b> (Cameroun + Madagascar)": {
-    "en": "<b>Languages</b> – a <b>marketplace</b> (Cameroon + Madagascar)",
-    "mg": "<b>Fiteny</b> – <b>marketplace</b> (Kamerona + Madagasikara)",
-    "ar": "<b>اللغات</b> – <b>سوق</b> مفتوحة (الكاميرون + مدغشقر)"
+  "<b>Langues</b> – une <b>marketplace</b>": {
+    "en": "<b>Languages</b> – a <b>marketplace</b>",
+    "mg": "<b>Fiteny</b> – <b>marketplace</b>",
+    "ar": "<b>اللغات</b> – <b>سوق</b> مفتوحة"
   },
   "Vous gardez le choix de votre coach.": { "en": "You keep the choice of your coach.", "mg": "Ianao no mifidy ny mpanazatra anao.", "ar": "تحتفظ بحرية اختيار مدرّبك." },
   "Recherche\nde coachs": { "en": "Search\nfor coaches", "mg": "Fikarohana\nmpanazatra", "ar": "البحث\nعن المدرّبين" },

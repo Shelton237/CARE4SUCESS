@@ -366,7 +366,7 @@ export default function Home() {
             <ApproachPanel
               tone="teal"
               icon={GraduationCap}
-              title={rich(t("<b>Soutien scolaire</b> – un service managé (Madagascar)"), { b: c => <b className="font-extrabold">{c}</b> })}
+              title={rich(t("<b>Soutien scolaire</b> – un service managé"), { b: c => <b className="font-extrabold">{c}</b> })}
               subtitle={t("Vous nous confiez votre besoin, nous nous occupons du reste.")}
               steps={[
                 { icon: ClipboardList, label: tt("Évaluation\ndu besoin") },
@@ -382,7 +382,7 @@ export default function Home() {
             <ApproachPanel
               tone="amber"
               icon={Globe}
-              title={rich(t("<b>Langues</b> – une <b>marketplace</b> (Cameroun + Madagascar)"), { b: c => <b className="font-extrabold">{c}</b> })}
+              title={rich(t("<b>Langues</b> – une <b>marketplace</b>"), { b: c => <b className="font-extrabold">{c}</b> })}
               subtitle={t("Vous gardez le choix de votre coach.")}
               steps={[
                 { icon: Search, label: tt("Recherche\nde coachs") },
