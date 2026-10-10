@@ -1,147 +1,109 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom-original";
-import AdvisorMatching from "@/pages/advisor/Matching";
-import { fetchAdvisorAssignments, confirmAssignment } from "@/api/backoffice";
+import { MemoryRouter } from "react-router-dom";
+import AdvisorMatching from "./Matching";
 
-vi.mock("@/api/backoffice", () => ({
-  fetchAdvisorAssignments: vi.fn(),
-  confirmAssignment: vi.fn(),
-}));
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "t", user: { id: "a1", role: "advisor" } }) }));
+const { toastSuccess } = vi.hoisted(() => ({ toastSuccess: vi.fn() }));
+vi.mock("sonner", () => ({ toast: { success: toastSuccess, error: vi.fn() } }));
 
-const toastSpy = vi.fn();
-vi.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: toastSpy }),
-}));
-
-const ASSIGNMENT = {
-  id: "match-1",
-  child: "Idris",
-  level: "CM2",
-  subject: "Mathématiques",
-  needs: ["Soutien fractions"],
-  schedule: "Mercredi 16h",
-  location: "Dakar",
-  candidates: [
-    { name: "M. Sow", rating: 4.5, available: true, city: "Dakar", locationMatch: true },
-    { name: "Mme Fall", rating: 4.2, available: false, city: "Thiès", locationMatch: false },
-  ],
-  selectedTeacher: null,
-  status: "pending",
+const tutor = (over: Record<string, unknown>) => ({
+    id: "t1", name: "Sophie Mbarga", subjects: ["Mathématiques"], city: "Yaoundé", status: "actif", yearsExperience: 5,
+    languages: ["Français"], specialties: [], hasAvailability: true, rate: 7500, currency: "XAF", reviewCount: 12, reviewAvg: 4.8,
+    alreadyAssigned: false, score: 95, profile: { percent: 100, missing: [] },
+    reasons: [{ key: "priority", ok: true, label: "Prioritaires couvertes : Mathématiques" }, { key: "level", ok: true, label: "Niveau Terminale" }],
+    ...over,
+});
+const DATA = {
+    tutorCount: 2,
+    items: [
+        {
+            student: { id: "s1", name: "Léo Nkca", subject: "Mathématiques", level: "Terminale", city: "Douala", hasDiagnostic: true, scores: { Mathématiques: 2 }, prioritySubjects: ["Mathématiques"], consolidateSubjects: [] },
+            assignedTeachers: [],
+            matches: [tutor({})],
+        },
+        {
+            student: { id: "s2", name: "Marie Rose", subject: "Français", level: "Première", city: "", hasDiagnostic: false, scores: {}, prioritySubjects: [], consolidateSubjects: [] },
+            assignedTeachers: [{ id: "t2", name: "Saturin Penlap" }],
+            matches: [tutor({ id: "t2", name: "Saturin Penlap", subjects: ["Français"], score: 82, alreadyAssigned: true, hasAvailability: false, reviewCount: 0, reviewAvg: null, yearsExperience: null })],
+        },
+    ],
 };
 
-function renderMatching() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter>
-        <AdvisorMatching />
-      </MemoryRouter>
-    </QueryClientProvider>
-  );
-}
+const renderPage = () =>
+    render(
+        <MemoryRouter>
+            <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+                <AdvisorMatching />
+            </QueryClientProvider>
+        </MemoryRouter>
+    );
 
-describe("AdvisorMatching — Matching enseignant/élève", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+describe("AdvisorMatching", () => {
+    let fetchMock: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+        fetchMock = vi.fn((url: string, init?: RequestInit) => {
+            if (init?.method === "POST") return Promise.resolve(new Response("{}", { status: 200 }));
+            return Promise.resolve(new Response(JSON.stringify(DATA), { status: 200 }));
+        });
+        vi.stubGlobal("fetch", fetchMock);
+    });
+    afterEach(() => vi.unstubAllGlobals());
 
-  it("succès : liste les élèves en attente avec leurs candidats compatibles", async () => {
-    (fetchAdvisorAssignments as any).mockResolvedValue([ASSIGNMENT]);
-    renderMatching();
+    it("affiche chaque élève avec son meilleur tuteur, le score et les critères", async () => {
+        renderPage();
+        const row = (await screen.findByText("Léo Nkca")).closest("li")!;
+        expect(within(row).getByText("Sophie Mbarga")).toBeInTheDocument();
+        expect(within(row).getByText("95%")).toBeInTheDocument();
+        expect(within(row).getByText("Même matière")).toBeInTheDocument();
+        expect(within(row).getByText("En difficulté")).toBeInTheDocument();
+        expect(within(row).getByText("4.8 (12 avis)")).toBeInTheDocument();
+        expect(within(row).getByText("Disponible")).toBeInTheDocument();
+        expect(screen.getByText("2 correspondances trouvées")).toBeInTheDocument();
+        expect(fetchMock.mock.calls[0][0]).toContain("/advisor/matches?top=1");
+    });
 
-    expect(await screen.findByText("Idris")).toBeInTheDocument();
-    expect(screen.getByText("M. Sow")).toBeInTheDocument();
-    expect(screen.getByText("Mme Fall")).toBeInTheDocument();
-    expect(screen.getByText(/Zone ✓/)).toBeInTheDocument();
-  });
+    it("données absentes affichées honnêtement (pas d'avis, expérience, diagnostic)", async () => {
+        renderPage();
+        const row = (await screen.findByText("Marie Rose")).closest("li")!;
+        expect(within(row).getByText("Pas encore d'avis")).toBeInTheDocument();
+        expect(within(row).getByText("Expérience non renseignée")).toBeInTheDocument();
+        expect(within(row).getByText("Diagnostic à faire")).toBeInTheDocument();
+        expect(within(row).getByText("Affecté")).toBeInTheDocument();
+    });
 
-  it("état vide : affiche un message si aucun élève n'est en attente", async () => {
-    (fetchAdvisorAssignments as any).mockResolvedValue([]);
-    renderMatching();
-    expect(await screen.findByText("Aucun élève en attente pour le moment.")).toBeInTheDocument();
-  });
+    it("correspondance optimale désactivée : charge les 3 meilleurs tuteurs", async () => {
+        const user = userEvent.setup();
+        renderPage();
+        await screen.findByText("Léo Nkca");
+        await user.click(screen.getByRole("switch", { name: "Correspondance optimale" }));
+        await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes("top=3"))).toBe(true));
+    });
 
-  it("erreur réseau : bannière d'erreur avec bouton Réessayer qui relance la requête", async () => {
-    (fetchAdvisorAssignments as any).mockRejectedValue(new Error("Impossible de charger les matching."));
-    const user = userEvent.setup();
-    renderMatching();
+    it("onglet Élèves à affecter : masque les élèves qui ont déjà un tuteur", async () => {
+        const user = userEvent.setup();
+        renderPage();
+        await screen.findByText("Marie Rose");
+        await user.click(screen.getByRole("tab", { name: /Élèves à affecter/ }));
+        await waitFor(() => expect(screen.queryByText("Marie Rose")).not.toBeInTheDocument());
+        expect(screen.getByText("Léo Nkca")).toBeInTheDocument();
+    });
 
-    expect(await screen.findByText("Impossible de charger les matching.")).toBeInTheDocument();
-    const retryBtn = screen.getByText("Réessayer");
-    (fetchAdvisorAssignments as any).mockResolvedValue([ASSIGNMENT]);
-    await user.click(retryBtn);
-
-    expect(await screen.findByText("Idris")).toBeInTheDocument();
-    expect(fetchAdvisorAssignments).toHaveBeenCalledTimes(2);
-  });
-
-  it("champs obligatoires manquants : le bouton Confirmer n'apparaît pas sans sélection de candidat", async () => {
-    (fetchAdvisorAssignments as any).mockResolvedValue([ASSIGNMENT]);
-    renderMatching();
-    await screen.findByText("Idris");
-
-    expect(screen.queryByText("Confirmer le matching")).not.toBeInTheDocument();
-  });
-
-  it("candidat indisponible : le clic ne le sélectionne pas et ne fait pas apparaître le bouton de confirmation", async () => {
-    (fetchAdvisorAssignments as any).mockResolvedValue([ASSIGNMENT]);
-    const user = userEvent.setup();
-    renderMatching();
-    await screen.findByText("Idris");
-
-    await user.click(screen.getByText("Mme Fall"));
-    expect(screen.queryByText("Confirmer le matching")).not.toBeInTheDocument();
-  });
-
-  it("succès : sélection d'un candidat disponible puis confirmAssignment déclenché avec toast de succès", async () => {
-    (fetchAdvisorAssignments as any).mockResolvedValue([ASSIGNMENT]);
-    (confirmAssignment as any).mockResolvedValue({ ...ASSIGNMENT, selectedTeacher: "M. Sow", status: "confirmed" });
-    const user = userEvent.setup();
-    renderMatching();
-    await screen.findByText("Idris");
-
-    await user.click(screen.getByText("M. Sow"));
-    const confirmBtn = await screen.findByText("Confirmer le matching");
-    await user.click(confirmBtn);
-
-    await waitFor(() => expect(confirmAssignment).toHaveBeenCalledWith("match-1", "M. Sow"));
-    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Matching confirmé" })
-    ));
-  });
-
-  it("erreur réseau : confirmAssignment en échec affiche un toast d'erreur", async () => {
-    (fetchAdvisorAssignments as any).mockResolvedValue([ASSIGNMENT]);
-    (confirmAssignment as any).mockRejectedValue(new Error("Le serveur ne répond pas."));
-    const user = userEvent.setup();
-    renderMatching();
-    await screen.findByText("Idris");
-
-    await user.click(screen.getByText("M. Sow"));
-    await user.click(await screen.findByText("Confirmer le matching"));
-
-    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Erreur", description: "Le serveur ne répond pas.", variant: "destructive" })
-    ));
-  });
-
-  it("désélection : cliquer à nouveau sur un candidat sélectionné le désélectionne", async () => {
-    (fetchAdvisorAssignments as any).mockResolvedValue([ASSIGNMENT]);
-    const user = userEvent.setup();
-    renderMatching();
-    await screen.findByText("Idris");
-
-    // Une fois sélectionné, "M. Sow" apparaît aussi dans le badge d'en-tête :
-    // on cible précisément la carte candidat (classe "font-semibold") pour lever l'ambiguïté.
-    const getCandidateCard = () => screen.getAllByText("M. Sow", { selector: ".font-semibold" })[0];
-
-    await user.click(getCandidateCard());
-    expect(await screen.findByText("Confirmer le matching")).toBeInTheDocument();
-
-    await user.click(getCandidateCard());
-    expect(screen.queryByText("Confirmer le matching")).not.toBeInTheDocument();
-  });
+    it("affectation : confirmation puis POST par identifiants", async () => {
+        const user = userEvent.setup();
+        renderPage();
+        const row = (await screen.findByText("Léo Nkca")).closest("li")!;
+        await user.click(within(row).getByRole("button", { name: /Plus d'actions/ }));
+        await user.click(await screen.findByText("Affecter ce tuteur"));
+        expect(await screen.findByText("Affecter Sophie Mbarga à Léo Nkca ?")).toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Confirmer l'affectation" }));
+        await waitFor(() => {
+            const call = fetchMock.mock.calls.find(([u, i]) => (i as RequestInit)?.method === "POST");
+            expect(String(call?.[0])).toContain("/advisor/students/s1/assign");
+            expect(JSON.parse(String((call?.[1] as RequestInit).body)).teacherId).toBe("t1");
+        });
+        expect(toastSuccess).toHaveBeenCalledWith("Sophie Mbarga est maintenant affecté à Léo Nkca");
+    });
 });
