@@ -569,6 +569,15 @@ export const createAdvisorAppointment = (advisorId: string, payload: any) =>
         body: JSON.stringify(payload),
     });
 
+export const updateAdvisorAppointment = (advisorId: string, id: string, payload: any) =>
+    request<any>(`/advisors/${advisorId}/appointments/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+
+export const deleteAdvisorAppointment = (advisorId: string, id: string) =>
+    request<any>(`/advisors/${advisorId}/appointments/${id}`, { method: "DELETE" });
+
 export const fetchMessages = (userId: string, withUserId?: string) =>
     request<any[]>(`/messages/${userId}${withUserId ? `?withUser=${withUserId}` : ""}`);
 

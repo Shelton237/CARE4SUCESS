@@ -1180,6 +1180,7 @@ export default function AdvisorFamilies() {
                                     <button
                                         onClick={() => navigate("/advisor/schedule", {
                                             state: {
+                                                familyId: selectedFamily.id,
                                                 familyName: selectedFamily.parentName || selectedFamily.parent,
                                                 childName: selectedFamily.childName || selectedFamily.child,
                                                 type: prospect ? "Bilan pédagogique initial" : "Suivi régulier",

@@ -16,6 +16,7 @@ import { parseJson, parseJsonObject } from "./parseJson.js";
 import { sanitizeEvidence } from "./diagnosticEvidence.js";
 import { subjectsToReinforce, geoProximity, scoreTutor } from "./matchScoring.js";
 import { indexDiagnostics, indexPlans, buildBilan, toIso } from "./bilanSummary.js";
+import { sanitizeAgendaPayload, toColumns, contactName, mapAgendaRow } from "./advisorAgenda.js";
 import { readTutorProfile, profileCompleteness, buildProfileUpdate } from "./tutorProfile.js";
 
 const rootDir = process.cwd();
@@ -617,7 +618,33 @@ const ensureAdvisorAppointmentsTable = async () => {
       KEY idx_advisor_appt_advisor (advisor_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  if (advisorAgendaMigrated) return;
+  // Agenda complet : rendez-vous, tâches et échéances, rattachés à un élève par identifiant.
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM advisor_appointments");
+    const have = new Set(cols.map((c) => c.Field));
+    const add = [
+      ["kind", "VARCHAR(20) NOT NULL DEFAULT 'rdv'"], ["title", "VARCHAR(191) NULL"], ["end_time", "VARCHAR(20) NULL"],
+      ["location", "VARCHAR(191) NULL"], ["priority", "VARCHAR(10) NOT NULL DEFAULT 'normale'"],
+      ["student_id", "VARCHAR(36) NULL"], ["student_name", "VARCHAR(191) NULL"], ["parent_name", "VARCHAR(191) NULL"],
+      ["teacher_name", "VARCHAR(191) NULL"], ["notes", "TEXT NULL"],
+      ["updated_at", "TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP"],
+    ];
+    for (const [name, def] of add) {
+      if (!have.has(name)) await pool.query(`ALTER TABLE advisor_appointments ADD COLUMN ${name} ${def}`);
+    }
+    const status = cols.find((c) => c.Field === "status");
+    if (status && /^enum/i.test(status.Type)) {
+      await pool.query("ALTER TABLE advisor_appointments MODIFY status VARCHAR(20) NOT NULL DEFAULT 'planifié'");
+    }
+    const time = cols.find((c) => c.Field === "appointment_time");
+    if (time && time.Null === "NO") {
+      await pool.query("ALTER TABLE advisor_appointments MODIFY appointment_time VARCHAR(20) NULL");
+    }
+    advisorAgendaMigrated = true;
+  } catch (e) { console.warn("Migration advisor_appointments:", e.message); }
 };
+let advisorAgendaMigrated = false;
 
 const ensureTeacherApplicationsTable = async () => {
   await pool.query(
@@ -9676,15 +9703,20 @@ app.get("/api/advisors/:advisorId/dashboard", authenticateRequest, requireSelfOr
   }
 });
 
+const AGENDA_SELECT = `SELECT id, kind, title, contact_name, appointment_type,
+  DATE_FORMAT(appointment_date, '%Y-%m-%d') AS date, appointment_time AS time, end_time, priority, status,
+  location, student_id, student_name, parent_name, teacher_name, notes
+  FROM advisor_appointments`;
+
 app.get("/api/advisors/:advisorId/appointments", authenticateRequest, requireSelfOrAdmin("advisorId"), async (req, res) => {
   const { advisorId } = req.params;
   try {
     await ensureAdvisorAppointmentsTable();
     const [rows] = await pool.query(
-      "SELECT id, contact_name as family, appointment_type as type, DATE_FORMAT(appointment_date, '%Y-%m-%d') as date, appointment_time as time, status FROM advisor_appointments WHERE advisor_id = ? ORDER BY appointment_date ASC, appointment_time ASC",
+      `${AGENDA_SELECT} WHERE advisor_id = ? ORDER BY appointment_date ASC, appointment_time ASC`,
       [advisorId]
     );
-    res.json(rows);
+    res.json(rows.map(mapAgendaRow));
   } catch (error) {
     console.error("Failed to fetch advisor appointments", error);
     res.status(500).json({ message: "Erreur serveur lors de la récupération des rendez-vous." });
@@ -9693,25 +9725,64 @@ app.get("/api/advisors/:advisorId/appointments", authenticateRequest, requireSel
 
 app.post("/api/advisors/:advisorId/appointments", authenticateRequest, requireSelfOrAdmin("advisorId"), async (req, res) => {
   const { advisorId } = req.params;
-  const { family, type, date, time } = req.body;
-  if (!family || !type || !date || !time) {
-    return res.status(400).json({ message: "Champs obligatoires manquants." });
-  }
+  const body = req.body ?? {};
+  // Ancien formulaire : { family, type, date, time } ; la famille devient le nom de l'élève/contact.
+  const { values, error } = sanitizeAgendaPayload({ studentName: body.family, ...body });
+  if (error) return res.status(400).json({ message: error });
   try {
     await ensureAdvisorAppointmentsTable();
     const id = crypto.randomUUID();
+    const cols = toColumns(values);
     await pool.query(
-      "INSERT INTO advisor_appointments (id, advisor_id, contact_name, appointment_type, appointment_date, appointment_time, status) VALUES (?, ?, ?, ?, ?, ?, 'planifié')",
-      [id, advisorId, family, type, date, time]
+      `INSERT INTO advisor_appointments (id, advisor_id, contact_name, appointment_type, ${cols.map(([c]) => c).join(", ")})
+       VALUES (?, ?, ?, ?, ${cols.map(() => "?").join(", ")})`,
+      [id, advisorId, contactName(values), values.title, ...cols.map(([, v]) => v)]
     );
-    const [rows] = await pool.query(
-      "SELECT id, contact_name as family, appointment_type as type, DATE_FORMAT(appointment_date, '%Y-%m-%d') as date, appointment_time as time, status FROM advisor_appointments WHERE id = ?",
-      [id]
-    );
-    res.status(201).json(rows[0]);
+    const [rows] = await pool.query(`${AGENDA_SELECT} WHERE id = ?`, [id]);
+    res.status(201).json(mapAgendaRow(rows[0]));
   } catch (error) {
     console.error("Failed to create advisor appointment", error);
     res.status(500).json({ message: "Erreur serveur lors de la planification du rendez-vous." });
+  }
+});
+
+app.patch("/api/advisors/:advisorId/appointments/:id", authenticateRequest, requireSelfOrAdmin("advisorId"), async (req, res) => {
+  const { advisorId, id } = req.params;
+  const { values, error } = sanitizeAgendaPayload(req.body ?? {}, { partial: true });
+  if (error) return res.status(400).json({ message: error });
+  const cols = toColumns(values);
+  if (!cols.length) return res.status(400).json({ message: "Aucune modification." });
+  try {
+    await ensureAdvisorAppointmentsTable();
+    const [current] = await pool.query(`${AGENDA_SELECT} WHERE id = ? AND advisor_id = ?`, [id, advisorId]);
+    if (!current.length) return res.status(404).json({ message: "Événement introuvable." });
+    const merged = { ...mapAgendaRow(current[0]), ...values };
+    if (merged.time && merged.endTime && merged.endTime <= merged.time) {
+      return res.status(400).json({ message: "L'heure de fin doit suivre l'heure de début." });
+    }
+    await pool.query(
+      `UPDATE advisor_appointments SET ${cols.map(([c]) => `${c} = ?`).join(", ")}, contact_name = ?, appointment_type = ?
+       WHERE id = ? AND advisor_id = ?`,
+      [...cols.map(([, v]) => v), contactName(merged), merged.title, id, advisorId]
+    );
+    const [rows] = await pool.query(`${AGENDA_SELECT} WHERE id = ?`, [id]);
+    res.json(mapAgendaRow(rows[0]));
+  } catch (error) {
+    console.error("Failed to update advisor appointment", error);
+    res.status(500).json({ message: "Erreur serveur lors de la mise à jour." });
+  }
+});
+
+app.delete("/api/advisors/:advisorId/appointments/:id", authenticateRequest, requireSelfOrAdmin("advisorId"), async (req, res) => {
+  const { advisorId, id } = req.params;
+  try {
+    await ensureAdvisorAppointmentsTable();
+    const [result] = await pool.query("DELETE FROM advisor_appointments WHERE id = ? AND advisor_id = ?", [id, advisorId]);
+    if (!result.affectedRows) return res.status(404).json({ message: "Événement introuvable." });
+    res.json({ message: "Événement supprimé." });
+  } catch (error) {
+    console.error("Failed to delete advisor appointment", error);
+    res.status(500).json({ message: "Erreur serveur lors de la suppression." });
   }
 });
 

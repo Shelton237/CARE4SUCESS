@@ -1,181 +1,121 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom-original";
+import { MemoryRouter } from "react-router-dom";
 import AdvisorSchedule from "@/pages/advisor/Schedule";
-import { fetchAdvisorAppointments, createAdvisorAppointment } from "@/api/backoffice";
+import {
+  fetchAdvisorAppointments, createAdvisorAppointment, updateAdvisorAppointment, deleteAdvisorAppointment, fetchAdvisorFamilies,
+} from "@/api/backoffice";
 
 vi.mock("@/api/backoffice", () => ({
-  fetchAdvisorAppointments: vi.fn(),
-  createAdvisorAppointment: vi.fn(),
+  fetchAdvisorAppointments: vi.fn(), createAdvisorAppointment: vi.fn(), updateAdvisorAppointment: vi.fn(),
+  deleteAdvisorAppointment: vi.fn(), fetchAdvisorFamilies: vi.fn(),
 }));
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { id: "advisor-1", name: "Aline", role: "advisor" } }) }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: { id: "advisor-1", name: "Aline Conseillère", role: "advisor" } }),
-}));
+const pad = (n: number) => String(n).padStart(2, "0");
+const day = (offset: number) => { const d = new Date(); d.setDate(d.getDate() + offset); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const E = (o: Record<string, unknown>) => ({
+  id: "e", kind: "rdv", title: "Événement", date: day(1), time: "10:00", endTime: "10:30", priority: "normale", status: "planifié",
+  location: null as any, studentId: null as any, studentName: null as any, parentName: null as any, teacherName: null as any, notes: null as any, ...o,
+});
+const EVENTS = [
+  E({ id: "1", title: "Entretien avec la famille Kamdem", studentName: "Saturin Penlap", parentName: "Boris Kamdem", location: "En visioconférence", status: "confirmé", studentId: "s1" }),
+  E({ id: "2", kind: "tache", title: "Envoyer le bilan pédagogique", time: null, endTime: null, status: "à faire", priority: "haute", teacherName: "Léa M." }),
+  E({ id: "3", kind: "echeance", title: "Remise du rapport mensuel", date: day(-2), time: "17:00", endTime: null, status: "à faire" }),
+  E({ id: "4", title: "Ancien suivi", date: day(-10), status: "réalisé" }),
+];
+const FAMILIES = [{ id: "req-9", studentId: "s9", child: "Jean Nore", parent: "Aminata Nore", level: "Terminale", teacher: "M. Diop" }];
 
-const toastSpy = vi.fn();
-vi.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: toastSpy }),
-}));
-
-const APPOINTMENT = {
-  id: "rdv-1",
-  family: "Famille Ba",
-  type: "Suivi régulier",
-  date: "25/07/2026",
-  time: "10:00",
-  status: "planifié",
-};
-
-function renderSchedule() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter>
+const renderPage = (state?: any) =>
+  render(
+    <MemoryRouter initialEntries={[{ pathname: "/advisor/schedule", state }]}>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <AdvisorSchedule />
-      </MemoryRouter>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </MemoryRouter>
   );
-}
 
-describe("AdvisorSchedule — Tâches & RDV", () => {
+describe("AdvisorSchedule : Tâches & Rendez-vous", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (fetchAdvisorAppointments as any).mockResolvedValue(EVENTS);
+    (fetchAdvisorFamilies as any).mockResolvedValue(FAMILIES);
+    (createAdvisorAppointment as any).mockResolvedValue({});
+    (updateAdvisorAppointment as any).mockResolvedValue({});
+    (deleteAdvisorAppointment as any).mockResolvedValue({});
   });
 
-  it("succès : affiche la liste des prochains rendez-vous", async () => {
-    (fetchAdvisorAppointments as any).mockResolvedValue([APPOINTMENT]);
-    renderSchedule();
-
-    expect(await screen.findByText("Famille Ba")).toBeInTheDocument();
-    expect(screen.getByText("10:00")).toBeInTheDocument();
-    expect(screen.getByText("25/07/2026")).toBeInTheDocument();
-    expect(screen.getByText("planifié")).toBeInTheDocument();
+  it("onglets avec compteurs, retard calculé, terminés en dernier", async () => {
+    renderPage();
+    expect(await screen.findByText("Entretien avec la famille Kamdem")).toBeInTheDocument();
     expect(fetchAdvisorAppointments).toHaveBeenCalledWith("advisor-1");
+    expect(screen.getByRole("tab", { name: /Tous/ })).toHaveTextContent("4");
+    expect(screen.getByRole("tab", { name: /Tâches/ })).toHaveTextContent("1");
+    expect(screen.getByText("En retard")).toBeInTheDocument();
+    expect(screen.getByText("Haute priorité")).toBeInTheDocument();
+    expect(screen.getAllByText("Demain")).toHaveLength(2);
+    const titles = screen.getAllByRole("button", { name: /Entretien|Envoyer|Remise|Ancien/ }).map(b => b.textContent).filter(Boolean);
+    expect(titles[0]).toBe("Remise du rapport mensuel");
+    expect(titles[titles.length - 1]).toBe("Ancien suivi");
   });
 
-  it("état vide : affiche un message si aucun rendez-vous n'est planifié", async () => {
-    (fetchAdvisorAppointments as any).mockResolvedValue([]);
-    renderSchedule();
-
-    expect(await screen.findByText("Aucun rendez-vous planifié.")).toBeInTheDocument();
-  });
-
-  it("succès : création d'un rendez-vous avec tous les champs renseignés déclenche createAdvisorAppointment puis réinitialise le formulaire", async () => {
-    (fetchAdvisorAppointments as any).mockResolvedValue([]);
-    (createAdvisorAppointment as any).mockResolvedValue({ ...APPOINTMENT, id: "rdv-2" });
+  it("onglet Rendez-vous et filtres repliés par défaut", async () => {
     const user = userEvent.setup();
-    renderSchedule();
-    await screen.findByText("Aucun rendez-vous planifié.");
-
-    await user.type(screen.getByPlaceholderText("Nom de la famille"), "Famille Diop");
-    await user.selectOptions(screen.getByDisplayValue("Suivi régulier"), "Bilan initial");
-
-    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
-    const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
-    await user.type(dateInput, "2026-08-01");
-    await user.type(timeInput, "14:30");
-
-    await user.click(screen.getByText("Confirmer le rendez-vous"));
-
-    await waitFor(() =>
-      expect(createAdvisorAppointment).toHaveBeenCalledWith(
-        "advisor-1",
-        expect.objectContaining({
-          family: "Famille Diop",
-          type: "Bilan initial",
-          date: "2026-08-01",
-          time: "14:30",
-        })
-      )
-    );
-    await waitFor(() =>
-      expect(toastSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "Rendez-vous planifié" })
-      )
-    );
-    await waitFor(() => expect(screen.getByPlaceholderText("Nom de la famille")).toHaveValue(""));
+    renderPage();
+    await screen.findByText("Entretien avec la famille Kamdem");
+    expect(screen.getByRole("button", { name: /Filtres avancés/ })).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByRole("tab", { name: /Rendez-vous/ }));
+    expect(screen.queryByText("Envoyer le bilan pédagogique")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Filtres avancés/ }));
+    await user.selectOptions(screen.getByRole("combobox", { name: /Statut/ }), "done");
+    expect(screen.getByText("Ancien suivi")).toBeInTheDocument();
+    expect(screen.queryByText("Entretien avec la famille Kamdem")).not.toBeInTheDocument();
   });
 
-  it("champs obligatoires manquants : la soumission sans date ni heure ne déclenche pas createAdvisorAppointment", async () => {
-    (fetchAdvisorAppointments as any).mockResolvedValue([]);
+  it("création d'une tâche rattachée à un élève par identifiant", async () => {
     const user = userEvent.setup();
-    renderSchedule();
-    await screen.findByText("Aucun rendez-vous planifié.");
-
-    // Seul le champ famille est renseigné : date et heure (obligatoires) restent vides.
-    await user.type(screen.getByPlaceholderText("Nom de la famille"), "Famille Sy");
-    await user.click(screen.getByText("Confirmer le rendez-vous"));
-
-    // La validation HTML5 native (attribut required) bloque la soumission du formulaire.
-    expect(createAdvisorAppointment).not.toHaveBeenCalled();
+    renderPage();
+    await screen.findByText("Entretien avec la famille Kamdem");
+    await user.click(screen.getByRole("button", { name: /Nouvel événement/ }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("radio", { name: /Tâche/ }));
+    await user.type(within(dialog).getByRole("textbox", { name: /Titre/ }), "Appeler la famille");
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /Élève/ }), "req-9");
+    await user.click(within(dialog).getByRole("button", { name: /Ajouter à l'agenda/ }));
+    await waitFor(() => expect(createAdvisorAppointment).toHaveBeenCalledWith("advisor-1", expect.objectContaining({
+      kind: "tache", title: "Appeler la famille", studentId: "s9", studentName: "Jean Nore", parentName: "Aminata Nore", teacherName: "M. Diop", endTime: null,
+    })));
   });
 
-  it("champs obligatoires manquants : la soumission sans nom de famille ne déclenche pas createAdvisorAppointment", async () => {
-    (fetchAdvisorAppointments as any).mockResolvedValue([]);
+  it("menu : marquer comme terminé et supprimer avec confirmation", async () => {
     const user = userEvent.setup();
-    renderSchedule();
-    await screen.findByText("Aucun rendez-vous planifié.");
-
-    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
-    const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
-    await user.type(dateInput, "2026-08-01");
-    await user.type(timeInput, "14:30");
-    await user.click(screen.getByText("Confirmer le rendez-vous"));
-
-    expect(createAdvisorAppointment).not.toHaveBeenCalled();
+    renderPage();
+    await screen.findByText("Envoyer le bilan pédagogique");
+    await user.click(screen.getByRole("button", { name: "Actions pour Envoyer le bilan pédagogique" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Marquer comme terminé/ }));
+    await waitFor(() => expect(updateAdvisorAppointment).toHaveBeenCalledWith("advisor-1", "2", { status: "terminé" }));
+    await user.click(screen.getByRole("button", { name: "Actions pour Ancien suivi" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Supprimer/ }));
+    await user.click(await screen.findByRole("button", { name: /^Supprimer$/ }));
+    await waitFor(() => expect(deleteAdvisorAppointment).toHaveBeenCalledWith("advisor-1", "4"));
   });
 
-  it("erreur réseau : l'échec de createAdvisorAppointment affiche un toast d'erreur et ne réinitialise pas le formulaire", async () => {
-    (fetchAdvisorAppointments as any).mockResolvedValue([]);
-    (createAdvisorAppointment as any).mockRejectedValue(new Error("Le serveur ne répond pas."));
+  it("arrivée depuis une fiche élève : formulaire prérempli par identifiant", async () => {
+    renderPage({ familyId: "req-9", familyName: "Aminata Nore", childName: "Jean Nore", type: "Suivi régulier" });
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("textbox", { name: /Titre/ })).toHaveValue("Suivi régulier");
+    await waitFor(() => expect(within(dialog).getByRole("combobox", { name: /Élève/ })).toHaveValue("req-9"));
+  });
+
+  it("vue Calendrier", async () => {
     const user = userEvent.setup();
-    renderSchedule();
-    await screen.findByText("Aucun rendez-vous planifié.");
-
-    await user.type(screen.getByPlaceholderText("Nom de la famille"), "Famille Fall");
-    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
-    const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
-    await user.type(dateInput, "2026-08-02");
-    await user.type(timeInput, "09:00");
-    await user.click(screen.getByText("Confirmer le rendez-vous"));
-
-    await waitFor(() =>
-      expect(toastSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          variant: "destructive",
-          title: "Erreur",
-          description: "Impossible de planifier le rendez-vous.",
-        })
-      )
-    );
-    expect(screen.getByPlaceholderText("Nom de la famille")).toHaveValue("Famille Fall");
-  });
-
-  it("erreur réseau (chargement) : un échec de fetchAdvisorAppointments affiche la liste vide sans bloquer le formulaire", async () => {
-    (fetchAdvisorAppointments as any).mockRejectedValue(new Error("Network Error"));
-    renderSchedule();
-
-    // Constat : aucune bannière d'erreur dédiée n'est affichée en cas d'échec de chargement des rendez-vous
-    // (dégradation silencieuse vers la liste vide, comme pour la messagerie).
-    expect(await screen.findByText("Aucun rendez-vous planifié.")).toBeInTheDocument();
-    expect(screen.getByText("Confirmer le rendez-vous")).toBeInTheDocument();
-  });
-
-  it("pré-remplissage : arrivée depuis « Planifier RDV » de Mes Familles pré-remplit le nom de la famille", async () => {
-    (fetchAdvisorAppointments as any).mockResolvedValue([]);
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={[{ pathname: "/advisor/schedule", state: { familyName: "Famille Ndiaye" } }]}>
-          <AdvisorSchedule />
-        </MemoryRouter>
-      </QueryClientProvider>
-    );
-
-    expect(await screen.findByDisplayValue("Famille Ndiaye")).toBeInTheDocument();
-    expect(screen.getByText(/Planification de rendez-vous/)).toBeInTheDocument();
+    renderPage();
+    await screen.findByText("Entretien avec la famille Kamdem");
+    await user.click(screen.getByRole("button", { name: /Calendrier/ }));
+    expect(screen.getByRole("button", { name: "Mois suivant" })).toBeInTheDocument();
+    expect(screen.getByText("Lun")).toBeInTheDocument();
   });
 });

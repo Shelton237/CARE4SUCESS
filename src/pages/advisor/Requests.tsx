@@ -186,7 +186,7 @@ export default function AdvisorRequests() {
                 </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => navigate("/advisor/schedule", { state: { familyName: r.parent, childName: r.child, type: "Bilan pédagogique initial" } })}>
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => navigate("/advisor/schedule", { state: { familyId: r.id, familyName: r.parent, childName: r.child, type: "Bilan pédagogique initial" } })}>
                     <CalendarPlus className="w-4 h-4" /> Planifier le diagnostic
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => openDossier(r, "diagnostic")}>
