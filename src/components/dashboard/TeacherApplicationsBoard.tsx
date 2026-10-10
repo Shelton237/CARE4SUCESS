@@ -140,6 +140,10 @@ const completeness = (a: App) => {
     const missing = checks.filter(([, ok]) => !ok).map(([k]) => k);
     return { percent: Math.round(((checks.length - missing.length) / checks.length) * 100), missing };
 };
+const experienceLabel = (a: App) => {
+    const y = Number(a.experienceYears) || 0;
+    return y > 0 ? `${y} an${y > 1 ? "s" : ""} d'expérience` : "Expérience non renseignée";
+};
 type BoardFilters = { subject: string; level: string; city: string; experience: string; from: string; to: string; completeOnly: boolean };
 const EMPTY_F: BoardFilters = { subject: "", level: "", city: "", experience: "", from: "", to: "", completeOnly: false };
 
@@ -378,7 +382,7 @@ export default function TeacherApplicationsBoard({
                         </div>
                         <p className="text-xs text-gray-500 truncate" title={app.subjects.join(" • ")}>{app.subjects.join(" • ") || "Aucune matière"}</p>
                         <p className={cn("text-xs flex items-center gap-1.5", place ? "text-gray-500" : "text-amber-600")}><MapPin className="w-3.5 h-3.5 shrink-0" />{place || "Ville non renseignée"}</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1.5"><Briefcase className="w-3.5 h-3.5 shrink-0" />{app.experienceYears} an{Number(app.experienceYears) > 1 ? "s" : ""} d'expérience</p>
+                        <p className={cn("text-xs flex items-center gap-1.5", Number(app.experienceYears) > 0 ? "text-gray-500" : "text-amber-600")}><Briefcase className="w-3.5 h-3.5 shrink-0" />{experienceLabel(app)}</p>
                         <p className="text-xs text-gray-500 flex items-center gap-1.5 truncate"><GraduationCap className="w-3.5 h-3.5 shrink-0" />{(app.levels || []).length ? (app.levels || []).join(", ") : "Niveaux non renseignés"}</p>
                         <p className="text-xs flex items-center gap-1.5 text-gray-500">
                             <Star className={cn("w-3.5 h-3.5 shrink-0", app.reviewCount ? "text-[#F5A623] fill-[#F5A623]" : "text-gray-300")} />
@@ -388,7 +392,7 @@ export default function TeacherApplicationsBoard({
                 </div>
                 <div title={c.missing.length ? `Manque : ${c.missing.join(", ")}` : "Dossier complet"}>
                     <div className="flex items-center justify-between text-[11px] mb-1">
-                        <span className="flex items-center gap-1 font-semibold text-[#0D2D5A]"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Dossier complet</span>
+                        <span className="flex items-center gap-1 font-semibold text-[#0D2D5A]"><CheckCircle2 className={cn("w-3.5 h-3.5", c.percent === 100 ? "text-emerald-600" : "text-gray-300")} /> {c.percent === 100 ? "Dossier complet" : "Complétude du dossier"}</span>
                         <span className="font-bold text-[#0D2D5A]">{c.percent}%</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-gray-100"><div className="h-full rounded-full" style={{ width: `${c.percent}%`, background: c.percent === 100 ? "#16A34A" : c.percent >= 60 ? "#D97706" : "#DC2626" }} /></div>
@@ -566,7 +570,7 @@ export default function TeacherApplicationsBoard({
                                         </td>
                                         <td className="px-4 py-3 text-xs text-gray-600 max-w-[200px] truncate">{app.subjects.join(", ")}</td>
                                         <td className="px-4 py-3 text-xs text-gray-600">{app.city || "Non renseignée"}</td>
-                                        <td className="px-4 py-3 text-xs text-gray-600">{app.experienceYears} an{Number(app.experienceYears) > 1 ? "s" : ""}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{experienceLabel(app)}</td>
                                         <td className="px-4 py-3 text-xs font-bold text-[#0D2D5A]" title={c.missing.join(", ")}>{c.percent}%</td>
                                         <td className="px-4 py-3 text-xs text-gray-500">{formatDay(app.createdAt)}</td>
                                         <td className="px-4 py-3">{statusPill(app)}</td>
@@ -617,7 +621,7 @@ export default function TeacherApplicationsBoard({
                                     <p className="flex items-center gap-2"><Mail className="w-4 h-4 text-gray-400" /> {detail.email}</p>
                                     <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-gray-400" /> {detail.phone || "Non renseigné"}</p>
                                     <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" /> {[detail.city, ...(detail.zones || [])].filter(Boolean).join(", ") || "Ville non renseignée"}</p>
-                                    <p className="flex items-center gap-2"><Briefcase className="w-4 h-4 text-gray-400" /> {detail.experienceYears} an(s) d'expérience</p>
+                                    <p className="flex items-center gap-2"><Briefcase className="w-4 h-4 text-gray-400" /> {experienceLabel(detail)}</p>
                                     <p className="flex items-center gap-2 sm:col-span-2"><GraduationCap className="w-4 h-4 text-gray-400" /> {detail.subjects.join(", ")}{(detail.levels || []).length ? ` · ${(detail.levels || []).join(", ")}` : ""}</p>
                                     <p className="flex items-center gap-2 sm:col-span-2"><Calendar className="w-4 h-4 text-gray-400" /> Disponibilités : {detail.availability || "Non précisées"}</p>
                                     {detail.interviewDate && <p className="flex items-center gap-2 sm:col-span-2"><CalendarDays className="w-4 h-4 text-gray-400" /> Entretien : {new Date(detail.interviewDate).toLocaleString("fr-FR")}{detail.interviewStatus ? ` (${detail.interviewStatus})` : ""}</p>}
