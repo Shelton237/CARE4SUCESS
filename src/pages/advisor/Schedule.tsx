@@ -23,6 +23,8 @@ type Ev = {
     id: string; kind: Kind; title: string; date: string; time: string | null; endTime: string | null;
     priority: "haute" | "normale" | "basse"; status: string; location: string | null;
     studentId: string | null; studentName: string | null; parentName: string | null; teacherName: string | null; notes: string | null;
+    // Ancien champ texte libre (événements créés avant la refonte)
+    family?: string | null;
 };
 
 const BLUE = "#1A6CC8";
@@ -256,6 +258,7 @@ export default function AdvisorSchedule() {
         e.studentName && <>Élève : <strong className="font-semibold text-[#0D2D5A]">{e.studentName}</strong></>,
         e.parentName && <>Parent : {e.parentName}</>,
         e.teacherName && <>Enseignant : {e.teacherName}</>,
+        !e.studentName && !e.parentName && !e.teacherName && clean(e.family) && <>Contact : {clean(e.family)}</>,
     ].filter(Boolean);
 
     const quickActions = (e: Ev) => {

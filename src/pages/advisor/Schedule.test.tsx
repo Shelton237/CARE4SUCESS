@@ -110,6 +110,12 @@ describe("AdvisorSchedule : Tâches & Rendez-vous", () => {
     await waitFor(() => expect(within(dialog).getByRole("combobox", { name: /Élève/ })).toHaveValue("req-9"));
   });
 
+  it("ancien rendez-vous : le contact saisi en texte libre reste affiché", async () => {
+    (fetchAdvisorAppointments as any).mockResolvedValue([E({ id: "9", title: "Bilan initial", family: "Famille Ba" })]);
+    renderPage();
+    expect(await screen.findByText("Contact : Famille Ba")).toBeInTheDocument();
+  });
+
   it("vue Calendrier", async () => {
     const user = userEvent.setup();
     renderPage();
