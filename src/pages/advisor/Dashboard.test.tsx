@@ -68,7 +68,8 @@ describe("AdvisorDashboard : suivi pédagogique objectif", () => {
     expect(screen.getByText("Sur 42 séances prévues et échues")).toBeInTheDocument();
     expect(screen.getByText("Pas encore mesuré")).toBeInTheDocument();
     expect(screen.getByText("4,3/5")).toBeInTheDocument();
-    expect(screen.getByText("Non mesuré")).toBeInTheDocument();
+    // Délai non mesuré dans l'entonnoir et écart d'un élève jamais évalué
+    expect(screen.getAllByText("Non mesuré")).toHaveLength(2);
     expect(screen.getByText("Mathématiques")).toBeInTheDocument();
     expect(screen.getByText(/aucune double évaluation/)).toBeInTheDocument();
   });
