@@ -205,7 +205,7 @@ export default function AdvisorMatching() {
     const start = (current - 1) * pageSize;
     const pageRows = filtered.slice(start, start + pageSize);
     const set = (k: keyof Filters, v: string) => setFilters(f => ({ ...f, [k]: v }));
-    const activeAdvanced = [filters.language, filters.experience, filters.specialty].filter(Boolean).length;
+    const activeFilters = [filters.subject, filters.level, filters.availability, filters.status, filters.language, filters.experience, filters.specialty].filter(Boolean).length;
 
     const history = useMemo(
         () => items.flatMap(it => it.assignedTeachers.map(t => ({ student: it.student, teacher: t }))),
@@ -338,7 +338,7 @@ export default function AdvisorMatching() {
             )}
 
             {/* Onglets + filtres */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-5">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
                 <div className="flex flex-wrap gap-2 border-b border-gray-100 pb-4" role="tablist">
                     {([
                         { k: "list", label: "Liste des correspondances", icon: ListChecks },
@@ -355,49 +355,59 @@ export default function AdvisorMatching() {
 
                 {tab !== "history" && (
                     <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                            <div className="xl:col-span-2">
-                                <span className={LABEL}>Recherche</span>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <input value={filters.search} onChange={e => set("search", e.target.value)} placeholder="Rechercher un enseignant, un élève, une matière..."
-                                        className="w-full h-10 border border-gray-200 rounded-lg pl-9 pr-3 text-sm outline-none focus:border-[#0D2D5A] focus:ring-2 focus:ring-[#0D2D5A]/10" />
-                                </div>
+                        {/* Toujours visibles : recherche, mode de correspondance, ouverture des filtres */}
+                        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input value={filters.search} onChange={e => set("search", e.target.value)} placeholder="Rechercher un enseignant, un élève, une matière..."
+                                    aria-label="Rechercher"
+                                    className="w-full h-10 border border-gray-200 rounded-lg pl-9 pr-3 text-sm outline-none focus:border-[#0D2D5A] focus:ring-2 focus:ring-[#0D2D5A]/10" />
                             </div>
-                            <label><span className={LABEL}>Matière</span>
-                                <select value={filters.subject} onChange={e => set("subject", e.target.value)} className={SELECT}>
-                                    <option value="">Toutes les matières</option>{options.subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </label>
-                            <label><span className={LABEL}>Niveau</span>
-                                <select value={filters.level} onChange={e => set("level", e.target.value)} className={SELECT}>
-                                    <option value="">Tous les niveaux</option>{options.levels.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </label>
-                            <label><span className={LABEL}>Disponibilité du tuteur</span>
-                                <select value={filters.availability} onChange={e => set("availability", e.target.value)} className={SELECT}>
-                                    <option value="">Tous les créneaux</option><option value="yes">Disponibilités renseignées</option><option value="no">Disponibilités à confirmer</option>
-                                </select>
-                            </label>
-                            <label><span className={LABEL}>Statut</span>
-                                <select value={filters.status} onChange={e => set("status", e.target.value)} className={SELECT}>
-                                    <option value="">Tous les statuts</option><option value="available">Disponibles uniquement</option>
-                                    <option value="unassigned">Élèves sans tuteur</option><option value="assigned">Déjà affectés</option>
-                                </select>
-                            </label>
                             {tab === "list" && (
-                                <div className="xl:col-span-2 rounded-xl border border-gray-100 p-3 flex items-center justify-between gap-3">
-                                    <div>
-                                        <p className="text-sm font-semibold text-[#0D2D5A] flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-blue-600" /> Correspondance optimale</p>
-                                        <p className="text-[11px] text-gray-400">Activé : le meilleur tuteur par élève. Désactivé : les 3 meilleurs.</p>
-                                    </div>
+                                <label className="flex items-center gap-2.5 rounded-lg border border-gray-100 h-10 px-3" title="Activé : le meilleur tuteur par élève. Désactivé : les 3 meilleurs.">
+                                    <Sparkles className="w-4 h-4 text-blue-600" />
+                                    <span className="text-sm font-semibold text-[#0D2D5A] whitespace-nowrap">Correspondance optimale</span>
                                     <Switch checked={optimal} onCheckedChange={setOptimal} aria-label="Correspondance optimale" />
-                                </div>
+                                </label>
+                            )}
+                            <button
+                                onClick={() => setShowAdvanced(o => !o)}
+                                aria-expanded={showAdvanced}
+                                className={cn(BTN, "border", activeFilters ? "border-[#0D2D5A] bg-[#0D2D5A]/5 text-[#0D2D5A]" : "border-gray-200 text-[#0D2D5A] hover:bg-gray-50")}
+                            >
+                                <SlidersHorizontal className="w-4 h-4" /> Filtres{activeFilters ? ` · ${activeFilters}` : ""}
+                                {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+                            {(activeFilters > 0 || filters.search) && (
+                                <button onClick={() => setFilters(EMPTY)} className={cn(BTN, "text-gray-500 hover:bg-gray-50")}>
+                                    <RotateCcw className="w-4 h-4" /> Réinitialiser
+                                </button>
                             )}
                         </div>
 
                         {showAdvanced && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-1">
+                                <label><span className={LABEL}>Matière</span>
+                                    <select value={filters.subject} onChange={e => set("subject", e.target.value)} className={SELECT}>
+                                        <option value="">Toutes les matières</option>{options.subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </label>
+                                <label><span className={LABEL}>Niveau</span>
+                                    <select value={filters.level} onChange={e => set("level", e.target.value)} className={SELECT}>
+                                        <option value="">Tous les niveaux</option>{options.levels.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </label>
+                                <label><span className={LABEL}>Disponibilité du tuteur</span>
+                                    <select value={filters.availability} onChange={e => set("availability", e.target.value)} className={SELECT}>
+                                        <option value="">Tous les créneaux</option><option value="yes">Disponibilités renseignées</option><option value="no">Disponibilités à confirmer</option>
+                                    </select>
+                                </label>
+                                <label><span className={LABEL}>Statut</span>
+                                    <select value={filters.status} onChange={e => set("status", e.target.value)} className={SELECT}>
+                                        <option value="">Tous les statuts</option><option value="available">Disponibles uniquement</option>
+                                        <option value="unassigned">Élèves sans tuteur</option><option value="assigned">Déjà affectés</option>
+                                    </select>
+                                </label>
                                 <label><span className={LABEL}>Langue du tuteur</span>
                                     <select value={filters.language} onChange={e => set("language", e.target.value)} className={SELECT}>
                                         <option value="">Toutes les langues</option>{options.languages.map(s => <option key={s} value={s}>{s}</option>)}
@@ -416,16 +426,6 @@ export default function AdvisorMatching() {
                                 </label>
                             </div>
                         )}
-
-                        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                            <button onClick={() => setShowAdvanced(o => !o)} aria-expanded={showAdvanced} className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0D2D5A]">
-                                <SlidersHorizontal className="w-4 h-4" /> Filtres avancés{activeAdvanced ? ` · ${activeAdvanced}` : ""}
-                                {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </button>
-                            <button onClick={() => setFilters(EMPTY)} className={cn(BTN, "border border-gray-200 text-[#0D2D5A] hover:bg-gray-50")}>
-                                <RotateCcw className="w-4 h-4" /> Réinitialiser
-                            </button>
-                        </div>
                     </>
                 )}
             </div>

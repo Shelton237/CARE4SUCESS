@@ -83,11 +83,26 @@ describe("AdvisorMatching", () => {
         await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes("top=3"))).toBe(true));
     });
 
+    it("filtres repliés par défaut ; leur nombre s'affiche une fois actifs", async () => {
+        const user = userEvent.setup();
+        renderPage();
+        await screen.findByText("Léo Nkca");
+        const toggle = screen.getByRole("button", { name: /^Filtres/ });
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+        expect(screen.queryByRole("combobox", { name: /Matière/ })).not.toBeInTheDocument();
+        expect(screen.getByRole("textbox", { name: "Rechercher" })).toBeInTheDocument();
+
+        await user.click(toggle);
+        await user.selectOptions(screen.getByRole("combobox", { name: /Matière/ }), "Français");
+        expect(screen.getByRole("button", { name: /^Filtres · 1/ })).toBeInTheDocument();
+        expect(screen.queryByText("Léo Nkca")).not.toBeInTheDocument();
+    });
+
     it("filtre Langue : accepte les langues enregistrées comme objets", async () => {
         const user = userEvent.setup();
         renderPage();
         await screen.findByText("Marie Rose");
-        await user.click(screen.getByRole("button", { name: /Filtres avancés/ }));
+        await user.click(screen.getByRole("button", { name: /^Filtres/ }));
         await user.selectOptions(screen.getByRole("combobox", { name: /Langue du tuteur/ }), "Anglais");
         expect(screen.queryByText("Léo Nkca")).not.toBeInTheDocument();
         expect(screen.getByText("Marie Rose")).toBeInTheDocument();
