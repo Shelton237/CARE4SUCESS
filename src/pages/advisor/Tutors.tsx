@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Loader2, Search, Send, Pencil, RefreshCw, Users, List, LayoutGrid, RotateCcw, Plus, ChevronUp, ChevronDown,
-    BookOpen, GraduationCap, MapPin, Crosshair, CalendarDays, Clock, ChevronRight, Banknote, CircleDollarSign,
+    BookOpen, GraduationCap, MapPin, Crosshair, CalendarDays, Banknote, CircleDollarSign, SlidersHorizontal,
     Eye, MoreVertical, BadgeCheck, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -75,8 +75,8 @@ const availabilitySummary = (avail: Record<string, string[]>) => {
     return `${dayLabel} • ${Math.min(...used.map(s => s.from))}h - ${Math.max(...used.map(s => s.to))}h`;
 };
 
-type Filters = { subjects: string[]; levels: string[]; city: string; zones: string[]; slots: Record<string, string[]>; maxRate: string; currency: string };
-const EMPTY_FILTERS: Filters = { subjects: [], levels: [], city: "", zones: [], slots: {}, maxRate: "", currency: "" };
+type Filters = { subjects: string[]; levels: string[]; city: string; zones: string[]; day: string; slot: string; maxRate: string; currency: string };
+const EMPTY_FILTERS: Filters = { subjects: [], levels: [], city: "", zones: [], day: "", slot: "", maxRate: "", currency: "" };
 
 const matchesFilters = (t: Tutor, f: Filters) => {
     if (f.subjects.length && !f.subjects.some(s => t.subjects.includes(s))) return false;
@@ -84,8 +84,10 @@ const matchesFilters = (t: Tutor, f: Filters) => {
     const places = [t.city, ...t.zones].map(norm).filter(Boolean);
     if (f.city && !places.some(p => p.includes(norm(f.city)) || norm(f.city).includes(p))) return false;
     if (f.zones.length && !f.zones.some(z => places.some(p => p.includes(norm(z))))) return false;
-    const wanted = Object.entries(f.slots).flatMap(([d, ss]) => ss.map(s => [d, s] as const));
-    if (wanted.length && !wanted.some(([d, s]) => (t.availability?.[d] || []).includes(s))) return false;
+    if (f.day || f.slot) {
+        const days = f.day ? [f.day] : DAYS.map(d => d.key);
+        if (!days.some(d => (t.availability?.[d] || []).some(sl => !f.slot || sl === f.slot))) return false;
+    }
     if (f.maxRate && !(t.rate > 0 && t.rate <= Number(f.maxRate))) return false;
     if (f.currency && t.currency !== f.currency) return false;
     return true;
@@ -143,8 +145,8 @@ export default function AdvisorTutors() {
     const [onlyIncomplete, setOnlyIncomplete] = useState(false);
     const [view, setView] = useState<"list" | "cards">("list");
     const [sort, setSort] = useState<"recent" | "completeness" | "name">("recent");
-    const [draft, setDraft] = useState<Filters>(EMPTY_FILTERS);
-    const [applied, setApplied] = useState<Filters>(EMPTY_FILTERS);
+    const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+    const [showFilters, setShowFilters] = useState(false);
     const [zoneDraft, setZoneDraft] = useState("");
     const editingId = searchParams.get("id");
 
@@ -207,41 +209,38 @@ export default function AdvisorTutors() {
         const list = tutors.filter(t =>
             (!q || [t.name, t.city, ...t.subjects, ...t.zones].some(v => norm(v).includes(q))) &&
             (!onlyIncomplete || (t.completeness?.percent ?? 0) < 100) &&
-            matchesFilters(t, applied)
+            matchesFilters(t, filters)
         );
         return [...list].sort((a, b) =>
             sort === "name" ? (a.name || "").localeCompare(b.name || "", "fr")
                 : sort === "completeness" ? (a.completeness?.percent ?? 0) - (b.completeness?.percent ?? 0)
                 : String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
         );
-    }, [tutors, search, onlyIncomplete, applied, sort]);
+    }, [tutors, search, onlyIncomplete, filters, sort]);
 
     const editing = tutors.find(t => t.id === editingId) || null;
     useEffect(() => { if (editingId && !isLoading && !editing) setSearchParams({}); }, [editingId, editing, isLoading, setSearchParams]);
 
     const toggle = (key: "subjects" | "levels", v: string) =>
-        setDraft(f => ({ ...f, [key]: f[key].includes(v) ? f[key].filter(x => x !== v) : [...f[key], v] }));
-    const toggleSlot = (day: string, slot: string) =>
-        setDraft(f => {
-            const cur = f.slots[day] || [];
-            return { ...f, slots: { ...f.slots, [day]: cur.includes(slot) ? cur.filter(s => s !== slot) : [...cur, slot] } };
-        });
-    const toggleSlotColumn = (slot: string) =>
-        setDraft(f => {
-            const all = DAYS.every(d => (f.slots[d.key] || []).includes(slot));
-            const slots = { ...f.slots };
-            DAYS.forEach(d => {
-                const cur = slots[d.key] || [];
-                slots[d.key] = all ? cur.filter(s => s !== slot) : [...new Set([...cur, slot])];
-            });
-            return { ...f, slots };
-        });
+        setFilters(f => ({ ...f, [key]: f[key].includes(v) ? f[key].filter(x => x !== v) : [...f[key], v] }));
     const addZone = () => {
         const z = zoneDraft.trim();
-        if (z && !draft.zones.includes(z)) setDraft(f => ({ ...f, zones: [...f.zones, z] }));
+        if (z && !filters.zones.includes(z)) setFilters(f => ({ ...f, zones: [...f.zones, z] }));
         setZoneDraft("");
     };
-    const reset = () => { setDraft(EMPTY_FILTERS); setApplied(EMPTY_FILTERS); setSearch(""); setOnlyIncomplete(false); };
+    const reset = () => { setFilters(EMPTY_FILTERS); setSearch(""); setOnlyIncomplete(false); };
+
+    // Pastilles des filtres actifs (chacune retirable)
+    const activeChips: { key: string; label: string; clear: () => void }[] = [
+        ...filters.subjects.map(v => ({ key: `s-${v}`, label: v, clear: () => setFilters(f => ({ ...f, subjects: f.subjects.filter(x => x !== v) })) })),
+        ...filters.levels.map(v => ({ key: `l-${v}`, label: v, clear: () => setFilters(f => ({ ...f, levels: f.levels.filter(x => x !== v) })) })),
+        ...(filters.city ? [{ key: "city", label: filters.city, clear: () => setFilters(f => ({ ...f, city: "" })) }] : []),
+        ...filters.zones.map(v => ({ key: `z-${v}`, label: `Zone ${v}`, clear: () => setFilters(f => ({ ...f, zones: f.zones.filter(x => x !== v) })) })),
+        ...(filters.day ? [{ key: "day", label: DAYS.find(d => d.key === filters.day)?.label ?? filters.day, clear: () => setFilters(f => ({ ...f, day: "" })) }] : []),
+        ...(filters.slot ? [{ key: "slot", label: SLOTS.find(x => x.key === filters.slot)?.label ?? filters.slot, clear: () => setFilters(f => ({ ...f, slot: "" })) }] : []),
+        ...(filters.maxRate ? [{ key: "rate", label: `Tarif ≤ ${new Intl.NumberFormat("fr-FR").format(Number(filters.maxRate))}`, clear: () => setFilters(f => ({ ...f, maxRate: "" })) }] : []),
+        ...(filters.currency ? [{ key: "cur", label: `Devise ${filters.currency}`, clear: () => setFilters(f => ({ ...f, currency: "" })) }] : []),
+    ];
 
     const actions = (t: Tutor, compact = false) => (
         <div className={cn("flex items-center gap-2 shrink-0", compact && "w-full")}>
@@ -333,11 +332,25 @@ export default function AdvisorTutors() {
                     </div>
                 </div>
 
-                <Section icon={BookOpen} title="Matières enseignées" collapsible>
+                <div className="pt-4 flex flex-wrap items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setShowFilters(o => !o)}
+                        aria-expanded={showFilters}
+                        className={cn(BTN, "border", activeChips.length ? "border-[#1A6CC8] text-[#1A6CC8] bg-[#1A6CC8]/5" : "border-gray-200 text-[#0D2D5A] hover:bg-gray-50")}
+                    >
+                        <SlidersHorizontal className="w-4 h-4" /> Filtres avancés{activeChips.length ? ` · ${activeChips.length}` : ""}
+                        {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                    <p className="text-xs text-gray-400">Matières, niveaux, zone, disponibilités, tarif : la liste se met à jour à chaque choix.</p>
+                </div>
+                {showFilters && (
+                    <div className="mt-2">
+                <Section icon={BookOpen} title="Matières enseignées">
                     <div className="flex flex-wrap gap-2">
                         {ALL_SUBJECTS.map(s => (
-                            <button key={s} type="button" aria-pressed={draft.subjects.includes(s)} onClick={() => toggle("subjects", s)}
-                                className={cn(CHIP, draft.subjects.includes(s) ? "bg-[#1A6CC8] text-white border-[#1A6CC8]" : "bg-white text-[#0D2D5A] border-gray-200 hover:border-gray-300")}>
+                            <button key={s} type="button" aria-pressed={filters.subjects.includes(s)} onClick={() => toggle("subjects", s)}
+                                className={cn(CHIP, filters.subjects.includes(s) ? "bg-[#1A6CC8] text-white border-[#1A6CC8]" : "bg-white text-[#0D2D5A] border-gray-200 hover:border-gray-300")}>
                                 {s}
                             </button>
                         ))}
@@ -347,8 +360,8 @@ export default function AdvisorTutors() {
                 <Section icon={GraduationCap} title="Niveaux">
                     <div className="flex flex-wrap gap-2">
                         {["Tous niveaux", ...ALL_LEVELS].map(l => (
-                            <button key={l} type="button" aria-pressed={draft.levels.includes(l)} onClick={() => toggle("levels", l)}
-                                className={cn(CHIP, draft.levels.includes(l) ? "bg-[#1A6CC8] text-white border-[#1A6CC8]" : "bg-white text-[#0D2D5A] border-gray-200 hover:border-gray-300")}>
+                            <button key={l} type="button" aria-pressed={filters.levels.includes(l)} onClick={() => toggle("levels", l)}
+                                className={cn(CHIP, filters.levels.includes(l) ? "bg-[#1A6CC8] text-white border-[#1A6CC8]" : "bg-white text-[#0D2D5A] border-gray-200 hover:border-gray-300")}>
                                 {l}
                             </button>
                         ))}
@@ -358,7 +371,7 @@ export default function AdvisorTutors() {
                 <section className="py-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <h3 className="flex items-center gap-2 text-sm font-bold text-[#0D2D5A] mb-3"><MapPin className="w-4 h-4" style={{ color: BLUE }} /> Ville</h3>
-                        <CityAutocomplete value={draft.city} onChange={v => setDraft(f => ({ ...f, city: v }))} placeholder="Ex. : Douala" />
+                        <CityAutocomplete value={filters.city} onChange={v => setFilters(f => ({ ...f, city: v }))} placeholder="Ex. : Douala" />
                     </div>
                     <div>
                         <h3 className="flex items-center gap-2 text-sm font-bold text-[#0D2D5A] mb-3"><MapPin className="w-4 h-4" style={{ color: BLUE }} /> Zones d'intervention (quartiers, villes)</h3>
@@ -368,11 +381,11 @@ export default function AdvisorTutors() {
                                 <Crosshair className="w-4 h-4" />
                             </button>
                         </div>
-                        {draft.zones.length > 0 && (
+                        {filters.zones.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-2">
-                                {draft.zones.map(z => (
+                                {filters.zones.map(z => (
                                     <span key={z} className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-[#1A6CC8]/10" style={{ color: BLUE }}>
-                                        {z}<button type="button" aria-label={`Retirer ${z}`} onClick={() => setDraft(f => ({ ...f, zones: f.zones.filter(x => x !== z) }))}><X className="w-3 h-3" /></button>
+                                        {z}<button type="button" aria-label={`Retirer ${z}`} onClick={() => setFilters(f => ({ ...f, zones: f.zones.filter(x => x !== z) }))}><X className="w-3 h-3" /></button>
                                     </span>
                                 ))}
                             </div>
@@ -380,80 +393,49 @@ export default function AdvisorTutors() {
                     </div>
                 </section>
 
-                <Section icon={CalendarDays} title="Disponibilités">
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        {SLOTS.map(s => {
-                            const all = DAYS.every(d => (draft.slots[d.key] || []).includes(s.key));
-                            return (
-                                <button key={s.key} type="button" aria-pressed={all} onClick={() => toggleSlotColumn(s.key)}
-                                    className={cn("px-4 py-1.5 rounded-lg border text-center transition-colors", all ? "bg-[#1A6CC8] text-white border-[#1A6CC8]" : "bg-gray-50 border-gray-100 text-[#0D2D5A] hover:border-gray-200")}>
-                                    <span className="block text-xs font-bold">{s.label}</span>
-                                    <span className={cn("block text-[10px]", all ? "text-white/80" : "text-gray-400")}>{s.hours}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[640px] border-separate border-spacing-x-2 border-spacing-y-1.5">
-                            <thead>
-                                <tr>
-                                    <th className="w-24" />
-                                    {SLOTS.map(s => <th key={s.key} className="text-xs font-semibold text-[#0D2D5A] pb-1">{s.label}</th>)}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {DAYS.map(d => (
-                                    <tr key={d.key}>
-                                        <th scope="row" className="text-left text-xs font-semibold text-[#0D2D5A]">{d.label}</th>
-                                        {SLOTS.map(s => {
-                                            const on = (draft.slots[d.key] || []).includes(s.key);
-                                            return (
-                                                <td key={s.key}>
-                                                    <button type="button" aria-pressed={on} aria-label={`${d.label} ${s.label}`} onClick={() => toggleSlot(d.key, s.key)}
-                                                        className={cn("w-full h-8 rounded-lg border flex items-center gap-2 px-2.5 text-[11px] transition-colors",
-                                                            on ? "bg-[#1A6CC8]/10 border-[#1A6CC8]/40 text-[#1A6CC8] font-semibold" : "bg-white border-gray-200 text-gray-400 hover:border-gray-300")}>
-                                                        <Clock className="w-3.5 h-3.5 shrink-0" />
-                                                        <span className="flex-1 text-left truncate">{on ? `Disponible ${s.hours}` : "Sélectionner des créneaux..."}</span>
-                                                        <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-                                                    </button>
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </Section>
-
-                <section className="pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end">
-                    <div>
-                        <h3 className="flex items-center gap-2 text-sm font-bold text-[#0D2D5A] mb-3"><Banknote className="w-4 h-4" style={{ color: BLUE }} /> Tarif horaire</h3>
-                        <div className="flex border border-gray-200 rounded-lg overflow-hidden focus-within:border-[#1A6CC8] focus-within:ring-2 focus-within:ring-[#1A6CC8]/15">
-                            <input type="number" min={0} step={500} value={draft.maxRate} onChange={e => setDraft(f => ({ ...f, maxRate: e.target.value }))}
-                                placeholder="Ex. : 7500 (maximum)" aria-label="Tarif horaire maximum" className="flex-1 h-10 px-3 text-sm outline-none text-[#0D2D5A] placeholder:text-gray-400" />
-                            <select value={draft.currency} onChange={e => setDraft(f => ({ ...f, currency: e.target.value }))} aria-label="Devise du tarif"
-                                className="h-10 px-2 text-xs border-l border-gray-200 text-[#0D2D5A] bg-white outline-none">
-                                {CURRENCIES.map(c => <option key={c.value} value={c.value}>{c.value ? (["XAF", "XOF"].includes(c.value) ? `FCFA (${c.value})` : c.value) : "Toutes"}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 className="flex items-center gap-2 text-sm font-bold text-[#0D2D5A] mb-3"><CircleDollarSign className="w-4 h-4" style={{ color: BLUE }} /> Devise</h3>
-                        <select value={draft.currency} onChange={e => setDraft(f => ({ ...f, currency: e.target.value }))} className={INPUT}>
+                <section className="py-4 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <label className="flex flex-col gap-1.5">
+                        <span className="flex items-center gap-2 text-sm font-bold text-[#0D2D5A]"><CalendarDays className="w-4 h-4" style={{ color: BLUE }} /> Jour disponible</span>
+                        <select value={filters.day} onChange={e => setFilters(f => ({ ...f, day: e.target.value }))} className={INPUT}>
+                            <option value="">Tous les jours</option>
+                            {DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
+                        </select>
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                        <span className="flex items-center gap-2 text-sm font-bold text-[#0D2D5A]"><CalendarDays className="w-4 h-4" style={{ color: BLUE }} /> Créneau</span>
+                        <select value={filters.slot} onChange={e => setFilters(f => ({ ...f, slot: e.target.value }))} className={INPUT}>
+                            <option value="">Tous les créneaux</option>
+                            {SLOTS.map(x => <option key={x.key} value={x.key}>{x.label} ({x.hours})</option>)}
+                        </select>
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                        <span className="flex items-center gap-2 text-sm font-bold text-[#0D2D5A]"><Banknote className="w-4 h-4" style={{ color: BLUE }} /> Tarif horaire maximum</span>
+                        <input type="number" min={0} step={500} value={filters.maxRate} onChange={e => setFilters(f => ({ ...f, maxRate: e.target.value }))} placeholder="Ex. : 7500" className={INPUT} />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                        <span className="flex items-center gap-2 text-sm font-bold text-[#0D2D5A]"><CircleDollarSign className="w-4 h-4" style={{ color: BLUE }} /> Devise</span>
+                        <select value={filters.currency} onChange={e => setFilters(f => ({ ...f, currency: e.target.value }))} className={INPUT}>
                             {CURRENCIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                         </select>
-                    </div>
-                    <button onClick={() => setApplied(draft)} className={cn(BTN_BLUE, "h-11 px-6")}>
-                        <Search className="w-4 h-4" /> Rechercher
-                    </button>
+                    </label>
                 </section>
+                    </div>
+                )}
             </div>
 
             {/* Résultats */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-base font-bold text-[#0D2D5A]">{filtered.length} tuteur{filtered.length > 1 ? "s" : ""}</h2>
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <h2 className="text-base font-bold text-[#0D2D5A] mr-1">{filtered.length} tuteur{filtered.length > 1 ? "s" : ""}</h2>
+                        {activeChips.map(c => (
+                            <span key={c.key} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-[#1A6CC8]/10" style={{ color: BLUE }}>
+                                {c.label}
+                                <button type="button" onClick={c.clear} aria-label={`Retirer le filtre ${c.label}`}><X className="w-3 h-3" /></button>
+                            </span>
+                        ))}
+                        {activeChips.length > 1 && <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="text-xs font-semibold text-gray-400 hover:text-[#0D2D5A]">Tout effacer</button>}
+                    </div>
                     <div className="flex items-center gap-2">
                         <label className="text-xs text-gray-500" htmlFor="tutor-sort">Trier par :</label>
                         <select id="tutor-sort" value={sort} onChange={e => setSort(e.target.value as any)} className="h-9 border border-gray-200 rounded-lg px-3 text-sm text-[#0D2D5A] bg-white outline-none">
