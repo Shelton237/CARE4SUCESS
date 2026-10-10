@@ -23,6 +23,8 @@ type Bilan = {
   status: BilanStatus;
   evaluator: string | null;
   evaluations: number;
+  // Vrai seulement si le diagnostic contient des notes par matière
+  scored: boolean;
   date: string | null;
   hasPlan: boolean;
 };
@@ -68,6 +70,7 @@ const toBilan = (f: any): Bilan => {
     status,
     evaluator: diag?.evaluator || null,
     evaluations: Number(diag?.count) || 0,
+    scored: fromDiag.length > 0,
     // Date du bilan : premier diagnostic ; sinon date de la demande ou de création de l'élève
     date: diag?.firstAt || diag?.at || f.createdAt || null,
     hasPlan: !!b.plan,
@@ -233,6 +236,7 @@ export default function AdvisorReports() {
         <p className={cn("text-xs font-semibold truncate", b.evaluator ? "text-[#0D2D5A]" : "text-gray-400")}>
           {b.evaluator || "Pas encore évalué"}{b.evaluations > 1 ? ` · ${b.evaluations} évaluations` : ""}
         </p>
+        {b.evaluator && !b.scored && <p className="text-[11px] text-amber-600">Diagnostic sans note</p>}
       </div>
     </div>
   );
@@ -395,7 +399,7 @@ export default function AdvisorReports() {
               <div className="space-y-2.5 min-w-0">{evaluatorLine(b)}{dateLine(b)}</div>
               <div>{statusPill(b)}</div>
               <div className="space-y-2 min-w-0">
-                <div><p className="text-[11px] text-gray-400 mb-1">{b.evaluations ? "Matières évaluées" : "Matières demandées"}</p>{chips(b.subjects)}</div>
+                <div><p className="text-[11px] text-gray-400 mb-1">{b.scored ? "Matières évaluées" : "Matières demandées"}</p>{chips(b.subjects)}</div>
                 <div><p className="text-[11px] text-gray-400 mb-1">Niveau</p>{b.level ? chips([b.level]) : <span className="text-xs text-amber-600">Non renseigné</span>}</div>
               </div>
               <div className="flex items-center gap-1 md:justify-end">{mainAction(b)}{menu(b)}</div>

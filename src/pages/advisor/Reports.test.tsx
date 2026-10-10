@@ -48,6 +48,15 @@ describe("AdvisorReports : Bilans pédagogiques", () => {
     expect(screen.getByText("Niveau non renseigné")).toBeInTheDocument();
   });
 
+  it("diagnostic enregistré sans note : signalé, matières affichées comme demandées", async () => {
+    (fetchAdvisorFamilies as any).mockResolvedValue([
+      F({ id: "t", child: "Tina", subject: "SVT", bilan: { status: "en_cours", diagnostic: { evaluator: "Awa Diop", count: 1, subjects: [] }, plan: null } }),
+    ]);
+    renderPage();
+    expect(await screen.findByText("Diagnostic sans note")).toBeInTheDocument();
+    expect(screen.getByText("Matières demandées")).toBeInTheDocument();
+  });
+
   it("onglet « Bilans à traiter » et bandeau d'aperçu", async () => {
     const user = userEvent.setup();
     renderPage();
