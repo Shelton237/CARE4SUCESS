@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Home, Users, GitMerge, User, BarChart3, Mail, CalendarDays, FileText } from "lucide-react";
+import { Home, Users, GitMerge, User, BarChart3, Mail, CalendarDays, FileText, UserCheck } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { DashboardTopbar } from "@/components/dashboard/DashboardTopbar";
 import AdvisorDashboard from "./Dashboard";
@@ -10,12 +10,14 @@ import AdvisorTeacherApplications from "./TeacherApplications";
 import AdvisorMessages from "./Messages";
 import AdvisorSchedule from "./Schedule";
 import AdvisorRequests from "./Requests";
+import AdvisorTutors from "./Tutors";
 
 const NAV = [
     { to: "/advisor", label: "Tableau de bord", icon: Home },
     { to: "/advisor/requests", label: "Demandes de bilan", icon: FileText },
     { to: "/advisor/families", label: "Mes élèves", icon: Users },
     { to: "/advisor/matching", label: "Matching", icon: GitMerge },
+    { to: "/advisor/tutors", label: "Tuteurs", icon: UserCheck },
     { to: "/advisor/applications", label: "Candidatures profs", icon: User },
     { to: "/advisor/reports", label: "Bilans", icon: BarChart3 },
     { to: "/advisor/messages", label: "Messagerie", icon: Mail },
@@ -40,6 +42,7 @@ export default function AdvisorLayout() {
                     <Route path="requests" element={<AdvisorRequests />} />
                     <Route path="families" element={<AdvisorFamilies />} />
                     <Route path="matching" element={<AdvisorMatching />} />
+                    <Route path="tutors" element={<AdvisorTutors />} />
                     <Route path="applications" element={<AdvisorTeacherApplications />} />
                     <Route path="reports" element={<AdvisorReports />} />
                     <Route path="messages" element={<AdvisorMessages />} />

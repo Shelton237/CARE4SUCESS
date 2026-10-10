@@ -57,6 +57,14 @@ describe("matchScoring", () => {
     expect(res.score).toBe(15);
   });
 
+  it("scoreTutor : proximité par ville ou zone d'intervention", () => {
+    const s = { level: "", subject: "", city: "Douala, Akwa", geoId: null };
+    const r = { priority: [], consolidate: [] };
+    expect(scoreTutor(s, r, teacher({ city: "Douala" })).reasons.find((x) => x.key === "geo").label).toBe("Même ville");
+    expect(scoreTutor(s, r, teacher({ city: "Yaoundé", zones: ["Akwa"] })).reasons.find((x) => x.key === "geo").label).toBe("Dans sa zone d'intervention");
+    expect(scoreTutor(s, r, teacher({ city: "Yaoundé" })).reasons.find((x) => x.key === "geo").ok).toBe(false);
+  });
+
   it("scoreTutor : tarif nul ou à 1 FCFA signalé", () => {
     const s = { level: "", subject: "", city: "", geoId: null };
     expect(scoreTutor(s, { priority: [], consolidate: [] }, teacher({ rate: 1 })).rateToCheck).toBe(true);

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     User, Mail, Phone, MapPin, Globe, Camera,
     Bell, CreditCard, Save, Loader2, Calendar, Briefcase,
-    BadgeCheck, ShieldCheck, ChevronRight, UserCircle2, ArrowLeft
+    BadgeCheck, ShieldCheck, ChevronRight, UserCircle2, ArrowLeft, Target
 } from "lucide-react";
 import { fetchUserProfile, updateUserProfile, uploadUserAvatar } from "@/api/backoffice";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,13 +12,17 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import PublicProfileEditor from "@/pages/teacher/PublicProfileEditor";
+import MyMatchingProfile from "@/components/tutor/MyMatchingProfile";
 import { ChangePasswordForm } from "@/components/account/ChangePasswordForm";
 
 export default function TeacherProfile() {
     const { user: authUser } = useAuth();
     const queryClient = useQueryClient();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [activeTab, setActiveTab] = useState("personal");
+    // ?tab=matching : lien de relance envoyé par le conseiller
+    const [activeTab, setActiveTab] = useState(() =>
+        new URLSearchParams(window.location.search).get("tab") === "matching" ? "matching" : "personal"
+    );
 
     const { data: profile, isLoading } = useQuery({
         queryKey: ["userProfile", authUser?.id],
@@ -122,6 +126,7 @@ export default function TeacherProfile() {
                         {[
                             { id: "personal", label: "Infos Personnelles", icon: UserCircle2 },
                             { id: "public", label: "Profil public", icon: Globe },
+                            { id: "matching", label: "Profil de matching", icon: Target },
                             { id: "banking", label: "Paiement & RIB", icon: CreditCard },
                             { id: "security", label: "Sécurité & Accès", icon: ShieldCheck },
                         ].map(tab => (
@@ -151,9 +156,10 @@ export default function TeacherProfile() {
                                 {activeTab === 'personal'
                                     ? (authUser?.role === 'teacher' ? "Informations de l'Enseignant" : "Informations du Tuteur")
                                     : activeTab === 'public' ? 'Ma page publique'
+                                    : activeTab === 'matching' ? 'Profil de matching'
                                     : activeTab === 'banking' ? 'Coordonnées de Reversement' : 'Sécurité du compte'}
                             </h2>
-                            {activeTab !== 'public' && activeTab !== 'security' && (
+                            {activeTab !== 'public' && activeTab !== 'security' && activeTab !== 'matching' && (
                             <Button
                                 onClick={handleSave}
                                 className="bg-[#1A6CC8] hover:bg-[#0D2D5A] font-black h-8 px-4 rounded-none shadow-none text-[10px] uppercase tracking-widest gap-2"
@@ -167,6 +173,7 @@ export default function TeacherProfile() {
 
                         <div className="p-4">
                             {activeTab === 'public' && <PublicProfileEditor />}
+                            {activeTab === 'matching' && <MyMatchingProfile />}
 
                             {activeTab === 'personal' && (
                                 <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-4">

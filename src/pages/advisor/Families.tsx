@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     Users, Search, Phone,
-    MessageCircle, FileText, Loader2, ChevronRight, ChevronLeft, Copy, Wand2,
+    MessageCircle, FileText, Loader2, ChevronRight, ChevronLeft, Copy, Wand2, MapPin, Pencil,
     SearchCheck, Briefcase, PlusCircle, AlertTriangle,
     ThumbsUp, Lightbulb, Eye, UserCircle2,
     ClipboardCheck, CalendarRange, Trash2,
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import AcademicFile from "../common/AcademicFile";
+import { CityAutocomplete } from "@/components/common/CityAutocomplete";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import AdvisorBilanView from "@/components/advisor/AdvisorBilanView";
@@ -197,6 +198,44 @@ function ProgressionBlock({ history }: { history: any[] }) {
                 })}
             </ul>
         </div>
+    );
+}
+
+// Localisation de l'élève, souvent absente de l'inscription : sert à la proximité du matching.
+function StudentLocation({ studentId, value, token, onSaved }: { studentId: string; value: string; token: string | null; onSaved: () => void }) {
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState(value);
+    useEffect(() => { setDraft(value); setEditing(false); }, [value, studentId]);
+    const save = useMutation({
+        mutationFn: async () => {
+            const res = await fetch(`${API}/advisor/students/${studentId}/location`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ location: draft }),
+            });
+            const body = await readJsonSafe(res);
+            if (!res.ok) throw new Error(body?.message || "Enregistrement impossible");
+        },
+        onSuccess: () => { toast.success("Localisation enregistrée"); setEditing(false); onSaved(); },
+        onError: (e: Error) => toast.error(e.message),
+    });
+    if (editing) {
+        return (
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="w-48"><CityAutocomplete value={draft} onChange={setDraft} placeholder="Ville de l'élève" /></div>
+                <button onClick={() => save.mutate()} disabled={save.isPending} className="text-xs font-bold text-[#0F9B8E]">{save.isPending ? "..." : "Enregistrer"}</button>
+                <button onClick={() => { setDraft(value); setEditing(false); }} className="text-xs text-gray-400">Annuler</button>
+            </div>
+        );
+    }
+    return (
+        <button onClick={() => setEditing(true)} className="flex items-center gap-2 text-left group" title="Modifier la localisation">
+            <MapPin className="w-4 h-4 text-gray-300 shrink-0" />
+            <div>
+                <p className={cn("text-xs font-bold leading-tight", value ? "text-[#0D2D5A]" : "text-amber-600")}>{value || "À renseigner"}</p>
+                <p className="text-[10px] text-gray-400 leading-tight flex items-center gap-1">Localisation <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100" /></p>
+            </div>
+        </button>
     );
 }
 
@@ -1049,6 +1088,20 @@ export default function AdvisorFamilies() {
                                         <p className="text-[10px] text-gray-400 leading-tight">Date de la demande</p>
                                     </div>
                                 </div>
+                                {!prospect && studentId && (
+                                    <>
+                                        <div className="w-px h-8 bg-gray-100" />
+                                        <StudentLocation
+                                            studentId={studentId}
+                                            value={displayOr(selectedFamily.location, "")}
+                                            token={token}
+                                            onSaved={() => {
+                                                qc.invalidateQueries({ queryKey: ["advisorFamilies"] });
+                                                qc.invalidateQueries({ queryKey: ["matching", studentId] });
+                                            }}
+                                        />
+                                    </>
+                                )}
                             </div>
 
                             {/* Stepper de progression */}
@@ -1670,6 +1723,13 @@ export default function AdvisorFamilies() {
                                                                     </li>
                                                                 ))}
                                                             </ul>
+                                                            {t.profile?.missing?.length > 0 && (
+                                                                <p className="text-xs text-amber-700 flex flex-wrap items-center gap-1.5">
+                                                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                                                    Profil incomplet : {t.profile.missing.join(", ")}
+                                                                    <button onClick={() => navigate(`/advisor/tutors?id=${t.id}`)} className="font-semibold underline underline-offset-2">Compléter</button>
+                                                                </p>
+                                                            )}
                                                             {!t.alreadyAssigned && (
                                                                 <div className="flex flex-wrap items-center justify-end gap-2">
                                                                     {confirmAssign === confirmKey ? (

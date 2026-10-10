@@ -108,10 +108,14 @@ export const scoreTutor = (student, reinforce, teacher) => {
 
   // Proximité (15 pts)
   let geo = teacher.geoProximity || 0;
-  if (!geo && student.city && teacher.city && norm(student.city) === norm(teacher.city)) geo = 3;
+  let geoLabel = geo ? GEO_LABELS[geo] : "";
+  const sc = norm(student.city);
+  const near = (place) => { const n = norm(place); return !!n && !!sc && (sc.includes(n) || n.includes(sc)); };
+  if (geo < 4 && (teacher.zones || []).some(near)) { geo = 4; geoLabel = "Dans sa zone d'intervention"; }
+  else if (geo < 3 && near(teacher.city)) { geo = 3; geoLabel = "Même ville"; }
   if (student.geoId || student.city) {
     score += 15 * (geo / 5);
-    reasons.push({ key: "geo", ok: geo >= 3, partial: geo > 0, label: geo ? GEO_LABELS[geo] : "Zone éloignée ou non renseignée" });
+    reasons.push({ key: "geo", ok: geo >= 3, partial: geo > 0, label: geo ? geoLabel : "Zone éloignée ou non renseignée" });
   } else {
     reasons.push({ key: "geo", ok: false, label: "Localisation de l'élève inconnue" });
   }

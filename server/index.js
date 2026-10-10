@@ -15,6 +15,7 @@ import { resolveJwtSecret } from "./jwtSecret.js";
 import { parseJson, parseJsonObject } from "./parseJson.js";
 import { sanitizeEvidence } from "./diagnosticEvidence.js";
 import { subjectsToReinforce, geoProximity, scoreTutor } from "./matchScoring.js";
+import { readTutorProfile, profileCompleteness, buildProfileUpdate } from "./tutorProfile.js";
 
 const rootDir = process.cwd();
 const envFiles = [".env.local", ".env"];
@@ -5977,14 +5978,14 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
         studentsByParent.get(parentId).set(st.id, st);
       };
       const [byParentId] = await pool.query(
-        `SELECT id, name, email, parent_id AS link_parent FROM users
+        `SELECT id, name, email, location, parent_id AS link_parent FROM users
          WHERE role = 'student' AND parent_id IN (?)`,
         [parentIds]
       );
       byParentId.forEach((st) => addLink(st.link_parent, st));
       const [byPivot] = await pool
         .query(
-          `SELECT u.id, u.name, u.email, pc.parent_id AS link_parent
+          `SELECT u.id, u.name, u.email, u.location, pc.parent_id AS link_parent
            FROM parent_child pc JOIN users u ON u.id = pc.child_id
            WHERE u.role = 'student' AND pc.parent_id IN (?)`,
           [parentIds]
@@ -6080,7 +6081,7 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
         parent_email: parent?.email ?? null,
         child_email: student?.email ?? null,
         student_id: student?.id ?? null,
-        parent_location: parent?.location ?? null,
+        parent_location: student?.location || parent?.location || null,
         next_date: next.next_date ?? null,
         next_time: next.next_time ?? null,
       };
@@ -10685,8 +10686,8 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
     const reinforce = subjectsToReinforce(diagScores);
 
     const [teachers] = await pool.query(
-      `SELECT t.id, u.name, t.subjects, t.levels, t.level, t.availability_json, t.city,
-              t.geo_location_id, t.geo_zone_ids,
+      `SELECT t.id, u.name, t.subjects, t.levels, t.level, t.availability_json, t.city, t.zones,
+              u.location AS user_location, COALESCE(t.geo_location_id, u.geo_location_id) AS geo_location_id, t.geo_zone_ids,
               COALESCE(t.hourly_rate, 0) AS rate,
               COALESCE(t.currency, 'XAF') AS currency,
               (SELECT COUNT(*) FROM sessions s WHERE s.teacher_id = t.id AND s.status = 'effectué') AS sessionCount
@@ -10734,10 +10735,12 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
       const hasAvailability = Array.isArray(avail) ? avail.length > 0 : !!avail && typeof avail === "object" && Object.keys(avail).length > 0;
       const levels = parseJson(t.levels, null) ?? parseJson(t.level, []);
       const rv = reviews.get(t.id) || { n: 0, avg: 0 };
+      const profile = readTutorProfile(t, t.user_location);
       const result = scoreTutor(student, reinforce, {
         subjects: parseJson(t.subjects, []),
         levels: Array.isArray(levels) ? levels : [],
-        city: t.city || "",
+        city: profile.city,
+        zones: profile.zones,
         geoProximity: geoProximity(student.geoId, [t.geo_location_id, ...parseJson(t.geo_zone_ids, [])].filter(Boolean), geoMap),
         hasAvailability,
         reviewCount: rv.n,
@@ -10754,6 +10757,7 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
         reviewCount: rv.n,
         reviewAvg: rv.n ? Math.round(rv.avg * 10) / 10 : null,
         alreadyAssigned: linkedIds.has(t.id),
+        profile: profileCompleteness(profile),
         ...result,
       };
     });
@@ -10772,6 +10776,134 @@ app.get("/api/advisor/match/:studentId", authenticateRequest, async (req, res) =
   } catch (err) {
     console.error("[matching]", err);
     res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+// ─── Profil de matching des tuteurs ───────────────────────────────────────────
+const TUTOR_PROFILE_SQL = `SELECT t.*, u.name AS user_name, u.email AS user_email, u.location AS user_location, u.role AS user_role
+  FROM teachers t JOIN users u ON u.id = t.id`;
+
+const tutorProfileView = (t) => {
+  const profile = readTutorProfile(t, t.user_location);
+  return { id: t.id, name: t.user_name || t.name, email: t.user_email || t.email, ...profile, completeness: profileCompleteness(profile) };
+};
+
+const applyTutorProfileUpdate = async (teacherId, body, allowRate) => {
+  const update = buildProfileUpdate(body, { allowRate });
+  if (update.error) return { error: update.error };
+  if (update.sets.length) {
+    await pool.query(`UPDATE teachers SET ${update.sets.join(", ")} WHERE id = ?`, [...update.params, teacherId]);
+  }
+  const [[row]] = await pool.query(`${TUTOR_PROFILE_SQL} WHERE t.id = ?`, [teacherId]);
+  return { tutor: row ? tutorProfileView(row) : null };
+};
+
+app.get("/api/teachers/me/matching-profile", authenticateRequest, async (req, res) => {
+  try {
+    const { teacher } = await findTeacherForUser(req.user.sub);
+    if (!teacher) return res.status(404).json({ message: "Profil enseignant introuvable." });
+    const [[row]] = await pool.query(`${TUTOR_PROFILE_SQL} WHERE t.id = ?`, [teacher.id]);
+    res.json(tutorProfileView(row || teacher));
+  } catch (error) {
+    console.error("Failed to read matching profile", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// Le tuteur met à jour son propre profil ; le tarif reste négocié (non modifiable ici).
+app.put("/api/teachers/me/matching-profile", authenticateRequest, async (req, res) => {
+  try {
+    const { teacher } = await findTeacherForUser(req.user.sub);
+    if (!teacher) return res.status(404).json({ message: "Profil enseignant introuvable." });
+    const result = await applyTutorProfileUpdate(teacher.id, req.body ?? {}, false);
+    if (result.error) return res.status(400).json({ message: result.error });
+    res.json(result.tutor);
+  } catch (error) {
+    console.error("Failed to update matching profile", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.get("/api/advisor/tutors", authenticateRequest, requireRole("admin", "advisor"), async (_req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `${TUTOR_PROFILE_SQL} WHERE u.role IN ('teacher','tutor') OR u.secondary_role = 'teacher' ORDER BY u.name`
+    );
+    const tutors = rows.map(tutorProfileView).sort((a, b) => a.completeness.percent - b.completeness.percent);
+    res.json(tutors);
+  } catch (error) {
+    console.error("Failed to list tutors", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.put("/api/advisor/tutors/:id", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  try {
+    const [[exists]] = await pool.query("SELECT id FROM teachers WHERE id = ? LIMIT 1", [req.params.id]);
+    if (!exists) return res.status(404).json({ message: "Tuteur introuvable." });
+    const result = await applyTutorProfileUpdate(req.params.id, req.body ?? {}, true);
+    if (result.error) return res.status(400).json({ message: result.error });
+    console.log(`[Tuteurs] Profil ${req.params.id} modifié par ${req.user.role} ${req.user.sub} : ${Object.keys(req.body ?? {}).join(", ")}`);
+    res.json(result.tutor);
+  } catch (error) {
+    console.error("Failed to update tutor", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+app.post("/api/advisor/tutors/:id/remind", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  try {
+    const [[row]] = await pool.query(`${TUTOR_PROFILE_SQL} WHERE t.id = ?`, [req.params.id]);
+    if (!row) return res.status(404).json({ message: "Tuteur introuvable." });
+    const view = tutorProfileView(row);
+    if (!view.completeness.missing.length) return res.status(400).json({ message: "Ce profil est déjà complet." });
+    const missing = view.completeness.missing.filter((m) => m !== "tarif");
+    const list = (missing.length ? missing : view.completeness.missing).join(", ");
+    const profilePath = row.user_role === "tutor" ? "/tutor/enseignant/profile?tab=matching" : "/teacher/profile?tab=matching";
+    const link = `${SITE_ORIGIN}${profilePath}`;
+    await createNotification(view.id, "Complétez votre profil", `Pour recevoir des élèves adaptés, il manque : ${list}.`, "info", profilePath);
+    if (view.email) {
+      await sendMail({
+        to: view.email,
+        subject: "Complétez votre profil tuteur sur Care4Success",
+        html: `
+    <div style="font-family:sans-serif;max-width:560px;margin:auto;color:#0D2D5A;background:#f9fafb;padding:20px;border-radius:16px">
+      <div style="background:#0D2D5A;padding:24px 32px;border-radius:12px 12px 0 0">
+        <h1 style="color:#fff;font-size:20px;margin:0">Care<span style="color:#F5A623">4</span>Success</h1>
+        <p style="color:#93c5fd;margin:4px 0 0;font-size:13px">Votre profil tuteur</p>
+      </div>
+      <div style="padding:32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:15px">Bonjour <strong>${view.name}</strong>,</p>
+        <p>Pour vous proposer des élèves qui correspondent à vos matières, votre niveau et votre zone, merci de compléter votre profil. Il manque : <strong>${list}</strong>.</p>
+        <div style="text-align:center;margin:28px 0">
+          <a href="${link}" style="background:#0D2D5A;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:14px">Compléter mon profil</a>
+        </div>
+        <p style="font-size:13px;color:#6b7280;margin-top:20px">L'équipe Care4Success</p>
+      </div>
+    </div>`,
+      }).catch((e) => console.warn("Tutor reminder mail failed:", e.message));
+    }
+    res.json({ message: "Relance envoyée.", missing: view.completeness.missing });
+  } catch (error) {
+    console.error("Failed to remind tutor", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
+});
+
+// Localisation de l'élève (souvent non renseignée par la famille), utilisée pour la proximité.
+app.put("/api/advisor/students/:studentId/location", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  const location = typeof req.body?.location === "string" ? req.body.location.trim().slice(0, 191) : null;
+  if (location === null) return res.status(400).json({ message: "location est requis." });
+  try {
+    const [result] = await pool.query(
+      "UPDATE users SET location = ? WHERE id = ? AND role = 'student'",
+      [location || null, req.params.studentId]
+    );
+    if (!result.affectedRows) return res.status(404).json({ message: "Élève introuvable." });
+    res.json({ studentId: req.params.studentId, location });
+  } catch (error) {
+    console.error("Failed to update student location", error);
+    res.status(500).json({ message: "Erreur serveur." });
   }
 });
 
