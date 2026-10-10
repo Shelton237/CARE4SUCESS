@@ -5849,7 +5849,8 @@ app.put("/api/platform-settings", authenticateRequest, async (req, res) => {
 // MESSAGERIE
 // ==========================================
 
-app.get("/api/messages/:userId", authenticateRequest, async (req, res) => {
+// SEC : chaque utilisateur ne lit que sa propre messagerie (l'admin peut tout lire).
+app.get("/api/messages/:userId", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { userId } = req.params;
   try {
     await ensureMessagesTable();
@@ -5866,7 +5867,7 @@ app.get("/api/messages/:userId", authenticateRequest, async (req, res) => {
   }
 });
 
-app.get("/api/messages/unread-count/:userId", authenticateRequest, async (req, res) => {
+app.get("/api/messages/unread-count/:userId", authenticateRequest, requireSelfOrAdmin("userId"), async (req, res) => {
   const { userId } = req.params;
   try {
     await ensureMessagesTable();
@@ -5882,14 +5883,25 @@ app.get("/api/messages/unread-count/:userId", authenticateRequest, async (req, r
 });
 
 app.post("/api/messages", authenticateRequest, async (req, res) => {
-  const { senderId, senderName, senderRole, receiverId, receiverName, receiverRole, content, attachmentUrl } = req.body ?? {};
+  const { senderRole: wantedSenderRole, receiverId, receiverRole: wantedReceiverRole, content, attachmentUrl } = req.body ?? {};
 
-  if (!senderId || !receiverId || !content) {
+  if (!receiverId || !content) {
     return res.status(400).json({ message: "Champs obligatoires manquants." });
   }
 
   try {
     await ensureMessagesTable();
+    // SEC : l'expéditeur est celui du jeton ; noms et rôles sont relus en base, jamais pris du client.
+    const senderId = req.user.sub;
+    const [people] = await pool.query("SELECT id, name, role, secondary_role FROM users WHERE id IN (?, ?)", [senderId, receiverId]);
+    const sender = people.find((u) => u.id === senderId);
+    const receiver = people.find((u) => u.id === receiverId);
+    if (!sender) return res.status(401).json({ message: "Session invalide." });
+    if (!receiver) return res.status(404).json({ message: "Destinataire introuvable." });
+    // Rôle affiché : celui demandé s'il appartient bien au compte (double rôle tuteur/enseignant), sinon le rôle principal.
+    const pickRole = (u, wanted) => ([u.role, u.secondary_role].includes(wanted) ? wanted : u.role);
+    const senderName = sender.name, senderRole = pickRole(sender, wantedSenderRole);
+    const receiverName = receiver.name, receiverRole = pickRole(receiver, wantedReceiverRole);
     const id = crypto.randomUUID();
     await pool.query(
       `INSERT INTO messages (id, sender_id, sender_name, sender_role, receiver_id, receiver_name, receiver_role, content, attachment_url)
@@ -5908,7 +5920,8 @@ app.patch("/api/messages/:messageId/read", authenticateRequest, async (req, res)
   const { messageId } = req.params;
   try {
     await ensureMessagesTable();
-    await pool.query(`UPDATE messages SET is_read = TRUE WHERE id = ?`, [messageId]);
+    // SEC : seul le destinataire marque un message comme lu.
+    await pool.query(`UPDATE messages SET is_read = TRUE WHERE id = ? AND receiver_id = ?`, [messageId, req.user.sub]);
     res.json({ success: true, message: "Message marqué comme lu." });
   } catch (error) {
     console.error("Failed to mark message as read", error);
