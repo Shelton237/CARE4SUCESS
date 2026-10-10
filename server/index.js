@@ -10785,7 +10785,11 @@ const TUTOR_PROFILE_SQL = `SELECT t.*, u.name AS user_name, u.email AS user_emai
 
 const tutorProfileView = (t) => {
   const profile = readTutorProfile(t, t.user_location);
-  return { id: t.id, name: t.user_name || t.name, email: t.user_email || t.email, ...profile, completeness: profileCompleteness(profile) };
+  return {
+    id: t.id, name: t.user_name || t.name, email: t.user_email || t.email,
+    status: t.status || null, createdAt: t.created_at || null,
+    ...profile, completeness: profileCompleteness(profile),
+  };
 };
 
 const applyTutorProfileUpdate = async (teacherId, body, allowRate) => {
