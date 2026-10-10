@@ -4,8 +4,8 @@ export default function AdvisorTeacherApplications() {
     return (
         <TeacherApplicationsBoard
             reviewerRole="advisor"
-            title="Candidatures enseignants"
-            description="Analysez les nouveaux profils et coordonnez-vous avec l'administration pour finaliser les recrutements."
+            title="Candidatures profs"
+            description="Trouvez et gérez les nouveaux profils de professeurs avec lesquels vous souhaitez collaborer."
         />
     );
 }

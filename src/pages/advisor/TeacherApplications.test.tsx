@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import AdvisorTeacherApplications from "@/pages/advisor/TeacherApplications";
 import { fetchTeacherApplications, reviewTeacherApplication } from "@/api/backoffice";
 
@@ -36,9 +37,11 @@ const PENDING_APP = {
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={qc}>
+    <MemoryRouter>
+      <QueryClientProvider client={qc}>
       <AdvisorTeacherApplications />
     </QueryClientProvider>
+    </MemoryRouter>
   );
 }
 
@@ -64,7 +67,7 @@ describe("AdvisorTeacherApplications — Candidatures profs (reviewerRole=adviso
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Valider/i }));
+    await user.click(screen.getByRole("button", { name: /^Valider$/ }));
     await user.click(screen.getByRole("button", { name: /Confirmer/i }));
 
     await waitFor(() => expect(reviewTeacherApplication).toHaveBeenCalledWith(
@@ -83,7 +86,8 @@ describe("AdvisorTeacherApplications — Candidatures profs (reviewerRole=adviso
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Refuser/i }));
+    await user.click(screen.getByRole("button", { name: /Actions pour/ }));
+    await user.click(await screen.findByRole("menuitem", { name: /Refuser/ }));
     await user.click(screen.getByRole("button", { name: /Confirmer/i }));
 
     await waitFor(() => expect(reviewTeacherApplication).toHaveBeenCalledWith(
@@ -103,7 +107,7 @@ describe("AdvisorTeacherApplications — Candidatures profs (reviewerRole=adviso
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Valider/i }));
+    await user.click(screen.getByRole("button", { name: /^Valider$/ }));
     await user.click(screen.getByRole("button", { name: /Confirmer/i }));
 
     await waitFor(() => expect(toastSpy).toHaveBeenCalledWith(
@@ -119,7 +123,7 @@ describe("AdvisorTeacherApplications — Candidatures profs (reviewerRole=adviso
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Valider/i }));
+    await user.click(screen.getByRole("button", { name: /^Valider$/ }));
     await user.click(screen.getByRole("button", { name: /Confirmer/i }));
 
     await waitFor(() => expect(toastSpy).toHaveBeenCalledWith(
@@ -135,7 +139,7 @@ describe("AdvisorTeacherApplications — Candidatures profs (reviewerRole=adviso
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Valider/i }));
+    await user.click(screen.getByRole("button", { name: /^Valider$/ }));
     // Aucune note interne saisie, aucun champ requis côté formulaire de décision.
     const confirmBtn = screen.getByRole("button", { name: /Confirmer/i });
     expect(confirmBtn).toBeEnabled();

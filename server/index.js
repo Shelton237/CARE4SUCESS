@@ -1637,6 +1637,11 @@ const mapTeacherApplicationRow = (row) => ({
   reviewNotes: row.review_notes,
   reviewedAt: row.reviewed_at,
   createdAt: row.created_at,
+  city: row.city ?? undefined,
+  zones: row.zones === undefined ? undefined : parseJson(row.zones, []),
+  levels: row.levels === undefined ? undefined : parseJson(row.levels, []),
+  interviewDate: row.interview_date ?? undefined,
+  interviewStatus: row.interview_status ?? undefined,
 });
 
 const mapTeacherRow = (row) => ({
@@ -4725,13 +4730,34 @@ app.get("/api/teacher-applications", authenticateRequest, requireRole("admin", "
   try {
     const [rows] = await pool.query(
       `SELECT id, full_name, email, phone, subjects, experience_years, availability, motivation, cv_url,
-              status, reviewed_by, reviewer_role, review_notes, reviewed_at, created_at
+              status, reviewed_by, reviewer_role, review_notes, reviewed_at, created_at,
+              city, zones, levels, interview_date, interview_status
        FROM teacher_applications
        ${whereClause}
        ORDER BY created_at DESC`,
       params
     );
-    res.json(rows.map(mapTeacherApplicationRow));
+    // Candidat déjà validé : compte utilisateur (par email) et avis réels reçus en tant que tuteur.
+    const emails = [...new Set(rows.map((r) => String(r.email || "").toLowerCase()).filter(Boolean))];
+    const accountByEmail = new Map();
+    if (emails.length) {
+      const [accounts] = await pool.query("SELECT id, LOWER(email) AS email FROM users WHERE LOWER(email) IN (?)", [emails]).catch(() => [[]]);
+      accounts.forEach((a) => accountByEmail.set(a.email, a.id));
+    }
+    const reviewsBy = new Map();
+    const ids = [...accountByEmail.values()];
+    if (ids.length) {
+      const [rv] = await pool.query(
+        "SELECT teacher_id, COUNT(*) AS n, AVG(rating) AS avg FROM session_feedback WHERE teacher_id IN (?) GROUP BY teacher_id",
+        [ids]
+      ).catch(() => [[]]);
+      rv.forEach((r) => reviewsBy.set(r.teacher_id, { n: Number(r.n), avg: Math.round(Number(r.avg) * 10) / 10 }));
+    }
+    res.json(rows.map((row) => {
+      const userId = accountByEmail.get(String(row.email || "").toLowerCase()) || null;
+      const rv = (userId && reviewsBy.get(userId)) || { n: 0, avg: null };
+      return { ...mapTeacherApplicationRow(row), userId, reviewCount: rv.n, reviewAvg: rv.avg };
+    }));
   } catch (error) {
     if (isDbConnectionError(error)) {
       console.warn("DB indisponible, utilisation des candidatures en mémoire.", error.message);

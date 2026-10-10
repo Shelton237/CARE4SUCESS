@@ -8,6 +8,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import AdminTeacherApplications from "@/pages/admin/TeacherApplications";
 import { fetchTeacherApplications, reviewTeacherApplication } from "@/api/backoffice";
 
@@ -42,9 +43,11 @@ const PENDING_APP = {
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={qc}>
+    <MemoryRouter>
+      <QueryClientProvider client={qc}>
       <AdminTeacherApplications />
     </QueryClientProvider>
+    </MemoryRouter>
   );
 }
 
@@ -70,7 +73,7 @@ describe("AdminTeacherApplications — Candidatures profs (reviewerRole=admin)",
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Valider/i }));
+    await user.click(screen.getByRole("button", { name: /^Valider$/ }));
     await user.click(screen.getByRole("button", { name: /Confirmer/i }));
 
     await waitFor(() => expect(reviewTeacherApplication).toHaveBeenCalledWith(
@@ -89,7 +92,7 @@ describe("AdminTeacherApplications — Candidatures profs (reviewerRole=admin)",
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Valider/i }));
+    await user.click(screen.getByRole("button", { name: /^Valider$/ }));
     await user.click(screen.getByRole("button", { name: /Forfait mensuel/i }));
     const amountInput = screen.getByPlaceholderText("Ex: 80000");
     await user.clear(amountInput);
@@ -110,7 +113,8 @@ describe("AdminTeacherApplications — Candidatures profs (reviewerRole=admin)",
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Refuser/i }));
+    await user.click(screen.getByRole("button", { name: /Actions pour/ }));
+    await user.click(await screen.findByRole("menuitem", { name: /Refuser/ }));
     await user.click(screen.getByRole("button", { name: /Confirmer/i }));
 
     await waitFor(() => expect(reviewTeacherApplication).toHaveBeenCalledWith(
@@ -130,7 +134,7 @@ describe("AdminTeacherApplications — Candidatures profs (reviewerRole=admin)",
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Valider/i }));
+    await user.click(screen.getByRole("button", { name: /^Valider$/ }));
     await user.click(screen.getByRole("button", { name: /Confirmer/i }));
 
     await waitFor(() => expect(toastSpy).toHaveBeenCalledWith(
@@ -146,7 +150,7 @@ describe("AdminTeacherApplications — Candidatures profs (reviewerRole=admin)",
     renderPage();
     await screen.findByText("Fatou Diallo");
 
-    await user.click(screen.getByRole("button", { name: /Valider/i }));
+    await user.click(screen.getByRole("button", { name: /^Valider$/ }));
     const confirmBtn = screen.getByRole("button", { name: /Confirmer/i });
     expect(confirmBtn).toBeEnabled();
     await user.click(confirmBtn);
