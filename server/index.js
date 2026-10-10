@@ -1511,6 +1511,13 @@ const mapRequestRow = (row) => ({
   details: parseJson(row.details, null),
   status: normalizeRequestStatus(row.status),
   date: formatDate(row.request_date),
+  // Pour le pipeline conseiller : tri, période, urgence et avancement du dossier
+  requestDate: row.request_date ? new Date(row.request_date).toISOString() : null,
+  createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+  email: row.email ?? undefined,
+  urgency: parseJsonObject(row.details).urgency || null,
+  hasDiagnostic: row.has_diagnostic === undefined ? undefined : !!row.has_diagnostic,
+  hasPlan: row.has_plan === undefined ? undefined : !!row.has_plan,
 });
 
 const fixEncoding = (str) => {
@@ -3150,7 +3157,9 @@ app.get("/api/requests", authenticateRequest, async (_req, res) => {
   try {
     await ensureRequestsTable();
     const [rows] = await pool.query(
-      "SELECT id, parent_name, child_name, level, subject, phone, status, request_date FROM requests ORDER BY request_date DESC"
+      `SELECT id, parent_name, child_name, level, subject, phone, email, location, details, status, request_date, created_at,
+              diagnostic IS NOT NULL AS has_diagnostic, academic_plan IS NOT NULL AS has_plan
+       FROM requests ORDER BY request_date DESC, created_at DESC`
     );
     res.json(rows.map(mapRequestRow));
   } catch (error) {
