@@ -560,6 +560,9 @@ export const fetchAdvisorDashboard = (advisorId: string) =>
 export const fetchAdvisorFamilies = () =>
     request<any[]>(`/advisor/families`);
 
+export const fetchAdvisorFollowup = (from: string, to: string) =>
+    request<any>(`/advisor/followup?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+
 export const fetchAdvisorAppointments = (advisorId: string) =>
     request<any[]>(`/advisors/${advisorId}/appointments`);
 

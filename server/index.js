@@ -18,6 +18,7 @@ import { subjectsToReinforce, geoProximity, scoreTutor } from "./matchScoring.js
 import { indexDiagnostics, indexPlans, buildBilan, toIso } from "./bilanSummary.js";
 import { sanitizeAgendaPayload, toColumns, contactName, mapAgendaRow } from "./advisorAgenda.js";
 import { buildAdvisorContacts } from "./advisorContacts.js";
+import { computeFollowup } from "./followup.js";
 import { readTutorProfile, profileCompleteness, buildProfileUpdate } from "./tutorProfile.js";
 
 const rootDir = process.cwd();
@@ -1473,7 +1474,17 @@ const ensureHomeworkTable = async () => {
       KEY idx_homework_session (session_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
   );
+  if (homeworkDatesMigrated) return;
+  // Dates de rendu et de correction : mesure du délai de correction (lignes existantes : NULL, non inventées).
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM homework");
+    const have = new Set(cols.map((c) => c.Field));
+    if (!have.has("submitted_at")) await pool.query("ALTER TABLE homework ADD COLUMN submitted_at TIMESTAMP NULL DEFAULT NULL");
+    if (!have.has("corrected_at")) await pool.query("ALTER TABLE homework ADD COLUMN corrected_at TIMESTAMP NULL DEFAULT NULL");
+    homeworkDatesMigrated = true;
+  } catch (e) { console.warn("Migration homework dates:", e.message); }
 };
+let homeworkDatesMigrated = false;
 
 const ensureLessonResourcesTable = async () => {
   await pool.query(
@@ -2232,7 +2243,18 @@ const ensureStudentTeacherTable = async () => {
       CONSTRAINT fk_st_teacher FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
+  if (studentTeacherDateMigrated) return;
+  // Date d'affectation du tuteur. Les liens existants n'ont pas de date connue : remis à NULL.
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM student_teacher LIKE 'created_at'");
+    if (!cols.length) {
+      await pool.query("ALTER TABLE student_teacher ADD COLUMN created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP");
+      await pool.query("UPDATE student_teacher SET created_at = NULL");
+    }
+    studentTeacherDateMigrated = true;
+  } catch (e) { console.warn("Migration student_teacher.created_at:", e.message); }
 };
+let studentTeacherDateMigrated = false;
 
 const linkParentChild = async (parentId, childId) => {
   if (!parentId || !childId) return;
@@ -6029,12 +6051,8 @@ app.get("/api/parents/:parentId/contacts", authenticateRequest, requireSelfOrAdm
 // CONSEILLER — FAMILLES
 // ==========================================
 
-app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
-  if (!["admin", "advisor"].includes(_req.user?.role)) {
-    return res.status(403).json({ message: "Forbidden" });
-  }
-
-  try {
+// Portefeuille du conseiller (demandes + élèves), partagé par Mes élèves, Bilans et le tableau de bord.
+const loadAdvisorFamilies = async () => {
     // SEC-04 : plus aucun rattachement par NOM seul. Une demande n'est reliée à
     // un élève que si le lien est prouvé par identifiants :
     //   parent = users (role/secondary_role parent) dont l'email = requests.email
@@ -6311,6 +6329,16 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
       f.bilan = buildBilan({ studentId: f.studentId, requestRow, diagBy, planBy });
     }
 
+    return families;
+};
+
+app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
+  if (!["admin", "advisor"].includes(_req.user?.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  try {
+    const families = await loadAdvisorFamilies();
     res.json(families);
   } catch (error) {
     if (isDbConnectionError(error)) {
@@ -6319,6 +6347,38 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
     }
     console.error("Failed to fetch advisor families", error);
     return res.status(500).json({ message: "Erreur lors de la récupération des familles." });
+  }
+});
+
+// Tableau de bord de suivi pédagogique (indicateurs objectifs, effectifs et sources).
+app.get("/api/advisor/followup", authenticateRequest, requireRole("admin", "advisor"), async (req, res) => {
+  const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
+  const today = new Date();
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const to = isDay(req.query.to) ? req.query.to : iso(today);
+  const from = isDay(req.query.from) ? req.query.from : iso(new Date(new Date(`${to}T12:00:00`).getTime() - 29 * 86_400_000));
+  if (from > to) return res.status(400).json({ message: "La date de début doit précéder la date de fin." });
+  try {
+    await Promise.all([ensureHomeworkTable(), ensureStudentTeacherTable(), ensureAdvisorAppointmentsTable()]);
+    const families = await loadAdvisorFamilies();
+    const ids = [...new Set(families.map((f) => f.studentId).filter(Boolean))];
+    const q = async (sql) => (ids.length ? (await pool.query(sql, [ids]).catch(() => [[]]))[0] : []);
+    const [diagnostics, sessions, homework, feedback, notes, tutorLinks] = await Promise.all([
+      q("SELECT student_id, evaluator_id, scores, evidence, created_at FROM academic_diagnostics WHERE student_id IN (?)"),
+      q("SELECT student_id, session_date, status FROM sessions WHERE student_id IN (?)"),
+      q("SELECT student_id, due_date, status, submitted_at, corrected_at FROM homework WHERE student_id IN (?)"),
+      q("SELECT student_id, rating, created_at FROM session_feedback WHERE student_id IN (?)"),
+      q("SELECT student_id, note_type, created_at FROM advisor_notes WHERE student_id IN (?)"),
+      q("SELECT student_id, created_at FROM student_teacher WHERE student_id IN (?)"),
+    ]);
+    const [agendaRows] = await pool.query(`${AGENDA_SELECT} WHERE advisor_id = ?`, [req.user.sub]).catch(() => [[]]);
+    res.json(computeFollowup({
+      families, diagnostics, sessions, homework, feedback, notes, tutorLinks,
+      agenda: agendaRows.map(mapAgendaRow), from, to, now: today,
+    }));
+  } catch (error) {
+    console.error("Advisor followup error", error);
+    res.status(500).json({ message: "Erreur lors du calcul du tableau de bord." });
   }
 });
 
@@ -9949,6 +10009,8 @@ app.patch("/api/homework/:id", authenticateRequest, async (req, res) => {
     const updates = [];
     const params = [];
     if (status) { updates.push("status = ?"); params.push(status); }
+    if (status === "rendu") updates.push("submitted_at = COALESCE(submitted_at, NOW())");
+    if (status === "corrigé") updates.push("corrected_at = NOW()");
     if (submissionUrl !== undefined) { updates.push("submission_url = ?"); params.push(submissionUrl); }
     if (feedback !== undefined) { updates.push("feedback = ?"); params.push(feedback); }
 
@@ -10009,7 +10071,7 @@ app.post("/api/homework/:id/upload", authenticateRequest, upload.single("file"),
     const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
 
     await pool.query(
-      "UPDATE homework SET status = 'rendu', submission_url = ? WHERE id = ?",
+      "UPDATE homework SET status = 'rendu', submission_url = ?, submitted_at = COALESCE(submitted_at, NOW()) WHERE id = ?",
       [fileUrl, id]
     );
 

@@ -1,94 +1,113 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import AdvisorDashboard from "@/pages/advisor/Dashboard";
-import { fetchAdvisorDashboard } from "@/api/backoffice";
+import { fetchAdvisorFollowup } from "@/api/backoffice";
 
-// Mock réseau systématique : le module API est entièrement simulé, aucun vrai fetch.
-vi.mock("@/api/backoffice", () => ({
-  fetchAdvisorDashboard: vi.fn(),
-}));
+const navigate = vi.fn();
+vi.mock("react-router-dom", async (orig) => ({ ...(await orig<any>()), useNavigate: () => navigate }));
+vi.mock("@/api/backoffice", () => ({ fetchAdvisorFollowup: vi.fn() }));
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { id: "adv", name: "Brice Owona", role: "advisor" } }) }));
 
-vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({
-    user: { id: "advisor-1", name: "Aline Conseillère", role: "advisor" },
-    token: "fake-token",
-  }),
-}));
+const ROW = (o: Record<string, unknown>) => ({
+  familyId: "r", studentId: "s", name: "Élève", level: "3e", initialAvg: 2.1, latestAvg: 3.6, delta: 1.5, evaluations: 2, lastEvalAt: "2026-03-12T10:00:00Z",
+  sessions30: { done: 5, planned: 6 }, homeworkRate: 100, homeworkCount: 4, feedback: { avg: 4.5, n: 4 }, alerts: [] as string[], step: "reevaluation", stepLabel: "Réévaluation", ...o,
+});
+const DATA = {
+  period: { from: "2026-09-11", to: "2026-10-10" },
+  alerts: [
+    { key: "diagPending", label: "Diagnostics en attente", rule: "> 7 jours sans diagnostic", short: "Diagnostic en attente", count: 1, items: [{ familyId: "r9", studentId: null, name: "Tina", detail: "Demande du 20/09/2026" }] },
+    { key: "regression", label: "Recul mesuré", rule: "-1 point sur une matière", short: "Recul mesuré", count: 0, items: [] },
+  ],
+  kpis: {
+    students: { total: 48, variation: 6, withDiagnostic: 41, withPlan: 35, withTutor: 25 },
+    progression: { avg: 1.2, n: 28, variation: 0.3 },
+    attendance: { rate: 78, n: 42, variation: 5 },
+    homework: { rate: 87, n: 30, variation: 8, correctionDays: null, correctionN: 0 },
+    satisfaction: { avg: 4.3, n: 18, variation: 0.4 },
+  },
+  funnel: [
+    { key: "demande", label: "Demandes", count: 48, medianDays: null, n: null },
+    { key: "diagnostic", label: "Diagnostics", count: 41, medianDays: 3, n: 41 },
+    { key: "plan", label: "Plans", count: 35, medianDays: null, n: 0 },
+  ],
+  subjects: [{ subject: "Mathématiques", n: 12, initial: 2.1, latest: 3.6, delta: 1.5, reliability: 82, measures: 30 }],
+  evaluatedStudents: 28,
+  evaluatorGap: { avg: null, n: 0 },
+  students: [
+    ROW({ familyId: "r1", studentId: "s1", name: "Jean Nkoa" }),
+    ROW({ familyId: "r2", studentId: "s2", name: "Fatou Sali", delta: -0.5, alerts: ["Recul mesuré"], step: "tuteur", stepLabel: "Tuteur" }),
+    ROW({ familyId: "r3", studentId: null, name: "Tina FAMO", initialAvg: null, latestAvg: null, delta: null, evaluations: 0, lastEvalAt: null, sessions30: { done: 0, planned: 0 }, homeworkRate: null, feedback: { avg: null, n: 0 }, step: "demande", stepLabel: "Demande" }),
+  ],
+};
 
-function renderDashboard() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <AdvisorDashboard />
-    </QueryClientProvider>
+const renderPage = () =>
+  render(
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <AdvisorDashboard />
+      </QueryClientProvider>
+    </MemoryRouter>
   );
-}
 
-describe("AdvisorDashboard — Tableau de bord conseiller (lecture seule)", () => {
+describe("AdvisorDashboard : suivi pédagogique objectif", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (fetchAdvisorFollowup as any).mockResolvedValue(DATA);
   });
 
-  it("succès : affiche les 4 KPI, la liste des familles et les dernières demandes", async () => {
-    (fetchAdvisorDashboard as any).mockResolvedValue({
-      stats: {
-        assignedFamilies: 12,
-        pendingRequests: 3,
-        matchingInProgress: 2,
-        reportsThisMonth: 5,
-        avgResponseTime: "6h",
-      },
-      families: [
-        { id: "f1", child: "Awa", level: "3ème", teacher: "M. Diop", status: "suivi actif" },
-      ],
-      requests: [
-        { id: "r1", parent: "Mme Ba", child: "Idris", level: "CM2", subject: "Maths", date: "2026-07-20", status: "reçu" },
-      ],
-    });
-
-    renderDashboard();
-
-    expect(await screen.findByText("12")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("Awa")).toBeInTheDocument();
-    expect(screen.getByText("Idris")).toBeInTheDocument();
-    expect(screen.getByText("6h")).toBeInTheDocument();
-    expect(fetchAdvisorDashboard).toHaveBeenCalledWith("advisor-1");
+  it("indicateurs avec effectifs, entonnoir et progression par matière", async () => {
+    renderPage();
+    expect(await screen.findByText("Bonjour, Brice 👋")).toBeInTheDocument();
+    expect(await screen.findByText("Élèves suivis")).toBeInTheDocument();
+    expect(fetchAdvisorFollowup).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
+    expect(screen.getByText("+1,2")).toBeInTheDocument();
+    expect(screen.getByText("Sur 28 élèves évalués au moins 2 fois")).toBeInTheDocument();
+    expect(screen.getByText("Sur 42 séances prévues et échues")).toBeInTheDocument();
+    expect(screen.getByText("Pas encore mesuré")).toBeInTheDocument();
+    expect(screen.getByText("4,3/5")).toBeInTheDocument();
+    expect(screen.getByText("Non mesuré")).toBeInTheDocument();
+    expect(screen.getByText("Mathématiques")).toBeInTheDocument();
+    expect(screen.getByText(/aucune double évaluation/)).toBeInTheDocument();
   });
 
-  it("état vide : affiche les messages d'absence de données sans planter", async () => {
-    (fetchAdvisorDashboard as any).mockResolvedValue({
-      stats: { assignedFamilies: 0, pendingRequests: 0, matchingInProgress: 0, reportsThisMonth: 0, avgResponseTime: "—" },
-      families: [],
-      requests: [],
-    });
-
-    renderDashboard();
-
-    expect(await screen.findByText("Aucune famille assignée.")).toBeInTheDocument();
-    expect(screen.getByText("Aucune demande récente.")).toBeInTheDocument();
+  it("une alerte ouvre la liste et mène à la fiche, par identifiant", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "Diagnostics en attente : 1" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /Tina/ }));
+    expect(navigate).toHaveBeenCalledWith("/advisor/families", { state: { familyId: "r9", defaultPanel: "diagnostic" } });
   });
 
-  it("erreur réseau : affiche un message d'erreur si fetchAdvisorDashboard échoue", async () => {
-    (fetchAdvisorDashboard as any).mockRejectedValue(new Error("Network Error"));
-
-    renderDashboard();
-
-    expect(await screen.findByText(/Erreur lors du chargement des données conseiller/i)).toBeInTheDocument();
+  it("tableau de suivi : valeurs non mesurées signalées, recherche et filtre", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    expect(await screen.findByText("Jean Nkoa")).toBeInTheDocument();
+    const tina = screen.getByText("Tina FAMO").closest("tr")!;
+    expect(within(tina).getByText("Non évalué")).toBeInTheDocument();
+    expect(within(tina).getByText("Aucun avis")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Filtres/ }));
+    await user.click(await screen.findByRole("menuitemcheckbox", { name: "Progression négative" }));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByText("Jean Nkoa")).not.toBeInTheDocument());
+    expect(screen.getByText("Fatou Sali")).toBeInTheDocument();
   });
 
-  it("page en lecture seule : aucune action d'écriture n'est exposée (pas de bouton de mutation)", async () => {
-    (fetchAdvisorDashboard as any).mockResolvedValue({
-      stats: { assignedFamilies: 1, pendingRequests: 0, matchingInProgress: 0, reportsThisMonth: 0, avgResponseTime: "1h" },
-      families: [],
-      requests: [],
-    });
+  it("changement de période : nouvelle requête", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Élèves suivis");
+    await user.click(screen.getByRole("button", { name: "Choisir la période" }));
+    await user.click(await screen.findByRole("button", { name: "3 derniers mois" }));
+    await waitFor(() => expect(fetchAdvisorFollowup).toHaveBeenCalledTimes(2));
+  });
 
-    renderDashboard();
-    await screen.findByText("1");
-
-    // Aucun bouton n'est rendu sur ce tableau de bord : conforme au périmètre "lecture seule".
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  it("erreur de chargement", async () => {
+    (fetchAdvisorFollowup as any).mockRejectedValue(new Error("down"));
+    renderPage();
+    expect(await screen.findByText("Impossible de charger le tableau de bord.")).toBeInTheDocument();
   });
 });
