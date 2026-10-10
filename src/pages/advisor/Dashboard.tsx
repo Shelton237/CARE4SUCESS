@@ -179,7 +179,7 @@ export default function AdvisorDashboard() {
             <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col gap-3 min-w-0">
                 <div className="flex items-start gap-3">
                     <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0", iconCls)}><Icon className="w-6 h-6" /></div>
-                    <div className="flex-1 min-w-0"><p className="text-2xl font-bold text-[#0D2D5A] leading-tight">{value}</p><p className="text-sm text-[#0D2D5A]">{label}</p></div>
+                    <div className="flex-1 min-w-0"><p className={cn("font-bold leading-tight", /^[A-Za-zÀ-ÿ]/.test(value) ? "text-base text-gray-400 pt-1.5" : "text-2xl text-[#0D2D5A]")}>{value}</p><p className="text-sm text-[#0D2D5A]">{label}</p></div>
                     {variation}
                 </div>
                 {children}
@@ -395,7 +395,7 @@ export default function AdvisorDashboard() {
                                                     </button>
                                                 </td>
                                                 <td className="px-3 py-2.5 text-xs text-[#0D2D5A]">{r.initialAvg === null ? <span className="text-gray-400">Non évalué</span> : r.evaluations < 2 ? <>{fmt(r.initialAvg)} <span className="text-gray-400">(1 évaluation)</span></> : <>{fmt(r.initialAvg)} → <strong>{fmt(r.latestAvg)}</strong></>}</td>
-                                                <td className="px-3 py-2.5">{r.delta === null ? <span className="text-[11px] text-gray-400">À réévaluer</span> :
+                                                <td className="px-3 py-2.5">{r.delta === null ? <span className="text-[11px] text-gray-400">{r.evaluations === 1 ? "À réévaluer" : "Non mesuré"}</span> :
                                                     <span className={cn("text-[11px] font-bold px-2 py-0.5 rounded-full", r.delta > 0 ? "bg-emerald-50 text-emerald-700" : r.delta < 0 ? "bg-rose-50 text-rose-600" : "bg-gray-100 text-gray-500")}>{signed(r.delta)}</span>}</td>
                                                 <td className="px-3 py-2.5 text-xs text-gray-500">{longDate(r.lastEvalAt) || <span className="text-gray-400">Aucune</span>}</td>
                                                 <td className="px-3 py-2.5">{r.sessions30.planned ? (
