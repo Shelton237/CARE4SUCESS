@@ -27,7 +27,8 @@ const DATA = {
         {
             student: { id: "s2", name: "Marie Rose", subject: "Français", level: "Première", city: "", hasDiagnostic: false, scores: {}, prioritySubjects: [], consolidateSubjects: [] },
             assignedTeachers: [{ id: "t2", name: "Saturin Penlap" }],
-            matches: [tutor({ id: "t2", name: "Saturin Penlap", subjects: ["Français"], score: 82, alreadyAssigned: true, hasAvailability: false, reviewCount: 0, reviewAvg: null, yearsExperience: null })],
+            // Cas réel en production : langues enregistrées comme objets { name, level }
+            matches: [tutor({ id: "t2", name: "Saturin Penlap", subjects: ["Français"], score: 82, alreadyAssigned: true, hasAvailability: false, reviewCount: 0, reviewAvg: null, yearsExperience: null, languages: [{ name: "Anglais", level: "C1" }] })],
         },
     ],
 };
@@ -80,6 +81,16 @@ describe("AdvisorMatching", () => {
         await screen.findByText("Léo Nkca");
         await user.click(screen.getByRole("switch", { name: "Correspondance optimale" }));
         await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes("top=3"))).toBe(true));
+    });
+
+    it("filtre Langue : accepte les langues enregistrées comme objets", async () => {
+        const user = userEvent.setup();
+        renderPage();
+        await screen.findByText("Marie Rose");
+        await user.click(screen.getByRole("button", { name: /Filtres avancés/ }));
+        await user.selectOptions(screen.getByRole("combobox", { name: /Langue du tuteur/ }), "Anglais");
+        expect(screen.queryByText("Léo Nkca")).not.toBeInTheDocument();
+        expect(screen.getByText("Marie Rose")).toBeInTheDocument();
     });
 
     it("onglet Élèves à affecter : masque les élèves qui ont déjà un tuteur", async () => {

@@ -10796,13 +10796,12 @@ app.get("/api/advisor/matches", authenticateRequest, requireRole("admin", "advis
       if (!linkedBy.has(l.student_id)) linkedBy.set(l.student_id, []);
       linkedBy.get(l.student_id).push({ id: l.teacher_id, name: l.teacher_name });
     }
-    const items = [];
-    for (const student of students) {
-      const diag = await studentDiagnostic(student.id);
+    const diags = await Promise.all(students.map((st) => studentDiagnostic(st.id)));
+    const items = students.map((student, i) => {
       const assigned = linkedBy.get(student.id) || [];
-      const scored = scoreStudentMatches(student, diag.reinforce, ctx, new Set(assigned.map((a) => a.id)));
-      items.push({ student: studentView(student, diag), assignedTeachers: assigned, matches: scored.slice(0, top) });
-    }
+      const scored = scoreStudentMatches(student, diags[i].reinforce, ctx, new Set(assigned.map((a) => a.id)));
+      return { student: studentView(student, diags[i]), assignedTeachers: assigned, matches: scored.slice(0, top) };
+    });
     res.json({ tutorCount: ctx.teachers.length, items });
   } catch (err) {
     console.error("[matches]", err);

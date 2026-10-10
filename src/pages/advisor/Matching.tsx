@@ -42,6 +42,10 @@ const PALETTE = [
 ];
 const initials = (name = "") => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("") || "?";
 const tone = (name = "") => PALETTE[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
+// Langues / compétences peuvent être du texte ou des objets ({ name, level }...) selon le profil public.
+const asLabel = (v: unknown): string =>
+    typeof v === "string" ? v : v && typeof v === "object" ? String((v as any).name ?? (v as any).language ?? (v as any).label ?? (v as any).title ?? "") : String(v ?? "");
+const labels = (list: unknown): string[] => (Array.isArray(list) ? list.map(asLabel).filter(Boolean) : []);
 const norm = (v: unknown) => String(v ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 // Besoin de l'élève, lu dans le diagnostic (grille 0-5)
@@ -158,10 +162,10 @@ export default function AdvisorMatching() {
         const subjects = new Set<string>(), levels = new Set<string>(), languages = new Set<string>(), specialties = new Set<string>();
         items.forEach(it => {
             [it.student.subject, ...it.student.prioritySubjects, ...it.student.consolidateSubjects].filter(Boolean).forEach(s => subjects.add(String(s)));
-            if (it.student.level) levels.add(it.student.level);
-            it.matches.forEach(t => { t.languages.forEach(l => languages.add(l)); t.specialties.forEach(s => specialties.add(s)); });
+            if (it.student.level) levels.add(asLabel(it.student.level));
+            it.matches.forEach(t => { labels(t.languages).forEach(l => languages.add(l)); labels(t.specialties).forEach(s => specialties.add(s)); });
         });
-        const sorted = (s: Set<string>) => [...s].sort((a, b) => a.localeCompare(b, "fr"));
+        const sorted = (s: Set<string>) => [...s].map(String).sort((a, b) => a.localeCompare(b, "fr"));
         return { subjects: sorted(subjects), levels: sorted(levels), languages: sorted(languages), specialties: sorted(specialties) };
     }, [items]);
 
@@ -179,18 +183,18 @@ export default function AdvisorMatching() {
             if (filters.status === "available" && (r.tutor.alreadyAssigned || !r.tutor.hasAvailability)) return false;
             if (filters.status === "unassigned" && r.assigned.length) return false;
             if (filters.status === "assigned" && !r.tutor.alreadyAssigned) return false;
-            if (filters.language && !r.tutor.languages.includes(filters.language)) return false;
+            if (filters.language && !labels(r.tutor.languages).includes(filters.language)) return false;
             const y = r.tutor.yearsExperience;
             if (filters.experience === "none" && y != null) return false;
             if (filters.experience === "lt2" && !(y != null && y < 2)) return false;
             if (filters.experience === "2to5" && !(y != null && y >= 2 && y <= 5)) return false;
             if (filters.experience === "gt5" && !(y != null && y > 5)) return false;
-            if (filters.specialty && !r.tutor.specialties.includes(filters.specialty)) return false;
+            if (filters.specialty && !labels(r.tutor.specialties).includes(filters.specialty)) return false;
             return true;
         });
         return [...list].sort((a, b) =>
-            sort === "student" ? a.student.name.localeCompare(b.student.name, "fr") || a.rank - b.rank
-                : sort === "tutor" ? a.tutor.name.localeCompare(b.tutor.name, "fr")
+            sort === "student" ? asLabel(a.student.name).localeCompare(asLabel(b.student.name), "fr") || a.rank - b.rank
+                : sort === "tutor" ? asLabel(a.tutor.name).localeCompare(asLabel(b.tutor.name), "fr")
                 : b.tutor.score - a.tutor.score
         );
     }, [rows, filters, sort]);
