@@ -17,6 +17,7 @@ import { sanitizeEvidence } from "./diagnosticEvidence.js";
 import { subjectsToReinforce, geoProximity, scoreTutor } from "./matchScoring.js";
 import { indexDiagnostics, indexPlans, buildBilan, toIso } from "./bilanSummary.js";
 import { sanitizeAgendaPayload, toColumns, contactName, mapAgendaRow } from "./advisorAgenda.js";
+import { buildAdvisorContacts } from "./advisorContacts.js";
 import { readTutorProfile, profileCompleteness, buildProfileUpdate } from "./tutorProfile.js";
 
 const rootDir = process.cwd();
@@ -5939,6 +5940,27 @@ app.post("/api/messages/upload", authenticateRequest, upload.single("attachment"
   } catch (error) {
     console.error("Message attachment upload error:", error);
     res.status(500).json({ message: "Erreur lors de l'upload." });
+  }
+});
+
+// Annuaire de messagerie du conseiller (la route était appelée par le front mais n'existait pas).
+app.get("/api/advisors/:advisorId/contacts", authenticateRequest, requireRole("admin", "advisor"), requireSelfOrAdmin("advisorId"), async (req, res) => {
+  try {
+    const [users] = await pool.query(
+      `SELECT id, name, email, phone, role, secondary_role, avatar_url, parent_id FROM users
+       WHERE id <> ? AND (role IN ('teacher','tutor','parent','student','advisor','admin') OR secondary_role IN ('teacher','parent'))`,
+      [req.params.advisorId]
+    );
+    const teacherIds = users.filter((u) => ["teacher", "tutor"].includes(u.role) || u.secondary_role === "teacher").map((u) => u.id);
+    const [teacherRows] = teacherIds.length
+      ? await pool.query("SELECT id, subjects FROM teachers WHERE id IN (?)", [teacherIds]).catch(() => [[]])
+      : [[]];
+    const [studentTeacher] = await pool.query("SELECT student_id, teacher_id FROM student_teacher").catch(() => [[]]);
+    const [parentChild] = await pool.query("SELECT parent_id, child_id FROM parent_child").catch(() => [[]]);
+    res.json(buildAdvisorContacts({ users, teacherRows, studentTeacher, parentChild }));
+  } catch (error) {
+    console.error("Failed to fetch advisor contacts", error);
+    res.status(500).json({ message: "Erreur lors de la récupération des contacts." });
   }
 });
 
