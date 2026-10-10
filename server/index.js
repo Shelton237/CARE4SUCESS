@@ -15,6 +15,7 @@ import { resolveJwtSecret } from "./jwtSecret.js";
 import { parseJson, parseJsonObject } from "./parseJson.js";
 import { sanitizeEvidence } from "./diagnosticEvidence.js";
 import { subjectsToReinforce, geoProximity, scoreTutor } from "./matchScoring.js";
+import { indexDiagnostics, indexPlans, buildBilan, toIso } from "./bilanSummary.js";
 import { readTutorProfile, profileCompleteness, buildProfileUpdate } from "./tutorProfile.js";
 
 const rootDir = process.cwd();
@@ -5982,7 +5983,8 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
     const normEmail = (v) => String(v ?? "").trim().toLowerCase();
 
     const [requestRows] = await pool.query(
-      `SELECT id, parent_name, child_name, level, subject, status AS request_status, email
+      `SELECT id, parent_name, child_name, level, subject, status AS request_status, email,
+              request_date, created_at, diagnostic, academic_plan
        FROM requests
        ORDER BY request_date DESC`
     );
@@ -6167,6 +6169,7 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
       location: row.parent_location || null,
       level: null,
       subject: undefined,
+      createdAt: toIso(row.created_at),
       teacher: (row.teacher_id && directTeacherNames[row.teacher_id]) || "—",
       teacherName: (row.teacher_id && directTeacherNames[row.teacher_id]) || "—",
       nextRdv: "—",
@@ -6221,6 +6224,30 @@ app.get("/api/advisor/families", authenticateRequest, async (_req, res) => {
         status,
       };
     }), ...directFamilies];
+
+    // Bilan pédagogique (diagnostic + plan) rattaché par identifiant : élève prouvé, sinon la demande.
+    const reqById = new Map(requestRows.map((r) => [r.id, r]));
+    const bilanStudentIds = [...new Set(families.map((f) => f.studentId).filter(Boolean))];
+    let diagRows = [], planRows = [];
+    if (bilanStudentIds.length) {
+      [diagRows] = await pool.query(
+        `SELECT student_id, evaluator_name, scores, created_at FROM academic_diagnostics
+         WHERE student_id IN (?) ORDER BY created_at ASC`,
+        [bilanStudentIds]
+      ).catch(() => [[]]);
+      [planRows] = await pool.query(
+        `SELECT student_id, title, status, created_at FROM academic_plans
+         WHERE student_id IN (?) ORDER BY created_at ASC`,
+        [bilanStudentIds]
+      ).catch(() => [[]]);
+    }
+    const diagBy = indexDiagnostics(diagRows);
+    const planBy = indexPlans(planRows);
+    for (const f of families) {
+      const requestRow = reqById.get(f.id) || null;
+      if (requestRow) f.createdAt = toIso(requestRow.created_at || requestRow.request_date);
+      f.bilan = buildBilan({ studentId: f.studentId, requestRow, diagBy, planBy });
+    }
 
     res.json(families);
   } catch (error) {
