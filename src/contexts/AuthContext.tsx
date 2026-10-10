@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import type { User, Role } from "@/types/user";
 
 interface AuthContextType {
@@ -12,6 +12,25 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+// Date d'expiration (ms) lue dans le jeton JWT, sans vérifier la signature (le serveur s'en charge).
+const tokenExpiry = (token: string | null): number | null => {
+    if (!token) return null;
+    try {
+        const part = token.split(".")[1];
+        const json = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+        return typeof json.exp === "number" ? json.exp * 1000 : null;
+    } catch {
+        return null;
+    }
+};
+
+// Session expirée : retour à la connexion avec un message, puis à la page en cours.
+const redirectToLogin = () => {
+    const here = window.location.pathname + window.location.search;
+    if (window.location.pathname.startsWith("/login")) return;
+    window.location.assign(`/login?expired=1&next=${encodeURIComponent(here)}`);
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(() => {
@@ -127,6 +146,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(null);
         persistToken(null);
     };
+
+    const expireSession = () => {
+        logout();
+        redirectToLogin();
+    };
+    const expireRef = useRef(expireSession);
+    expireRef.current = expireSession;
+
+    // Déconnexion à l'heure d'expiration du jeton (au lieu d'écrans en erreur « Authentification invalide »).
+    useEffect(() => {
+        const exp = tokenExpiry(token);
+        if (!exp) return;
+        const delay = exp - Date.now();
+        if (delay <= 0) { expireRef.current(); return; }
+        const id = window.setTimeout(() => expireRef.current(), Math.min(delay, 2_147_000_000));
+        return () => window.clearTimeout(id);
+    }, [token]);
+
+    // Filet de sécurité : toute réponse 401 à une requête authentifiée (jeton révoqué ou expiré) termine la session.
+    useEffect(() => {
+        const original = window.fetch;
+        window.fetch = async (input, init) => {
+            const response = await original(input, init);
+            if (response.status === 401) {
+                const h = init?.headers;
+                const auth = h instanceof Headers ? h.get("Authorization") : (h as Record<string, string> | undefined)?.Authorization;
+                if (auth?.startsWith("Bearer ") && localStorage.getItem("c4s_token")) expireRef.current();
+            }
+            return response;
+        };
+        return () => { window.fetch = original; };
+    }, []);
 
     const updateUser = (next: Partial<User>) => {
         setUser((prev) => {

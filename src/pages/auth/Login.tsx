@@ -24,14 +24,18 @@ export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPwd, setShowPwd] = useState(false);
-    const [error, setError] = useState("");
+    const params = new URLSearchParams(window.location.search);
+    const [error, setError] = useState(params.get("expired") ? "Votre session a expiré. Reconnectez-vous pour continuer." : "");
     const [loading, setLoading] = useState(false);
 
     const redirectAfterLogin = () => {
         const stored = localStorage.getItem("c4s_user");
         if (stored) {
             const user = JSON.parse(stored);
-            navigate(ROLE_REDIRECTS[user.role as keyof typeof ROLE_REDIRECTS]);
+            const home = ROLE_REDIRECTS[user.role as keyof typeof ROLE_REDIRECTS];
+            // Après une session expirée : retour à la page en cours si elle appartient à l'espace du rôle.
+            const next = params.get("next");
+            navigate(next && next.startsWith(`${home}`) ? next : home);
         }
     };
 
