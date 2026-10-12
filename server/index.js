@@ -19,6 +19,7 @@ import { indexDiagnostics, indexPlans, buildBilan, toIso } from "./bilanSummary.
 import { sanitizeAgendaPayload, toColumns, contactName, mapAgendaRow } from "./advisorAgenda.js";
 import { buildAdvisorContacts } from "./advisorContacts.js";
 import { computeFollowup } from "./followup.js";
+import { validateEnrollment } from "./enrollmentValidation.js";
 import { readTutorProfile, profileCompleteness, buildProfileUpdate } from "./tutorProfile.js";
 
 const rootDir = process.cwd();
@@ -3038,27 +3039,25 @@ app.post("/api/public/evaluation-requests", async (req, res) => {
 });
 
 app.post("/api/parents/enroll", async (req, res) => {
-  const connection = await pool.getConnection();
+  let connection;
+  let transactionStarted = false;
   try {
     let { parentName, parentEmail, parentPassword, parentPhone, parentLocation, parentGeoLocationId, children, childName, childEmail, childPassword, childLevel, subject, googleIdToken } = req.body;
 
     let googleSub = null;
     if (googleIdToken) {
-      const googlePayload = await verifyGoogleIdToken(googleIdToken);
+      let googlePayload;
+      try { googlePayload = await verifyGoogleIdToken(googleIdToken); }
+      catch { return res.status(400).json({ message: "La connexion Google a échoué. Réessayez ou inscrivez-vous avec votre email." }); }
       parentEmail = googlePayload.email; // l'email vérifié par Google prévaut sur toute saisie du formulaire
       googleSub = googlePayload.sub;
       parentPassword = crypto.randomBytes(24).toString("hex"); // jamais communiqué : connexion via Google uniquement
     }
 
-    console.log("DEBUG: Enrollment start for", parentEmail);
-
-    const finalChildren = Array.isArray(children) ? children : [
-      { name: childName, email: childEmail, password: childPassword, level: childLevel, subject: subject }
-    ].filter(c => c.name);
-
-    if (!parentEmail || !parentPassword || finalChildren.length === 0) {
-      return res.status(400).json({ message: "Champs obligatoires manquants." });
-    }
+    const normalized = validateEnrollment({ parentName, parentEmail, parentPassword, parentPhone, parentLocation, parentGeoLocationId, children, childName, childEmail, childPassword, childLevel, subject });
+    ({ parentName, parentEmail, parentPassword, parentPhone, parentLocation, parentGeoLocationId } = normalized);
+    const { finalChildren } = normalized;
+    connection = await pool.getConnection();
 
     // Check if parent email already exists
     const [existingParent] = await connection.query("SELECT email FROM users WHERE email = ? LIMIT 1", [parentEmail]);
@@ -3077,11 +3076,18 @@ app.post("/api/parents/enroll", async (req, res) => {
     }
 
     await ensureParentChildTable();
+    await ensureRequestsTable();
+    if (parentGeoLocationId) {
+      const [locations] = await connection.query("SELECT id FROM geo_locations WHERE id = ? AND status IN ('active', 'pending')", [parentGeoLocationId]);
+      if (!locations.length) return res.status(400).json({ message: "La localisation sélectionnée n’existe plus. Choisissez-la à nouveau." });
+    }
     await connection.beginTransaction();
+    transactionStarted = true;
+    const welcomeMessages = [];
 
     // 1. Create Parent User
     const parentId = crypto.randomUUID();
-    const hashedParentPwd = bcrypt.hashSync(parentPassword, 10);
+    const hashedParentPwd = await bcrypt.hash(parentPassword, 10);
     await connection.query(
       "INSERT INTO users (id, name, email, password, role, phone, location, geo_location_id, google_id, avatar) VALUES (?, ?, ?, ?, 'parent', ?, ?, ?, ?, ?)",
       [
@@ -3093,11 +3099,11 @@ app.post("/api/parents/enroll", async (req, res) => {
     );
 
     // Bienvenue Parent
-    await sendMail({
+    welcomeMessages.push({
       to: parentEmail,
       subject: "Bienvenue sur Care4Success — Vos identifiants parent",
       html: tplAccountCreated({ name: parentName, email: parentEmail, password: parentPassword, role: 'parent', viaGoogle: Boolean(googleSub) })
-    }).catch(e => console.warn("Parent welcome mail failed:", e.message));
+    });
 
     const results = {
       parentId,
@@ -3107,8 +3113,8 @@ app.post("/api/parents/enroll", async (req, res) => {
     // 2. Process each child
     for (const child of finalChildren) {
       const studentId = crypto.randomUUID();
-      const finalStudentEmail = child.email || `student.${crypto.randomBytes(4).toString('hex')}@care4success.cm`;
-      const hashedStudentPwd = bcrypt.hashSync(child.password || "eleve123", 10);
+      const finalStudentEmail = child.email;
+      const hashedStudentPwd = await bcrypt.hash(child.password, 10);
       
       // Create Student User — hérite de la localisation du parent (même foyer),
       // faute de champ de localisation dédié à l'enfant dans ce formulaire.
@@ -3122,11 +3128,11 @@ app.post("/api/parents/enroll", async (req, res) => {
       );
 
       // Bienvenue Élève
-      await sendMail({
+      welcomeMessages.push({
         to: finalStudentEmail,
         subject: "Bienvenue sur Care4Success — Tes identifiants élève",
-        html: tplAccountCreated({ name: child.name, email: finalStudentEmail, password: child.password || "eleve123", role: 'student' })
-      }).catch(e => console.warn("Student welcome mail failed:", e.message));
+        html: tplAccountCreated({ name: child.name, email: finalStudentEmail, password: child.password, role: 'student' })
+      });
 
       // Link Parent-Child
       await connection.query(
@@ -3135,7 +3141,6 @@ app.post("/api/parents/enroll", async (req, res) => {
       );
 
       // Create Request (Lead) — inclut la localisation du parent pour le matching géographique
-      await ensureRequestsTable();
       const requestId = crypto.randomUUID();
       await connection.query(
         `INSERT INTO requests (id, parent_name, child_name, level, subject, phone, email, location, geo_location_id, status, request_date)
@@ -3147,17 +3152,22 @@ app.post("/api/parents/enroll", async (req, res) => {
     }
 
     await connection.commit();
+    transactionStarted = false;
+    // Only confirmed accounts receive welcome mail; SMTP cannot hold the HTTP response open.
+    for (const message of welcomeMessages) void sendMail(message).catch(e => console.warn("Enrollment welcome mail failed:", e.message));
     res.status(201).json({
       message: `${finalChildren.length} enfant(s) enrôlé(s) avec succès.`,
       parent: { id: parentId, email: parentEmail },
       students: results.students
     });
   } catch (error) {
-    if (connection) await connection.rollback();
-    console.error("Enrollment Error:", error);
-    res.status(500).json({ message: error.message || "Erreur lors de l'enrôlement." });
+    if (connection && transactionStarted) await connection.rollback().catch(() => {});
+    if (!error.status) console.error("Enrollment Error:", error.code || error.message);
+    const busy = ["ER_LOCK_DEADLOCK", "ER_LOCK_WAIT_TIMEOUT"].includes(error.code);
+    const status = error.status || (error.code === "ER_DUP_ENTRY" || busy ? 409 : 500);
+    res.status(status).json({ message: status === 400 ? error.message : busy ? "Une autre inscription est en cours. Réessayez dans quelques instants ou connectez-vous si vos comptes ont déjà été créés." : status === 409 ? "Une adresse email est déjà utilisée. Connectez-vous ou choisissez une autre adresse." : "Impossible de créer les comptes pour le moment. Réessayez dans quelques instants." });
   } finally {
-    connection.release();
+    connection?.release();
   }
 });
 

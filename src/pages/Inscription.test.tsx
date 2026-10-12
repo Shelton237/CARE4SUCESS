@@ -5,25 +5,28 @@ import { MemoryRouter } from "react-router-dom-original";
 import { renderWithQueryClient } from "@/test/test-utils";
 
 describe("Inscription Component", () => {
-    it("affiche le choix du profil au démarrage", () => {
+    it("ouvre directement le compte parent et affiche les trois étapes", () => {
         renderWithQueryClient(
             <MemoryRouter>
                 <Inscription />
             </MemoryRouter>
         );
-        expect(screen.getByText(/Choisissez votre profil pour continuer/i)).toBeInTheDocument();
-        expect(screen.getByText(/Je suis un Parent/i)).toBeInTheDocument();
-        expect(screen.getByText(/Je suis un Élève/i)).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Inscription Parent" })).toBeInTheDocument();
+        expect(screen.getByLabelText(/Nom complet/)).toBeRequired();
+        expect(screen.getByLabelText(/Email de connexion/)).toBeRequired();
+        expect(screen.getByLabelText(/^Mot de passe/)).toHaveAttribute("minlength", "8");
+        expect(screen.getByRole("list", { name: "Étapes d’inscription" }).children).toHaveLength(3);
     });
 
-    it("bascule vers le formulaire parent lors du clic", () => {
+    it("permet de revenir au parcours parent après avoir choisi élève", () => {
         renderWithQueryClient(
             <MemoryRouter>
                 <Inscription />
             </MemoryRouter>
         );
-        fireEvent.click(screen.getByText(/Je suis un Parent/i));
-        expect(screen.getByText(/Informations Parent/i)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Élève", exact: true }));
+        fireEvent.click(screen.getByRole("button", { name: "Parent", exact: true }));
+        expect(screen.getByRole("heading", { name: "Informations Parent" })).toBeInTheDocument();
     });
 
     it("bascule vers le formulaire élève lors du clic", () => {
@@ -32,7 +35,7 @@ describe("Inscription Component", () => {
                 <Inscription />
             </MemoryRouter>
         );
-        fireEvent.click(screen.getByText(/Je suis un Élève/i));
-        expect(screen.getByText(/Informations Responsable/i)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Élève", exact: true }));
+        expect(screen.getByRole("heading", { name: "Informations Responsable" })).toBeInTheDocument();
     });
 });

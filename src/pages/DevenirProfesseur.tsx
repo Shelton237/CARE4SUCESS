@@ -36,8 +36,9 @@ const EYEBROW = "text-[#0F9B8E] text-xs xl:text-[14.6px] font-bold uppercase tra
 const H2 = "text-2xl md:text-[32px] xl:text-[38.5px] font-bold text-[#0D2D5A] leading-tight";
 
 const VERTICALES = [
-  { value: "langues-competences", label: tt("Langues et compétences") },
+  { value: "competences", label: tt("Compétences") },
   { value: "soutien-scolaire", label: tt("Soutien scolaire") },
+  { value: "langues", label: tt("Langues") },
 ];
 
 const HERO_CARD: { icon: typeof Monitor; label: string }[] = [
@@ -150,7 +151,8 @@ export default function DevenirProfesseur() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!verticale) {
+    const verticaleLabel = VERTICALES.find(v => v.value === verticale)?.label;
+    if (!verticaleLabel) {
       toast({
         title: t("Verticale requise"),
         description: t("Merci de choisir la verticale souhaitée avant d'envoyer votre candidature."),
@@ -158,7 +160,6 @@ export default function DevenirProfesseur() {
       });
       return;
     }
-    const verticaleLabel = VERTICALES.find(v => v.value === verticale)?.label ?? "Non précisée";
     const formData = new window.FormData();
     formData.append("fullName", `${prenom} ${nom}`.trim());
     formData.append("email", email);
@@ -510,9 +511,9 @@ export default function DevenirProfesseur() {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>{t("Verticale souhaitée")}</Label>
-                  <Select value={verticale} onValueChange={setVerticale}>
-                    <SelectTrigger><SelectValue placeholder={t("Choisissez...")} /></SelectTrigger>
+                  <Label htmlFor="verticale">{t("Verticale souhaitée")}</Label>
+                  <Select value={verticale} onValueChange={setVerticale} required>
+                    <SelectTrigger id="verticale"><SelectValue placeholder={t("Choisissez...")} /></SelectTrigger>
                     <SelectContent>
                       {VERTICALES.map(v => <SelectItem key={v.value} value={v.value}>{t(v.label)}</SelectItem>)}
                     </SelectContent>

@@ -1,527 +1,154 @@
-import React, { useState } from "react";
-import { ALL_LEVELS, ALL_SUBJECTS } from "@/lib/education";
-import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Phone, UserPlus, BookOpen, GraduationCap, CheckCircle, ArrowRight, Loader2, Plus, Trash2, CheckCircle2, Globe, Users as UsersIcon, ShieldCheck } from "lucide-react";
-import { GeoSelector } from "@/components/GeoSelector";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowLeft, ArrowRight, BarChart3, CalendarDays, Check, CheckCircle2, Eye, EyeOff, GraduationCap, Headphones, HelpCircle, Lightbulb, Loader2, LockKeyhole, Mail, MapPin, Plus, ShieldCheck, Trash2, UserRound, UsersRound } from "lucide-react";
 import { PhoneCountryInput } from "@/components/common/PhoneCountryInput";
+import { GeoSelector } from "@/components/GeoSelector";
 import { LevelSelect } from "@/components/common/LevelSelect";
 import { SubjectBadgePicker } from "@/components/common/SubjectSelect";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
-import { ROUTE_PATHS } from "@/lib";
-import { HandUnderline } from "@/components/decor";
-import { useT, tt, rich, lines } from "@/i18n";
+import "./inscription.css";
 
-const SERIF = { fontFamily: "'Playfair Display', serif" };
-const HANDWRITING = { fontFamily: "Caveat, cursive" };
-
-const HERO_IMG = {
-  hero: "/images/home/hero-coach.webp",
-  heroFallback: "/images/home/hero-coach.jpg",
-};
-
-const TRUST = [
-  { icon: Globe, label: tt("Inscription gratuite") },
-  { icon: UsersIcon, label: tt("Sans engagement") },
-  { icon: ShieldCheck, label: tt("Données sécurisées") },
+type Child = { id: string; name: string; email: string; password: string; level: string; subject: string[] };
+type CreatedAccounts = { parent: { email: string }; students: { id: string; name: string; email: string }[] };
+const newChild = (): Child => ({ id: crypto.randomUUID(), name: "", email: "", password: "", level: "", subject: [] });
+const BENEFITS = [
+  { icon: GraduationCap, title: "Accédez aux meilleurs coachs", text: "Des enseignants qualifiés et expérimentés." },
+  { icon: BarChart3, title: "Suivez la progression", text: "Des rapports réguliers sur les apprentissages." },
+  { icon: CalendarDays, title: "Choisissez librement", text: "Selon vos besoins, vos horaires et votre budget." },
+  { icon: ShieldCheck, title: "Un accompagnement sécurisé", text: "Vos données protégées." },
+];
+const FAQ = [
+  ["L’inscription est-elle payante ?", "La création des comptes parent et enfant est gratuite. Les cours sont facturés séparément selon l’accompagnement choisi."],
+  ["Puis-je inscrire plusieurs enfants ?", "Oui. À l’étape Informations enfant, cliquez sur Ajouter un enfant. Chaque enfant dispose de son propre compte, rattaché au vôtre."],
+  ["Comment sont sélectionnés les coachs ?", "Notre équipe examine leurs qualifications et leur expérience, puis réalise une évaluation ou un entretien selon leur domaine."],
+  ["Mes données sont-elles sécurisées ?", "Les mots de passe sont stockés sous forme chiffrée à sens unique. Chaque compte accède aux informations autorisées pour son rôle."],
 ];
 
-// Décodage local du payload d'un ID token Google, uniquement pour pré-remplir
-// l'affichage — la vérification cryptographique se fait exclusivement côté
-// serveur avant toute création de compte.
-function decodeGoogleIdTokenPayload(idToken: string): { email?: string; name?: string } {
-    try {
-        const [, payload] = idToken.split(".");
-        return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    } catch {
-        return {};
-    }
+function Field({ id, label, children, required = false }: { id: string; label: string; children: ReactNode; required?: boolean }) {
+  return <div className="signup-field"><label htmlFor={id}>{label}{required && <span className="signup-required"> *</span>}</label>{children}</div>;
+}
+function PasswordField({ id, value, onChange, label = "Mot de passe" }: { id: string; value: string; onChange: (value: string) => void; label?: string }) {
+  const [visible, setVisible] = useState(false);
+  return <Field id={id} label={label} required><div className="signup-input-icon"><LockKeyhole size={16} /><input id={id} name={id} type={visible ? "text" : "password"} value={value} onChange={e => onChange(e.target.value)} placeholder="8 caractères minimum" autoComplete="new-password" minLength={8} maxLength={72} required /><button type="button" className="signup-eye" aria-label={visible ? "Masquer le mot de passe" : "Afficher le mot de passe"} onClick={() => setVisible(!visible)}>{visible ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></Field>;
 }
 
 export default function Inscription() {
-    const { t } = useT();
-    const navigate = useNavigate();
-    const [step, setStep] = useState(0); // Step 0 for role selection
-    const [userType, setUserType] = useState<"parent" | "student">("parent");
-    const [loading, setLoading] = useState(false);
-    const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
-    const [formData, setFormData] = useState({
-        parentName: "",
-        parentEmail: "",
-        parentPassword: "",
-        parentPhone: "",
-        parentLocation: "",
-        parentGeoLocationId: null as number | null,
-        children: [
-            { id: Date.now(), name: "", level: ALL_LEVELS.includes("6ème") ? "6ème" : ALL_LEVELS[0], subject: ["Mathématiques"], email: "", password: "" }
-        ]
-    });
+  const [params, setParams] = useSearchParams();
+  const studentMode = params.get("profil") === "eleve";
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [created, setCreated] = useState<CreatedAccounts | null>(null);
+  const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
+  const [parent, setParent] = useState({ name: "", email: "", password: "", phone: "", location: "", geoId: null as number | null });
+  const [children, setChildren] = useState<Child[]>(() => [newChild()]);
+  const formSection = useRef<HTMLElement>(null);
+  const submissionPending = useRef(false);
+  const goTo = (next: number) => { setError(""); setStep(next); requestAnimationFrame(() => formSection.current?.scrollIntoView({ behavior: "smooth", block: "start" })); };
+  const updateChild = (id: string, patch: Partial<Child>) => setChildren(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c));
+  const handleGoogleCredential = (token: string) => {
+    try {
+      const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const profile = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))));
+      setGoogleIdToken(token); setParent(prev => ({ ...prev, name: profile.name || prev.name, email: profile.email || prev.email, password: "" })); setError("");
+    } catch { setError("Impossible de lire le profil Google. Réessayez ou utilisez votre email."); }
+  };
+  const nextParent = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!parent.geoId) return setError("Sélectionnez votre pays dans la rubrique Votre localisation.");
+    if (parent.phone.replace(/\D/g, "").length < 8) return setError("Saisissez un numéro de téléphone complet.");
+    goTo(2);
+  };
+  const nextChildren = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (children.some(c => !c.level || !c.subject.length)) return setError("Choisissez un niveau et au moins une matière pour chaque enfant.");
+    const emails = [parent.email, ...children.map(c => c.email)].map(email => email.trim().toLowerCase());
+    if (new Set(emails).size !== emails.length) return setError("Chaque compte doit avoir une adresse email différente : parent et enfants.");
+    goTo(3);
+  };
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); if (submissionPending.current) return;
+    submissionPending.current = true; setLoading(true); setError("");
+    try {
+      const base = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
+      const response = await fetch(`${base}/parents/enroll`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        parentName: parent.name.trim(), parentEmail: parent.email.trim().toLowerCase(), parentPassword: parent.password,
+        parentPhone: parent.phone.trim(), parentLocation: parent.location, parentGeoLocationId: parent.geoId,
+        googleIdToken: googleIdToken || undefined, userType: studentMode ? "student" : "parent",
+        children: children.map(c => ({ name: c.name.trim(), email: c.email.trim().toLowerCase(), password: c.password, level: c.level, subject: c.subject.join(", ") })),
+      }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.message || "Impossible de créer les comptes. Réessayez dans quelques instants.");
+      if (!data?.parent?.email || !Array.isArray(data.students)) throw new Error("La confirmation du serveur est incomplète. Contactez notre équipe avant de réessayer.");
+      setCreated(data); setParent(prev => ({ ...prev, password: "" })); setChildren(prev => prev.map(c => ({ ...c, password: "" }))); goTo(4);
+    } catch (err) { setError(err instanceof Error ? err.message : "Erreur de connexion au serveur."); }
+    finally { submissionPending.current = false; setLoading(false); }
+  };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
-    const handleChildChange = (id: number, field: string, value: string) => {
-        setFormData({
-            ...formData,
-            children: formData.children.map(child =>
-                child.id === id ? { ...child, [field]: value } : child
-            )
-        });
-    };
-
-    const addChild = () => {
-        setFormData({
-            ...formData,
-            children: [
-                ...formData.children,
-                { id: Date.now(), name: "", level: ALL_LEVELS.includes("6ème") ? "6ème" : ALL_LEVELS[0], subject: ["Mathématiques"], email: "", password: "" }
-            ]
-        });
-    };
-
-    const removeChild = (id: number) => {
-        if (formData.children.length > 1) {
-            setFormData({
-                ...formData,
-                children: formData.children.filter(c => c.id !== id)
-            });
-        }
-    };
-
-    const handleNext = () => setStep(step + 1);
-    const handlePrev = () => setStep(step - 1);
-
-    const handleGoogleCredential = (idToken: string) => {
-        const payload = decodeGoogleIdTokenPayload(idToken);
-        setGoogleIdToken(idToken);
-        setFormData(prev => ({
-            ...prev,
-            parentName: payload.name || prev.parentName,
-            parentEmail: payload.email || prev.parentEmail,
-            parentPassword: "",
-        }));
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (formData.children.some(c => !c.email)) {
-            alert("Veuillez renseigner l'adresse email de chaque enfant.");
-            return;
-        }
-        if (!googleIdToken && !formData.parentPassword) {
-            alert("Veuillez saisir un mot de passe ou vous connecter avec Google.");
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
-
-            // Format data for backend
-            const payload = {
-                parentName: formData.parentName,
-                parentEmail: formData.parentEmail,
-                parentPassword: formData.parentPassword,
-                parentPhone: formData.parentPhone,
-                parentLocation: formData.parentLocation || undefined,
-                parentGeoLocationId: formData.parentGeoLocationId ?? undefined,
-                googleIdToken: googleIdToken || undefined,
-                userType,
-                children: formData.children.map(c => ({
-                    name: c.name,
-                    email: c.email,
-                    password: c.password,
-                    level: c.level,
-                    subject: Array.isArray(c.subject) ? c.subject.join(", ") : c.subject
-                }))
-            };
-
-            const response = await fetch(`${API_BASE_URL}/parents/enroll`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-
-            if (response.ok) {
-                setStep(4); // Success step
-            } else {
-                const err = await response.json();
-                alert(err.message || "Une erreur est survenue lors de l'enrôlement.");
-            }
-        } catch (error) {
-            console.error(error);
-            alert("Erreur de connexion au serveur.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-slate-50" style={{ fontFamily: "Nunito, 'Noto Sans', sans-serif" }}>
-
-            {/* ══════════ HERO ══════════ */}
-            <section className="relative overflow-hidden bg-[#07284B] xl:h-[360px]">
-                <div className="hidden md:block absolute inset-y-0 start-[30%] w-[70%]">
-                    <picture>
-                        <source srcSet={HERO_IMG.hero} type="image/webp" />
-                        <img
-                            src={HERO_IMG.heroFallback}
-                            alt=""
-                            className="w-full h-full object-cover object-[58%_12%]"
-                        />
-                    </picture>
-                    <span className="hero-sheen" aria-hidden />
-                    <div className="absolute inset-0 bg-gradient-to-r rtl:bg-gradient-to-l from-[#07284B] via-[#07284B]/10 to-transparent" />
-                    <div className="absolute inset-x-0 -bottom-px h-20 bg-gradient-to-t from-[#07284B] via-[#07284B]/80 to-transparent" />
-                </div>
-
-                <div className="mx-auto max-w-[1920px] px-6 xl:ps-[6.5%] relative z-10 pt-11 md:pt-12 pb-5 xl:pt-[52px] xl:pb-0">
-                    <div className="max-w-xl xl:max-w-none">
-                        <h1
-                            className="font-bold text-white leading-[1.05] text-[clamp(2rem,4vw,2.9rem)] xl:text-[49px] xl:leading-[52px]"
-                            style={SERIF}
-                        >{rich(t("Bienvenue sur\n<gold>Care4Success</gold>"), { gold: c => <span className="italic text-gold-shimmer">{c}</span> })}</h1>
-                        <p className="mt-4 xl:mt-[20px] text-white/90 text-base xl:text-[19px] leading-snug max-w-[480px]">{t("Créez votre compte en quelques minutes et rejoignez une communauté dédiée à la réussite scolaire.")}</p>
-
-                        <ul className="flex flex-wrap gap-x-8 xl:gap-x-[30px] gap-y-3 mt-7 xl:mt-[32px]">
-                            {TRUST.map(({ icon: Icon, label }) => (
-                                <li key={label} className="flex items-center gap-2.5 text-sm xl:text-[14px] text-white/90">
-                                    <Icon className="w-6 h-6 xl:w-[27px] xl:h-[27px] text-[#2BB3A3]" strokeWidth={1.8} />
-                                    {t(label)}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-
-                {/* Texte manuscrit + carte, posés sur la photo (même motif que les autres heros) */}
-                <div className="hidden lg:block absolute end-[5.4%] top-[33px] xl:top-[36px] text-start -rotate-[9deg] origin-left rtl:origin-right z-10">
-                    <p className="text-[24px] xl:text-[27px] leading-[1.12] text-white font-medium" style={HANDWRITING}>
-                        {lines(t("Commencez\nvotre\nparcours"))}
-                    </p>
-                    <HandUnderline className="w-[70px] h-3 mt-1 -ms-1" />
-                </div>
-                <div className="hidden lg:flex items-center gap-3 xl:gap-[12px] absolute end-[2.6%] xl:end-[2.34%] top-[204px] xl:top-[221px] w-[200px] xl:w-[212px] rounded-[14px] bg-white p-4 xl:pt-[24px] xl:pb-[23px] xl:px-[20px] z-10">
-                    <UserPlus className="w-6 h-6 xl:w-[28px] xl:h-[28px] text-[#0F9B8E] shrink-0" strokeWidth={1.6} />
-                    <p className="text-[#0D2D5A] font-bold text-[12px] xl:text-[12.6px] leading-[1.25]">
-                        {lines(t("Votre coach\nvous attend"))}
-                    </p>
-                </div>
-            </section>
-
-            <div className="container mx-auto px-4 max-w-2xl pt-10 pb-12">
-                <div className="text-center mb-8">
-                    <h2 className="text-2xl font-bold text-[#0D2D5A] mb-2">
-                        {step === 0 ? "Choisissez votre profil" : userType === "parent" ? "Inscription Parent" : "Inscription Élève"}
-                    </h2>
-                    <p className="text-slate-600">
-                        {step === 0 ? "Choisissez votre profil pour continuer" : "Rejoignez notre communauté éducative."}
-                    </p>
-                </div>
-
-                {/* Progress Bar (visible only after step 0) */}
-                {step > 0 && (
-                    <div className="flex justify-between mb-8 relative">
-                        <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0" />
-                        <div
-                            className="absolute top-1/2 left-0 h-1 bg-[#1A6CC8] -translate-y-1/2 z-0 transition-all duration-500"
-                            style={{ width: `${((step - 1) / 2) * 100}%` }}
-                        />
-                        {[1, 2, 3].map((s) => (
-                            <div
-                                key={s}
-                                className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${step >= s ? "bg-[#1A6CC8] text-white" : "bg-white text-slate-400 border-2 border-slate-200"
-                                    }`}
-                            >
-                                {step > s ? <CheckCircle className="w-6 h-6" /> : s}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                <Card className="border-none shadow-xl overflow-hidden">
-                    <CardContent className="pt-8">
-                        {step === 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-                                <div
-                                    onClick={() => { setUserType("parent"); setStep(1); }}
-                                    className="group p-6 border-2 border-slate-100 rounded-2xl hover:border-[#1A6CC8] hover:bg-blue-50/50 cursor-pointer transition-all text-center space-y-4"
-                                >
-                                    <div className="w-16 h-16 bg-[#1A6CC8] text-white rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                                        <User className="w-8 h-8" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-[#0D2D5A]">Je suis un Parent</h3>
-                                        <p className="text-sm text-slate-500 mt-2">Je souhaite inscrire mon enfant pour un suivi personnalisé.</p>
-                                    </div>
-                                </div>
-
-                                <div
-                                    onClick={() => { setUserType("student"); setStep(1); }}
-                                    className="group p-6 border-2 border-slate-100 rounded-2xl hover:border-[#F5A623] hover:bg-orange-50/50 cursor-pointer transition-all text-center space-y-4"
-                                >
-                                    <div className="w-16 h-16 bg-[#F5A623] text-white rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                                        <GraduationCap className="w-8 h-8" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-[#0D2D5A]">Je suis un Élève</h3>
-                                        <p className="text-sm text-slate-500 mt-2">Je m'inscris moi-même pour booster mes résultats scolaires.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 1 && (
-                            <div className="space-y-6">
-                                <h2 className="text-xl font-semibold flex items-center gap-2">
-                                    <User className="text-[#1A6CC8]" /> {userType === "parent" ? "Informations Parent" : "Informations Responsable (Parent/Tuteur)"}
-                                </h2>
-
-                                {!googleIdToken && (
-                                    <>
-                                        <GoogleSignInButton onCredential={handleGoogleCredential} text="signup_with" />
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex-1 h-px bg-slate-200" />
-                                            <span className="text-xs font-semibold text-slate-400 uppercase">ou</span>
-                                            <div className="flex-1 h-px bg-slate-200" />
-                                        </div>
-                                    </>
-                                )}
-
-                                {googleIdToken && (
-                                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-                                        <span className="text-sm font-medium text-emerald-700 flex items-center gap-2">
-                                            <CheckCircle2 className="w-4 h-4" /> Connecté avec Google : {formData.parentEmail}
-                                        </span>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => { setGoogleIdToken(null); setFormData(prev => ({ ...prev, parentEmail: "" })); }}
-                                        >
-                                            Changer
-                                        </Button>
-                                    </div>
-                                )}
-
-                                <div className="grid gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Nom complet</label>
-                                        <div className="relative">
-                                            <User className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                            <Input className="pl-10" name="parentName" placeholder={userType === "parent" ? "Ex: Jean Dupont" : "Nom du parent ou tuteur"} value={formData.parentName} onChange={handleChange} />
-                                        </div>
-                                    </div>
-                                    {!googleIdToken && (
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Email de connexion</label>
-                                            <div className="relative">
-                                                <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                                <Input className="pl-10" type="email" name="parentEmail" placeholder="votre@email.com" value={formData.parentEmail} onChange={handleChange} />
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className={googleIdToken ? "" : "grid grid-cols-2 gap-4"}>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Téléphone</label>
-                                            <PhoneCountryInput
-                                                phone={formData.parentPhone}
-                                                onPhoneChange={(phone) => setFormData(prev => ({ ...prev, parentPhone: phone }))}
-                                            />
-                                        </div>
-                                        {!googleIdToken && (
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium">Mot de passe</label>
-                                                <div className="relative">
-                                                    <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                                    <Input className="pl-10" type="password" name="parentPassword" placeholder="••••••••" value={formData.parentPassword} onChange={handleChange} />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <GeoSelector
-                                        label="Ville / Quartier"
-                                        onChange={(geoId, path) => {
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                parentGeoLocationId: geoId,
-                                                parentLocation: path,
-                                            }));
-                                        }}
-                                        hint="Permet de vous suggérer les enseignants les plus proches de chez vous."
-                                    />
-                                </div>
-                                <div className="flex gap-4">
-                                    <Button variant="ghost" onClick={() => setStep(0)}>Changer de profil</Button>
-                                    <Button className="flex-1 bg-[#1A6CC8] hover:bg-[#0D2D5A]" onClick={handleNext}>
-                                        {userType === "parent" ? "Continuer vers l'enfant" : "Mes informations scolaires"} <ArrowRight className="w-4 h-4 ml-2" />
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 2 && (
-                            <div className="space-y-6">
-                                <h2 className="text-xl font-bold text-[#0D2D5A] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-2 bg-[#1A6CC8]/10 rounded-lg text-[#1A6CC8]">
-                                            <GraduationCap className="w-5 h-5" />
-                                        </div>
-                                        {userType === "parent" ? "Informations des enfants" : "Informations scolaires"}
-                                    </div>
-                                    {userType === "parent" && (
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            onClick={addChild}
-                                            className="text-xs font-bold border-dashed border-2 border-[#1A6CC8]/50 text-[#1A6CC8] hover:bg-[#1A6CC8]/5"
-                                        >
-                                            <Plus className="w-4 h-4 mr-1" /> Ajouter un enfant
-                                        </Button>
-                                    )}
-                                </h2>
-                                
-                                <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {formData.children.map((child, index) => (
-                                        <div key={child.id} className="p-5 rounded-2xl border-2 border-slate-100 bg-white shadow-sm hover:border-[#1A6CC8]/30 transition-colors space-y-5 relative">
-                                            {userType === "parent" && (
-                                                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                                                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                        <User className="w-3.5 h-3.5" /> Enfant #{index + 1}
-                                                    </span>
-                                                    {formData.children.length > 1 && (
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="sm" 
-                                                            onClick={() => removeChild(child.id)}
-                                                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            )}
-                                            
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-slate-600">{userType === "parent" ? "Nom de l'enfant" : "Mon nom complet"}</label>
-                                                    <div className="relative">
-                                                        <Input 
-                                                            className="h-11 bg-slate-50/50"
-                                                            placeholder={userType === "parent" ? "Ex: Marie Dupont" : "Votre nom complet"} 
-                                                            value={child.name} 
-                                                            onChange={(e) => handleChildChange(child.id, "name", e.target.value)} 
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-slate-600">Email (Obligatoire)</label>
-                                                    <div className="relative">
-                                                        <Input 
-                                                            type="email"
-                                                            required
-                                                            className="h-11 bg-slate-50/50"
-                                                            placeholder={userType === "parent" ? "email.enfant@exemple.com" : "votre@email.com"} 
-                                                            value={child.email} 
-                                                            onChange={(e) => handleChildChange(child.id, "email", e.target.value)} 
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-slate-600">Niveau scolaire</label>
-                                                <LevelSelect
-                                                    value={child.level}
-                                                    onValueChange={(level) => handleChildChange(child.id, "level", level)}
-                                                />
-                                            </div>
-                                            
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-600">Matières prioritaires (plusieurs choix possibles)</label>
-                                                <SubjectBadgePicker
-                                                    selectedSubjects={Array.isArray(child.subject) ? child.subject : []}
-                                                    onChange={(newSubjects) => handleChildChange(child.id, "subject", newSubjects as any)}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="flex gap-4">
-                                    <Button variant="outline" className="w-1/2" onClick={handlePrev}>Retour</Button>
-                                    <Button className="w-1/2 bg-[#1A6CC8] hover:bg-[#0D2D5A]" onClick={handleNext}>Suivant</Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 3 && (
-                            <div className="space-y-6 text-center">
-                                <div className="p-4 bg-blue-50 rounded-lg text-left text-sm text-blue-800 space-y-2">
-                                    <strong>Résumé :</strong><br />
-                                    <div className="flex justify-between">
-                                        <span>Responsable :</span>
-                                        <span className="font-bold">{formData.parentName}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Contact :</span>
-                                        <span className="font-bold">{formData.parentPhone}</span>
-                                    </div>
-                                    <div className="pt-2 border-t border-blue-100">
-                                        <span className="font-bold">{formData.children.length} Enfant(s) inscrit(s) :</span>
-                                        <ul className="mt-2 space-y-1 pl-4 list-disc">
-                                            {formData.children.map((c, i) => (
-                                                <li key={i}>{c.name} ({c.level}) - {c.subject}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <label className="text-sm font-medium text-slate-500">Mode de paiement préféré</label>
-                                    <div className="flex justify-center gap-4">
-                                        <div className="p-4 border rounded-lg cursor-pointer hover:border-[#1A6CC8] transition-colors bg-white">
-                                            <img src="https://upload.wikimedia.org/wikipedia/commons/9/93/Orange-logo.svg" alt="Orange" className="w-12 h-12 object-contain" />
-                                        </div>
-                                        <div className="p-4 border rounded-lg cursor-pointer hover:border-[#1A6CC8] transition-colors bg-white">
-                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/MTN_Logo.svg/1024px-MTN_Logo.svg.png" alt="MTN" className="w-12 h-12 object-contain" />
-                                        </div>
-                                    </div>
-                                    <p className="text-xs text-slate-400 italic">Un conseiller Care4Success vous contactera pour valider votre dossier.</p>
-                                </div>
-                                <div className="flex gap-4">
-                                    <Button variant="outline" className="w-1/2" onClick={handlePrev} disabled={loading}>Retour</Button>
-                                    <Button
-                                        className="w-1/2 bg-[#F5A623] hover:bg-[#d48c1f] text-white"
-                                        onClick={handleSubmit}
-                                        disabled={loading}
-                                    >
-                                        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                                        Confirmer l'inscription
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 4 && (
-                            <div className="text-center py-8 space-y-6 animate-in fade-in zoom-in duration-500">
-                                <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                                    <CheckCircle className="w-12 h-12" />
-                                </div>
-                                <h2 className="text-2xl font-bold text-[#0D2D5A]">Félicitations !</h2>
-                                <p className="text-slate-600">
-                                    Votre compte {userType === "parent" ? "parent" : "élève"} a été créé avec succès. Un conseiller va vous appeler sur le <strong>{formData.parentPhone}</strong> pour finaliser votre accompagnement.
-                                </p>
-                                <Button className="bg-[#1A6CC8]" onClick={() => navigate("/login")}>
-                                    Se connecter maintenant
-                                </Button>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+  return <div className="signup-page">
+    <section className="signup-hero">
+      <img className="signup-hero-photo" src="/images/soutien/hero-soutien.jpg" alt="Une mère accompagne son enfant dans ses apprentissages" />
+      <div className="signup-hero-shade" />
+      <div className="signup-wrap signup-hero-content">
+        <nav aria-label="Fil d’Ariane"><Link to="/">Accueil</Link><span>›</span><span>{studentMode ? "Inscription élève" : "Inscription parent"}</span></nav>
+        <h1>{studentMode ? "Commencez votre parcours" : "Inscrivez votre enfant"}<br />sur <em>Care4Success</em></h1>
+        <p>Créez votre compte en quelques minutes et {studentMode ? "bénéficiez d’un" : "offrez-lui un"}<br className="signup-desktop-break" /> accompagnement de qualité par des coachs qualifiés.</p>
+        <ul className="signup-trust">{[{ icon: LockKeyhole, label: "Inscription gratuite" }, { icon: UsersRound, label: "Sans engagement" }, { icon: ShieldCheck, label: "Données sécurisées" }].map(({ icon: Icon, label }) => <li key={label}><span><Icon size={19} /></span>{label}</li>)}</ul>
+      </div>
+      <div className="signup-hero-note">Investissez<br />dans son avenir<svg viewBox="0 0 160 20" aria-hidden="true"><path d="M3 17Q78 -3 157 4" fill="none" stroke="#F5A623" strokeWidth="4" strokeLinecap="round" /></svg></div>
+      <div className="signup-hero-card"><span><Lightbulb size={27} /></span><p>Un accompagnement adapté<br />aux besoins de votre enfant,<br /><strong>à chaque étape de son parcours.</strong></p></div>
+    </section>
+    <section ref={formSection} className="signup-main signup-wrap" aria-labelledby="signup-title">
+      <header className="signup-heading"><h2 id="signup-title">Inscription {studentMode ? "Élève" : "Parent"}</h2><p>{step === 4 ? "Vos comptes sont prêts." : "Créez votre compte en 3 étapes simples."}</p>
+        {step < 4 && <div className="signup-profiles" aria-label="Profil d’inscription"><button type="button" aria-pressed={!studentMode} onClick={() => { setParams({ profil: "parent" }); goTo(1); }}>Parent</button><button type="button" aria-pressed={studentMode} onClick={() => { setParams({ profil: "eleve" }); setChildren(prev => [prev[0]]); goTo(1); }}>Élève</button></div>}
+      </header>
+      <ol className="signup-stepper" aria-label="Étapes d’inscription">{[studentMode ? "Responsable (Compte)" : "Informations parent (Compte)", studentMode ? "Informations élève" : "Informations enfant", "Confirmation"].map((label, i) => <li key={label} className={step >= i + 1 ? "is-current" : ""} aria-current={step === i + 1 ? "step" : undefined}><span>{step > i + 1 ? <Check size={17} /> : i + 1}</span><p>{label}</p></li>)}</ol>
+      <div className="signup-columns">
+        <aside className="signup-benefits"><h3>Pourquoi créer un compte ?</h3><div className="signup-gold-rule" />{BENEFITS.map(({ icon: Icon, title, text }) => <div className="signup-benefit" key={title}><span><Icon size={27} /></span><div><h4>{title}</h4><p>{text}</p></div></div>)}<img src="/images/parcours/parents.jpg" alt="Un parent et son enfant" /></aside>
+        <div className="signup-form-card">
+          {error && <div className="signup-error" role="alert">{error}</div>}
+          {step === 1 && <form onSubmit={nextParent}>
+            <div className="signup-form-heading"><span className="signup-round-icon"><UserRound size={25} /></span><div><h3>{studentMode ? "Informations Responsable" : "Informations Parent"}</h3><p>{studentMode ? "Le compte parent ou tuteur accompagne votre inscription." : "Commencez par créer votre compte."}</p></div>{!googleIdToken && import.meta.env.VITE_GOOGLE_CLIENT_ID && <div className="signup-google"><span>ou</span><GoogleSignInButton onCredential={handleGoogleCredential} text="signup_with" width={200} /></div>}</div>
+            {googleIdToken && <div className="signup-google-connected"><CheckCircle2 size={18} /><span>Compte Google : {parent.email}</span><button type="button" onClick={() => setGoogleIdToken(null)}>Changer</button></div>}
+            <div className="signup-fields">
+              <Field id="parentName" label="Nom complet" required><div className="signup-input-icon"><UserRound size={16} /><input id="parentName" name="parentName" value={parent.name} onChange={e => setParent({ ...parent, name: e.target.value })} placeholder="Ex. Jean Dupont" autoComplete="name" minLength={2} maxLength={120} pattern=".*\S.*" required /></div></Field>
+              <div className="signup-grid">
+                <Field id="parentEmail" label="Email de connexion" required><div className="signup-input-icon"><Mail size={16} /><input id="parentEmail" name="parentEmail" type="email" value={parent.email} readOnly={!!googleIdToken} onChange={e => setParent({ ...parent, email: e.target.value })} placeholder="votre@email.com" autoComplete="email" maxLength={254} required /></div></Field>
+                {!googleIdToken && <PasswordField id="parentPassword" value={parent.password} onChange={password => setParent({ ...parent, password })} />}
+                <Field id="parentPhone" label="Téléphone" required><PhoneCountryInput id="parentPhone" phone={parent.phone} onPhoneChange={phone => setParent(prev => ({ ...prev, phone }))} nationalNumber required /></Field>
+              </div>
+              <div className="signup-location"><h4><MapPin size={21} />Votre localisation</h4><GeoSelector layout="registration" value={parent.geoId} onChange={(geoId, location) => setParent(prev => ({ ...prev, geoId, location }))} /></div>
             </div>
+            <button className="signup-primary" type="submit">{studentMode ? "Continuer vers mes informations" : "Continuer vers l’enfant"}<ArrowRight size={17} /></button>
+            <p className="signup-login">Vous avez déjà un compte ? <Link to="/login">Se connecter</Link></p>
+          </form>}
+          {step === 2 && <form onSubmit={nextChildren}>
+            <div className="signup-form-heading"><span className="signup-round-icon"><GraduationCap size={25} /></span><div><h3>Informations {studentMode ? "Élève" : "Enfant"}</h3><p>Un compte personnel pour suivre ses apprentissages.</p></div></div>
+            <div className="signup-children">{children.map((child, i) => <fieldset key={child.id} className="signup-child"><legend>{studentMode ? "Mon profil" : `Enfant ${i + 1}`}</legend>{children.length > 1 && <button type="button" className="signup-remove" aria-label={`Supprimer l’enfant ${i + 1}`} onClick={() => setChildren(prev => prev.filter(c => c.id !== child.id))}><Trash2 size={16} /></button>}
+              <div className="signup-fields"><Field id={`childName-${child.id}`} label={studentMode ? "Mon nom complet" : "Nom complet de l’enfant"} required><input id={`childName-${child.id}`} name="childName" value={child.name} onChange={e => updateChild(child.id, { name: e.target.value })} minLength={2} maxLength={120} pattern=".*\S.*" placeholder="Ex. Marie Dupont" autoComplete="off" required /></Field>
+                <div className="signup-grid"><Field id={`childEmail-${child.id}`} label="Email de connexion de l’enfant" required><input id={`childEmail-${child.id}`} name="childEmail" type="email" value={child.email} onChange={e => updateChild(child.id, { email: e.target.value })} maxLength={254} placeholder="email.enfant@exemple.com" autoComplete="off" required /></Field><PasswordField id={`childPassword-${child.id}`} label="Mot de passe de l’enfant" value={child.password} onChange={password => updateChild(child.id, { password })} /></div>
+                <p className="signup-hint">Utilisez une adresse différente du compte parent. Conservez ces identifiants pour accéder à l’espace élève.</p>
+                <Field id={`childLevel-${child.id}`} label="Niveau scolaire" required><LevelSelect id={`childLevel-${child.id}`} country={parent.location.split(" › ")[0]} value={child.level} onValueChange={level => updateChild(child.id, { level })} /></Field>
+                <div className="signup-field"><p className="signup-field-label">Matières prioritaires<span className="signup-required"> *</span></p><SubjectBadgePicker selectedSubjects={child.subject} onChange={subject => updateChild(child.id, { subject })} /><p className="signup-hint">Choisissez une ou plusieurs matières.</p></div>
+              </div></fieldset>)}</div>
+            {!studentMode && children.length < 10 && <button type="button" className="signup-add" onClick={() => setChildren(prev => [...prev, newChild()])}><Plus size={17} />Ajouter un enfant</button>}
+            <div className="signup-actions"><button className="signup-secondary" type="button" onClick={() => goTo(1)}><ArrowLeft size={16} />Retour</button><button className="signup-primary" type="submit">Continuer vers la confirmation<ArrowRight size={16} /></button></div>
+          </form>}
+          {step === 3 && <form onSubmit={submit}>
+            <div className="signup-form-heading"><span className="signup-round-icon"><ShieldCheck size={25} /></span><div><h3>Confirmez votre inscription</h3><p>Vérifiez les informations avant de créer les comptes.</p></div></div>
+            <section className="signup-summary"><div className="signup-summary-heading"><h4>Compte parent / responsable</h4><button type="button" onClick={() => goTo(1)} disabled={loading}>Modifier</button></div><dl><dt>Nom</dt><dd>{parent.name}</dd><dt>Email</dt><dd>{parent.email}</dd><dt>Téléphone</dt><dd>{parent.phone}</dd><dt>Localisation</dt><dd>{parent.location}</dd></dl></section>
+            {children.map((child, i) => <section className="signup-summary" key={child.id}><div className="signup-summary-heading"><h4>{studentMode ? "Compte élève" : `Compte enfant ${i + 1}`}</h4><button type="button" disabled={loading} onClick={() => goTo(2)}>Modifier</button></div><dl><dt>Nom</dt><dd>{child.name}</dd><dt>Email</dt><dd>{child.email}</dd><dt>Niveau</dt><dd>{child.level}</dd><dt>Matières</dt><dd>{child.subject.join(", ")}</dd></dl></section>)}
+            <p className="signup-hint">L’inscription est gratuite. Chaque enfant sera rattaché au compte parent. Consultez notre <Link to="/politique-confidentialite">politique de confidentialité</Link> pour connaître l’utilisation de vos données.</p>
+            <div className="signup-actions"><button className="signup-secondary" type="button" onClick={() => goTo(2)} disabled={loading}><ArrowLeft size={16} />Retour</button><button className="signup-primary" type="submit" disabled={loading}>{loading ? <><Loader2 className="animate-spin" size={17} />Création des comptes…</> : <>Confirmer l’inscription<Check size={17} /></>}</button></div>
+          </form>}
+          {step === 4 && created && <div className="signup-success"><CheckCircle2 size={56} /><h3>Vos comptes ont été créés !</h3><p>Connectez-vous avec l’adresse email et le mot de passe choisis pour chaque compte.</p><div className="signup-summary"><h4>Compte parent</h4><p>{created.parent.email}</p>{created.students.map(child => <div key={child.id}><h4>Compte élève : {child.name}</h4><p>{child.email}</p></div>)}</div>{googleIdToken && <p>Pour le compte parent, utilisez « Se connecter avec Google ».</p>}<Link className="signup-primary" to="/login">Se connecter maintenant<ArrowRight size={17} /></Link></div>}
         </div>
-    );
+        <aside className="signup-support"><section className="signup-tip"><Lightbulb size={24} /><div><h3>Conseil</h3><p>{step === 2 ? "Choisissez des identifiants distincts pour chaque enfant et notez-les pour sa première connexion." : "Utilisez une adresse email que vous consultez régulièrement pour recevoir les informations importantes sur la scolarité de votre enfant."}</p></div></section>
+          <section className="signup-reassurance"><img src="/images/soutien/avatar-parent.jpg" alt="" /><p>Accompagnez ses progrès et retrouvez le suivi de ses apprentissages dans votre espace parent.</p></section>
+          <section className="signup-faq"><h3><HelpCircle size={20} />Questions fréquentes</h3>{FAQ.map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</section>
+          <section className="signup-help"><Headphones size={28} /><div><h3>Besoin d’aide ?</h3><p>Notre équipe est disponible pour vous accompagner dans votre inscription.</p><Link to="/contact">Nous contacter<ArrowRight size={15} /></Link></div></section>
+        </aside>
+      </div>
+    </section>
+  </div>;
 }

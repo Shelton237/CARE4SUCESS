@@ -234,7 +234,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
-      tailwindcss(),
+      mode !== 'test' && tailwindcss(),
       react(),
       mode === 'development' && componentTagger(),
       cdnPrefixImages(),

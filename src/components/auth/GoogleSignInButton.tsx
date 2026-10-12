@@ -17,12 +17,13 @@ interface GoogleSignInButtonProps {
     onCredential: (idToken: string) => void;
     text?: "signin_with" | "signup_with" | "continue_with";
     disabled?: boolean;
+    width?: number;
 }
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const GOOGLE_SCRIPT_ID = "google-identity-services-script";
 
-export function GoogleSignInButton({ onCredential, text = "continue_with", disabled }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({ onCredential, text = "continue_with", disabled, width = 320 }: GoogleSignInButtonProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const uid = useId();
 
@@ -39,7 +40,7 @@ export function GoogleSignInButton({ onCredential, text = "continue_with", disab
             window.google.accounts.id.renderButton(containerRef.current, {
                 theme: "outline",
                 size: "large",
-                width: 320,
+                width: Math.min(width, containerRef.current.clientWidth || width),
                 text,
                 locale: "fr",
             });
@@ -62,9 +63,9 @@ export function GoogleSignInButton({ onCredential, text = "continue_with", disab
             existing.addEventListener("load", renderButton, { once: true });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [disabled]);
+    }, [disabled, width, text]);
 
     if (!GOOGLE_CLIENT_ID) return null;
 
-    return <div ref={containerRef} id={`google-btn-${uid}`} className="flex justify-center" />;
+    return <div ref={containerRef} id={`google-btn-${uid}`} className="flex min-w-0 max-w-full justify-center" />;
 }

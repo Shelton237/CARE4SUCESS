@@ -17,6 +17,7 @@ interface GeoSelectorProps {
     suggestedByEmail?: string;
     hint?: string;
     className?: string;
+    layout?: "compact" | "registration";
 }
 
 const LEVELS: { type: GeoType; label: string; singular: string; placeholder: string }[] = [
@@ -29,7 +30,7 @@ const LEVELS: { type: GeoType; label: string; singular: string; placeholder: str
 
 const LEVEL_ORDER: GeoType[] = ["country", "region", "department", "arrondissement", "quartier"];
 
-export function GeoSelector({ label, required, value, onChange, suggestedByEmail, hint, className }: GeoSelectorProps) {
+export function GeoSelector({ label, required, value, onChange, suggestedByEmail, hint, className, layout = "compact" }: GeoSelectorProps) {
     const [selected, setSelected] = useState<Partial<Record<GeoType, SelectedLevel>>>({});
     const [suggestionLevel, setSuggestionLevel] = useState<GeoType | null>(null);
     const [suggestionText, setSuggestionText] = useState("");
@@ -127,7 +128,8 @@ export function GeoSelector({ label, required, value, onChange, suggestedByEmail
                 </Label>
             )}
 
-            <div className="space-y-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-3">
+            {countryQ.isError && <p role="alert" className="text-sm text-red-600">Impossible de charger les pays. <button type="button" className="underline" onClick={() => countryQ.refetch()}>Réessayer</button></p>}
+            <div className={layout === "registration" ? "grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3" : "space-y-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-3"}>
                 {LEVELS.map(({ type, label: lvlLabel, singular, placeholder }) => {
                     const enabled = isEnabled(type);
                     const q = queries[type];
@@ -135,12 +137,14 @@ export function GeoSelector({ label, required, value, onChange, suggestedByEmail
                     const current = selected[type];
 
                     return (
-                        <div key={type} className={cn("transition-opacity", !enabled && "opacity-35 pointer-events-none")}>
-                            <div className="flex items-center gap-1.5">
-                                <ChevronRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                                <span className="text-xs text-gray-400 w-28 flex-shrink-0">{lvlLabel}</span>
+                        <div key={type} className={cn("min-w-0 transition-opacity", layout === "registration" && type === "quartier" && "sm:col-span-2", !enabled && (layout === "registration" ? "opacity-60" : "opacity-35 pointer-events-none"))}>
+                            <div className={layout === "registration" ? "space-y-1" : "flex flex-wrap sm:flex-nowrap items-center gap-1.5"}>
+                                {layout !== "registration" && <ChevronRight className="w-3 h-3 text-gray-300 flex-shrink-0" />}
+                                <label htmlFor={`geo-${type}`} className={layout === "registration" ? "block text-xs font-medium" : "text-xs text-gray-400 flex-1 sm:flex-none sm:w-28"}>{lvlLabel}{layout === "registration" && type === "country" && <span className="text-red-500"> *</span>}</label>
                                 <select
-                                    className="flex-1 h-8 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-0"
+                                    id={`geo-${type}`}
+                                    required={layout === "registration" && type === "country"}
+                                    className="w-full sm:w-auto sm:flex-1 h-8 rounded-md border border-input bg-white px-2 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-0"
                                     value={current?.id ?? ""}
                                     disabled={!enabled || q.isLoading}
                                     onChange={(e) => {
@@ -200,7 +204,7 @@ export function GeoSelector({ label, required, value, onChange, suggestedByEmail
                 })}
             </div>
 
-            {pathParts.length > 0 && (
+                            {pathParts.length > 0 && (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-lg">
                     <MapPin className="w-3 h-3 flex-shrink-0" />
                     <span className="font-medium">{pathParts.join(" › ")}</span>
