@@ -77,7 +77,7 @@ export function Layout({ children }: LayoutProps) {
   const close = () => setMobileOpen(false);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
+    <div className={`min-h-screen flex flex-col ${pathname === ROUTE_PATHS.COACHS_LANGUES ? "coach-directory-layout" : ""}`} style={{ fontFamily: "Ubuntu, 'Noto Sans', sans-serif" }}>
 
       {/* ── NAVBAR ── */}
       <header className={`sticky top-0 w-full z-50 transition-all duration-300 bg-[#F8F8F7] ${

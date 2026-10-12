@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams, NavLink } from "react-router-dom";
+import { useParams, NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Star, Clock, ArrowRight,
@@ -570,7 +570,7 @@ function ReservationPanel({
     }
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
+        <div id="reservation" className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 scroll-mt-24">
             <h2 className={SECTION_TITLE + " mb-4"} style={{ fontFamily: "'Playfair Display', serif" }}>Réserver une session</h2>
 
             <div className="space-y-1.5 mb-5">
@@ -644,6 +644,7 @@ function ReservationPanel({
 
 // ─── Page principale ────────────────────────────────────────────────────────
 export default function PublicTeacherProfile() {
+    const { hash } = useLocation();
     const { id } = useParams<{ id: string }>();
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
@@ -658,6 +659,13 @@ export default function PublicTeacherProfile() {
         queryFn: () => fetchPublicTeacherProfile(id!),
         enabled: Boolean(id),
     });
+
+    useEffect(() => {
+        if (teacher && hash === "#reservation") {
+            const frame = requestAnimationFrame(() => document.getElementById("reservation")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+            return () => cancelAnimationFrame(frame);
+        }
+    }, [teacher, hash]);
 
     if (isLoading) {
         return (
