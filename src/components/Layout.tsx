@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Menu, X, ArrowRight, User } from "lucide-react";
+import { Menu, X, ArrowRight, User, UserPlus } from "lucide-react";
 import { ROUTE_PATHS } from "@/lib/index";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT, tt } from "@/i18n";
@@ -98,13 +98,13 @@ export function Layout({ children }: LayoutProps) {
             </NavLink>
 
             {/* Nav desktop */}
-            <nav className="hidden lg:flex items-center ms-2 xl:max-[1399px]:ms-6 min-[1400px]:ms-[6.9%]">
+            <nav className="hidden min-[1400px]:flex items-center ms-4 2xl:ms-8">
               {NAV_MAIN.map(link => (
                 <NavLink
                   key={link.label}
                   to={link.to}
                   className={({ isActive }) =>
-                    `mx-1 xl:max-[1399px]:mx-2 min-[1400px]:mx-[11.3px] py-1.5 text-[12px] xl:text-[12.5px] font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
+                    `mx-1.5 2xl:mx-2 py-1.5 text-[12.5px] font-semibold whitespace-nowrap border-b-2 transition-colors duration-150 ${
                       isActive
                         ? "text-[#0D2D5A] border-[#F5A623]"
                         : "text-[#0D2D5A] border-transparent hover:text-[#0D2D5A]/80"
@@ -117,23 +117,29 @@ export function Layout({ children }: LayoutProps) {
             </nav>
 
             {/* CTA desktop */}
-            <div className="hidden lg:flex items-center gap-1 xl:gap-[13px] ms-auto ps-1 xl:ps-2">
+            <div className="hidden min-[1400px]:flex items-center gap-2 ms-auto ps-2 shrink-0">
               <LanguageMenu />
               <NavLink
                 to="/login"
-                className="h-10 xl:h-[42px] px-2.5 xl:px-[22px] rounded-lg bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] text-[12.5px] xl:text-[13.6px] font-semibold flex items-center gap-2 hover:bg-white/70 transition-colors"
+                className="h-[42px] px-3 rounded-lg bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] text-[12.5px] font-semibold flex items-center gap-2 hover:bg-white/70 transition-colors whitespace-nowrap"
               >
                 <User className="w-4 h-4" />{t("Connexion")}
               </NavLink>
               <NavLink
+                to="/inscription"
+                className="h-[42px] px-3 rounded-lg bg-[#0665D8] text-white text-[12.5px] font-semibold flex items-center gap-2 hover:bg-[#0554B4] transition-colors whitespace-nowrap"
+              >
+                <UserPlus className="w-4 h-4" />{t("Créer un compte")}
+              </NavLink>
+              <NavLink
                 to={ROUTE_PATHS.PROFESSEURS}
-                className="h-10 xl:h-[42px] px-2.5 xl:px-[24px] rounded-lg bg-[#F5A623] text-[#0D2D5A] text-[13px] xl:text-[14.4px] font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                className="h-[42px] px-3 rounded-lg bg-[#F5A623] text-[#0D2D5A] text-[12.5px] font-bold text-center leading-tight hover:bg-[#e09520] transition-all duration-150 flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
               >{t("Trouver mon coach")}{" "}<ArrowRight className="w-4 h-4" />
               </NavLink>
             </div>
 
             {/* Langue + burger mobile */}
-            <div className="lg:hidden ms-auto flex items-center gap-1">
+            <div className="min-[1400px]:hidden ms-auto flex items-center gap-1">
               <LanguageMenu />
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
@@ -154,7 +160,7 @@ export function Layout({ children }: LayoutProps) {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="lg:hidden border-t border-[#0D2D5A]/10 bg-[#F8F8F7]"
+              className="min-[1400px]:hidden border-t border-[#0D2D5A]/10 bg-[#F8F8F7] max-h-[calc(100dvh-80px)] overflow-y-auto"
             >
               <nav className="container mx-auto px-4 py-4 space-y-1">
                 {NAV_MAIN.map(link => (
@@ -174,6 +180,9 @@ export function Layout({ children }: LayoutProps) {
                 <div className="pt-3 border-t border-[#0D2D5A]/10 space-y-2">
                   <NavLink to="/login" onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-white border border-[#0D2D5A]/10 text-[#0D2D5A] cursor-pointer">
                     <User className="w-4 h-4" />{t("Connexion")}
+                  </NavLink>
+                  <NavLink to="/inscription" onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-[#0665D8] text-white hover:bg-[#0554B4] transition-colors">
+                    <UserPlus className="w-4 h-4" />{t("Créer un compte")}
                   </NavLink>
                   <NavLink to={ROUTE_PATHS.PROFESSEURS} onClick={close} className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-[#F5A623] text-[#0D2D5A] hover:bg-[#e09520] transition-colors cursor-pointer">{t("Trouver mon coach")}{" "}<ArrowRight className="w-4 h-4" />
                   </NavLink>
